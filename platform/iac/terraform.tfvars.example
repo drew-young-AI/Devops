@@ -1,0 +1,55 @@
+# Example Terraform variables for development environment
+# Copy this to terraform.tfvars and modify for your environment
+# DO NOT commit terraform.tfvars to Git (it may contain secrets and environment-specific values)
+
+# Environment
+environment = "develop"
+
+# Project and team identification
+project_name = "devops-poc"
+team_name    = "platform"
+
+# Compute resources (maps to Docker Compose limits for station1-hello)
+app_memory_mb     = 128   # Must match Compose mem_limit
+app_cpu_limit     = 0.25  # Must match Compose cpus
+app_pids_limit    = 64
+
+# Storage
+storage_type   = "local"
+storage_quota_gb = 10
+
+# Network
+network_cidr        = "10.0.0.0/16"
+enable_public_access = false
+
+# TLS configuration
+tls_enabled      = true
+tls_cert_path    = "/etc/nginx/certs/devops.local.crt"
+tls_key_path     = "/etc/nginx/certs/devops.local.key"
+
+# Secret management
+secret_backend = "vault"
+vault_addr     = "http://127.0.0.1:8200"
+
+# Observability
+enable_monitoring         = true
+prometheus_retention_days = 7
+loki_retention_days       = 7
+
+# Deployment strategy
+deployment_strategy               = "rolling"
+health_check_interval_seconds     = 5
+graceful_shutdown_timeout_seconds = 30
+
+# Git and audit
+git_commit_sha     = "unknown"  # Will be populated by CI/CD
+applied_by         = "terraform-automation"
+approval_ticket_id = "none"
+
+# Public URL experiments (disabled by default)
+enable_rathole_public_url  = false
+enable_cloudflare_tunnel   = false
+
+# Cloud region (for future cloud deployments)
+cloud_region     = "us-east-1"
+availability_zones = []

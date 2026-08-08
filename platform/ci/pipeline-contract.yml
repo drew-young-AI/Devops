@@ -1,0 +1,27 @@
+# Platform contract. This is intentionally provider-neutral and can be mapped
+# to GitLab CI, GitHub Actions, Azure Pipelines or Jenkins.
+stages:
+  - lint
+  - unit_test
+  - container_build
+  - artifact_metadata
+
+required_checks:
+  - source_compile_or_lint
+  - unit_test
+  - docker_build
+  - image_digest
+  - immutable_artifact_metadata
+
+failure_policy:
+  any_required_check_failed: block
+  artifact_publish_on_failure: false
+  production_deploy_on_failure: false
+
+artifact_metadata:
+  required:
+    - commit_sha
+    - image_tag
+    - image_digest
+    - build_timestamp
+    - source_path

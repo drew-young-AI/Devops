@@ -1,0 +1,89 @@
+# Checkov configuration for IaC security scanning
+# Checkov scans Terraform, Dockerfile, Kubernetes YAML, and more for security misconfigurations
+# Reference: https://www.checkov.io/
+
+framework:
+  - terraform
+
+# Enable specific checks and controls
+checks:
+  # Terraform specific checks
+  enabled:
+    # Networking: Restrict public access
+    - CKV_AWS_23   # EC2 security group allows public ingress (0.0.0.0/0)
+    - CKV_AWS_62   # RDS database public accessibility
+    - CKV_AWS_40   # S3 bucket public access
+
+    # Encryption: Enforce encryption at rest and in transit
+    - CKV_AWS_33   # EC2 EBS volumes encryption
+    - CKV_AWS_65   # RDS encryption enabled
+    - CKV_AWS_45   # S3 bucket encryption
+    - CKV_AWS_52   # CloudTrail log file validation
+    - CKV_AWS_90   # API Gateway logging enabled
+
+    # Authentication & Access Control
+    - CKV_AWS_49   # IAM policy least privilege
+    - CKV_AWS_63   # ElastiCache encryption in transit
+    - CKV_AWS_41   # S3 bucket logging enabled
+
+    # Cost & Resource Management
+    - CKV_AWS_104  # VPC Flow Logs enabled
+    - CKV_AWS_111  # Lambda function timeout and memory reasonable
+
+    # Secrets Management
+    - CKV_AWS_108  # Secrets Manager secret rotation enabled
+    - CKV_AWS_109  # Secrets Manager secret with encryption
+
+    # Backup & Disaster Recovery
+    - CKV_AWS_35   # RDS backup retention
+    - CKV_AWS_37   # Glacier vault lock enabled
+
+  # Optional: Checks that are less strict or informational
+  # Uncomment these if you want to enforce them
+  # - CKV_AWS_119  # CloudFront must have logging
+  # - CKV_AWS_120  # Elasticsearch encryption in rest
+
+# Resource exclusions (skip specific checks for specific resources)
+# Use this to document exceptions with a ticket reference
+skip_checks:
+  # Example: Skip public S3 bucket check if it's intentionally public
+  # - resource: aws_s3_bucket.public_docs
+  #   check: CKV_AWS_40
+  #   comment: "Public documentation bucket; verified and approved in TICKET-123"
+
+# Soft-fail checks (warnings instead of failures)
+# These checks will not cause the pipeline to fail
+soft_fail_checks:
+  # Example: Allow some resources to have less strict logging
+  # - CKV_AWS_41
+
+# Severity level filtering
+# Only report checks at this severity or higher
+# Possible values: HIGH, MEDIUM, LOW, INFO
+# minimum_severity: HIGH
+
+# Terraform-specific configuration
+tf:
+  # Variables to use during Terraform plan
+  # These are populated from terraform.tfvars.example
+  vars:
+    environment: "develop"
+    project_name: "devops-poc"
+
+# Output configuration
+output:
+  format: json
+  path: ../../../evidence/iac_scan_results.json
+
+# Runner filter
+runner_filter:
+  framework: [terraform]
+  checks: [] # Empty means check all; specify check IDs to run subset
+  skip_checks: []
+
+# Policies: Custom policy as code (OPA)
+# Checkov can use Rego policies for custom checks beyond built-in controls
+custom_policies_path: ./conftest
+
+# Logging
+log_level: warning # Options: critical, error, warning, info, debug

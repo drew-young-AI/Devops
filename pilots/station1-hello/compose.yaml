@@ -1,0 +1,27 @@
+services:
+  hello:
+    build:
+      context: .
+    image: station1-hello:dev
+    ports:
+      - "127.0.0.1:18080:8080"
+    environment:
+      APP_VERSION: station1-dev
+    init: true
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,noexec,nosuid
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    mem_limit: 128m
+    cpus: 0.25
+    pids_limit: 64
+    restart: "no"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health/ready', timeout=1)"]
+      interval: 5s
+      timeout: 2s
+      retries: 3
+      start_period: 3s

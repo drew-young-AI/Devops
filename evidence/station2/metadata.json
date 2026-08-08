@@ -1,0 +1,8 @@
+{
+  "commit_sha": "local-uncommitted",
+  "image": "station1-hello:ci",
+  "image_id": "sha256:73d6d1cc1a183d7434e9a3a8681ff34d992eca5cdcb67e040da795b5c1fccbdd",
+  "image_digest": "station1-hello@sha256:73d6d1cc1a183d7434e9a3a8681ff34d992eca5cdcb67e040da795b5c1fccbdd",
+  "build_timestamp": "2026-07-31T08:47:01Z",
+  "source_path": "/Users/drew/ENV/Devops/pilots/station1-hello"
+}

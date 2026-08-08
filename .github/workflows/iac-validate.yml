@@ -1,0 +1,220 @@
+name: IaC Validation
+
+on:
+  push:
+    branches:
+      - main
+      - develop
+    paths:
+      - 'platform/iac/**'
+      - '.github/workflows/iac-validate.yml'
+  pull_request:
+    branches:
+      - main
+      - develop
+    paths:
+      - 'platform/iac/**'
+  workflow_dispatch:
+
+jobs:
+  iac_validate:
+    name: Terraform Format, Validate, and Security Scan
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: platform/iac
+
+    steps:
+      # 1. Checkout the repository
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for commit info
+
+      # 2. Record git commit SHA
+      - name: Record Git Commit
+        run: echo "GIT_COMMIT_SHA=$(git rev-parse HEAD)" >> $GITHUB_ENV
+
+      # 3. Install OpenTofu
+      - name: Install OpenTofu
+        uses: opentofu/setup-opentofu@v1
+        with:
+          tofu_version: "1.12.5"
+
+      # 4. Terraform Format Check
+      - name: "Step [1/6] Format Check"
+        run: |
+          echo "Checking Terraform formatting..."
+          tofu fmt -check -recursive .
+          if [ $? -eq 0 ]; then
+            echo "✓ Format check passed"
+          else
+            echo "✗ Format check failed; run: tofu fmt -recursive"
+            exit 1
+          fi
+
+      # 5. Terraform Validation
+      - name: "Step [2/6] Terraform Validate"
+        run: |
+          echo "Validating Terraform configuration..."
+          tofu init -backend=false
+          tofu validate
+          if [ $? -eq 0 ]; then
+            echo "✓ Terraform validation passed"
+          else
+            echo "✗ Terraform validation failed"
+            exit 1
+          fi
+
+      # 6. Checkov Security Scan
+      - name: "Step [3/6] Checkov Security Scan"
+        uses: bridgecrewio/checkov-action@master
+        with:
+          directory: platform/iac
+          framework: terraform
+          quiet: false
+          soft_fail: false
+          output_format: json
+          output_file_path: evidence/checkov_results.json
+          config_file: platform/iac/checkov.yaml
+
+      # 7. Save Checkov results as artifact
+      - name: Upload Checkov Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: checkov-report
+          path: evidence/checkov_results.json
+          retention-days: 30
+
+      # 8. Terraform Plan (for visibility, no apply)
+      - name: "Step [4/6] Terraform Plan"
+        run: |
+          echo "Generating Terraform plan..."
+          tofu plan \
+            -var-file="terraform.tfvars.example" \
+            -var="git_commit_sha=${{ env.GIT_COMMIT_SHA }}" \
+            -var="applied_by=github-actions" \
+            -var="approval_ticket_id=${{ github.event.pull_request.number || 'none' }}" \
+            -out=tfplan.json
+
+          # Convert to JSON for better readability
+          tofu show -json tfplan.json > plan.json
+
+          echo "Plan saved to plan.json"
+
+      # 9. Save plan as artifact
+      - name: Upload Terraform Plan
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: terraform-plan
+          path: |
+            platform/iac/plan.json
+            platform/iac/tfplan.json
+          retention-days: 30
+
+      # 10. Display plan summary
+      - name: "Step [5/6] Plan Review"
+        run: |
+          echo "=== Terraform Plan Summary ==="
+          tofu show tfplan.json
+          echo "================================"
+
+      # 11. Build metadata for evidence
+      - name: "Step [6/6] Build Evidence Metadata"
+        run: |
+          cat > ../../evidence/iac_metadata.json << EOF
+          {
+            "workflow_run_id": "${{ github.run_id }}",
+            "commit_sha": "${{ env.GIT_COMMIT_SHA }}",
+            "commit_message": "$(git log -1 --pretty=%B)",
+            "author": "${{ github.actor }}",
+            "timestamp": "$(date -u +'%Y-%m-%dT%H:%M:%SZ')",
+            "workflow_status": "in_progress",
+            "checkov_results": "evidence/checkov_results.json",
+            "terraform_plan": "platform/iac/plan.json",
+            "branch": "${{ github.ref_name }}",
+            "event_type": "${{ github.event_name }}"
+          }
+          EOF
+          echo "Evidence metadata saved"
+
+      # 12. Upload evidence metadata
+      - name: Upload Evidence Metadata
+        uses: actions/upload-artifact@v4
+        with:
+          name: iac-evidence
+          path: evidence/iac_metadata.json
+          retention-days: 30
+
+      # 13. Notification on failure
+      - name: Notify on Failure
+        if: failure()
+        run: |
+          echo "❌ IaC validation failed"
+          echo "Check logs above for details"
+          exit 1
+
+      # 14. Notification on success
+      - name: Notify on Success
+        if: success()
+        run: |
+          echo "✓ IaC validation passed"
+          echo "Artifacts available for review"
+
+  # Security scanning job
+  security_scan:
+    name: Additional Security Scanning
+    runs-on: ubuntu-latest
+    needs: iac_validate
+    if: always()
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Option: Add tfsec for additional Terraform security scanning
+      - name: Install tfsec
+        run: |
+          curl -s https://raw.githubusercontent.com/aquasecurity/tfsec/master/scripts/install_linux.sh | bash
+          which tfsec
+
+      - name: Run tfsec
+        continue-on-error: true
+        run: |
+          tfsec platform/iac --format sarif --output evidence/tfsec_results.sarif
+
+      - name: Upload tfsec Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tfsec-report
+          path: evidence/tfsec_results.sarif
+          retention-days: 30
+
+  # Final summary
+  summary:
+    name: Validation Summary
+    runs-on: ubuntu-latest
+    needs: [iac_validate, security_scan]
+    if: always()
+
+    steps:
+      - name: Summary
+        run: |
+          echo "=== IaC Validation Pipeline Summary ==="
+          echo "✓ Format check: ${{ needs.iac_validate.result }}"
+          echo "✓ Terraform validation: ${{ needs.iac_validate.result }}"
+          echo "✓ Checkov security scan: ${{ needs.iac_validate.result }}"
+          echo "✓ Terraform plan: ${{ needs.iac_validate.result }}"
+          echo "✓ Additional security: ${{ needs.security_scan.result }}"
+          echo "========================================"
+
+          if [ "${{ needs.iac_validate.result }}" = "failure" ]; then
+            echo "❌ IaC validation failed"
+            exit 1
+          else
+            echo "✓ IaC validation passed"
+            echo "Next: Manual review of plan and approval for apply"
+          fi
