@@ -21,11 +21,12 @@
 - [x] Local HTTPS + NGINX adapter：`platform/nginx/`，mkcert TLS、反向代理到 station1-hello、rate limit、security headers、correlation ID、結構化 JSON log。端到端驗證見 `platform/nginx/README.md`「Verified End-to-End」，含 Loki 實際查詢結果。
 - [x] Develop Compose deployment adapter：`platform/compose/deploy.sh`（build/deploy/status/teardown），獨立 Compose project + network、環境專屬 env file 注入、build 與 deploy 分離（deploy 絕不重build）。
 - [x] Production-like blue/green + rollback：`deploy.sh promote|rollback`。Develop-validation gate（拒絕未在 develop 驗證過的 image）、blue/green 雙色（port 18081/18082）、NGINX 流量切換（`nginx -s reload`）、真人互動確認（`read -p` 輸入 `PROMOTE`/`ROLLBACK`，無 `--yes` 旁路）。端到端驗證見 `platform/compose/README.md`「Verified End-to-End」，含用 NGINX access log 的 `upstream_addr` 欄位證明流量真的切換（非只改了 state 檔案）、以及測試過程中發現並修正一個 exit code 誤報 bug。
+- [x] Vault migration（P0 secret migration 收尾）：`platform/vault/`，HashiCorp Vault Community、file storage + 真實 init/unseal（非 `-dev` mode）、KV v2、GITHUB_TOKEN 已從 `.env` 遷移至 `secret/devops/github`（round-trip 以長度比對驗證，從未重印明文）、最小權限 policy 經 4 項邊界測試驗證（允許讀取自己範圍、拒絕 list engines/建立 policy/讀取範圍外路徑，皆為真實 403）。詳見 `platform/vault/README.md`。**Secret rotation 與 Gitleaks history scan 仍未完成**（見下）。
 
 ### 尚未完成的主要交付鏈
 
 - [ ] Registry promotion 與 immutable artifact flow。
-- [ ] Vault migration、Secret rotation 與 Gitleaks history scan。
+- [ ] Secret rotation 與 Gitleaks history scan（Vault 本身已完成，見上）。
 - [ ] Cloud trial VM + rathole Public URL experiment。
 - [ ] Optional Cloudflare Tunnel adapter。
 - [ ] Pilot technical validation 與 Human Platform Usability Review。
@@ -65,7 +66,10 @@ MLOps/LLMOps：保留接口，延後擴充
 5. [x] 建立 local HTTPS + NGINX adapter
 6. [x] 建立 develop deployment adapter
 7. [x] 建立 production-like blue/green + 人工核准 + rollback
-8. [ ] 建立 rathole Public URL experiment  <- NEXT
+8. [x] Vault migration（HashiCorp Vault Community，secret 遷移 + 最小權限驗證）
+9. [ ] 建立 rathole Public URL experiment  <- 需要人類決定雲端供應商，暫停待決策
+10. [ ] Secret rotation policy 與 Gitleaks history scan（可本機完成，候選下一步）
+11. [ ] platform/security/（Trivy container scan、SBOM、Cosign）（可本機完成，候選下一步）
 ```
 
 ## 1. 定位

@@ -1,0 +1,59 @@
+services:
+  vault:
+    image: hashicorp/vault:1.18
+    command: server
+    volumes:
+      - ./config/vault.hcl:/vault/config/vault.hcl:ro
+      - vault-file:/vault/file
+    tmpfs:
+      # /vault/logs isn't used (Vault logs to stdout by default) but the
+      # official entrypoint unconditionally chowns it with no error
+      # fallback (unlike /vault/config) -- under read_only: true it must
+      # exist and be writable or the container fails to start. size is
+      # nominal since nothing is actually written here.
+      - /vault/logs:size=4m,noexec,nosuid,mode=1777
+      - /tmp:size=8m,noexec,nosuid,mode=1777
+    ports:
+      - "127.0.0.1:18200:8200"
+    environment:
+      # Skip file-capability setcap for mlock: config/vault.hcl already sets
+      # disable_mlock = true, so there's nothing for IPC_LOCK to protect,
+      # and requesting it needlessly would just log a permission warning.
+      SKIP_SETCAP: "1"
+      # The `vault` CLI's own default address is https://127.0.0.1:8200 --
+      # without this, both the HEALTHCHECK below and any `docker exec ...
+      # vault ...` command fail with a scheme mismatch against our
+      # tls_disable = true listener. Verified locally: healthcheck reported
+      # unhealthy with "server gave HTTP response to HTTPS client" until
+      # this was added.
+      VAULT_ADDR: "http://127.0.0.1:8200"
+    # No `user:` override, and no cap_drop -- the official entrypoint is
+    # designed to start as root specifically so it can chown its bind-mounted
+    # /vault/config, /vault/logs and /vault/file paths to the built-in
+    # `vault` user (uid 100), then self-demote via `su-exec vault vault ...`
+    # before the actual server process runs. This is the vendor's own
+    # least-privilege pattern (root only for the brief startup dance, then
+    # permanently non-root) -- verified locally that /vault/file being
+    # anything other than a chownable path breaks storage entirely, and
+    # that cap_drop: ALL breaks the su-exec self-demotion the same way it
+    # broke nginx's `user nginx;` directive in platform/nginx/.
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 256m
+    cpus: 0.5
+    pids_limit: 64
+    restart: "no"
+    healthcheck:
+      # `vault status` exits 0 only when unsealed and active -- sealed
+      # (exit 2, the state immediately after a fresh `vault operator init`)
+      # correctly reports unhealthy here. That's accurate, not a bug: a
+      # sealed Vault genuinely cannot serve secrets yet.
+      test: ["CMD", "vault", "status"]
+      interval: 5s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+
+volumes:
+  vault-file:

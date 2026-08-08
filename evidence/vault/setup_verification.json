@@ -1,0 +1,22 @@
+{
+  "vault_version": "1.18.5",
+  "storage_backend": "file",
+  "seal_type": "shamir",
+  "key_shares": 5,
+  "key_threshold": 3,
+  "initialized": true,
+  "sealed_after_unseal": false,
+  "kv_v2_enabled_at": "secret/",
+  "migrated_secret_path": "secret/devops/github",
+  "migrated_secret_source": ".env GITHUB_TOKEN (length 93, verified matching post-migration, value never logged)",
+  "least_privilege_policy": "devops-readonly",
+  "least_privilege_verification": {
+    "read_secret_devops_github": "PASS (93 chars, exit 0)",
+    "list_secrets_engines_denied": "PASS (403 permission denied, exit 2)",
+    "create_new_policy_denied": "PASS (403 permission denied, exit 2)",
+    "read_out_of_scope_path_denied": "PASS (403 permission denied, exit 2)"
+  },
+  "container_restart_persistence_verified": "PASS (same Cluster ID before/after recreate, data survived on named volume vault-file)",
+  "verified_at": "2026-08-08T22:44:00Z",
+  "note": "This file intentionally contains no secret values, unseal keys, or tokens -- see platform/vault/.init-output.json (gitignored, never committed) for those."
+}
