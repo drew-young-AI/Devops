@@ -13,7 +13,8 @@ services:
       - /var/cache/nginx:size=16m,noexec,nosuid,mode=1777
       - /tmp:size=8m,noexec,nosuid,mode=1777
     ports:
-      - "127.0.0.1:18443:8443"
+      - "127.0.0.1:18443:8443" # develop vhost (conf.d/station1-hello.conf)
+      - "127.0.0.1:19443:8444" # production-like vhost (conf.d/_generated.station1-hello.production-like.conf)
     # No host port for the internal health listener (conf.d/_platform-health.conf,
     # 127.0.0.1:8080 inside the container) — intentionally unpublished.
     extra_hosts:
