@@ -19,12 +19,12 @@
 - [x] Git-triggered CI：`.github/workflows/iac-validate.yml`（push 觸發，fmt → validate → Checkov → plan → tfsec → evidence），已驗證綠燈（見 `PHASE1_COMPLETION_REPORT.md`）。
 - [x] OpenTofu IaC skeleton：`platform/iac/`，provider-neutral contract（AWS/GCP/Azure adapter 以註解預留，不 apply）、30+ 已驗證變數、Checkov + OPA/Conftest policy。State governance 僅文件化契約（local state 為 Phase 1 預設，尚未接 MinIO/cloud backend）。
 - [x] Local HTTPS + NGINX adapter：`platform/nginx/`，mkcert TLS、反向代理到 station1-hello、rate limit、security headers、correlation ID、結構化 JSON log。端到端驗證見 `platform/nginx/README.md`「Verified End-to-End」，含 Loki 實際查詢結果。
+- [x] Develop Compose deployment adapter：`platform/compose/deploy.sh`（build/deploy/status/teardown），獨立 Compose project + network、環境專屬 env file 注入、build 與 deploy 分離（deploy 絕不重build）。端到端驗證見 `platform/compose/README.md`「Verified End-to-End」，含 NGINX/Prometheus 在 redeploy 後仍正常運作的確認。**Production-like 尚未實作**（`deploy` 目前拒絕 develop 以外的環境，見下）。
 
 ### 尚未完成的主要交付鏈
 
 - [ ] Registry promotion 與 immutable artifact flow。
-- [ ] Develop / production-like Compose deployment adapter。
-- [ ] Production-like blue/green 與 rollback。
+- [ ] Production-like blue/green 與 rollback（含 develop-validation gate 與人工核准，非僅 ticket ID 欄位）。
 - [ ] Vault migration、Secret rotation 與 Gitleaks history scan。
 - [ ] Cloud trial VM + rathole Public URL experiment。
 - [ ] Optional Cloudflare Tunnel adapter。
@@ -63,8 +63,9 @@ MLOps/LLMOps：保留接口，延後擴充
 3. [x] 建立 OpenTofu skeleton 與 provider-neutral resource contract
 4. [x] 加入 Checkov policy validation
 5. [x] 建立 local HTTPS + NGINX adapter
-6. [ ] 建立 develop / production-like deployment adapter  <- NEXT
-7. [ ] 建立 rathole Public URL experiment
+6. [x] 建立 develop deployment adapter（production-like 部分尚未完成）
+7. [ ] 建立 production-like blue/green + 人工核准 + rollback  <- NEXT
+8. [ ] 建立 rathole Public URL experiment
 ```
 
 ## 1. 定位
