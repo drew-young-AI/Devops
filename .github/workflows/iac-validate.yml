@@ -67,15 +67,17 @@ jobs:
           fi
 
       # 6. Checkov Security Scan
+      # NOTE: output_file_path is a DIRECTORY, not a filename — Checkov writes
+      # results_<format>.<ext> inside it (e.g. evidence/results_json.json).
+      # All other options (framework, soft-fail, quiet, compact) come from
+      # platform/iac/checkov.yaml — do not duplicate them here or the CLI
+      # flags can conflict.
       - name: "Step [3/6] Checkov Security Scan"
         uses: bridgecrewio/checkov-action@master
         with:
           directory: platform/iac
-          framework: terraform
-          quiet: false
-          soft_fail: false
           output_format: json
-          output_file_path: evidence/checkov_results.json
+          output_file_path: evidence
           config_file: platform/iac/checkov.yaml
 
       # 7. Save Checkov results as artifact
@@ -84,7 +86,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: checkov-report
-          path: evidence/checkov_results.json
+          path: evidence/results_json.json
           retention-days: 30
 
       # 8. Terraform Plan (for visibility, no apply)
@@ -124,15 +126,16 @@ jobs:
       # 11. Build metadata for evidence
       - name: "Step [6/6] Build Evidence Metadata"
         run: |
+          COMMIT_MSG=$(git log -1 --pretty=%B | tr '\n' ' ' | sed 's/"/\\"/g')
           cat > ../../evidence/iac_metadata.json << EOF
           {
             "workflow_run_id": "${{ github.run_id }}",
             "commit_sha": "${{ env.GIT_COMMIT_SHA }}",
-            "commit_message": "$(git log -1 --pretty=%B)",
+            "commit_message": "$COMMIT_MSG",
             "author": "${{ github.actor }}",
             "timestamp": "$(date -u +'%Y-%m-%dT%H:%M:%SZ')",
             "workflow_status": "in_progress",
-            "checkov_results": "evidence/checkov_results.json",
+            "checkov_results": "evidence/results_json.json",
             "terraform_plan": "platform/iac/plan.json",
             "branch": "${{ github.ref_name }}",
             "event_type": "${{ github.event_name }}"

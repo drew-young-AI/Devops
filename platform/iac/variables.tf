@@ -91,8 +91,8 @@ variable "public_port" {
   default     = 443
   description = "Public HTTPS port exposed to internet (if enable_public_access = true). Default: 443 (HTTPS)."
   validation {
-    condition     = var.public_port >= 1024 && var.public_port <= 65535
-    error_message = "Port must be between 1024 and 65535."
+    condition     = contains([80, 443], var.public_port) || (var.public_port >= 1024 && var.public_port <= 65535)
+    error_message = "Port must be 80, 443, or between 1024 and 65535."
   }
 }
 
