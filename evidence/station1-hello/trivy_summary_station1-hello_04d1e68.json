@@ -1,0 +1,15 @@
+{
+  "image": "station1-hello:04d1e68",
+  "scanned_at": "2026-08-08T22:52:10Z",
+  "gate_policy": "fail on any fixable CRITICAL/HIGH (--ignore-unfixed --severity CRITICAL,HIGH)",
+  "gate_result": "PASS",
+  "fixable_critical_high_count": 0,
+  "fixable_critical_high_ids": [],
+  "full_scan_by_severity": {
+    "LOW": 67,
+    "HIGH": 19,
+    "MEDIUM": 60,
+    "UNKNOWN": 28,
+    "CRITICAL": 4
+  }
+}

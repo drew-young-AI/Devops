@@ -73,6 +73,16 @@ cmd_build() {
   echo "=== [build] $pilot_name @ $sha ==="
   IMAGE_NAME="${pilot_name}:${sha}" "$PLATFORM_ROOT/ci/run_local_ci.sh" "$pilot_dir" "$evidence_dir" >&2
 
+  # Security gate: fixable CRITICAL/HIGH vulnerabilities block the :dev
+  # alias below from ever being created. deploy/promote both refuse to run
+  # without a :dev tag, so a failed scan here transitively blocks deploy
+  # and promote too, with no separate gate logic needed there.
+  if ! "$PLATFORM_ROOT/security/scan_image.sh" "${pilot_name}:${sha}" "$evidence_dir"; then
+    echo "BUILD FAILED: image did not pass the security scan gate (see above)." >&2
+    echo "The :dev alias was NOT created -- deploy/promote will refuse to run this image." >&2
+    exit 1
+  fi
+
   # Alias to the tag the pilot's own compose.yaml expects, so `docker compose
   # up` (without --build) in cmd_deploy reuses this exact image instead of
   # rebuilding it — this is what makes "same image digest across

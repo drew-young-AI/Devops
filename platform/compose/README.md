@@ -8,7 +8,9 @@ below.
 ## Contract
 
 ```text
-build    -> tag image with git short SHA, alias to <pilot>:dev, run CI, record evidence
+build    -> tag image with git short SHA, run CI, run security scan gate
+            (platform/security/scan_image.sh), alias to <pilot>:dev only on
+            a passing scan, record evidence
 deploy   -> run the already-built image (never rebuilds) in an isolated
             Compose project + network, inject environment-specific config,
             wait for healthy, record evidence
@@ -154,9 +156,10 @@ per promotion (same shape as the state file at that moment), for history
   is real `docker image inspect` output, not fabricated, but it's not a
   guarantee). "Registry promotion 與 immutable artifact flow" is still
   listed as not-done in `Plan.md`.
-- **No container security scan gate.** `platform/security/` (Trivy,
-  Gitleaks, SBOM, Cosign) doesn't exist yet — `build` doesn't block on any
-  vulnerability findings today.
+- ~~No container security scan gate~~ **Done** — `build` now runs
+  `platform/security/scan_image.sh` and refuses to create the `:dev` alias
+  (which `deploy`/`promote` both require) on a failed scan. See
+  `platform/security/README.md`.
 - **No automated rollback trigger.** `rollback` is entirely manual/human-
   initiated. There's no health-based auto-rollback if a promoted color
   degrades after traffic has already shifted to it.

@@ -24,6 +24,11 @@ platform/nginx/conf.d/_generated.*
 # Never committed under any circumstance.
 platform/vault/.init-output.json
 
+# Raw Trivy scan output (hundreds of KB per scan, fully regenerable from the
+# image) -- platform/security/scan_image.sh commits only the small
+# trivy_summary_*.json derived from these instead.
+evidence/*/_raw.trivy_*.json
+
 # Terraform / OpenTofu
 .terraform/
 .terraform.lock.hcl
