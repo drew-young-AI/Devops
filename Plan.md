@@ -15,15 +15,15 @@
 - [x] Grafana 已建立 DevOps Overview dashboard。
 - [x] 已建立新服務接入文件 `NEW_SERVICE_GUIDE.md`。
 - [x] 已將 Plan 拆分為 Architecture、IaC、Network、Security、Observability、Pilot Validation 與 Future MLOps/LLMOps 文件。
+- [x] GitHub source of truth：https://github.com/drew-young-AI/Devops（public repo，PAT-based push，無 secret 提交）。
+- [x] Git-triggered CI：`.github/workflows/iac-validate.yml`（push 觸發，fmt → validate → Checkov → plan → tfsec → evidence），已驗證綠燈（見 `PHASE1_COMPLETION_REPORT.md`）。
+- [x] OpenTofu IaC skeleton：`platform/iac/`，provider-neutral contract（AWS/GCP/Azure adapter 以註解預留，不 apply）、30+ 已驗證變數、Checkov + OPA/Conftest policy。State governance 僅文件化契約（local state 為 Phase 1 預設，尚未接 MinIO/cloud backend）。
+- [x] Local HTTPS + NGINX adapter：`platform/nginx/`，mkcert TLS、反向代理到 station1-hello、rate limit、security headers、correlation ID、結構化 JSON log。端到端驗證見 `platform/nginx/README.md`「Verified End-to-End」，含 Loki 實際查詢結果。
 
 ### 尚未完成的主要交付鏈
 
-- [ ] GitHub Free 或外部 GitLab Free source of truth。
-- [ ] Git-triggered CI / external runner integration。
 - [ ] Registry promotion 與 immutable artifact flow。
-- [ ] OpenTofu IaC skeleton、policy check 與 state governance。
 - [ ] Develop / production-like Compose deployment adapter。
-- [ ] Local HTTPS + NGINX adapter。
 - [ ] Production-like blue/green 與 rollback。
 - [ ] Vault migration、Secret rotation 與 Gitleaks history scan。
 - [ ] Cloud trial VM + rathole Public URL experiment。
@@ -58,13 +58,13 @@ MLOps/LLMOps：保留接口，延後擴充
 ### 下一個建議動作
 
 ```text
-1. 選定 GitHub Free 或外部 GitLab Free
-2. 建立 external Git source of truth
-3. 建立 OpenTofu skeleton 與 provider-neutral resource contract
-4. 加入 Checkov policy validation
-5. 建立 local HTTPS + NGINX adapter
-6. 建立 develop / production-like deployment adapter
-7. 建立 rathole Public URL experiment
+1. [x] 選定 GitHub Free 或外部 GitLab Free
+2. [x] 建立 external Git source of truth
+3. [x] 建立 OpenTofu skeleton 與 provider-neutral resource contract
+4. [x] 加入 Checkov policy validation
+5. [x] 建立 local HTTPS + NGINX adapter
+6. [ ] 建立 develop / production-like deployment adapter  <- NEXT
+7. [ ] 建立 rathole Public URL experiment
 ```
 
 ## 1. 定位

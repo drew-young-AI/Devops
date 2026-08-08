@@ -8,6 +8,12 @@
 private_key*
 public_key*
 
+# Locally-generated TLS material (mkcert output — machine-specific, regenerate via
+# platform/nginx/scripts/generate_local_certs.sh; *.key above already covers the
+# private key, this also excludes the leaf cert so nothing stale gets committed)
+platform/nginx/certs/*
+!platform/nginx/certs/.gitkeep
+
 # Terraform / OpenTofu
 .terraform/
 .terraform.lock.hcl
