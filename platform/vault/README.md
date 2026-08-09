@@ -140,6 +140,33 @@ have been caught by just reading the HCL.
 - Healthcheck: `unhealthy` while sealed (correct), `healthy` within one
   interval of unsealing
 
+## Secret Rotation
+
+`scripts/rotate_secret.sh` and `scripts/check_rotation_due.sh` close the
+"Secret rotation policy" item from `Plan.md`. Full details, including the
+human-in-the-loop steps for actually rotating the GitHub PAT (generating a
+new one and revoking the old one both require GitHub itself, not
+something Vault or this script can do), are in
+`runbooks/rotate_github_token.md`.
+
+The short version: rotation is "write a new KV v2 version" — old versions
+stay readable (real rollback, not just claimed; verified by reading back
+version 2 after rotating to version 3) until someone explicitly destroys
+them. `rotated_at`/`previous_version` land in the secret's
+`custom_metadata` on every rotation, and `check_rotation_due.sh` compares
+that against a policy interval (default 90 days, matching
+`platform/iac/variables.tf`'s `secret_rotation_interval_days`) to report
+whether a secret is overdue.
+
+**Tested against a throwaway secret** (`secret/devops/test-rotation`,
+created and deleted within this session), not the real GitHub token —
+this session needed to keep using that token for its own `git push`
+commands, so the actual rotation runbook was validated mechanically
+without executing it for real. See `runbooks/rotate_github_token.md`
+"Verified" section for the specific test results and one real bug found
+(`vault kv metadata get` doesn't support `-field` in this Vault version —
+only `vault kv get` does; fixed by switching to `-format=json` + Python).
+
 ## Known Gaps / Next Steps
 
 - **Only one secret migrated, as a proof of concept.** `station1-hello`
@@ -152,13 +179,14 @@ have been caught by just reading the HCL.
   A real deployment would use a cloud KMS auto-unseal — deferred along
   with the rest of the cloud adapter work (`docs/Network.md`'s "Public URL
   experiment", not yet built).
-- **No secret rotation.** `Plan.md` lists "Secret rotation" as a separate
-  not-yet-done item. `secret/devops/github` is a static copy; rotating the
-  underlying GitHub PAT doesn't currently update Vault automatically.
-- **No Gitleaks history scan.** Still listed as not-done in `Plan.md` —
-  this migration doesn't retroactively check whether the token (or any
-  other secret) was ever committed to this repo's git history before it
-  became a git repo in this session's Phase 1 work.
+- ~~No secret rotation~~ **Done** — see "Secret Rotation" above and
+  `runbooks/rotate_github_token.md`. The mechanism (rotate + check-due) is
+  built and tested; the real GitHub PAT itself hasn't actually been
+  rotated yet (no need to — it isn't due, and doing so would have broken
+  this session's own `git push` commands mid-session).
+- ~~No Gitleaks history scan~~ **Done** — see `platform/security/README.md`
+  (`scan_secrets.sh`), which scanned this repo's full commit history:
+  no leaks found.
 - **`.env`-reading tooling from this session (e.g. `git push` using
   `GITHUB_TOKEN` from `~/.env`) was not rewired to read from Vault.** That
   would be a meaningful behavior change to an already-working flow outside

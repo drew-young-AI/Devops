@@ -24,11 +24,11 @@
 - [x] Vault migration（P0 secret migration 收尾）：`platform/vault/`，HashiCorp Vault Community、file storage + 真實 init/unseal（非 `-dev` mode）、KV v2、GITHUB_TOKEN 已從 `.env` 遷移至 `secret/devops/github`（round-trip 以長度比對驗證，從未重印明文）、最小權限 policy 經 4 項邊界測試驗證（允許讀取自己範圍、拒絕 list engines/建立 policy/讀取範圍外路徑，皆為真實 403）。詳見 `platform/vault/README.md`。
 - [x] Container security scan gate（Trivy）+ Gitleaks history scan：`platform/security/`。Gate policy 為「拒絕任何有修復方案的 CRITICAL/HIGH」（`--ignore-unfixed`，因為目前 base image 有 4 個 CRITICAL 但上游無修復方案，硬擋這些沒有意義）；已用較舊映像（python:3.9-slim，28 個可修復 CRITICAL/HIGH）驗證 gate 真的會擋。已接入 `deploy.sh build`：掃描失敗則不建立 `:dev` alias，連帶擋住 deploy/promote。Gitleaks 對全部 10 個 commit 掃描：no leaks found。詳見 `platform/security/README.md`。
 - [x] SBOM 產出 + Cosign 簽章（SBOM 半部分完整，image 簽章待 registry）：`scan_image.sh` 產 CycloneDX SBOM（89 components）；`sign_artifact.sh` 用本地 key pair 簽章+驗證，已用竄改測試證明驗證真的會抓到（改一個 byte，驗證正確失敗）。**重要揭露**：Cosign v3 即使是 key-based 簽章，預設仍會把 hash+簽章+時間戳記發布到公開、永久、不可刪除的 Sigstore Rekor transparency log（未找到可關閉的 flag）；此行為在測試中途才發現，已如實告知使用者並取得同意才繼續。因此簽章預設關閉，需要 `SIGN_ARTIFACTS=1` 才會執行。過程中額外發現並修正兩個 bug：(1) SBOM 內容非 byte-stable（每次重新產生 serialNumber/timestamp 不同），原本以「檔名是否存在」判斷冪等性是錯的，已改為比對 bundle 內記錄的 digest 與目前檔案的實際 digest；(2) `.gitignore` 的 `*.pub` 全域規則誤傷了應該要公開的 Cosign 公鑰，已加 negation exception 修正（用 `git add -n` 而非 `git check-ignore` 驗證，因為後者在 negation 規則下的 exit code 容易誤導）。Image 本身簽章需要 registry（見下）。詳見 `platform/security/README.md`。
+- [x] Secret rotation policy：`platform/vault/scripts/rotate_secret.sh`（輪替 + KV v2 版本歷史保留 rollback 能力）+ `check_rotation_due.sh`（依 90 天 policy 檢查是否逾期，與 `platform/iac/variables.tf` 的 `secret_rotation_interval_days` 對齊）+ `platform/vault/runbooks/rotate_github_token.md`（真正輪替 GitHub PAT 需要的人工步驟，因為產生新 PAT/撤銷舊 PAT 都需要 GitHub 本身）。用拋棄式測試 secret 完整跑過 rotate→驗證舊版本仍可讀→check_rotation_due 三種情境（正常/無記錄/逾期），未動用真正的 GITHUB_TOKEN（該 token 這個 session 還需要用來 push）。過程中發現並修正一個 bug：`vault kv metadata get` 不支援 `-field` flag。詳見 `platform/vault/README.md`「Secret Rotation」。
 
 ### 尚未完成的主要交付鏈
 
 - [ ] Registry promotion 與 immutable artifact flow（含真正的 container image Cosign 簽章，而非只簽 SBOM）。
-- [ ] Secret rotation policy（Vault 遷移本身已完成，見上）。
 - [ ] Cloud trial VM + rathole Public URL experiment。
 - [ ] Optional Cloudflare Tunnel adapter。
 - [ ] Pilot technical validation 與 Human Platform Usability Review。
@@ -71,10 +71,12 @@ MLOps/LLMOps：保留接口，延後擴充
 8. [x] Vault migration（HashiCorp Vault Community，secret 遷移 + 最小權限驗證）
 9. [x] platform/security/：Trivy container scan gate + Gitleaks history scan
 10. [x] SBOM 產出 + Cosign SBOM 簽章（image 簽章待 registry；Rekor 公開揭露已取得使用者同意）
-11. [ ] 建立 rathole Public URL experiment  <- 需要人類決定雲端供應商，暫停待決策
-12. [ ] Secret rotation policy（可本機完成，候選下一步）
+11. [x] Secret rotation policy（rotate_secret.sh + check_rotation_due.sh + runbook）
+12. [ ] 建立 rathole Public URL experiment  <- 需要人類決定雲端供應商，暫停待決策
 13. [ ] Registry promotion 與 immutable artifact flow（可能需要決定 registry，如 GitHub Container Registry；完成後可補上真正的 image Cosign 簽章）
 ```
+
+所有目前已知「本機可自主完成」的項目至此已全部完成。剩餘項目（rathole、registry 選型）依先前使用者指示，需要人類決策才能繼續。
 
 ## 1. 定位
 

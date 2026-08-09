@@ -1,6 +1,6 @@
 # Platform 元件
 
-目前平台完成到：local CI + local observability + Git-triggered CI（GitHub Actions）+ IaC skeleton（OpenTofu，provider-neutral contract）+ local HTTPS/NGINX adapter + develop/production-like deployment adapter（blue/green + rollback）+ Vault secret management + container security scan gate（Trivy）+ SBOM + Cosign 簽章（SBOM 半部分）+ Gitleaks history scan。Public URL（rathole/Cloudflare Tunnel，需要雲端供應商決策，暫停）、Registry promotion（含真正的 image 簽章）、Secret rotation 尚未完成，詳見根目錄 `Plan.md` 的 handoff status。
+目前平台完成到：local CI + local observability + Git-triggered CI（GitHub Actions）+ IaC skeleton（OpenTofu，provider-neutral contract）+ local HTTPS/NGINX adapter + develop/production-like deployment adapter（blue/green + rollback）+ Vault secret management + secret rotation policy + container security scan gate（Trivy）+ SBOM + Cosign 簽章（SBOM 半部分）+ Gitleaks history scan。所有目前已知可本機自主完成的項目皆已完成；剩下 Public URL（rathole/Cloudflare Tunnel）與 Registry promotion（含真正的 image 簽章）需要人類決定雲端供應商/registry 才能繼續，詳見根目錄 `Plan.md` 的 handoff status。
 
 這裡只放可被多個 Pilot 共用的 DevOps 元件，不放特定服務的業務程式。
 
