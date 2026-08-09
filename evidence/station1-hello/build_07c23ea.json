@@ -1,0 +1,8 @@
+{
+  "commit_sha": "07c23ea7db19d4c8cb10c80eeec73e909b38b9cc",
+  "image": "station1-hello:07c23ea",
+  "image_id": "sha256:c8db7bd5a15fe4396db26e1440bbdf6e03b886498a826e097ea959bb33ec4b53",
+  "image_digest": "station1-hello@sha256:c8db7bd5a15fe4396db26e1440bbdf6e03b886498a826e097ea959bb33ec4b53",
+  "build_timestamp": "2026-08-09T00:39:53Z",
+  "source_path": "/Users/drew/ENV/Devops/pilots/station1-hello"
+}

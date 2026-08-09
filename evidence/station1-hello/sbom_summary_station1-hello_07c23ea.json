@@ -1,0 +1,15 @@
+{
+  "image": "station1-hello:07c23ea",
+  "generated_at": "2026-08-09T00:42:54Z",
+  "bom_format": "CycloneDX",
+  "spec_version": "1.7",
+  "component_count": 89,
+  "components_by_type": {
+    "operating-system": 1,
+    "library": 88
+  },
+  "raw_sbom_sha256": "8bd226f66aff7f1b48604fba563dcd710f3a24fd9682e3912c75192914384bc3",
+  "signed": true,
+  "signature_bundle": "evidence/station1-hello/sbom_station1-hello_07c23ea.cdx.json.cosign-bundle.json",
+  "note": "Full SBOM is at evidence/station1-hello/_raw.sbom_station1-hello_07c23ea.cdx.json (gitignored, regenerate with: trivy image station1-hello:07c23ea --format cyclonedx). This checksum lets you verify a regenerated SBOM matches what was recorded at build time."
+}

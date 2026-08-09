@@ -15,11 +15,16 @@
 # also recorded for complete visibility -- informational only, exit code
 # ignored.
 #
+# Also generates a CycloneDX SBOM (Software Bill of Materials) -- also
+# non-blocking/informational, never affects the gate's exit code.
+#
 # Usage:
 #   scan_image.sh <image:tag> <evidence_dir>
 #
 # Exit code: 0 if no fixable Critical/High findings, 1 otherwise (or if
-# trivy itself errors).
+# trivy itself errors). SBOM generation failures do not affect this --
+# an SBOM you can't generate yet is not a reason to block a deploy that
+# has nothing to do with supply-chain attestation.
 
 set -euo pipefail
 
@@ -42,18 +47,72 @@ SAFE_IMAGE="$(echo "$IMAGE" | tr '/:' '__')"
 GATE_FILE="$EVIDENCE_DIR/_raw.trivy_gate_${SAFE_IMAGE}.json"
 FULL_FILE="$EVIDENCE_DIR/_raw.trivy_full_${SAFE_IMAGE}.json"
 SUMMARY_FILE="$EVIDENCE_DIR/trivy_summary_${SAFE_IMAGE}.json"
+# Same raw/summary split as the vuln scans above: the full CycloneDX SBOM
+# is ~190KB for even a minimal Python image (mostly per-package metadata
+# that's identical run to run unless dependencies actually changed) and
+# fully regenerable from the image at any time.
+SBOM_FILE="$EVIDENCE_DIR/_raw.sbom_${SAFE_IMAGE}.cdx.json"
+SBOM_SUMMARY_FILE="$EVIDENCE_DIR/sbom_summary_${SAFE_IMAGE}.json"
 
 echo "=== [security scan] $IMAGE ==="
 
-echo "[1/2] Full scan (all severities, informational, evidence only)..."
+echo "[1/3] Full scan (all severities, informational, evidence only)..."
 trivy image "$IMAGE" --scanners vuln --format json --output "$FULL_FILE" || true
 
-echo "[2/2] Gate: fixable CRITICAL/HIGH only..."
+echo "[2/3] Gate: fixable CRITICAL/HIGH only..."
 set +e
 trivy image "$IMAGE" --scanners vuln --ignore-unfixed --severity CRITICAL,HIGH \
   --format json --output "$GATE_FILE" --exit-code 1
 gate_exit=$?
 set -e
+
+echo "[3/3] SBOM (CycloneDX, informational, does not affect gate)..."
+trivy image "$IMAGE" --format cyclonedx --output "$SBOM_FILE" || true
+
+# Signing is opt-in (SIGN_ARTIFACTS=1), not automatic on every build: each
+# signature publishes a permanent record to the public Sigstore Rekor
+# transparency log (see sign_artifact.sh's header) -- fine for an
+# intentional release, not something that should happen silently on every
+# routine local `deploy.sh build` during iteration.
+if [ "${SIGN_ARTIFACTS:-0}" = "1" ] && [ -f "$SBOM_FILE" ]; then
+  "$(dirname "${BASH_SOURCE[0]}")/sign_artifact.sh" "$SBOM_FILE" "$EVIDENCE_DIR" || \
+    echo "WARNING: SBOM signing failed; continuing (signing is informational, not a gate)" >&2
+fi
+
+python3 - "$IMAGE" "$SBOM_FILE" "$SBOM_SUMMARY_FILE" "$EVIDENCE_DIR" <<'PY'
+import json, sys, datetime, hashlib, os
+
+image, sbom_file, summary_file, evidence_dir = sys.argv[1:]
+bundle_file = os.path.join(evidence_dir, os.path.basename(sbom_file) + ".cosign-bundle.json")
+
+try:
+    raw = open(sbom_file, "rb").read()
+    sbom = json.loads(raw)
+    checksum = hashlib.sha256(raw).hexdigest()
+    components = sbom.get("components", [])
+    by_type = {}
+    for c in components:
+        t = c.get("type", "unknown")
+        by_type[t] = by_type.get(t, 0) + 1
+    summary = {
+        "image": image,
+        "generated_at": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "bom_format": sbom.get("bomFormat"),
+        "spec_version": sbom.get("specVersion"),
+        "component_count": len(components),
+        "components_by_type": by_type,
+        "raw_sbom_sha256": checksum,
+        "signed": os.path.isfile(bundle_file),
+        "signature_bundle": bundle_file if os.path.isfile(bundle_file) else None,
+        "note": "Full SBOM is at " + sbom_file + " (gitignored, regenerate with: trivy image " + image + " --format cyclonedx). This checksum lets you verify a regenerated SBOM matches what was recorded at build time.",
+    }
+except Exception as e:
+    summary = {"image": image, "error": f"SBOM generation or parsing failed: {e}"}
+
+with open(summary_file, "w") as f:
+    json.dump(summary, f, indent=2)
+    f.write("\n")
+PY
 
 python3 - "$IMAGE" "$GATE_FILE" "$FULL_FILE" "$SUMMARY_FILE" "$gate_exit" <<'PY'
 import json, sys, datetime
@@ -96,7 +155,9 @@ else
   echo "SCAN FAILED: fixable CRITICAL/HIGH findings present -- see $SUMMARY_FILE" >&2
 fi
 echo "artifact=$SUMMARY_FILE"
+echo "artifact=$SBOM_SUMMARY_FILE"
 echo "raw (gitignored)=$GATE_FILE"
 echo "raw (gitignored)=$FULL_FILE"
+echo "raw (gitignored)=$SBOM_FILE"
 
 exit "$gate_exit"
