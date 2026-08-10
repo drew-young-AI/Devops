@@ -11,6 +11,9 @@ below.
 build    -> tag image with git short SHA, run CI, run security scan gate
             (platform/security/scan_image.sh), alias to <pilot>:dev only on
             a passing scan, record evidence
+push     -> push <pilot>:dev to ghcr.io/<owner>/<pilot>:<sha>, record the
+            REAL registry digest (not the sometimes-present local buildx
+            digest) as evidence
 deploy   -> run the already-built image (never rebuilds) in an isolated
             Compose project + network, inject environment-specific config,
             wait for healthy, record evidence
@@ -47,6 +50,8 @@ Per `Plan.md` §4:
 ```bash
 # Develop
 platform/compose/deploy.sh build    pilots/station1-hello
+export VAULT_TOKEN=<token with read access to secret/data/devops/*>
+platform/compose/deploy.sh push     pilots/station1-hello
 platform/compose/deploy.sh deploy   develop pilots/station1-hello
 platform/compose/deploy.sh status   develop pilots/station1-hello
 platform/compose/deploy.sh teardown develop pilots/station1-hello
@@ -75,6 +80,57 @@ different host ports. The templating lives in the pilot's own file; the
 platform adapter only supplies `--env-file` and, for blue/green, a
 `HOST_PORT` shell-environment override — this doesn't violate the
 "platform/ must not depend on pilot-specific logic" boundary rule.
+
+## Registry Promotion (GHCR) — Read This Before Debugging a Push Failure
+
+`cmd_push` pushes to `ghcr.io/<owner>/<pilot>:<sha>` — GitHub Container
+Registry, a zero-new-account extension of the GitHub account already used
+for this repo's source control, not an arbitrary registry choice.
+
+### Fine-grained PATs do not work for this, at all, regardless of permissions
+
+The GitHub PAT this repo already had (`secret/devops/github` in Vault,
+originally migrated from `~/.env`'s `GITHUB_TOKEN`) is a **fine-grained**
+PAT with full repository permissions. Pushing with it failed:
+
+```text
+error from registry: permission_denied: The token provided does not match expected scopes.
+```
+
+The instinctive fix — go find a "Packages" checkbox in the fine-grained
+token's repository permissions and enable it — **does not exist and would
+not have worked anyway**. Verified against GitHub's own documentation
+(not memory, not a guess) after the first fix attempt failed a second
+time: "GitHub Packages only supports authentication using a personal
+access token (classic)." Fine-grained tokens are not supported for
+GitHub Packages at all, independent of which permissions are configured
+on them.
+
+**The actual fix**: a separate **classic** PAT with the `write:packages`
+scope, stored in Vault at `secret/devops/ghcr` (deliberately a different
+path from `secret/devops/github` — one token is for git operations, the
+other for registry pushes; they should not be the same credential even
+though they're both nominally "the GitHub account"). `cmd_push` reads
+from `secret/devops/ghcr` specifically, not `secret/devops/github`.
+
+### `docker login`'s credential store hangs non-interactively
+
+Docker Desktop's default `credsStore: "desktop"` opens a macOS Keychain
+GUI authorization prompt — which hangs indefinitely (reproduced: >2
+minutes, had to be killed) when there's no interactive session to approve
+it. `cmd_push` works around this with a throwaway `DOCKER_CONFIG` directory
+containing a plain base64 `auths` entry, bypassing the credential-helper
+path entirely. The directory (and the PAT value held in it) is removed
+via a `trap ... RETURN` as soon as `cmd_push` finishes, success or failure.
+
+### Verified (2026-08-09/10)
+
+| Check | Result |
+|---|---|
+| Fine-grained PAT push | Failed: `permission_denied: ... does not match expected scopes` — confirmed root cause against GitHub's docs, not assumed |
+| Classic PAT + `write:packages`, same push command | Succeeded: `ghcr.io/drew-young-ai/station1-hello:b0c679a`, real registry digest `sha256:c8db7...` recorded in `evidence/<pilot>/push_<sha>.json` |
+| Package visibility | Queried `gh api /users/<owner>/packages/container/<pilot>` → `"visibility":"private"` — confirmed private by default, not silently public |
+| Credential cleanup | Throwaway `DOCKER_CONFIG` dir removed after both the failing and succeeding push attempts (verified via the `trap` firing on `RETURN`, not just "should have") |
 
 ## Blue/Green Design
 
@@ -150,12 +206,16 @@ per promotion (same shape as the state file at that moment), for history
 
 ## Known Gaps / Next Steps
 
-- **No registry.** `image_digest` in build/deploy evidence is `null` unless
-  a build happens to produce a local `RepoDigests` entry (buildx/containerd
-  image store sometimes populates this even without a push — verified this
-  is real `docker image inspect` output, not fabricated, but it's not a
-  guarantee). "Registry promotion 與 immutable artifact flow" is still
-  listed as not-done in `Plan.md`.
+- ~~No registry~~ **Done** — see "Registry Promotion (GHCR)" above. `push`
+  records a real registry digest (`evidence/<pilot>/push_<sha>.json`), not
+  the sometimes-present local buildx digest `build`/`deploy` evidence
+  falls back to. `push` is a separate, opt-in step (not run automatically
+  by `build`) — nothing currently gates `deploy`/`promote` on having been
+  pushed first.
+- **Container image itself isn't Cosign-signed, only the SBOM is**
+  (`platform/security/README.md`). `cosign sign` (as opposed to
+  `sign-blob`) targets OCI registry references — now that there's an
+  actual registry (`push`), this is a reasonable next follow-up.
 - ~~No container security scan gate~~ **Done** — `build` now runs
   `platform/security/scan_image.sh` and refuses to create the `:dev` alias
   (which `deploy`/`promote` both require) on a failed scan. See

@@ -88,19 +88,29 @@ reachable through the ingress layer, terminate TLS in
 
 ## What Was Actually Migrated
 
-`secret/devops/github` — GitHub PAT, migrated from `~/.env`'s
-`GITHUB_TOKEN`, as a proof-of-concept of the migration contract in
-`NEW_SERVICE_GUIDE.md` ("Secret 只保存 Secret Manager reference"). This is
-a demonstration of the mechanism, not a rewiring of every place this
-session used `~/.env` directly (e.g. `git push` in this repo's own commit
-history still reads `~/.env` — deliberately left alone; forcibly cutting
-over an already-working, low-risk flow for marginal benefit wasn't worth
-the regression risk. See "Known Gaps" below).
+`secret/devops/github` — GitHub PAT (fine-grained, repo-scoped), migrated
+from `~/.env`'s `GITHUB_TOKEN`, as a proof-of-concept of the migration
+contract in `NEW_SERVICE_GUIDE.md` ("Secret 只保存 Secret Manager
+reference"). This is a demonstration of the mechanism, not a rewiring of
+every place this session used `~/.env` directly (e.g. `git push` in this
+repo's own commit history still reads `~/.env` — deliberately left alone;
+forcibly cutting over an already-working, low-risk flow for marginal
+benefit wasn't worth the regression risk. See "Known Gaps" below).
+
+`secret/devops/ghcr` — a **separate** classic GitHub PAT with
+`write:packages` scope, added when `platform/compose/deploy.sh push`
+needed to authenticate to GitHub Container Registry. Deliberately not the
+same credential as `secret/devops/github`: GHCR only supports classic
+PATs (fine-grained tokens fail outright, confirmed against GitHub's docs
+— see `platform/compose/README.md`'s "Registry Promotion (GHCR)"), and
+the two tokens authorize genuinely different things (git operations vs.
+registry push) even though both are nominally "the same GitHub account."
 
 **No plaintext secret value ever appears in this repo, in evidence files,
 or in command output that got logged** — verified by comparing byte
-lengths before/after migration (93 chars both sides) instead of ever
-printing the value; see `evidence/vault/setup_verification.json`.
+lengths before/after migration (93 chars both sides for the git PAT)
+instead of ever printing the value; see
+`evidence/vault/setup_verification.json`.
 
 ## Least-Privilege Policy
 

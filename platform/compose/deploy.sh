@@ -48,11 +48,21 @@ REPO_ROOT="$(cd "$PLATFORM_ROOT/.." && pwd)"
 usage() {
   echo "Usage:" >&2
   echo "  $0 build    <pilot_dir>" >&2
+  echo "  $0 push     <pilot_dir>" >&2
   echo "  $0 deploy   develop <pilot_dir>" >&2
   echo "  $0 status   <develop|production-like> <pilot_dir>" >&2
   echo "  $0 teardown <develop|production-like> <pilot_dir>" >&2
   exit 1
 }
+
+# Registry promotion (Plan.md "Registry promotion 與 immutable artifact
+# flow"). GitHub Container Registry -- a natural, zero-new-account
+# extension of the GitHub account already in use for this repo, not an
+# arbitrary choice. Requires VAULT_TOKEN with read access to
+# secret/data/devops/github (the devops-readonly policy already grants
+# this) -- the GitHub PAT is read from Vault, not ~/.env, closing part of
+# the gap noted in platform/vault/README.md's "Known Gaps".
+GHCR_OWNER="drew-young-ai"
 
 git_sha() {
   local dir="$1"
@@ -91,6 +101,86 @@ cmd_build() {
 
   mv "$evidence_dir/metadata.json" "$evidence_dir/build_${sha}.json"
   echo "artifact=$evidence_dir/build_${sha}.json"
+}
+
+cmd_push() {
+  local pilot_dir
+  pilot_dir="$(cd "$1" && pwd)"
+  local pilot_name
+  pilot_name="$(basename "$pilot_dir")"
+  local sha
+  sha="$(git_sha "$pilot_dir")"
+  local registry_image="ghcr.io/${GHCR_OWNER}/${pilot_name}:${sha}"
+
+  if ! docker image inspect "${pilot_name}:dev" >/dev/null 2>&1; then
+    echo "No built image found for ${pilot_name}. Run: $0 build $1" >&2
+    exit 1
+  fi
+  if [ -z "${VAULT_TOKEN:-}" ]; then
+    echo "VAULT_TOKEN not set. Export a token with read access to secret/data/devops/*" >&2
+    echo "(the devops-readonly policy grants this) -- see platform/vault/README.md." >&2
+    exit 1
+  fi
+
+  echo "=== [push] ${pilot_name}:dev -> $registry_image ==="
+
+  # GHCR requires a classic PAT with write:packages scope -- fine-grained
+  # PATs are not supported for GitHub Packages at all, confirmed against
+  # GitHub's own docs after the fine-grained token this repo already used
+  # for `git push` failed with "permission_denied: ... does not match
+  # expected scopes" despite having every repository permission
+  # configured. Separate secret path/token from secret/devops/github
+  # (that one stays scoped to git operations only).
+  local ghcr_pat
+  ghcr_pat="$(docker exec -e VAULT_TOKEN="$VAULT_TOKEN" vault-vault-1 \
+    vault kv get -field=token secret/devops/ghcr)"
+  if [ -z "$ghcr_pat" ]; then
+    echo "Failed to read GHCR PAT from Vault (secret/devops/ghcr, field=token)." >&2
+    exit 1
+  fi
+
+  # Docker Desktop's default credsStore ("desktop") opens a macOS Keychain
+  # GUI prompt that hangs indefinitely in a non-interactive shell --
+  # reproduced this directly (docker login hung past a 2-minute timeout)
+  # before switching to a throwaway DOCKER_CONFIG dir with a plain
+  # base64 auth entry, which bypasses the credential-helper path entirely.
+  local tmp_docker_config
+  tmp_docker_config="$(mktemp -d)"
+  trap 'rm -rf "$tmp_docker_config"; unset ghcr_pat' RETURN
+
+  local auth_b64
+  auth_b64="$(printf '%s:%s' "$GHCR_OWNER" "$ghcr_pat" | base64)"
+  cat > "$tmp_docker_config/config.json" <<EOF
+{"auths":{"ghcr.io":{"auth":"${auth_b64}"}}}
+EOF
+  unset auth_b64
+
+  docker tag "${pilot_name}:dev" "$registry_image"
+  DOCKER_CONFIG="$tmp_docker_config" docker push "$registry_image"
+
+  local registry_digest
+  registry_digest="$(docker image inspect "$registry_image" --format '{{index .RepoDigests 0}}' 2>/dev/null || echo "")"
+  local pushed_at
+  pushed_at="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+
+  local evidence_dir="$REPO_ROOT/evidence/$pilot_name"
+  mkdir -p "$evidence_dir"
+  local evidence_file="$evidence_dir/push_${sha}.json"
+  python3 - "$evidence_file" "$registry_image" "$registry_digest" "$sha" "$pushed_at" <<'PY'
+import json, pathlib, sys
+output, image, digest, commit, pushed_at = sys.argv[1:]
+pathlib.Path(output).write_text(json.dumps({
+    "registry_image": image,
+    "registry_digest": digest or None,
+    "commit_sha": commit,
+    "pushed_at": pushed_at,
+}, indent=2) + "\n")
+PY
+
+  echo "PUSH PASS"
+  echo "  registry_image: $registry_image"
+  echo "  registry_digest: ${registry_digest:-<none returned>}"
+  echo "artifact=$evidence_file"
 }
 
 require_env_arg() {
@@ -443,6 +533,7 @@ cmd_teardown() {
 
 case "${1:-}" in
   build)    shift; [ $# -eq 1 ] || usage; cmd_build "$1" ;;
+  push)     shift; [ $# -eq 1 ] || usage; cmd_push "$1" ;;
   deploy)   shift; [ $# -eq 2 ] || usage; cmd_deploy "$1" "$2" ;;
   promote)  shift; [ $# -eq 1 ] || usage; cmd_promote "$1" ;;
   rollback) shift; [ $# -eq 1 ] || usage; cmd_rollback "$1" ;;

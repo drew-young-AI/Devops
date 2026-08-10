@@ -25,10 +25,11 @@
 - [x] Container security scan gate（Trivy）+ Gitleaks history scan：`platform/security/`。Gate policy 為「拒絕任何有修復方案的 CRITICAL/HIGH」（`--ignore-unfixed`，因為目前 base image 有 4 個 CRITICAL 但上游無修復方案，硬擋這些沒有意義）；已用較舊映像（python:3.9-slim，28 個可修復 CRITICAL/HIGH）驗證 gate 真的會擋。已接入 `deploy.sh build`：掃描失敗則不建立 `:dev` alias，連帶擋住 deploy/promote。Gitleaks 對全部 10 個 commit 掃描：no leaks found。詳見 `platform/security/README.md`。
 - [x] SBOM 產出 + Cosign 簽章（SBOM 半部分完整，image 簽章待 registry）：`scan_image.sh` 產 CycloneDX SBOM（89 components）；`sign_artifact.sh` 用本地 key pair 簽章+驗證，已用竄改測試證明驗證真的會抓到（改一個 byte，驗證正確失敗）。**重要揭露**：Cosign v3 即使是 key-based 簽章，預設仍會把 hash+簽章+時間戳記發布到公開、永久、不可刪除的 Sigstore Rekor transparency log（未找到可關閉的 flag）；此行為在測試中途才發現，已如實告知使用者並取得同意才繼續。因此簽章預設關閉，需要 `SIGN_ARTIFACTS=1` 才會執行。過程中額外發現並修正兩個 bug：(1) SBOM 內容非 byte-stable（每次重新產生 serialNumber/timestamp 不同），原本以「檔名是否存在」判斷冪等性是錯的，已改為比對 bundle 內記錄的 digest 與目前檔案的實際 digest；(2) `.gitignore` 的 `*.pub` 全域規則誤傷了應該要公開的 Cosign 公鑰，已加 negation exception 修正（用 `git add -n` 而非 `git check-ignore` 驗證，因為後者在 negation 規則下的 exit code 容易誤導）。Image 本身簽章需要 registry（見下）。詳見 `platform/security/README.md`。
 - [x] Secret rotation policy：`platform/vault/scripts/rotate_secret.sh`（輪替 + KV v2 版本歷史保留 rollback 能力）+ `check_rotation_due.sh`（依 90 天 policy 檢查是否逾期，與 `platform/iac/variables.tf` 的 `secret_rotation_interval_days` 對齊）+ `platform/vault/runbooks/rotate_github_token.md`（真正輪替 GitHub PAT 需要的人工步驟，因為產生新 PAT/撤銷舊 PAT 都需要 GitHub 本身）。用拋棄式測試 secret 完整跑過 rotate→驗證舊版本仍可讀→check_rotation_due 三種情境（正常/無記錄/逾期），未動用真正的 GITHUB_TOKEN（該 token 這個 session 還需要用來 push）。過程中發現並修正一個 bug：`vault kv metadata get` 不支援 `-field` flag。詳見 `platform/vault/README.md`「Secret Rotation」。
+- [x] Registry promotion：`deploy.sh push`，push 到 GitHub Container Registry（`ghcr.io/drew-young-ai/`），已取得使用者同意。**重要教訓**：一開始用既有的 fine-grained PAT push 失敗（`permission_denied: ... does not match expected scopes`），一度誤判要去 fine-grained token 裡找 Packages 權限勾選——查證 GitHub 官方文件後確認 GitHub Packages **完全不支援 fine-grained PAT**，不論勾了什麼權限都一樣會失敗，只能用 classic PAT + `write:packages` scope。使用者提供新的 classic PAT（`GHCR_TOKEN`）後，已寫入 Vault 獨立路徑 `secret/devops/ghcr`（與 `secret/devops/github` 分開，因為是不同用途的憑證）。Push 成功，取得真正的 registry digest（非本機 buildx 偶爾產生的假 digest），package 可見度確認為 private（用 `gh api` 查證，非假設）。另發現並繞過 Docker Desktop credential store 在非互動環境下卡住的問題（改用暫時性 `DOCKER_CONFIG` 目錄，`trap RETURN` 確保用完即清）。詳見 `platform/compose/README.md`「Registry Promotion (GHCR)」。Container image 本身的 Cosign 簽章（區別於只簽 SBOM）仍未做。
 
 ### 尚未完成的主要交付鏈
 
-- [ ] Registry promotion 與 immutable artifact flow（含真正的 container image Cosign 簽章，而非只簽 SBOM）。
+- [ ] Container image 本身的 Cosign 簽章（`cosign sign`，非 `sign-blob`；現在有 registry 了，是合理的下一步）。
 - [ ] Cloud trial VM + rathole Public URL experiment。
 - [ ] Optional Cloudflare Tunnel adapter。
 - [ ] Pilot technical validation 與 Human Platform Usability Review。
@@ -72,11 +73,12 @@ MLOps/LLMOps：保留接口，延後擴充
 9. [x] platform/security/：Trivy container scan gate + Gitleaks history scan
 10. [x] SBOM 產出 + Cosign SBOM 簽章（image 簽章待 registry；Rekor 公開揭露已取得使用者同意）
 11. [x] Secret rotation policy（rotate_secret.sh + check_rotation_due.sh + runbook）
-12. [ ] 建立 rathole Public URL experiment  <- 需要人類決定雲端供應商，暫停待決策
-13. [ ] Registry promotion 與 immutable artifact flow（可能需要決定 registry，如 GitHub Container Registry；完成後可補上真正的 image Cosign 簽章）
+12. [x] Registry promotion（GHCR，`deploy.sh push`；classic PAT `write:packages`，見上的教訓）
+13. [ ] Container image 本身的 Cosign 簽章（`cosign sign`，非 `sign-blob`）
+14. [ ] 建立 rathole Public URL experiment  <- 需要人類決定雲端供應商，暫停待決策
 ```
 
-所有目前已知「本機可自主完成」的項目至此已全部完成。剩餘項目（rathole、registry 選型）依先前使用者指示，需要人類決策才能繼續。
+Registry promotion 已完成（GHCR）。剩餘項目：container image Cosign 簽章可本機完成（候選下一步）；rathole 仍需使用者決定雲端供應商。
 
 ## 1. 定位
 
