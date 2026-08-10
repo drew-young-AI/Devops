@@ -51,7 +51,8 @@ Per `Plan.md` §4:
 # Develop
 platform/compose/deploy.sh build    pilots/station1-hello
 export VAULT_TOKEN=<token with read access to secret/data/devops/*>
-platform/compose/deploy.sh push     pilots/station1-hello
+platform/compose/deploy.sh push     pilots/station1-hello           # push only
+SIGN_ARTIFACTS=1 platform/compose/deploy.sh push pilots/station1-hello  # push + cosign sign
 platform/compose/deploy.sh deploy   develop pilots/station1-hello
 platform/compose/deploy.sh status   develop pilots/station1-hello
 platform/compose/deploy.sh teardown develop pilots/station1-hello
@@ -131,6 +132,8 @@ via a `trap ... RETURN` as soon as `cmd_push` finishes, success or failure.
 | Classic PAT + `write:packages`, same push command | Succeeded: `ghcr.io/drew-young-ai/station1-hello:b0c679a`, real registry digest `sha256:c8db7...` recorded in `evidence/<pilot>/push_<sha>.json` |
 | Package visibility | Queried `gh api /users/<owner>/packages/container/<pilot>` → `"visibility":"private"` — confirmed private by default, not silently public |
 | Credential cleanup | Throwaway `DOCKER_CONFIG` dir removed after both the failing and succeeding push attempts (verified via the `trap` firing on `RETURN`, not just "should have") |
+| Image signing (`SIGN_ARTIFACTS=1`) | `cosign sign` on the pushed digest succeeded; `cosign verify` with the matching public key → `IMAGE VERIFY PASS`, offline transparency-log inclusion check passed |
+| **Wrong-key verification fails** | Generated a throwaway, unrelated key pair and ran `cosign verify --key <wrong pub key>` against the *real* signed image → `Error: no matching attestations: ... transparency log certificate does not match`, exit 1 — the check actually validates key material, it isn't a rubber stamp |
 
 ## Blue/Green Design
 
@@ -212,10 +215,14 @@ per promotion (same shape as the state file at that moment), for history
   falls back to. `push` is a separate, opt-in step (not run automatically
   by `build`) — nothing currently gates `deploy`/`promote` on having been
   pushed first.
-- **Container image itself isn't Cosign-signed, only the SBOM is**
-  (`platform/security/README.md`). `cosign sign` (as opposed to
-  `sign-blob`) targets OCI registry references — now that there's an
-  actual registry (`push`), this is a reasonable next follow-up.
+- ~~Container image itself isn't Cosign-signed~~ **Done** — `push` signs
+  the pushed digest with `cosign sign` when `SIGN_ARTIFACTS=1` (same
+  opt-in gate and same Rekor disclosure as SBOM signing in
+  `platform/security/README.md`, reusing the GHCR credentials already
+  staged for the push itself). Verified: signed, `cosign verify` with the
+  correct public key passed; **verifying the same image with a
+  deliberately wrong public key failed** (`transparency log certificate
+  does not match`, exit 1) — proof the check is real, not a rubber stamp.
 - ~~No container security scan gate~~ **Done** — `build` now runs
   `platform/security/scan_image.sh` and refuses to create the `:dev` alias
   (which `deploy`/`promote` both require) on a failed scan. See

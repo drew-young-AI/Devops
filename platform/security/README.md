@@ -185,11 +185,11 @@ incorrectly — when the last-matching pattern is itself a negation).
   just the sorted component list + versions, not Trivy's raw output)
   would let genuinely-unchanged builds skip signing entirely instead of
   re-publishing to Rekor on every build.
-- **No image signing, only SBOM signing.** Signing the container image
-  itself (not just its SBOM) needs a registry to push the signed
-  image+signature to (`Plan.md`'s still-open "Registry promotion 與
-  immutable artifact flow") — `cosign sign` (as opposed to `sign-blob`)
-  targets OCI registry references, not local Docker images directly.
+- ~~No image signing, only SBOM signing~~ **Done** — see
+  `platform/compose/README.md`'s "Registry Promotion (GHCR)" and
+  `deploy.sh push`'s `SIGN_ARTIFACTS=1` gate, which runs `cosign sign`
+  against the pushed digest now that GHCR provides somewhere to push a
+  signed image+signature to.
 - **`scan_secrets.sh` isn't wired into CI.** It's a standalone script,
   run manually. Unlike `scan_image.sh` (naturally scoped to one pilot's
   build), a secret scan is repo-wide and doesn't obviously belong to any

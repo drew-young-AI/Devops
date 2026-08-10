@@ -160,26 +160,66 @@ EOF
 
   local registry_digest
   registry_digest="$(docker image inspect "$registry_image" --format '{{index .RepoDigests 0}}' 2>/dev/null || echo "")"
+  # Extract just the sha256:... portion regardless of what repo-name prefix
+  # docker put in front of it -- needed to build an unambiguous
+  # digest-pinned reference for cosign below.
+  local digest_hash=""
+  if [ -n "$registry_digest" ]; then
+    digest_hash="${registry_digest#*@}"
+  fi
+
+  # Image signing is opt-in (SIGN_ARTIFACTS=1), same reasoning as SBOM
+  # signing in platform/security/scan_image.sh: every cosign sign
+  # publishes a permanent record to the public Sigstore Rekor transparency
+  # log, which the user explicitly accepted for this platform but which
+  # shouldn't happen silently on every routine push. Reuses the GHCR
+  # credentials already staged in $tmp_docker_config -- cosign respects
+  # DOCKER_CONFIG the same way `docker push` does.
+  local signed="false"
+  local signature_ref=""
+  if [ "${SIGN_ARTIFACTS:-0}" = "1" ] && [ -n "$digest_hash" ]; then
+    local digest_ref="ghcr.io/${GHCR_OWNER}/${pilot_name}@${digest_hash}"
+    echo "=== [sign image] $digest_ref ==="
+    echo "NOTE: publishes a hash+signature+timestamp record to the public," >&2
+    echo "permanent Sigstore Rekor transparency log (see platform/security/" >&2
+    echo "sign_artifact.sh's header for what this platform already accepted)." >&2
+    if DOCKER_CONFIG="$tmp_docker_config" COSIGN_PASSWORD="" cosign sign \
+      --key "$PLATFORM_ROOT/security/keys/cosign.key" \
+      --use-signing-config=false --yes "$digest_ref"; then
+      signed="true"
+      signature_ref="$digest_ref"
+      echo "Verifying..."
+      DOCKER_CONFIG="$tmp_docker_config" cosign verify \
+        --key "$PLATFORM_ROOT/security/keys/cosign.pub" "$digest_ref" \
+        && echo "IMAGE VERIFY PASS"
+    else
+      echo "WARNING: image signing failed; push itself already succeeded, continuing" >&2
+    fi
+  fi
+
   local pushed_at
   pushed_at="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
 
   local evidence_dir="$REPO_ROOT/evidence/$pilot_name"
   mkdir -p "$evidence_dir"
   local evidence_file="$evidence_dir/push_${sha}.json"
-  python3 - "$evidence_file" "$registry_image" "$registry_digest" "$sha" "$pushed_at" <<'PY'
+  python3 - "$evidence_file" "$registry_image" "$registry_digest" "$sha" "$pushed_at" "$signed" "$signature_ref" <<'PY'
 import json, pathlib, sys
-output, image, digest, commit, pushed_at = sys.argv[1:]
+output, image, digest, commit, pushed_at, signed, sig_ref = sys.argv[1:]
 pathlib.Path(output).write_text(json.dumps({
     "registry_image": image,
     "registry_digest": digest or None,
     "commit_sha": commit,
     "pushed_at": pushed_at,
+    "signed": signed == "true",
+    "signature_ref": sig_ref or None,
 }, indent=2) + "\n")
 PY
 
   echo "PUSH PASS"
   echo "  registry_image: $registry_image"
   echo "  registry_digest: ${registry_digest:-<none returned>}"
+  echo "  signed: $signed"
   echo "artifact=$evidence_file"
 }
 
