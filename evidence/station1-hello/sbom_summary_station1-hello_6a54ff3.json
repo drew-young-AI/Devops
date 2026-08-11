@@ -1,0 +1,15 @@
+{
+  "image": "station1-hello:6a54ff3",
+  "generated_at": "2026-08-11T12:01:14Z",
+  "bom_format": "CycloneDX",
+  "spec_version": "1.7",
+  "component_count": 89,
+  "components_by_type": {
+    "operating-system": 1,
+    "library": 88
+  },
+  "raw_sbom_sha256": "e0b59063daa66375a6c3f73d0555964fd49bb8eb394ee6acd1993b8867611dbc",
+  "signed": false,
+  "signature_bundle": null,
+  "note": "Full SBOM is at /Users/drew/ENV/Devops/evidence/station1-hello/_raw.sbom_station1-hello_6a54ff3.cdx.json (gitignored, regenerate with: trivy image station1-hello:6a54ff3 --format cyclonedx). This checksum lets you verify a regenerated SBOM matches what was recorded at build time."
+}

@@ -1,0 +1,10 @@
+{
+  "environment": "develop",
+  "compose_project": "station1-hello-develop",
+  "commit_sha": "6a54ff3",
+  "image_id": "sha256:e48b11f62df34f31cefedf3785d163c0d39098a583e7508221eed73190981479",
+  "image_digest": "station1-hello@sha256:e48b11f62df34f31cefedf3785d163c0d39098a583e7508221eed73190981479",
+  "deployed_at": "2026-08-11T12:03:51Z",
+  "health_status": "healthy",
+  "env_file": "/Users/drew/ENV/Devops/platform/compose/environments/station1-hello/develop.env"
+}

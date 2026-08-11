@@ -1,8 +1,8 @@
 {
-  "active_color": "blue",
-  "previous_color": "green",
-  "active_project": "station1-hello-productionlike-blue",
-  "active_port": 18081,
+  "active_color": "green",
+  "previous_color": "blue",
+  "active_project": "station1-hello-productionlike-green",
+  "active_port": 18082,
   "promoted_sha": "6a54ff3",
   "image_id": "sha256:e48b11f62df34f31cefedf3785d163c0d39098a583e7508221eed73190981479",
   "promoted_at": "2026-08-11T12:04:19Z"

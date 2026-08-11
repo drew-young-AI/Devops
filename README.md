@@ -10,7 +10,8 @@
 4. [docs/IaC.md](docs/IaC.md)
 5. [docs/Network.md](docs/Network.md)
 6. [docs/Security.md](docs/Security.md)
-7. [docs/Pilot-Validation.md](docs/Pilot-Validation.md)
+7. [docs/Pilot-Validation.md](docs/Pilot-Validation.md)、[docs/Human-Usability-Review-Checklist.md](docs/Human-Usability-Review-Checklist.md)
+8. [docs/Future-ML-LLMOps.md](docs/Future-ML-LLMOps.md)、[docs/Future-DataOps.md](docs/Future-DataOps.md)（延後範圍，但架構設計需考量）
 
 目前正在建造的是「單一 Mac 上的縮小版企業 DevOps 控制面」，不是實際產品，也不是完整企業 HA 環境。
 

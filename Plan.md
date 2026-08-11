@@ -14,9 +14,9 @@
 - [x] Loki 已收集 Station 1 Docker logs。
 - [x] Grafana 已建立 DevOps Overview dashboard。
 - [x] 已建立新服務接入文件 `NEW_SERVICE_GUIDE.md`。
-- [x] 已將 Plan 拆分為 Architecture、IaC、Network、Security、Observability、Pilot Validation 與 Future MLOps/LLMOps 文件。
+- [x] 已將 Plan 拆分為 Architecture、IaC、Network、Security、Observability、Pilot Validation、Future MLOps/LLMOps 與 Future DataOps 文件。
 - [x] GitHub source of truth：https://github.com/drew-young-AI/Devops（public repo，PAT-based push，無 secret 提交）。
-- [x] Git-triggered CI：`.github/workflows/iac-validate.yml`（push 觸發，fmt → validate → Checkov → plan → tfsec → evidence），已驗證綠燈（見 `PHASE1_COMPLETION_REPORT.md`）。
+- [x] Git-triggered CI：`.github/workflows/iac-validate.yml`（push 觸發，fmt → validate → Checkov → plan → tfsec → evidence），已驗證綠燈。
 - [x] OpenTofu IaC skeleton：`platform/iac/`，provider-neutral contract（AWS/GCP/Azure adapter 以註解預留，不 apply）、30+ 已驗證變數、Checkov + OPA/Conftest policy。State governance 僅文件化契約（local state 為 Phase 1 預設，尚未接 MinIO/cloud backend）。
 - [x] Local HTTPS + NGINX adapter：`platform/nginx/`，mkcert TLS、反向代理到 station1-hello、rate limit、security headers、correlation ID、結構化 JSON log。端到端驗證見 `platform/nginx/README.md`「Verified End-to-End」，含 Loki 實際查詢結果。
 - [x] Develop Compose deployment adapter：`platform/compose/deploy.sh`（build/deploy/status/teardown），獨立 Compose project + network、環境專屬 env file 注入、build 與 deploy 分離（deploy 絕不重build）。
@@ -30,9 +30,38 @@
 
 ### 尚未完成的主要交付鏈
 
-- [ ] Cloud trial VM + rathole Public URL experiment。
-- [ ] Optional Cloudflare Tunnel adapter。
-- [ ] Pilot technical validation 與 Human Platform Usability Review。
+- [ ] Cloud trial VM + rathole Public URL experiment（Cloudflare Tunnel
+      Quick Tunnel 已驗證可用作免費臨時方案，見 `STAGE_REVIEW.md` §7；
+      固定網址/正式方案仍待雲端供應商決策）。
+- [ ] Optional Cloudflare Tunnel adapter（具名 tunnel + 固定網址，需要
+      使用者已有的網域或新申請一個，token 存放方式已在討論中確認）。
+- [ ] **Pilot technical validation — graceful shutdown 未通過**：
+      2026-08-11 實測（主機端快速輪詢 + 容器內部日誌兩種方法互相印證）
+      發現 `/health/ready` 在 SIGTERM 後從未回應 503，直接從 200 跳到
+      連線中斷，沒有可觀察的 draining 窗口。`app.py` 的程式碼邏輯看起來
+      正確（`shutting_down` flag + threaded `server.shutdown()`），但實際
+      行為沒有達到 README 宣稱的「graceful shutdown 時返回 503」。尚未
+      決定要修正還是記錄為已知限制。
+- [ ] **Human Platform Usability Review**：依 `docs/Pilot-Validation.md`
+      定義，這項檢查「operator 能否理解 CI、dashboard、evidence、
+      rollback」，本質上需要使用者本人操作，AI 無法代為完成。走查清單
+      見 `docs/Human-Usability-Review-Checklist.md`（含每項工具的實際
+      連結與點擊步驟，2026-08-11 逐項實測過才寫的）。
+
+### 2026-08-11 發現並修正：Grafana dashboard 完全空白（真實 bug）
+
+`platform/observability/grafana/dashboards/devops-overview.json` 的 5 個
+panel 定義全部缺少 `datasource` 欄位、`id` 也是 `null`，導致整個
+dashboard 頁面完全不渲染（不是「有 panel 但無資料」，是連 panel 框都
+不出現）。這個 bug 存在的期間，`Plan.md`/`README.md` 一直宣稱「Grafana
+已建立 DevOps Overview dashboard」——這個宣稱只驗證過底層資料存在
+（Prometheus/Loki API 查得到），從來沒有實際打開瀏覽器看過畫面渲染
+結果。用 kimi-webbridge 實際開瀏覽器截圖才發現。
+
+**修正**：5 個 panel 補上明確的 `datasource: {type, uid}`（Prometheus
+`PBFA97CFB590B2093` / Loki `P8E80F9AEF21F6940`）與唯一 `id`。重新截圖
+驗證：5 個 panel 全部顯示真實資料（Requests=582、Errors=0、Up=1、
+Request Rate 時序圖、Container Logs 即時日誌）。
 
 ### 已鎖定決策
 
@@ -100,23 +129,42 @@ Pilot 只用來驗證平台，不代表產品需求或產品效果已完成。
 
 ### 本階段完成
 
-- [ ] GitHub Free 或外部 GitLab Free source control。
-- [ ] OpenTofu IaC validation、plan、policy 與 state governance。
-- [ ] provider-neutral Cloud resource planning。
-- [ ] local network architecture、NGINX、local HTTPS 與 F5/WAF/CDN contract simulation。
-- [ ] CI/CD、container registry、security gates、artifact promotion。
-- [ ] develop / production-like 最小隔離、blue/green 與 rollback。
-- [ ] Grafana、Prometheus、Loki、audit 與 evidence。
-- [ ] Pilot 的 technical deployment、test、failure path 與 recovery evidence。
-- [ ] Human Platform Usability Review。
+- [x] GitHub Free 或外部 GitLab Free source control。
+- [x] OpenTofu IaC validation、plan、policy 與 state governance（state governance
+      僅文件化契約，local state 為 Phase 1 預設）。
+- [x] provider-neutral Cloud resource planning（`platform/iac/providers.tf`，
+      未 apply）。
+- [x] local network architecture、NGINX、local HTTPS（F5/WAF/CDN contract
+      simulation 仍是文件層級，未實作模擬）。
+- [x] CI/CD、container registry、security gates、artifact promotion。
+- [x] develop / production-like 最小隔離、blue/green 與 rollback。
+- [x] Grafana、Prometheus、Loki、audit 與 evidence。
+- [ ] Pilot 的 technical deployment、test、failure path 與 recovery evidence
+      （2026-08-11 實測發現：graceful shutdown 未如預期在 SIGTERM 後回應
+      503，見 §0.1 待處理項目——這項還不能打勾）。
+- [ ] Human Platform Usability Review（定義上需要操作者本人審視 CI/
+      dashboard/evidence/rollback，無法由 AI 代為完成）。
 
 ### 本階段延後
 
 - [ ] 實際 Cloud resource apply。
 - [ ] 多節點 HA、真實 F5/WAF/CDN 與大型流量。
 - [ ] Kubernetes、Argo CD、Kubeflow、Airflow。
-- [ ] MLOps/LLMOps 完整平台；只保留未來 integration contract。
+- [ ] MLOps/LLMOps 完整平台；只保留未來 integration contract（詳見
+      `docs/Future-ML-LLMOps.md`，已補上具體臨床模型類型）。
+- [ ] DataOps 完整平台（Warehouse/Lakehouse/多模態醫療資料）；只保留未來
+      integration contract（詳見 `docs/Future-DataOps.md`：資料種類對應、
+      FHIR/OMOP/REDCap 整合、多人協作、MinIO vs Databricks Volumes 取捨）。
 - [ ] 產品 PRD、產品 UX 與業務效果驗收。
+
+### 本階段需提前處理的 gate（不是延後項目，是延後範圍裡的例外）
+
+- [ ] **PHI/病人資料安全檢查**：`evidence/` 產出流程與 `scan_secrets.sh`
+      （Gitleaks）目前只防 secret（token/key），不防 PHI（病歷號、身分證號
+      等）。在任何真實醫療資料流過 pipeline 之前，必須先做一次明確的
+      evidence/日誌管線 PHI 安全檢查並寫進 runbook——見
+      `docs/Future-DataOps.md`「資料治理／PHI 安全」。這是本文件目前唯一
+      一項「內容延後、但檢查點不能延後」的項目。
 
 ## 3. 明確技術決策
 
@@ -182,4 +230,5 @@ P4  MLOps / LLMOps expansion
 - [Observability.md](docs/Observability.md)
 - [Pilot-Validation.md](docs/Pilot-Validation.md)
 - [Future-ML-LLMOps.md](docs/Future-ML-LLMOps.md)
+- [Future-DataOps.md](docs/Future-DataOps.md)
 - [Plan-detail.md](docs/Plan-detail.md)

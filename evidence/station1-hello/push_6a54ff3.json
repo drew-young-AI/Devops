@@ -1,0 +1,8 @@
+{
+  "registry_image": "ghcr.io/drew-young-ai/station1-hello:6a54ff3",
+  "registry_digest": "station1-hello@sha256:e48b11f62df34f31cefedf3785d163c0d39098a583e7508221eed73190981479",
+  "commit_sha": "6a54ff3",
+  "pushed_at": "2026-08-11T12:01:51Z",
+  "signed": true,
+  "signature_ref": "ghcr.io/drew-young-ai/station1-hello@sha256:e48b11f62df34f31cefedf3785d163c0d39098a583e7508221eed73190981479"
+}
