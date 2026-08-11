@@ -57,11 +57,32 @@ class Handler(BaseHTTPRequestHandler):
             self.send_json(404, {"error": "not_found"})
 
 
+GRACEFUL_DRAIN_SECONDS = float(os.environ.get("GRACEFUL_DRAIN_SECONDS", "3"))
+
+
 def stop(server, _signum, _frame):
     global shutting_down
     shutting_down = True
-    # BaseServer.shutdown must run from a different thread than serve_forever.
-    threading.Thread(target=server.shutdown, daemon=True).start()
+
+    # Calling server.shutdown() immediately does NOT give a usable drain
+    # window: BaseServer.serve_forever() re-checks __shutdown_request right
+    # after selector.select() wakes up and, if true, breaks out WITHOUT
+    # calling _handle_request_noblock() -- so any connection that caused
+    # select() to wake is simply never accepted, and the client sees a
+    # reset/refused connection instead of a 503. Verified empirically: two
+    # independent methods (host-side sub-millisecond polling, and the
+    # container's own request log) both showed zero 503 responses ever
+    # served -- a hard transition from 200 straight to connection failure.
+    #
+    # Fix: keep serve_forever() running (still accepting + handling
+    # connections, so /health/ready's `shutting_down` check actually gets
+    # to run and return 503) for a real grace period, and only THEN call
+    # server.shutdown() to stop the loop and let server_close() run.
+    def delayed_shutdown():
+        time.sleep(GRACEFUL_DRAIN_SECONDS)
+        server.shutdown()
+
+    threading.Thread(target=delayed_shutdown, daemon=True).start()
 
 
 server = ThreadingHTTPServer(("0.0.0.0", PORT), Handler)

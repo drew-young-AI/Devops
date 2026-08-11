@@ -1,8 +1,8 @@
 {
-  "commit_sha": "local-uncommitted",
+  "commit_sha": "6d37623805c2c4d222316aba38aad3a3cc121343",
   "image": "station1-hello:ci",
-  "image_id": "sha256:73d6d1cc1a183d7434e9a3a8681ff34d992eca5cdcb67e040da795b5c1fccbdd",
-  "image_digest": "station1-hello@sha256:73d6d1cc1a183d7434e9a3a8681ff34d992eca5cdcb67e040da795b5c1fccbdd",
-  "build_timestamp": "2026-07-31T08:47:01Z",
+  "image_id": "sha256:5ceb7b3e165b0a0d2e8cecc35dbe905346478e59831c51f30432ecf33d4d9c0b",
+  "image_digest": "station1-hello@sha256:5ceb7b3e165b0a0d2e8cecc35dbe905346478e59831c51f30432ecf33d4d9c0b",
+  "build_timestamp": "2026-08-11T11:58:16Z",
   "source_path": "/Users/drew/ENV/Devops/pilots/station1-hello"
 }
