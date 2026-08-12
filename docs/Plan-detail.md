@@ -137,7 +137,7 @@ MLOps 與 LLMOps 保留接口與未來擴充位置，但目前不應主導平台
 ### Station 2：CI 基線
 
 - [ ] Git commit 觸發 lint、unit test、container build；目前先以 local runner 等價驗證，待 Git 平台接入後補上 webhook。
-- [x] 保存 test result、image tag、commit SHA、image digest 與 pipeline log；證據位於 `evidence/station2/metadata.json`。
+- [x] 保存 test result、image tag、commit SHA、image digest 與 pipeline log；證據位於 `evidence/station1-hello/`。
 - [x] Pipeline 使用 `set -euo pipefail`，任一必要 stage 失敗即停止後續步驟；首次執行已發現並修正 artifact path 初始化錯誤。
 - [x] Local CI 已通過：compile、3 項 unit/contract tests、container build、image metadata。
 

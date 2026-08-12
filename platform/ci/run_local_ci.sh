@@ -3,7 +3,7 @@ set -euo pipefail
 
 PILOT_DIR="${1:-$(cd "$(dirname "$0")/../../pilots/station1-hello" && pwd)}"
 PLATFORM_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-ARTIFACT_DIR="${2:-$PLATFORM_ROOT/evidence/station2}"
+ARTIFACT_DIR="${2:-$PLATFORM_ROOT/evidence/station1-hello}"
 IMAGE_NAME="${IMAGE_NAME:-station1-hello:ci}"
 
 mkdir -p "$ARTIFACT_DIR"
