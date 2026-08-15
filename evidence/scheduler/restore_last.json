@@ -1,0 +1,12 @@
+{
+  "job": "restore",
+  "started_at": "2026-08-14T10:11:21Z",
+  "status": "ok",
+  "exit_code": 0,
+  "duration_seconds": 2,
+  "interval_seconds": 604800,
+  "command": "platform/backup/restore_drill.sh",
+  "output_tail": [
+    "No backup with a manifest found. Run platform/backup/backup.sh first."
+  ]
+}

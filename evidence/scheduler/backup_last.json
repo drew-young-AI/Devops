@@ -1,0 +1,22 @@
+{
+  "job": "backup",
+  "started_at": "2026-08-14T10:11:21Z",
+  "status": "ok",
+  "exit_code": 0,
+  "duration_seconds": 4,
+  "interval_seconds": 86400,
+  "command": "platform/backup/backup.sh",
+  "output_tail": [
+    "=== [backup] 20260814T101121Z -> /Users/drew/ENV/Devops/platform/backup/archives/20260814T101121Z ===",
+    "  vault_vault-file -> vault_vault-file.tar.gz  34384 bytes",
+    "  vault_vault-logs -> vault_vault-logs.tar.gz  25287 bytes",
+    "  observability_grafana-data -> observability_grafana-data.tar.gz  22920633 bytes",
+    "  observability_alertmanager-data -> observability_alertmanager-data.tar.gz  141 bytes",
+    "",
+    "BACKUP PASS",
+    "artifact=/Users/drew/ENV/Devops/platform/backup/archives/20260814T101121Z/manifest.json",
+    "",
+    "A backup that has never been restored is not a backup.",
+    "Verify it: platform/backup/restore_drill.sh /Users/drew/ENV/Devops/platform/backup/archives/20260814T101121Z"
+  ]
+}

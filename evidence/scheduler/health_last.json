@@ -1,0 +1,26 @@
+{
+  "job": "health",
+  "started_at": "2026-08-15T11:54:12Z",
+  "status": "ok",
+  "exit_code": 0,
+  "duration_seconds": 2,
+  "interval_seconds": 900,
+  "command": "platform/observability/check_health.sh --json",
+  "output_tail": [
+    "    }",
+    "  ],",
+    "  \"integrity_blockers\": [],",
+    "  \"active_alerts\": [],",
+    "  \"scrape_targets\": {",
+    "    \"station1-hello/develop\": \"up\",",
+    "    \"station1-hello-productionlike/blue\": \"up\",",
+    "    \"station1-hello-productionlike/green\": \"down\"",
+    "  },",
+    "  \"sources\": {",
+    "    \"prometheus\": \"http://127.0.0.1:19090\",",
+    "    \"alertmanager\": \"http://127.0.0.1:19093\"",
+    "  },",
+    "  \"artifact\": \"/Users/drew/ENV/Devops/evidence/observability/health_20260815T115412Z.json\"",
+    "}"
+  ]
+}

@@ -1,0 +1,28 @@
+{
+  "tool": "semgrep",
+  "scanned_at": "20260814T032306Z",
+  "target": "/Users/drew/ENV/Devops/pilots/station1-hello",
+  "rulesets": [
+    "p/security-audit",
+    "p/secrets",
+    "p/dockerfile",
+    "p/owasp-top-ten",
+    "p/python",
+    "p/ci"
+  ],
+  "gate_policy": "fail on ERROR severity; WARNING/INFO reported, not blocking",
+  "gate_result": "PASS",
+  "files_scanned": 5,
+  "counts_by_severity": {
+    "ERROR": 0,
+    "WARNING": 0,
+    "INFO": 0
+  },
+  "error_findings": [],
+  "non_blocking_findings": [],
+  "scan_integrity": {
+    "ok": true,
+    "config_errors": [],
+    "note": "A mistyped ruleset makes semgrep scan nothing and still report zero findings. files_scanned==0 is treated as a gate failure, not as a clean result."
+  }
+}

@@ -1,0 +1,42 @@
+{
+  "evidence_type": "LLM-generated",
+  "human_acceptance": null,
+  "note": "LLM-generated evidence only. Per NEW_SERVICE_GUIDE.md section 8 this does not constitute production release approval; a human decision is still required regardless of the verdict below.",
+  "service": "station1-hello",
+  "commit_sha": "6a54ff3",
+  "generated_at": "2026-08-13T07:33:30Z",
+  "status": "OK",
+  "verdict": "CONCERN",
+  "summary": "The build passes all automated gates, including vulnerability scanning and deployment health checks. However, the presence of 4 critical and 19 high severity vulnerabilities warrants review despite being unfixed.",
+  "findings": [
+    {
+      "severity": "medium",
+      "area": "security",
+      "detail": "Image contains 4 critical and 19 high severity vulnerabilities, though they are currently unfixed and pass the gate policy."
+    },
+    {
+      "severity": "low",
+      "area": "reliability",
+      "detail": "Graceful shutdown logic has been modified to delay server shutdown, introducing a dependency on `GRACEFUL_DRAIN_SECONDS` environment variable which defaults to 3 seconds."
+    }
+  ],
+  "error": null,
+  "raw_response": "{\n  \"verdict\": \"CONCERN\",\n  \"findings\": [\n    {\n      \"severity\": \"medium\",\n      \"area\": \"security\",\n      \"detail\": \"Image contains 4 critical and 19 high severity vulnerabilities, though they are currently unfixed and pass the gate policy.\"\n    },\n    {\n      \"severity\": \"low\",\n      \"area\": \"reliability\",\n      \"detail\": \"Graceful shutdown logic has been modified to delay server shutdown, introducing a dependency on `GRACEFUL_DRAIN_SECONDS` environment variable which defaults to 3 seconds.\"\n    }\n  ],\n  \"summary\": \"The build passes all automated gates, including vulnerability scanning and deployment health checks. However, the presence of 4 critical and 19 high severity vulnerabilities warrants review despite being unfixed.\"\n}",
+  "reproducibility": {
+    "endpoint": "http://127.0.0.1:9000",
+    "model": "mlx-community/Qwen3.6-35B-A3B-4bit",
+    "temperature": 0,
+    "top_p": 1,
+    "thinking_enabled": false,
+    "inputs_digest_sha256": "a73c671cb29ad243c3e8c07c459e6699fbfd6628c1a95065a73cbe45dee11695",
+    "system_prompt_digest_sha256": "e5c474b18e0c8e79e84189430546981915bb6f95a5216bf7824d0ac55f3acbbf",
+    "diff_truncated": false,
+    "sources_present": {
+      "BUILD METADATA": true,
+      "CONTAINER VULNERABILITY SCAN (Trivy gate)": true,
+      "SBOM SUMMARY": true,
+      "DEVELOP DEPLOYMENT": true,
+      "GIT DIFF (service directory only)": true
+    }
+  }
+}

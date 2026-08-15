@@ -3,6 +3,11 @@ services:
     build:
       context: .
     image: station1-hello:dev
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     ports:
       - "127.0.0.1:${HOST_PORT:-18080}:8080"
     environment:

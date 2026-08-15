@@ -1,0 +1,149 @@
+{
+  "tool": "semgrep",
+  "scanned_at": "20260814T030750Z",
+  "target": "/Users/drew/ENV/Devops",
+  "rulesets": [
+    "p/security-audit",
+    "p/secrets",
+    "p/dockerfile",
+    "p/owasp-top-ten",
+    "p/python",
+    "p/ci"
+  ],
+  "gate_policy": "fail on ERROR severity; WARNING/INFO reported, not blocking",
+  "gate_result": "FAIL",
+  "files_scanned": 120,
+  "counts_by_severity": {
+    "ERROR": 2,
+    "WARNING": 15,
+    "INFO": 0
+  },
+  "error_findings": [
+    {
+      "severity": "ERROR",
+      "rule": "yaml.github-actions.security.run-shell-injection.run-shell-injection",
+      "path": "/Users/drew/ENV/Devops/.github/workflows/iac-validate.yml",
+      "line": 128,
+      "message": "Using variable interpolation `${{...}}` with `github` context data in a `run:` step could allow an attacker to inject their own code into the runner. This would allow them to steal secrets and code. `github` context data can have arbitrary user input and should be treated as untrusted. Instead, use "
+    },
+    {
+      "severity": "ERROR",
+      "rule": "yaml.github-actions.security.gha-curl-pipe-shell.gha-curl-pipe-shell",
+      "path": "/Users/drew/ENV/Devops/.github/workflows/iac-validate.yml",
+      "line": 182,
+      "message": "A `run:` step pipes the output of `curl` or `wget` directly into a shell interpreter. This is the \"curl | bash\" install pattern \u2014 if the remote server is compromised or the URL is hijacked, an attacker can execute arbitrary code in your CI runner. Consider downloading the file first, verifying its c"
+    }
+  ],
+  "non_blocking_findings": [
+    {
+      "severity": "WARNING",
+      "rule": "yaml.github-actions.security.github-actions-mutable-action-tag.github-actions-mutable-action-tag",
+      "path": "/Users/drew/ENV/Devops/.github/workflows/iac-validate.yml",
+      "line": 30,
+      "message": "GitHub Actions step uses a mutable tag or branch reference. Tags and branch names can be silently repointed by the action owner, enabling supply-chain attacks \u2014 as seen in the trivy-action and kics-github-action compromises. Pin the reference to a full 40-character commit SHA instead, e.g. `uses: ac"
+    },
+    {
+      "severity": "WARNING",
+      "rule": "yaml.github-actions.security.github-actions-mutable-action-tag.github-actions-mutable-action-tag",
+      "path": "/Users/drew/ENV/Devops/.github/workflows/iac-validate.yml",
+      "line": 40,
+      "message": "GitHub Actions step uses a mutable tag or branch reference. Tags and branch names can be silently repointed by the action owner, enabling supply-chain attacks \u2014 as seen in the trivy-action and kics-github-action compromises. Pin the reference to a full 40-character commit SHA instead, e.g. `uses: ac"
+    },
+    {
+      "severity": "WARNING",
+      "rule": "yaml.github-actions.security.github-actions-mutable-action-tag.github-actions-mutable-action-tag",
+      "path": "/Users/drew/ENV/Devops/.github/workflows/iac-validate.yml",
+      "line": 76,
+      "message": "GitHub Actions step uses a mutable tag or branch reference. Tags and branch names can be silently repointed by the action owner, enabling supply-chain attacks \u2014 as seen in the trivy-action and kics-github-action compromises. Pin the reference to a full 40-character commit SHA instead, e.g. `uses: ac"
+    },
+    {
+      "severity": "WARNING",
+      "rule": "yaml.github-actions.security.github-actions-mutable-action-tag.github-actions-mutable-action-tag",
+      "path": "/Users/drew/ENV/Devops/.github/workflows/iac-validate.yml",
+      "line": 86,
+      "message": "GitHub Actions step uses a mutable tag or branch reference. Tags and branch names can be silently repointed by the action owner, enabling supply-chain attacks \u2014 as seen in the trivy-action and kics-github-action compromises. Pin the reference to a full 40-character commit SHA instead, e.g. `uses: ac"
+    },
+    {
+      "severity": "WARNING",
+      "rule": "yaml.github-actions.security.github-actions-mutable-action-tag.github-actions-mutable-action-tag",
+      "path": "/Users/drew/ENV/Devops/.github/workflows/iac-validate.yml",
+      "line": 111,
+      "message": "GitHub Actions step uses a mutable tag or branch reference. Tags and branch names can be silently repointed by the action owner, enabling supply-chain attacks \u2014 as seen in the trivy-action and kics-github-action compromises. Pin the reference to a full 40-character commit SHA instead, e.g. `uses: ac"
+    },
+    {
+      "severity": "WARNING",
+      "rule": "yaml.github-actions.security.github-actions-mutable-action-tag.github-actions-mutable-action-tag",
+      "path": "/Users/drew/ENV/Devops/.github/workflows/iac-validate.yml",
+      "line": 148,
+      "message": "GitHub Actions step uses a mutable tag or branch reference. Tags and branch names can be silently repointed by the action owner, enabling supply-chain attacks \u2014 as seen in the trivy-action and kics-github-action compromises. Pin the reference to a full 40-character commit SHA instead, e.g. `uses: ac"
+    },
+    {
+      "severity": "WARNING",
+      "rule": "yaml.github-actions.security.github-actions-mutable-action-tag.github-actions-mutable-action-tag",
+      "path": "/Users/drew/ENV/Devops/.github/workflows/iac-validate.yml",
+      "line": 178,
+      "message": "GitHub Actions step uses a mutable tag or branch reference. Tags and branch names can be silently repointed by the action owner, enabling supply-chain attacks \u2014 as seen in the trivy-action and kics-github-action compromises. Pin the reference to a full 40-character commit SHA instead, e.g. `uses: ac"
+    },
+    {
+      "severity": "WARNING",
+      "rule": "yaml.github-actions.security.github-actions-mutable-action-tag.github-actions-mutable-action-tag",
+      "path": "/Users/drew/ENV/Devops/.github/workflows/iac-validate.yml",
+      "line": 194,
+      "message": "GitHub Actions step uses a mutable tag or branch reference. Tags and branch names can be silently repointed by the action owner, enabling supply-chain attacks \u2014 as seen in the trivy-action and kics-github-action compromises. Pin the reference to a full 40-character commit SHA instead, e.g. `uses: ac"
+    },
+    {
+      "severity": "WARNING",
+      "rule": "yaml.github-actions.security.github-actions-mutable-action-tag.github-actions-mutable-action-tag",
+      "path": "/Users/drew/ENV/Devops/.github/workflows/platform-tests.yml",
+      "line": 29,
+      "message": "GitHub Actions step uses a mutable tag or branch reference. Tags and branch names can be silently repointed by the action owner, enabling supply-chain attacks \u2014 as seen in the trivy-action and kics-github-action compromises. Pin the reference to a full 40-character commit SHA instead, e.g. `uses: ac"
+    },
+    {
+      "severity": "WARNING",
+      "rule": "python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected",
+      "path": "/Users/drew/ENV/Devops/platform/llm-review/review.py",
+      "line": 148,
+      "message": "Detected a dynamic value being used with urllib. urllib supports 'file://' schemes, so a dynamic value controlled by a malicious actor may allow them to read arbitrary files. Audit uses of urllib calls to ensure user data cannot control the URLs, or consider using the 'requests' library instead."
+    },
+    {
+      "severity": "WARNING",
+      "rule": "generic.nginx.security.request-host-used.request-host-used",
+      "path": "/Users/drew/ENV/Devops/platform/nginx/conf.d/station1-hello.conf",
+      "line": 47,
+      "message": "'$http_host' and '$host' variables may contain a malicious value from attacker controlled 'Host' request header. Use an explicitly configured host value or a allow list for validation."
+    },
+    {
+      "severity": "WARNING",
+      "rule": "generic.nginx.security.request-host-used.request-host-used",
+      "path": "/Users/drew/ENV/Devops/platform/nginx/conf.d/station1-hello.production-like.conf.template",
+      "line": 43,
+      "message": "'$http_host' and '$host' variables may contain a malicious value from attacker controlled 'Host' request header. Use an explicitly configured host value or a allow list for validation."
+    },
+    {
+      "severity": "WARNING",
+      "rule": "generic.nginx.security.request-host-used.request-host-used",
+      "path": "/Users/drew/ENV/Devops/platform/nginx/nginx.conf",
+      "line": 38,
+      "message": "'$http_host' and '$host' variables may contain a malicious value from attacker controlled 'Host' request header. Use an explicitly configured host value or a allow list for validation."
+    },
+    {
+      "severity": "WARNING",
+      "rule": "python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected",
+      "path": "/Users/drew/ENV/Devops/platform/observability/check_health.py",
+      "line": 26,
+      "message": "Detected a dynamic value being used with urllib. urllib supports 'file://' schemes, so a dynamic value controlled by a malicious actor may allow them to read arbitrary files. Audit uses of urllib calls to ensure user data cannot control the URLs, or consider using the 'requests' library instead."
+    },
+    {
+      "severity": "WARNING",
+      "rule": "python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected",
+      "path": "/Users/drew/ENV/Devops/platform/valuestream/board.py",
+      "line": 139,
+      "message": "Detected a dynamic value being used with urllib. urllib supports 'file://' schemes, so a dynamic value controlled by a malicious actor may allow them to read arbitrary files. Audit uses of urllib calls to ensure user data cannot control the URLs, or consider using the 'requests' library instead."
+    }
+  ],
+  "scan_integrity": {
+    "ok": true,
+    "config_errors": [],
+    "note": "A mistyped ruleset makes semgrep scan nothing and still report zero findings. files_scanned==0 is treated as a gate failure, not as a clean result."
+  }
+}

@@ -165,3 +165,10 @@ evidence/*/tmp/
 node_modules/
 package-lock.json
 yarn.lock
+
+# Transient CI intermediate. run_local_ci.sh writes metadata.json, and
+# deploy.sh build renames it to build_<sha>.json -- the named file is the
+# evidence of record. A stray metadata.json only appears when CI is invoked
+# directly, and committing it would put an unversioned duplicate next to the
+# real artifact.
+evidence/*/metadata.json
