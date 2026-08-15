@@ -177,6 +177,223 @@ without executing it for real. See `runbooks/rotate_github_token.md`
 (`vault kv metadata get` doesn't support `-field` in this Vault version —
 only `vault kv get` does; fixed by switching to `-format=json` + Python).
 
+## DataOps Namespace (2026-08-13)
+
+Per `docs/Future-DataOps.md`'s repo-boundary decision (a future DataOps/MLOps
+repo consumes this platform as a service, doesn't share code), the
+`secret/dataops/*` namespace was built and verified **before** any real
+DataOps repo or pilot exists — same reasoning as building `deploy.sh`'s
+blue/green mechanism ahead of a second pilot: prove the platform capability
+generically, don't wait for a specific consumer.
+
+`platform/vault/policies/dataops-readonly.hcl` mirrors
+`devops-readonly.hcl` exactly (`read` on `secret/data/dataops/*`,
+`read`+`list` on `secret/metadata/dataops/*`), created in the running Vault
+via `vault policy write dataops-readonly -` (stdin, not `docker cp` — this
+container's rootfs is read-only, `docker cp` into it fails by design).
+
+**Verified with a throwaway secret** (`secret/dataops/test-placeholder`,
+created and deleted within this session — no real DataOps secret exists
+yet), a token scoped only to `dataops-readonly`, and the same 4 boundary
+tests as the devops policy, plus a 5th that specifically checks
+cross-namespace isolation:
+
+| Test | Expected | Actual |
+|---|---|---|
+| Read `secret/dataops/test-placeholder` | Allowed | `200`, value returned |
+| List all secrets engines (`vault secrets list`) | Denied | `403 permission denied` |
+| Create a new policy (`vault policy write`) | Denied | `403 permission denied` |
+| Read `secret/devops/github` (**cross-namespace**) | Denied | `403 permission denied` |
+
+The fourth test is the one that matters most here: it proves a
+`dataops`-scoped token cannot reach into the `devops` namespace's secrets
+(and by the same policy shape, a `devops`-scoped token can't reach into
+`dataops`'s) — the two tenants are genuinely isolated, not just
+conventionally separated by path naming.
+
+Throwaway secret and its token were deleted/revoked after the test; the
+`dataops-readonly` policy itself is the real, persistent deliverable and
+remains in Vault, ready for the first real `secret/dataops/*` value.
+
+## Identity: Human RBAC and Workload Identity (2026-08-14)
+
+`scripts/setup_identity.sh` (idempotent) + `scripts/verify_identity.sh`
+(14 boundary assertions, all passing).
+
+Human RBAC and workload identity are **one mechanism with two kinds of
+subject**, not two systems. Both answer the same question — *how does this
+subject prove who it is, and what may that identity do* — and both resolve
+to a token whose capabilities come from the same `policies/*.hcl` files.
+Splitting them into separate systems is how the two drift apart until
+nobody can answer "who can read this secret" without checking two places.
+
+| Subject | Proves identity via | Vault auth method |
+|---|---|---|
+| human | username + password | `userpass` |
+| workload | `role_id` + `secret_id` | `approle` |
+
+### The RBAC matrix
+
+| Role | Subject | May | May not |
+|---|---|---|---|
+| `platform-operator` | human | read devops + pilot secret values | create policies, enable auth methods |
+| `platform-viewer` | human | read secret **metadata** (existence, versions, rotation dates) | read any secret **value** |
+| `platform-admin` | human | `default` only — see note | anything privileged |
+| `workload-station1-hello` | machine | read `secret/pilots/station1-hello/*` | any other path |
+| `workload-dataops` | machine | read `secret/dataops/*` | cross into `devops` |
+| `ci-pipeline` | machine | read `secret/devops/ghcr` only | read the git PAT |
+
+`platform-admin` is deliberately created with the `default` policy, not
+root. A standing root-equivalent human account is precisely what this
+mechanism exists to remove; elevating it belongs with the break-glass and
+audit design, which is still open (it depends on the auditing body).
+
+### `platform-viewer` is the load-bearing role
+
+It makes one distinction real and enforceable: **"can see that a secret
+exists and when it was last rotated" is a different privilege from "can read
+it"**. KV v2 splits these into separate API paths — `secret/metadata/*`
+versus `secret/data/*` — so this is not a convention or a UI setting, it is
+two paths with two capabilities, checked by Vault.
+
+That is the tier a data owner, auditor, or manager needs: they can run
+`check_rotation_due.sh` and answer "is this credential overdue?" without
+ever being able to read the credential. Verified: the viewer token reads
+`kv metadata get secret/devops/github` successfully and is denied
+`kv get secret/devops/github` with a permission error.
+
+### Verified (14/14, real tokens, real requests)
+
+A policy file is a claim; `verify_identity.sh` is the evidence. Every case
+mints a real token through the real auth method, because the failure mode of
+an access-control policy is not an error — it is a silent success by the
+wrong subject.
+
+- AppRole login works end-to-end (mint `secret_id` → login → token)
+- Workload reads its own path; **denied** another pilot's path, the devops
+  namespace, and `policy list`
+- Workload token TTL is 1199s — short-lived identity today, without waiting
+  for dynamic secrets
+- `ci-pipeline` reads the GHCR credential; **denied** the git PAT. This is
+  the payoff for keeping the two GitHub credentials at separate paths:
+  separate paths are what make separate grants possible
+- Operator reads secret values; **denied** `policy write` and `auth enable`
+- Viewer reads metadata; **denied** every secret value
+
+### Dynamic secrets: seam kept, not enabled
+
+Long-lived static credentials remain in use — a decision, not an oversight:
+there is no database to issue dynamic credentials against yet. The seam is
+reserved in `policies/workload-station1-hello.hcl`, and the point is what
+does *not* change on the day it is enabled: the AppRole, the workload's
+identity, how it authenticates, and who administers it all stay put. Only
+the path it may read changes, from static `secret/data/...` to dynamic
+`database/creds/...`.
+
+That asymmetry is the reason to build identity first and credentials
+second — **identity is the expensive thing to retrofit, credential lifetime
+is a dial.**
+
+## Audit Trail (2026-08-14)
+
+```bash
+platform/vault/scripts/setup_audit.sh          # idempotent, self-verifying
+platform/vault/scripts/audit_query.sh --help   # auditor-facing view
+```
+
+Until this existed, the platform could **enforce** access control but could
+not **evidence** it. Every boundary in `verify_identity.sh` proves what is
+*possible*; only an audit log records what actually *happened*. To an
+auditing body those are different questions, and the second is the one they
+ask.
+
+### Read this before enabling: audit devices are FAIL-CLOSED
+
+If every enabled audit device fails to write, **Vault stops serving requests
+entirely** — it will not perform an operation it cannot record. Correct
+security posture, and a genuine availability hazard: a full disk on the
+audit volume becomes a total Vault outage, which here also stops deploys.
+
+Two deliberate mitigations:
+
+1. **Two devices, not one.** Vault proceeds if at least one device accepts
+   the record, so a single failing sink degrades instead of halting.
+   - `file/` → `/vault/logs/audit.log` on the `vault-logs` volume. The
+     durable record of truth, included in `platform/backup/`.
+   - `stdout/` → Docker logs → Alloy → Loki. Queryable alongside every other
+     platform log, and the second sink that keeps one failure from halting
+     Vault.
+2. **A real volume, not the tmpfs that used to be there.** See below.
+
+`audit_query.sh` surfaces the log size on every invocation rather than
+hiding it behind a check nobody runs, and warns past 100MB.
+
+### The tmpfs that would have failed in the worst possible way
+
+`/vault/logs` was a 4MB tmpfs, justified by "not used — Vault logs to stdout
+by default". True until the moment an audit device was enabled.
+
+Left alone, the audit trail would have been **capped at 4MB and erased on
+every restart, while `vault audit list` still reported a healthy device**.
+An audit log that evaporates is worse than no audit log, because it looks
+like coverage. Now a named volume (`vault-logs`), and in the backup set —
+it is the one record here that cannot be reconstructed from anything else:
+git can be re-cloned and evidence re-generated, but nobody can re-derive who
+read a secret last Tuesday.
+
+### Secret values are HMAC'd — verified, not assumed
+
+Vault HMAC-SHA256s sensitive values before writing, so the log records
+*that* a secret was read without recording the secret. `setup_audit.sh`
+checks this for real: it reads a known secret, then greps the audit log for
+that literal value and **fails the setup** if it appears.
+
+`log_raw=true` disables the protection and must never be set — it would turn
+the audit trail into the largest plaintext secret store in the platform.
+
+### What it produced immediately
+
+Three identities, one secret, one query:
+
+```
+userpass-platform-operator  read  allowed  secret/data/devops/github
+userpass-platform-viewer    read  DENIED   secret/data/devops/github
+userpass-platform-viewer    read  allowed  secret/metadata/devops/github
+```
+
+The audit trail independently confirms the RBAC boundary that
+`verify_identity.sh` asserts — evidence that the viewer role was *actually
+refused in production*, not merely that a test says it would be.
+
+`audit_query.sh --denied` is the query an auditor reaches for first.
+
+### Why a query tool, not just the log
+
+The raw log is one ~2KB JSON object per request with every interesting value
+HMAC'd. Handing an auditor `tail audit.log` is not an audit capability, it is
+a pile of bytes that happens to contain the answer. `audit_query.sh` reduces
+it to who / when / allowed-or-denied, with `--path`, `--actor`, `--denied`
+and `--json` filters.
+
+Reading it requires access to the Vault container, deliberately narrower
+than the `platform-viewer` role: **seeing who read what is a higher
+privilege than seeing that a secret exists.**
+
+### Known gaps
+
+- **No rotation or archival.** The log grows without bound, and fail-closed
+  means an unbounded log is an outage waiting for a full disk. Size is
+  reported; nothing acts on it yet.
+- **No alert on audit-device failure.** Vault is not a Prometheus scrape
+  target, so a device that stops writing is invisible until Vault starts
+  refusing requests.
+- **No tamper protection.** The log is a file; anyone with root on the host
+  can rewrite it. Genuine non-repudiation needs WORM storage or an external
+  sink, which is the same gap `docs/System-State.html` tracks under B.
+- **Retention is undefined.** How long audit records must be kept is an
+  auditing-body decision that has not been made, so nothing has been deleted
+  and no policy has been guessed at.
+
 ## Known Gaps / Next Steps
 
 - **Only one secret migrated, as a proof of concept.** `station1-hello`
