@@ -1,0 +1,50 @@
+name: Platform Tests
+
+# The platform had CI for platform/iac/** only. Everything else -- the 630
+# line deploy.sh that decides what reaches production-like, the health
+# verdict a scheduled agent trusts, the LLM review contract -- changed with
+# no automated check at all. This closes that, and is the prerequisite for
+# changing the platform frequently without a manual end-to-end deploy after
+# every edit.
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'platform/**'
+      - 'evidence/**'
+      - '.github/workflows/platform-tests.yml'
+  pull_request:
+    branches: [main, develop]
+    paths:
+      - 'platform/**'
+      - 'evidence/**'
+  workflow_dispatch:
+
+jobs:
+  platform_tests:
+    name: Platform contract and static gates
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # test_deploy_contract.sh builds sandboxes with `git init`, and
+          # review.sh resolves real refs; a shallow checkout is fine, but the
+          # suite must not depend on repo history beyond HEAD.
+          fetch-depth: 1
+
+      - name: Install test dependencies
+        run: |
+          python3 -m pip install --quiet pyyaml
+          # start_stub waits on `nc -z`; ubuntu-latest ships netcat-openbsd,
+          # asserted here rather than assumed so a runner image change
+          # produces a clear failure instead of a 5s-per-stub timeout.
+          command -v nc >/dev/null || sudo apt-get install -y netcat-openbsd
+
+      - name: Run platform test suite
+        run: platform/tests/run_all.sh
+
+      # Deliberately NOT run here: anything needing a Docker daemon, a live
+      # Prometheus, or the MLX endpoint. Those are covered by the local
+      # end-to-end runs recorded in each adapter's README "Verified" section.
+      # Faking them in CI would test the fakes.

@@ -125,22 +125,44 @@ jobs:
 
       # 11. Build metadata for evidence
       - name: "Step [6/6] Build Evidence Metadata"
+        # Context values arrive as environment variables instead of being
+        # interpolated into the script body. `${{ }}` inside `run:` is
+        # substituted by GitHub BEFORE the shell sees it, so any context
+        # value containing shell metacharacters becomes executable code.
+        # Flagged by platform/security/scan_sast.sh
+        # (github-actions.security.run-shell-injection); passing through
+        # `env:` removes the class entirely rather than arguing about which
+        # particular context happens to be safe today.
+        env:
+          WORKFLOW_RUN_ID: ${{ github.run_id }}
+          COMMIT_SHA: ${{ env.GIT_COMMIT_SHA }}
+          ACTOR: ${{ github.actor }}
+          BRANCH: ${{ github.ref_name }}
+          EVENT_TYPE: ${{ github.event_name }}
         run: |
-          COMMIT_MSG=$(git log -1 --pretty=%B | tr '\n' ' ' | sed 's/"/\\"/g')
-          cat > ../../evidence/iac_metadata.json << EOF
-          {
-            "workflow_run_id": "${{ github.run_id }}",
-            "commit_sha": "${{ env.GIT_COMMIT_SHA }}",
-            "commit_message": "$COMMIT_MSG",
-            "author": "${{ github.actor }}",
-            "timestamp": "$(date -u +'%Y-%m-%dT%H:%M:%SZ')",
-            "workflow_status": "in_progress",
-            "checkov_results": "evidence/results_json.json",
-            "terraform_plan": "platform/iac/plan.json",
-            "branch": "${{ github.ref_name }}",
-            "event_type": "${{ github.event_name }}"
-          }
-          EOF
+          # Built with python's json module, not a heredoc. The previous
+          # version escaped only double quotes with sed, so a commit message
+          # containing a backslash or control character produced invalid
+          # JSON -- and the commit message is attacker-controlled by anyone
+          # who can open a PR. platform/tests/test_evidence_contract.sh
+          # asserts every evidence file parses, so that was a real break.
+          COMMIT_MSG="$(git log -1 --pretty=%B)" \
+          python3 -c '
+          import json, os, datetime
+          json.dump({
+              "workflow_run_id": os.environ["WORKFLOW_RUN_ID"],
+              "commit_sha": os.environ["COMMIT_SHA"],
+              "commit_message": os.environ["COMMIT_MSG"].strip(),
+              "author": os.environ["ACTOR"],
+              "timestamp": datetime.datetime.now(datetime.timezone.utc)
+                              .strftime("%Y-%m-%dT%H:%M:%SZ"),
+              "workflow_status": "in_progress",
+              "checkov_results": "evidence/results_json.json",
+              "terraform_plan": "platform/iac/plan.json",
+              "branch": os.environ["BRANCH"],
+              "event_type": os.environ["EVENT_TYPE"],
+          }, open("../../evidence/iac_metadata.json", "w"), indent=2)
+          '
           echo "Evidence metadata saved"
 
       # 12. Upload evidence metadata
@@ -177,24 +199,38 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      # Option: Add tfsec for additional Terraform security scanning
-      - name: Install tfsec
-        run: |
-          curl -s https://raw.githubusercontent.com/aquasecurity/tfsec/master/scripts/install_linux.sh | bash
-          which tfsec
-
-      - name: Run tfsec
+      # Was: `curl -s .../master/scripts/install_linux.sh | bash` to install
+      # tfsec. Replaced for three reasons, any one of which was sufficient:
+      #
+      #   1. curl-pipe-shell executes whatever the URL returns, with no
+      #      signature, checksum or review. Flagged by
+      #      platform/security/scan_sast.sh (gha-curl-pipe-shell).
+      #   2. It fetched from `master` -- a MUTABLE ref. Even trusting the
+      #      publisher, the bytes executed could change between runs, which
+      #      is the opposite of the pinned-digest discipline this platform
+      #      applies to its own images.
+      #   3. tfsec is deprecated: Aqua folded it into Trivy, which this
+      #      platform already uses for image scanning. Installing a
+      #      deprecated tool via an unverified script to duplicate a
+      #      capability we already have is three problems in one step.
+      #
+      # `trivy config` performs the same IaC misconfiguration scan, from a
+      # version-pinned official action.
+      - name: Run Trivy IaC misconfiguration scan
         continue-on-error: true
-        run: |
-          mkdir -p evidence
-          tfsec platform/iac --format sarif --out evidence/tfsec_results.sarif
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: config
+          scan-ref: platform/iac
+          format: sarif
+          output: evidence/trivy_iac.sarif
 
-      - name: Upload tfsec Results
+      - name: Upload Trivy IaC Results
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: tfsec-report
-          path: evidence/tfsec_results.sarif
+          name: trivy-iac-report
+          path: evidence/trivy_iac.sarif
           retention-days: 30
 
   # Final summary
