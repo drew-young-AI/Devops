@@ -1,3 +1,13 @@
+---
+type: platform-adapter
+title: 排程 Adapter
+description: "launchd-based scheduling in two tiers, why tier 1 must not depend on an agent, and how a scheduler's own absence is detected."
+tags:
+  - scheduling
+  - automation
+  - launchd
+timestamp: 2026-08-15T19:57:49+08:00
+---
 # Scheduler
 
 ```bash

@@ -1,3 +1,12 @@
+---
+type: explanation
+title: 安全決策範圍
+description: Security scope and decisions for the platform layer.
+tags:
+  - security
+  - decisions
+timestamp: 2026-08-09T01:15:06+08:00
+---
 # Security
 
 ## Secret migration blocker

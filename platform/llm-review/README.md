@@ -1,3 +1,13 @@
+---
+type: platform-adapter
+title: LLM 複審 Adapter
+description: Local MLX review that produces LLM-generated evidence and never human acceptance, with the two mechanisms that enforce it.
+tags:
+  - llm
+  - review
+  - evidence
+timestamp: 2026-08-15T19:57:48+08:00
+---
 # LLM Review Adapter — Station 5 (MLX automation integration)
 
 Implements `docs/Plan-detail.md` Station 5. The local MLX endpoint

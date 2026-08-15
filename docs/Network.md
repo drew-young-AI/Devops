@@ -1,3 +1,13 @@
+---
+type: explanation
+title: 網路與公開存取邊界
+description: "Network boundaries and the public-URL question: what may be exposed, what must never be, and the tunnel options considered."
+tags:
+  - network
+  - security
+  - ingress
+timestamp: 2026-08-09T01:15:06+08:00
+---
 # Network Architecture
 
 ## Provider-neutral target

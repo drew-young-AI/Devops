@@ -1,3 +1,13 @@
+---
+type: platform-adapter
+title: IaC Adapter（OpenTofu）
+description: OpenTofu skeleton with a provider-neutral contract, Checkov and OPA policy gates, and why nothing is applied yet.
+tags:
+  - iac
+  - opentofu
+  - policy
+timestamp: 2026-08-09T01:15:06+08:00
+---
 # Infrastructure as Code (IaC) — DevOps Platform
 
 This directory contains the **provider-neutral infrastructure contract** for the DevOps platform. It defines the logical structure of the platform without committing to a specific cloud vendor (AWS, GCP, Azure).

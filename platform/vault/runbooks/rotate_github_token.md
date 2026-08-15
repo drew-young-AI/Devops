@@ -1,3 +1,13 @@
+---
+type: runbook
+title: 輪替 GitHub Token
+description: Human-in-the-loop procedure for rotating the GitHub PAT, including the steps only GitHub itself can perform.
+tags:
+  - runbook
+  - vault
+  - rotation
+timestamp: 2026-08-09T22:29:55+08:00
+---
 # Runbook: Rotate the GitHub PAT in Vault
 
 **When**: every 90 days (`rotation_policy_days` custom_metadata on

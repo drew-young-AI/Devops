@@ -1,3 +1,13 @@
+---
+type: platform-adapter
+title: 部署 Adapter（develop / blue-green）
+description: "Deployment adapter: develop deploys, the develop-validation gate, blue/green promotion with a human confirmation, and rollback."
+tags:
+  - deployment
+  - blue-green
+  - release
+timestamp: 2026-08-10T13:05:31+08:00
+---
 # Compose Deployment Adapter — Develop + Production-like (Blue/Green)
 
 Implements `Plan.md` §4 "兩環境最小隔離" and roadmap items 6-7 ("建立

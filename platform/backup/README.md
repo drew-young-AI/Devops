@@ -1,3 +1,13 @@
+---
+type: platform-adapter
+title: 備份與還原演練
+description: "Backup adapter and the restore drill that proves recoverability: what is backed up, what is deliberately excluded, and why the unseal keys are not in the archive."
+tags:
+  - backup
+  - restore
+  - disaster-recovery
+timestamp: 2026-08-15T19:57:20+08:00
+---
 # Backup Adapter
 
 ```bash

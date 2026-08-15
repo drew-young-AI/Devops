@@ -1,3 +1,14 @@
+---
+type: platform-adapter
+title: Vault 機密、身分與稽核
+description: Secret storage, rotation, the unified human-RBAC and workload-identity mechanism, and the fail-closed audit trail.
+tags:
+  - vault
+  - secrets
+  - identity
+  - audit
+timestamp: 2026-08-15T19:56:31+08:00
+---
 # Vault Adapter — Secret Management
 
 Implements the "已鎖定決策" in `Plan.md`/`docs/IaC.md`: **HashiCorp Vault

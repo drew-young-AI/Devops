@@ -1,3 +1,13 @@
+---
+type: platform-adapter
+title: NGINX 入口 Adapter
+description: TLS termination, security headers, rate limiting, correlation IDs, and the blue/green vhost switch.
+tags:
+  - nginx
+  - ingress
+  - tls
+timestamp: 2026-08-09T06:20:34+08:00
+---
 # NGINX Adapter — Local HTTPS
 
 Implements the contract in `docs/Network.md` ("Local implementation"):

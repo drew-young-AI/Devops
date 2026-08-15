@@ -1,3 +1,13 @@
+---
+type: platform-adapter
+title: 價值流看板
+description: "Derived value stream board: why it is computed from evidence rather than maintained, and how it differs from system observability."
+tags:
+  - value-stream
+  - dora
+  - visualisation
+timestamp: 2026-08-15T19:57:49+08:00
+---
 # Value Stream Board
 
 ```bash

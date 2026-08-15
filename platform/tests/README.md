@@ -1,3 +1,13 @@
+---
+type: platform-adapter
+title: 平台自身測試
+description: "The platform's own test suite: why it exists, what it deliberately does not cover, and the bug classes it now blocks at build time."
+tags:
+  - testing
+  - ci
+  - quality
+timestamp: 2026-08-15T19:58:12+08:00
+---
 # Platform Test Suite
 
 The platform's own tests. `pilots/station1-hello/tests/` tests the *pilot*;

@@ -1,3 +1,13 @@
+---
+type: explanation
+title: IaC 決策與範圍
+description: "Infrastructure-as-code decisions: provider-neutral contract, state governance, and what is deliberately not applied."
+tags:
+  - iac
+  - opentofu
+  - decisions
+timestamp: 2026-08-09T01:15:06+08:00
+---
 # IaC and Resource Planning
 
 ## Tool baseline

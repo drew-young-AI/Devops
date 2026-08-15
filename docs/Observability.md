@@ -1,3 +1,12 @@
+---
+type: explanation
+title: 可觀測性與確定性健康判定
+description: Observability stack and the deterministic health verdict contract, including why exit 3 (unknown) is distinct from healthy.
+tags:
+  - observability
+  - monitoring
+timestamp: 2026-08-15T20:00:54+08:00
+---
 # Observability
 
 實作與驗證細節見 `platform/observability/README.md`。

@@ -166,6 +166,26 @@ while IFS= read -r generated; do
   fi
 done < <(find "$REPO_ROOT/platform/nginx/conf.d" -name '_generated.*.conf' -type f 2>/dev/null | sort)
 
+# OKF v0.1 conformance for the repo's markdown.
+#
+# Adopting a documentation standard IS the checker. Hand-adding frontmatter
+# to two dozen files and never verifying again means the standard is broken
+# within a month and nobody notices -- the documents still render and still
+# read fine, they just quietly stop being machine-consumable. That is the
+# same silent-failure shape as everything else guarded here.
+#
+# Only the spec's normative requirements fail the build. House conventions
+# (title, description, the type taxonomy) are reported as warnings, because
+# enforcing our taste as if it were the standard is how a standard gets
+# resented and then bypassed.
+OKF_OUT="$(python3 "$REPO_ROOT/platform/docs/okf_check.py" 2>&1)"
+OKF_RC=$?
+if [ "$OKF_RC" -eq 0 ]; then
+  _pass "OKF v0.1 conformance: $(echo "$OKF_OUT" | head -1 | sed 's/^OKF v0.1 conformance: //')"
+else
+  _fail "OKF v0.1 conformance" "$(echo "$OKF_OUT" | head -4 | tr '\n' ' ')"
+fi
+
 find "$REPO_ROOT/platform" -name '__pycache__' -type d -exec rm -rf {} + 2>/dev/null || true
 
 suite_summary

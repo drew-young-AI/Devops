@@ -1,3 +1,13 @@
+---
+type: plan
+title: MLOps / LLMOps 導入順序
+description: Intended sequence for MLOps and LLMOps capability, and what the current MLX endpoint is and is not.
+tags:
+  - mlops
+  - llmops
+  - planning
+timestamp: 2026-08-11T20:05:56+08:00
+---
 # Future MLOps and LLMOps
 
 This is deferred. Keep interfaces, do not install the full platform now.

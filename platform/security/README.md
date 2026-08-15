@@ -1,3 +1,14 @@
+---
+type: platform-adapter
+title: 安全掃描 Adapter
+description: "Four scanning layers: source (SAST), artifact (Trivy, SBOM, signing), infrastructure (policy), and the running system (DAST)."
+tags:
+  - security
+  - sast
+  - dast
+  - supply-chain
+timestamp: 2026-08-15T19:57:20+08:00
+---
 # Security Scanning — Container Vulnerabilities, SBOM, Signing, Secret History
 
 Closes items from `Plan.md`'s "尚未完成的主要交付鏈": the container scan

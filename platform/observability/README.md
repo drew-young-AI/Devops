@@ -1,3 +1,13 @@
+---
+type: platform-adapter
+title: 可觀測性 Adapter
+description: Metrics, logs, alerting, log data governance (classify then redact then separate), and human access control for Grafana.
+tags:
+  - observability
+  - alerting
+  - data-governance
+timestamp: 2026-08-15T19:56:49+08:00
+---
 # Observability Adapter — Metrics, Logs, Alerting
 
 Grafana + Prometheus + Loki + Alloy + Alertmanager, all bound to

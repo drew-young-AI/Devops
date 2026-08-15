@@ -1,3 +1,12 @@
+---
+type: explanation
+title: 平台架構決策
+description: Locked architectural decisions and their boundaries, including why the MLX endpoint is an automation actor rather than a deployment target.
+tags:
+  - architecture
+  - decisions
+timestamp: 2026-08-09T01:15:06+08:00
+---
 # Architecture
 
 ## Control plane

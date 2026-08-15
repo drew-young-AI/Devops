@@ -1,3 +1,13 @@
+---
+type: plan
+title: 平台計畫細節（站別）
+description: Full station-by-station plan with acceptance criteria, hardware capacity gating, and Kubernetes migration preconditions.
+tags:
+  - planning
+  - stations
+  - detail
+timestamp: 2026-08-15T20:00:54+08:00
+---
 # Enterprise Application and LLM Delivery Platform Plan
 
 > 目標：建立一套可套用於 Python、Node.js、Java、Go、.NET 等技術棧的企業級容器開發、交付、部署與資安標準。

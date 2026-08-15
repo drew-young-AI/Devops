@@ -1,3 +1,13 @@
+---
+type: how-to
+title: 新服務接入指引
+description: "How to onboard a new HTTP service onto this platform: service contract, required files, gates, and the human release decision."
+tags:
+  - devops
+  - onboarding
+  - contract
+timestamp: 2026-08-15T20:00:54+08:00
+---
 # 新服務接入 DevOps 指引
 
 本文件用於下次建立新的 Python、Node.js、Java、Go、.NET 或其他 HTTP 服務時，將服務接入現有 DevOps 平台。

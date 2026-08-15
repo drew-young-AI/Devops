@@ -1,3 +1,13 @@
+---
+type: explanation
+title: DataOps 介面契約
+description: "Repo-boundary decision for future DataOps work: a separate repo consuming this platform as a service, with the interface table it depends on."
+tags:
+  - dataops
+  - architecture
+  - interfaces
+timestamp: 2026-08-15T20:00:54+08:00
+---
 # Future DataOps — Medical & Multi-Modal Data
 
 This is deferred, same as `Future-ML-LLMOps.md`. Keep the architecture able

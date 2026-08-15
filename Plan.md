@@ -1,3 +1,13 @@
+---
+type: plan
+title: 平台計畫與交接紀錄
+description: "Cross-session handover record: what is built and verified, what is deferred, and the reasoning behind each decision."
+tags:
+  - devops
+  - planning
+  - handover
+timestamp: 2026-08-15T20:00:54+08:00
+---
 # Enterprise DevOps Miniature Plan
 
 ## 0.1 Handoff / Current Status
