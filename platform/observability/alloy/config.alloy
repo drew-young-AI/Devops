@@ -1,8 +1,39 @@
+// Log ingestion with classification, redaction and tenant separation.
+//
+// Three mechanisms live here, and the order matters:
+//
+//   1. CLASSIFY  -- every container is assigned a data_class at ingestion,
+//                   declaratively, from a Docker label on the service.
+//   2. REDACT    -- PII patterns are masked BEFORE the line is written.
+//   3. SEPARATE  -- classes are written to different Loki tenants, which is
+//                   what makes per-audience access control possible at all.
+//
+// Redaction must happen at write time, not query time. A query-time filter
+// is a promise that everyone who ever queries will remember to apply it;
+// once an unmasked identifier is in storage, the only real remedy is to
+// rebuild the store. This is the one mechanism in the platform where being
+// late costs more than being imperfect -- hence a v1 ruleset shipped now
+// rather than a complete one shipped later.
+
 discovery.docker "containers" {
   host = "unix:///var/run/docker.sock"
 }
 
-discovery.relabel "containers" {
+// ---------------------------------------------------------------------
+// 1. CLASSIFY
+//
+// A service declares its own class with a Docker label:
+//
+//     labels:
+//       platform.data_class: "restricted"
+//
+// Declarative and owned by the service, not by a hardcoded list here that
+// silently goes stale every time a service is added. Anything that does not
+// declare a class is treated as "internal" -- the safe default is the one
+// that does NOT grant the wider audience access.
+// ---------------------------------------------------------------------
+
+discovery.relabel "restricted" {
   targets = discovery.docker.containers.targets
 
   rule {
@@ -10,16 +41,135 @@ discovery.relabel "containers" {
     regex         = "/(.*)"
     target_label  = "container"
   }
+
+  // Keep only containers that explicitly declared themselves restricted.
+  rule {
+    source_labels = ["__meta_docker_container_label_platform_data_class"]
+    regex         = "restricted"
+    action        = "keep"
+  }
+
+  rule {
+    target_label = "data_class"
+    replacement  = "restricted"
+  }
 }
 
- loki.source.docker "containers" {
+discovery.relabel "internal" {
+  targets = discovery.docker.containers.targets
+
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/(.*)"
+    target_label  = "container"
+  }
+
+  // Everything that is NOT restricted. The two relabel rules are exact
+  // complements, so no container can land in both tenants or in neither.
+  rule {
+    source_labels = ["__meta_docker_container_label_platform_data_class"]
+    regex         = "restricted"
+    action        = "drop"
+  }
+
+  rule {
+    target_label = "data_class"
+    replacement  = "internal"
+  }
+}
+
+// ---------------------------------------------------------------------
+// 2. REDACT (v1)
+//
+// Applied to BOTH pipelines, not just the restricted one: PII leaks into
+// whichever log the developer happened to be writing, which is rarely the
+// one anybody classified as sensitive.
+//
+// v1 scope, stated honestly: three high-confidence patterns. This is a
+// mechanism with a starter ruleset, not a complete de-identification
+// solution -- it will not catch free-text names, addresses, or an
+// identifier written in an unexpected format. Extending it means adding a
+// stage.replace block here; nothing else changes.
+// ---------------------------------------------------------------------
+
+loki.process "redact_internal" {
+  forward_to = [loki.write.internal.receiver]
+
+  // Taiwan national ID: one letter, then 9 digits. Word-boundary anchored
+  // so it does not chew through unrelated alphanumeric tokens.
+  stage.replace {
+    expression = "\\b([A-Za-z][12]\\d{8})\\b"
+    replace    = "[REDACTED_TWID]"
+  }
+
+  // Email address.
+  stage.replace {
+    expression = "\\b([A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,})\\b"
+    replace    = "[REDACTED_EMAIL]"
+  }
+
+  // Credential-shaped tokens. Not PII, but the same "must never be stored"
+  // property, and logs are where tokens most often escape.
+  stage.replace {
+    expression = "\\b(ghp_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|hvs\\.[A-Za-z0-9._-]{20,})\\b"
+    replace    = "[REDACTED_TOKEN]"
+  }
+}
+
+loki.process "redact_restricted" {
+  forward_to = [loki.write.restricted.receiver]
+
+  stage.replace {
+    expression = "\\b([A-Za-z][12]\\d{8})\\b"
+    replace    = "[REDACTED_TWID]"
+  }
+
+  stage.replace {
+    expression = "\\b([A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,})\\b"
+    replace    = "[REDACTED_EMAIL]"
+  }
+
+  stage.replace {
+    expression = "\\b(ghp_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|hvs\\.[A-Za-z0-9._-]{20,})\\b"
+    replace    = "[REDACTED_TOKEN]"
+  }
+}
+
+loki.source.docker "internal" {
   host       = "unix:///var/run/docker.sock"
-  targets    = discovery.relabel.containers.output
-  forward_to = [loki.write.local.receiver]
+  targets    = discovery.relabel.internal.output
+  forward_to = [loki.process.redact_internal.receiver]
 }
 
-loki.write "local" {
+loki.source.docker "restricted" {
+  host       = "unix:///var/run/docker.sock"
+  targets    = discovery.relabel.restricted.output
+  forward_to = [loki.process.redact_restricted.receiver]
+}
+
+// ---------------------------------------------------------------------
+// 3. SEPARATE
+//
+// Different Loki tenants, not just different labels. A label can be
+// filtered out by a query the user chooses not to write; a tenant is
+// enforced by Loki itself on every request, and a datasource pointed at
+// tenant "platform" is structurally incapable of returning restricted data.
+//
+// Retention also differs per tenant (see loki/config.yml): restricted data
+// is kept for LESS time, not more. Minimising how long sensitive data
+// exists is a control in its own right.
+// ---------------------------------------------------------------------
+
+loki.write "internal" {
   endpoint {
-    url = "http://loki:3100/loki/api/v1/push"
+    url       = "http://loki:3100/loki/api/v1/push"
+    tenant_id = "platform"
+  }
+}
+
+loki.write "restricted" {
+  endpoint {
+    url       = "http://loki:3100/loki/api/v1/push"
+    tenant_id = "restricted"
   }
 }

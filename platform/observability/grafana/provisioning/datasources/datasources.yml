@@ -7,8 +7,42 @@ datasources:
     access: proxy
     url: http://prometheus:9090
     isDefault: true
+  # Loki now runs multi-tenant, so a datasource is scoped to exactly one
+  # tenant by the X-Scope-OrgID header it sends. This is the enforcement
+  # point for log access segregation: a datasource pointed at "platform" is
+  # structurally incapable of returning restricted data, no matter what
+  # query is written against it.
   - name: Loki
     uid: P8E80F9AEF21F6940
     type: loki
     access: proxy
     url: http://loki:3100
+    jsonData:
+      httpHeaderName1: X-Scope-OrgID
+    secureJsonData:
+      httpHeaderValue1: platform
+
+  # Deliberately a SEPARATE datasource rather than a switchable option.
+  # Grafana OSS scopes datasources per organisation, so restricting who can
+  # read this one is done by which org it is provisioned into -- see
+  # platform/observability/README.md "Log access segregation".
+  - name: Loki (Restricted)
+    uid: PC5D2A1F7B93E4068
+    type: loki
+    access: proxy
+    url: http://loki:3100
+    jsonData:
+      httpHeaderName1: X-Scope-OrgID
+    secureJsonData:
+      httpHeaderValue1: restricted
+  # Lets Grafana's Alerting UI show the same active alerts that
+  # check_health.sh reads from the API, so the human view and the scheduled
+  # agent's view cannot drift apart -- both read one Alertmanager.
+  - name: Alertmanager
+    uid: PA8B1E9E4C6D2F017
+    type: alertmanager
+    access: proxy
+    url: http://alertmanager:9093
+    jsonData:
+      implementation: prometheus
+      handleGrafanaManagedAlerts: false

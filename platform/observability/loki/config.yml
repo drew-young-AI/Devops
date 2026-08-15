@@ -1,4 +1,16 @@
-auth_enabled: false
+# Multi-tenant Loki with per-tenant retention and ingestion limits.
+#
+# auth_enabled: true does NOT mean Loki authenticates anybody -- it means
+# Loki requires and honours the X-Scope-OrgID header, keeping each tenant's
+# data in a separate namespace it cannot query across. Authentication of the
+# caller is still the surrounding layer's job (here: which Grafana
+# datasource a user's org can reach). Naming it "auth" is Loki's choice, and
+# it misleads often enough to be worth stating.
+#
+# Tenants:
+#   platform    operational logs, the default for anything unclassified
+#   restricted  logs from services declaring platform.data_class=restricted
+auth_enabled: true
 
 server:
   http_listen_port: 3100
@@ -24,5 +36,41 @@ schema_config:
         prefix: index_
         period: 24h
 
+# Retention is only actually enforced when the compactor runs with
+# retention_enabled. Without this block the retention_period below is
+# decorative -- the config parses, the docs look right, and nothing is ever
+# deleted.
+compactor:
+  working_directory: /loki/compactor
+  retention_enabled: true
+  delete_request_store: filesystem
+  compaction_interval: 10m
+  retention_delete_delay: 1h
+
 limits_config:
-  retention_period: 24h
+  # Default tenant retention: 7 days. Long enough to debug last week's
+  # incident, short enough that a single-disk local platform does not fill.
+  retention_period: 168h
+
+  # ---- disk pressure protection -------------------------------------
+  # A runaway container writing a tight log loop can fill the host disk and
+  # take down every other service with it -- including the monitoring that
+  # would have told you why. These caps make that failure local to the noisy
+  # tenant instead of fatal to the machine.
+  ingestion_rate_mb: 8
+  ingestion_burst_size_mb: 16
+  per_stream_rate_limit: 3MB
+  per_stream_rate_limit_burst: 6MB
+  max_global_streams_per_user: 2000
+  max_entries_limit_per_query: 10000
+  reject_old_samples: true
+  reject_old_samples_max_age: 168h
+
+# Per-tenant overrides live in a separate runtime config, not inline here:
+# Loki rejects a top-level `overrides:` key in the main config outright.
+# Keeping them in a runtime file also means retention can be changed without
+# restarting Loki, which matters when the change is "stop keeping this data
+# so long".
+runtime_config:
+  file: /etc/loki/runtime-config.yml
+  period: 30s
