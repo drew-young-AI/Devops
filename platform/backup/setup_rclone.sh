@@ -32,6 +32,26 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# This flow is irreducibly interactive: a browser OAuth round-trip and
+# `docker run -it`. Without a TTY, `read` hits EOF immediately, `set -e`
+# kills the script, and the only symptom is the instructions printing and
+# then nothing -- which reads as "it finished". Refuse loudly instead.
+if [ ! -t 0 ] || [ ! -t 1 ]; then
+  cat >&2 <<'NOTTY'
+This script needs a real terminal and cannot run here.
+
+It opens a browser for Google sign-in and runs `docker run -it`, both of
+which require a TTY. Run it from a normal Terminal window:
+
+  cd /Users/drew/ENV/Devops
+  platform/backup/setup_rclone.sh
+
+(Running it without a TTY previously just stopped after printing the
+instructions, with no error -- which is why this check exists.)
+NOTTY
+  exit 1
+fi
 RCLONE_CONF="$SCRIPT_DIR/.rclone.conf"
 RCLONE_IMAGE="${RCLONE_IMAGE:-rclone/rclone:latest}"
 
