@@ -192,3 +192,9 @@ evidence/scheduler/logs/
 # here: it is hand-curated.
 docs/Value-Stream-Board.html
 docs/Pipeline-Status.html
+
+# rclone config: the Google Drive OAuth token AND the crypt password. This
+# file is the ONLY way to read the offsite backups and is deliberately not
+# recoverable from them. Same handling as .init-output.json -- keep a copy in
+# a password manager, never in git.
+platform/backup/.rclone.conf

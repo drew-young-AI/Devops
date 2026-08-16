@@ -142,6 +142,10 @@ case "$JOB:$RC" in
   health:3) STATUS="unknown" ;;
   *:0)      STATUS="ok" ;;
   *:124)    STATUS="timeout" ;;
+  # 78 = EX_CONFIG: the job ran fine and had nothing to do because it
+  # was never configured. Neither a failure (daily noise people mute)
+  # nor ok (which would claim work happened). A visible third state.
+  *:78)     STATUS="not-configured" ;;
   *)        STATUS="failed" ;;
 esac
 

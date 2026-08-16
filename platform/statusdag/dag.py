@@ -163,6 +163,10 @@ def probe_scheduler():
     stale = [j["job"] for j in data.get("jobs", []) if not j.get("fresh")]
     if stale:
         return FAIL, f"not running: {', '.join(stale)}"
+    unconfigured = [j["job"] for j in data.get("jobs", [])
+                    if j.get("status") == "not-configured"]
+    if unconfigured:
+        return WARN, f"not configured: {', '.join(unconfigured)}"
     bad = [j["job"] for j in data.get("jobs", [])
            if j.get("status") in ("failed", "critical", "timeout")]
     if bad:

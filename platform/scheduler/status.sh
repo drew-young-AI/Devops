@@ -108,7 +108,7 @@ for line in open(jobs_conf, encoding="utf-8"):
         worst = max(worst, 3)
     elif status in ("critical", "failed", "timeout"):
         worst = max(worst, 2)
-    elif status in ("degraded", "unknown") or late:
+    elif status in ("degraded", "unknown", "not-configured") or late:
         worst = max(worst, 1)
 
 verdict = {0: "ALL_FRESH", 1: "DEGRADED_OR_LATE", 2: "CRITICAL",
