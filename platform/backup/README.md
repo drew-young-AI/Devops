@@ -146,14 +146,86 @@ back empty and the loop silently did nothing while reporting "pruned 0". It
 failed in the safe direction this time, but a prune that never prunes is a
 disk that fills anyway with nothing saying so.
 
+## Remote offsite: Google Drive (2026-08-16)
+
+`sync_offsite.sh` handles filesystem destinations. `sync_remote.sh` handles
+cloud ones, and carries the equivalent refusal for a different failure:
+
+**It refuses to upload unencrypted platform state to a third party.**
+
+Only the Vault archive is encrypted at rest. The rest is not -- ~22 MB of
+Grafana data (users, API keys, sessions), the audit trail (every secret path,
+policy name and token accessor), Alertmanager silences. Sending that to
+Google readable is a disclosure, not a backup. So the destination must be an
+rclone `crypt` remote, and a plain one is declined.
+
+```bash
+platform/backup/setup_rclone.sh                      # one-time, opens a browser
+RCLONE_REMOTE=gdrive-crypt: platform/backup/sync_remote.sh
+```
+
+**Credentials never reach the platform.** `rclone authorize` starts a local
+callback listener, you sign in to Google in your own browser, and Google
+returns an OAuth token. No password is typed into anything here, and none
+has to be shared with anyone -- including the agent that wrote the script.
+
+**Scope is `drive.file`, not `drive`.** That grants access only to files the
+application itself created; the token cannot read anything already in the
+user's Drive. A backup destination never needs to, and a credential that
+sits on a laptop for years should be able to do only its one job.
+
+### Configured is not the same as encrypted
+
+The cheap check reads `type = crypt` from `rclone.conf`. That confirms what
+was asked for, not what happens. So before every upload, a probe writes a
+file containing a unique marker through the crypt remote, then reads the
+stored object back **through the underlying remote**, bypassing decryption,
+and confirms the marker is not in it.
+
+This is not theoretical. rclone has a `no_data_encryption` option that
+encrypts filenames but stores content in the clear -- and such a remote still
+reports `type = crypt`. The config check passes it. The probe does not.
+
+### Verified
+
+| Injected condition | Result |
+|---|---|
+| no `RCLONE_REMOTE` | exit 78 (EX_CONFIG), not a failure |
+| no config file | exit 78, points at `setup_rclone.sh` |
+| pre-migration single-file config | exit 78, points at the migration |
+| non-crypt remote (`type = local`) | **refused** before any upload |
+| correct crypt remote | probe pass, filename + content encrypted |
+| `no_data_encryption=true` (**still `type = crypt`**) | **leak detected**, refused |
+| leaking remote, full sync run | aborted **before** upload -- 0 files written |
+
+### Two bugs found running it
+
+The first version drove `rclone config`'s interactive wizard, which meant it
+needed a TTY and could only run from a separate Terminal window. It did not
+need one: `rclone authorize` blocks on an HTTP callback, and the only human
+step -- clicking Allow -- was never a terminal operation.
+
+Worse, it mounted `rclone.conf` as a **single file**. rclone saves config by
+renaming a temp file over it, which is impossible across a single-file bind
+mount: it fails with `device or resource busy`, logs the error, prints the
+remote it believes it created, and **still exits 0**, leaving a zero-byte
+config. The entire browser authorisation would have been spent for nothing,
+and the follow-up check would have reported the remote as simply missing.
+Fixed by mounting the directory; the config now lives in `.rclone/`.
+
 ## Known gaps
 
-- **Offsite is built but not configured.** The mechanism is verified;
-  `BACKUP_OFFSITE_DEST` is unset, so nothing is being copied anywhere yet.
-  Until a destination is chosen, a disk failure still loses everything.
-- **Offsite is not scheduled.** Adding it to `jobs.conf` only makes sense
-  once the destination is one that is reliably present -- a daily job against
-  an unplugged drive is a daily failure notification.
+- **The upload path is unverified against real Google Drive.** Everything
+  above was verified against a local crypt remote, which exercises the same
+  code paths but not Drive's API, quotas or token refresh. Until the OAuth
+  authorisation is completed, the offsite job correctly reports
+  `not-configured` rather than claiming success.
+- **`BACKUP_OFFSITE_DEST` (local second device) is still unset.** Drive
+  covers losing the machine; a local second device covers restoring quickly.
+  They are complements, not substitutes.
+- **Token expiry is not yet observed.** Google refresh tokens for an
+  unpublished OAuth app can expire after 7 days of inactivity. If the daily
+  job starts failing with an auth error, re-run `setup_rclone.sh`.
 - **Grafana and Alertmanager archives are only integrity-checked, not
   restore-drilled.** Only Vault gets the full usability drill. Extending the
   drill to Grafana would mean standing up a scratch Grafana and asserting a

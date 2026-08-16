@@ -197,4 +197,12 @@ docs/Pipeline-Status.html
 # file is the ONLY way to read the offsite backups and is deliberately not
 # recoverable from them. Same handling as .init-output.json -- keep a copy in
 # a password manager, never in git.
+#
+# A DIRECTORY, because rclone saves config by renaming a temp file over it,
+# which is impossible across a single-file bind mount into the container.
+# .replaced-* copies from `setup_rclone.sh --force` are in here too: they
+# hold superseded crypt passwords, which are the only way to read archives
+# uploaded before the rotation, so they are kept and equally excluded.
+platform/backup/.rclone/
+# Pre-migration layout. Kept so a leftover file can never be committed.
 platform/backup/.rclone.conf
