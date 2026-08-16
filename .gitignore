@@ -172,3 +172,9 @@ yarn.lock
 # directly, and committing it would put an unversioned duplicate next to the
 # real artifact.
 evidence/*/metadata.json
+
+# Baseline copies used by platform/scheduler/install.sh to detect whether a
+# plist actually changed. They live next to the plists in ~/Library, not in
+# the repo, but the pattern is listed so a stray copy never gets committed.
+*.plist.installed
+*.plist.new

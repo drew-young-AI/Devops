@@ -157,4 +157,22 @@ assert_equals "" "$BAD_FIELDS" "real jobs.conf is well-formed and timeouts fit t
 FORBIDDEN="$(grep -E '\|.*(promote|rollback)' "$REAL_CONF" | grep -v '^#' || true)"
 assert_equals "" "$FORBIDDEN" "no human-approval command is scheduled"
 
+# Long-interval jobs must not have their timers reset by routine config
+# edits. install.sh used to bootout/bootstrap everything on every run, which
+# is invisible for a 15-minute job and fatal for a weekly one: during active
+# development the config changes far more often than every seven days, so
+# the restore drill and SAST sweep never fired at all. `launchctl print`
+# reported runs = 0 for them.
+RELOAD_LOGIC="$(grep -c 'timer preserved' "$REPO_ROOT/platform/scheduler/install.sh" || true)"
+assert_equals "1" "$RELOAD_LOGIC" \
+  "install.sh reloads only changed plists (long-interval timers survive)"
+
+UNCONDITIONAL="$(grep -cE '^\s*launchctl bootout .*\$\{label\}' "$REPO_ROOT/platform/scheduler/install.sh" || true)"
+if [ "$UNCONDITIONAL" -le 2 ]; then
+  _pass "no unconditional bootout in the install path"
+else
+  _fail "no unconditional bootout in the install path" \
+    "found $UNCONDITIONAL -- a blanket bootout resets every StartInterval timer"
+fi
+
 suite_summary

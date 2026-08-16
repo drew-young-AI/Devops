@@ -77,7 +77,7 @@ if [ "$ACTION" = "uninstall" ]; then
     label="${LABEL_PREFIX}.${name}"
     plist="$AGENT_DIR/${label}.plist"
     launchctl bootout "gui/$(id -u)/${label}" 2>/dev/null || true
-    rm -f "$plist"
+    rm -f "$plist" "$plist.installed" "$plist.new"
     echo "  removed $label"
   done < <(jobs)
   echo ""
@@ -88,6 +88,8 @@ fi
 
 mkdir -p "$AGENT_DIR"
 echo "=== installing launchd agents ==="
+# Snapshot once; see the same SIGPIPE-under-pipefail note in --status.
+LOADED_NOW="$(launchctl list 2>/dev/null || true)"
 
 # Stagger start times. Every job firing at the same instant would run a
 # backup, a DAST scan and a restore drill concurrently on a laptop -- and the
@@ -131,12 +133,31 @@ while IFS='|' read -r name interval timeout command; do
 </plist>
 PLIST
 
-  # bootout first so a re-run genuinely reloads a changed plist. Without it
-  # launchd keeps serving the version it loaded originally, and edits appear
-  # to do nothing.
-  launchctl bootout "gui/$(id -u)/${label}" 2>/dev/null || true
-  launchctl bootstrap "gui/$(id -u)" "$plist"
-  echo "  installed $label  (every $((interval / 60))m, timeout ${timeout}s)"
+  # Reload ONLY if the plist actually changed.
+  #
+  # The previous version booted out and bootstrapped every agent on every
+  # run, which reloads a changed plist correctly and also RESETS EVERY
+  # StartInterval TIMER back to zero. Invisible for a 15-minute job. Fatal
+  # for a weekly one: during active development the scheduler config is
+  # touched far more often than every seven days, so the restore drill, the
+  # SAST sweep and the rotation check would never fire at all.
+  #
+  # Confirmed, not theorised: `launchctl print` reported `runs = 0` for the
+  # daily jobs while the 15-minute job showed `runs = 58`. The weekly ones
+  # had never executed on their own schedule even once.
+  if [ -f "$plist.new" ]; then rm -f "$plist.new"; fi
+  mv "$plist" "$plist.new"
+  if [ -f "$plist.installed" ] && cmp -s "$plist.new" "$plist.installed" \
+     && printf '%s\n' "$LOADED_NOW" | grep -qF "$label"; then
+    mv "$plist.new" "$plist"
+    echo "  unchanged $label  (timer preserved, every $((interval / 60))m)"
+  else
+    mv "$plist.new" "$plist"
+    launchctl bootout "gui/$(id -u)/${label}" 2>/dev/null || true
+    launchctl bootstrap "gui/$(id -u)" "$plist"
+    cp "$plist" "$plist.installed"
+    echo "  (re)loaded $label  (every $((interval / 60))m, timeout ${timeout}s)"
+  fi
   offset=$((offset + 60))
 done < <(jobs)
 

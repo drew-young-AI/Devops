@@ -167,6 +167,12 @@ def probe_scheduler():
            if j.get("status") in ("failed", "critical", "timeout")]
     if bad:
         return WARN, f"failing: {', '.join(bad)}"
+    # `late` must surface here too, or the DAG shows a green light while
+    # status.sh exits 1 -- two views of one system disagreeing is exactly the
+    # drift both are supposed to prevent.
+    late = [j["job"] for j in data.get("jobs", []) if j.get("late")]
+    if late:
+        return WARN, f"late: {', '.join(late)}"
     return OK, f"{len(data.get('jobs', []))} jobs fresh"
 
 

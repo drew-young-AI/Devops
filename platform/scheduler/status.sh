@@ -15,8 +15,14 @@
 # run is older than it should be. A job that stopped running becomes STALE --
 # a distinct, visible state, not an absence.
 #
-# Grace is 2x the interval plus a minute: one missed run is a hiccup (the
-# laptop slept, docker was restarting), two is a pattern.
+# Two thresholds, not one:
+#   LATE   past its interval -- missed a slot, still within grace
+#   STALE  past 2x its interval -- treat as not running
+#
+# One number cannot serve both a 15-minute job and a weekly one. With only
+# the 2x rule, a DAILY job could be 47 hours old and still print ALL_FRESH
+# directly above a row reading "39h ago, every 24h" -- a verdict more
+# optimistic than the numbers beside it, which is worse than no verdict.
 #
 # Usage:
 #   status.sh [--json]
@@ -73,6 +79,12 @@ for line in open(jobs_conf, encoding="utf-8"):
     started = datetime.strptime(state["started_at"], "%Y-%m-%dT%H:%M:%SZ").replace(
         tzinfo=timezone.utc)
     age = int((now - started).total_seconds())
+    # Two thresholds, because one number cannot serve a 15-minute job and a
+    # weekly one. A 2x grace means a DAILY job can be 47 hours old and still
+    # be called fresh -- the verdict then reads ALL_FRESH directly above a
+    # row saying "39h ago, every 24h". A verdict that contradicts the
+    # numbers printed beside it is worse than no verdict.
+    late = age > interval + 60
     fresh = age <= (interval * 2 + 60)
 
     status = state.get("status", "unknown")
@@ -82,6 +94,9 @@ for line in open(jobs_conf, encoding="utf-8"):
         "age_seconds": age,
         "interval_seconds": interval,
         "fresh": fresh,
+        # Distinct from stale: the job missed its slot but has not been gone
+        # long enough to call it dead. Proportionate response, not silence.
+        "late": late and fresh,
         "exit_code": state.get("exit_code"),
         "duration_seconds": state.get("duration_seconds"),
     })
@@ -93,10 +108,11 @@ for line in open(jobs_conf, encoding="utf-8"):
         worst = max(worst, 3)
     elif status in ("critical", "failed", "timeout"):
         worst = max(worst, 2)
-    elif status in ("degraded", "unknown"):
+    elif status in ("degraded", "unknown") or late:
         worst = max(worst, 1)
 
-verdict = {0: "ALL_FRESH", 1: "DEGRADED", 2: "CRITICAL", 3: "STALE_OR_UNKNOWN"}[worst]
+verdict = {0: "ALL_FRESH", 1: "DEGRADED_OR_LATE", 2: "CRITICAL",
+           3: "STALE_OR_UNKNOWN"}[worst]
 
 if as_json:
     print(json.dumps({"verdict": verdict, "exit_code": worst, "jobs": rows,
@@ -122,8 +138,15 @@ print("  " + "-" * 56)
 for r in rows:
     every = (f"{r['interval_seconds'] // 3600}h" if r["interval_seconds"] >= 3600
              else f"{r['interval_seconds'] // 60}m")
-    mark = "yes" if r["fresh"] else "NO  <-- not running"
+    mark = ("NO  <-- not running" if not r["fresh"]
+            else "late" if r.get("late") else "yes")
     print(f"  {r['job']:<10} {r['status']:<14} {human(r['age_seconds']):<12} {every:<8} {mark}")
+
+if any(r.get("late") for r in rows):
+    print()
+    print("  A job marked 'late' missed its slot but is still inside the grace")
+    print("  window. Common cause: install.sh reloading an agent resets its")
+    print("  StartInterval timer, which matters most for the weekly jobs.")
 
 if worst == 3:
     print()
