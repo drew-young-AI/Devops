@@ -1,6 +1,14 @@
 services:
   prometheus:
     image: prom/prometheus:v3.5.0
+    # Survive a host reboot. Every service was `restart: no`, so a
+    # reboot took the entire platform down and left it down: the
+    # launchd agents still fired, every job failed against absent
+    # containers, and the failures went to a local notification file
+    # nobody was reading. `unless-stopped` rather than `always` -- a
+    # deliberately stopped container must stay stopped, which is what
+    # the parked blue/green colour depends on.
+    restart: unless-stopped
     logging:
       driver: json-file
       options:
@@ -23,6 +31,14 @@ services:
 
   alertmanager:
     image: prom/alertmanager:v0.28.1
+    # Survive a host reboot. Every service was `restart: no`, so a
+    # reboot took the entire platform down and left it down: the
+    # launchd agents still fired, every job failed against absent
+    # containers, and the failures went to a local notification file
+    # nobody was reading. `unless-stopped` rather than `always` -- a
+    # deliberately stopped container must stay stopped, which is what
+    # the parked blue/green colour depends on.
+    restart: unless-stopped
     logging:
       driver: json-file
       options:
@@ -44,6 +60,14 @@ services:
 
   loki:
     image: grafana/loki:3.5.5
+    # Survive a host reboot. Every service was `restart: no`, so a
+    # reboot took the entire platform down and left it down: the
+    # launchd agents still fired, every job failed against absent
+    # containers, and the failures went to a local notification file
+    # nobody was reading. `unless-stopped` rather than `always` -- a
+    # deliberately stopped container must stay stopped, which is what
+    # the parked blue/green colour depends on.
+    restart: unless-stopped
     logging:
       driver: json-file
       options:
@@ -61,6 +85,14 @@ services:
 
   alloy:
     image: grafana/alloy:v1.10.2
+    # Survive a host reboot. Every service was `restart: no`, so a
+    # reboot took the entire platform down and left it down: the
+    # launchd agents still fired, every job failed against absent
+    # containers, and the failures went to a local notification file
+    # nobody was reading. `unless-stopped` rather than `always` -- a
+    # deliberately stopped container must stay stopped, which is what
+    # the parked blue/green colour depends on.
+    restart: unless-stopped
     logging:
       driver: json-file
       options:
@@ -78,6 +110,14 @@ services:
 
   grafana:
     image: grafana/grafana:12.1.1
+    # Survive a host reboot. Every service was `restart: no`, so a
+    # reboot took the entire platform down and left it down: the
+    # launchd agents still fired, every job failed against absent
+    # containers, and the failures went to a local notification file
+    # nobody was reading. `unless-stopped` rather than `always` -- a
+    # deliberately stopped container must stay stopped, which is what
+    # the parked blue/green colour depends on.
+    restart: unless-stopped
     logging:
       driver: json-file
       options:

@@ -50,7 +50,14 @@ services:
     mem_limit: 256m
     cpus: 0.5
     pids_limit: 64
-    restart: "no"
+    # Survive a host reboot. Every service was `restart: no`, so a
+    # reboot took the entire platform down and left it down: the
+    # launchd agents still fired, every job failed against absent
+    # containers, and the failures went to a local notification file
+    # nobody was reading. `unless-stopped` rather than `always` -- a
+    # deliberately stopped container must stay stopped, which is what
+    # the parked blue/green colour depends on.
+    restart: unless-stopped
     healthcheck:
       # `vault status` exits 0 only when unsealed and active -- sealed
       # (exit 2, the state immediately after a fresh `vault operator init`)

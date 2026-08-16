@@ -32,7 +32,14 @@ services:
     mem_limit: 64m
     cpus: 0.25
     pids_limit: 32
-    restart: "no"
+    # Survive a host reboot. Every service was `restart: no`, so a
+    # reboot took the entire platform down and left it down: the
+    # launchd agents still fired, every job failed against absent
+    # containers, and the failures went to a local notification file
+    # nobody was reading. `unless-stopped` rather than `always` -- a
+    # deliberately stopped container must stay stopped, which is what
+    # the parked blue/green colour depends on.
+    restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://127.0.0.1:8080/nginx-health"]
       interval: 5s

@@ -23,7 +23,14 @@ services:
     mem_limit: 128m
     cpus: 0.25
     pids_limit: 64
-    restart: "no"
+    # Survive a host reboot. Every service was `restart: no`, so a
+    # reboot took the entire platform down and left it down: the
+    # launchd agents still fired, every job failed against absent
+    # containers, and the failures went to a local notification file
+    # nobody was reading. `unless-stopped` rather than `always` -- a
+    # deliberately stopped container must stay stopped, which is what
+    # the parked blue/green colour depends on.
+    restart: unless-stopped
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health/ready', timeout=1)"]
       interval: 5s
