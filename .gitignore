@@ -178,3 +178,17 @@ evidence/*/metadata.json
 # the repo, but the pattern is listed so a stray copy never gets committed.
 *.plist.installed
 *.plist.new
+
+# Scheduler LIVE STATE, not evidence of record. These rewrite every 15
+# minutes, so tracking them means permanent churn and a conflict on every
+# branch switch. The append-only records next to them (coverage_gaps.jsonl,
+# notifications.jsonl) ARE history and stay tracked -- that is the
+# distinction: what happened is worth keeping, what is true right now is not.
+evidence/scheduler/*_last.json
+evidence/scheduler/logs/
+
+# Generated views. Regenerated on a 15-minute schedule from evidence, so they
+# are build output, not source. docs/System-State.html is deliberately NOT
+# here: it is hand-curated.
+docs/Value-Stream-Board.html
+docs/Pipeline-Status.html

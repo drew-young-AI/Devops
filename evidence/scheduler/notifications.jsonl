@@ -1,1 +1,2 @@
 {"at": "2026-08-14T10:10:14Z", "job": "health", "from": "critical", "to": "ok", "severity": "recovered", "summary": "[OK] health: critical -> ok"}
+{"at": "2026-08-16T02:37:16Z", "job": "health", "from": "ok", "to": "unknown", "severity": "warning", "summary": "[WARN] health: ok -> unknown"}
