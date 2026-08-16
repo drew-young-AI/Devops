@@ -97,15 +97,63 @@ procedure that looks correct, runs without error, and silently produces an
 unusable system. Fixed by redirecting `</dev/null` on the exec and reading
 keys into an array first.
 
+## Offsite (2026-08-16)
+
+```bash
+BACKUP_OFFSITE_DEST=/Volumes/Backup/devops platform/backup/sync_offsite.sh
+BACKUP_OFFSITE_DEST=... platform/backup/sync_offsite.sh --prune-local 7
+```
+
+**It refuses to run unless the destination is on a different device.**
+
+That check is the whole point. Archives and their source lived on one disk,
+so the disk failing lost both -- meaning the integrity manifests, the restore
+drill and its ten passing assertions protected against nothing that actually
+threatened them. The danger was never "we forgot to copy elsewhere"; it was
+that copying to another folder on the same disk would *look* like the fix.
+`stat -f %d` compares device ids and declines with an explanation rather than
+performing theatre.
+
+**No default destination.** These are complete copies of platform state, and
+where they go is a decision with consequences. `BACKUP_OFFSITE_DEST` must be
+set explicitly; the script otherwise prints the candidate destinations with
+the trade-off each carries and exits.
+
+**Copies are re-hashed at the destination** against the manifest recorded at
+backup time. Trusting `cp` is the same mistake as trusting an unrestored
+backup: a truncated copy still leaves a plausible-looking directory. A copy
+that fails verification is deleted rather than left looking good.
+
+**Pruning only removes what is verified elsewhere.** Local archives grow
+~22 MB/day (~7.8 GB/year), so pruning is necessary -- but deleting the only
+copy of something because the far end *should* have it is how backups become
+fiction.
+
+### Verified
+
+| Injected condition | Result |
+|---|---|
+| no `BACKUP_OFFSITE_DEST` | refused, with the options and their trade-offs |
+| destination on the same device | **refused** -- the check that matters |
+| genuine second device (mounted image) | 6 sets synced and re-hashed |
+| one byte altered at the destination | digest mismatch detected |
+| manifest referencing a missing file | sync failed, target removed, **and the local set was KEPT** |
+| prune with a verified copy present | removed locally, oldest first |
+
+One bug found doing it: the prune loop used `head -n -N`, which is a GNU
+extension that BSD `head` on macOS rejects outright. The substitution came
+back empty and the loop silently did nothing while reporting "pruned 0". It
+failed in the safe direction this time, but a prune that never prunes is a
+disk that fills anyway with nothing saying so.
+
 ## Known gaps
 
-- **No offsite copy.** Archives live on the same disk as the volumes they
-  back up, so a disk failure loses both. Fixing this needs a destination
-  decision (external drive, object storage) that has not been made.
-- **No schedule.** Backups are manual. Automating them should wait until the
-  offsite question is answered, since a scheduled backup to the same disk
-  mostly produces confidence rather than recoverability.
-- **No retention/pruning for archives.** They accumulate.
+- **Offsite is built but not configured.** The mechanism is verified;
+  `BACKUP_OFFSITE_DEST` is unset, so nothing is being copied anywhere yet.
+  Until a destination is chosen, a disk failure still loses everything.
+- **Offsite is not scheduled.** Adding it to `jobs.conf` only makes sense
+  once the destination is one that is reliably present -- a daily job against
+  an unplugged drive is a daily failure notification.
 - **Grafana and Alertmanager archives are only integrity-checked, not
   restore-drilled.** Only Vault gets the full usability drill. Extending the
   drill to Grafana would mean standing up a scratch Grafana and asserting a
