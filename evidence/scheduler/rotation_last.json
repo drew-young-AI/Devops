@@ -1,0 +1,12 @@
+{
+  "job": "rotation",
+  "started_at": "2026-08-14T10:11:21Z",
+  "status": "ok",
+  "exit_code": 0,
+  "duration_seconds": 2,
+  "interval_seconds": 604800,
+  "command": "platform/vault/scripts/check_rotation_due.sh",
+  "output_tail": [
+    "platform/vault/scripts/check_rotation_due.sh: line 19: 1: Usage: check_rotation_due.sh <path> [interval_days]"
+  ]
+}

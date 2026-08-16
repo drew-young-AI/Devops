@@ -51,7 +51,7 @@ get_current_version() {
 OLD_VERSION="$(get_current_version)"
 
 docker exec -i -e VAULT_TOKEN="$VAULT_TOKEN" -e SECRET_VAL="$NEW_VALUE" "$CONTAINER" \
-  sh -c "vault kv put secret/$SECRET_PATH $FIELD=\"\$SECRET_VAL\"" >&2
+  sh -c "vault kv put secret/$SECRET_PATH $FIELD=\"\$SECRET_VAL\"" >&2 </dev/null
 
 NEW_VERSION="$(get_current_version)"
 

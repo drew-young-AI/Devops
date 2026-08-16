@@ -1,3 +1,13 @@
+---
+type: explanation
+title: DataOps 介面契約
+description: "Repo-boundary decision for future DataOps work: a separate repo consuming this platform as a service, with the interface table it depends on."
+tags:
+  - dataops
+  - architecture
+  - interfaces
+timestamp: 2026-08-15T20:00:54+08:00
+---
 # Future DataOps — Medical & Multi-Modal Data
 
 This is deferred, same as `Future-ML-LLMOps.md`. Keep the architecture able
@@ -30,7 +40,7 @@ platform-as-a-service 提供者，MLOps/DataOps repo 是消費者**，透過下�
 
 | 共用服務 | MLOps/DataOps repo 怎麼用 | 不共用的部分 |
 |---|---|---|
-| Vault（`platform/vault/`） | 新 namespace/policy（例如 `secret/dataops/*`），用 scoped token 讀，不碰 root token | 自己的 secret 內容 |
+| Vault（`platform/vault/`） | **已建置並驗證**：`secret/dataops/*` namespace + `dataops-readonly` policy，4 項邊界測試通過（含跨 namespace 隔離：dataops token 讀不到 `secret/devops/*`）。詳見 `platform/vault/README.md`「DataOps Namespace」。未來 repo 直接用 scoped token 讀，不碰 root token | 自己的 secret 內容 |
 | GHCR（同一 GitHub 帳號） | 新 image namespace（例如 `ghcr.io/drew-young-ai/dataops-*`） | 自己的 image 內容 |
 | Observability（`platform/observability/`） | 算好的指標（drift 分數、feature 健康度）推進同一個 Prometheus/Grafana 顯示，本機同一台 Mac 上直接打 `127.0.0.1:19090`/`127.0.0.1:13100` 即可，不需要額外網路設定 | 指標怎麼算（統計邏輯）、原始資料本身 |
 | CI/evidence **模式**（不是程式碼） | 抄 `deploy.sh`/`scan_image.sh` 的設計模式（build→scan→push→deploy→evidence、真人確認 gate）寫自己的版本 | 實際腳本內容、`Plan.md`、evidence schema 細節 |

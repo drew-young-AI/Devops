@@ -1,0 +1,21 @@
+{"job": "board", "gap_seconds": 10364, "gap_minutes": 172.7, "expected_interval_seconds": 900, "missed_runs": 10, "from": "2026-08-14T10:59:10Z", "to": "2026-08-14T13:51:54Z", "backfilled": true}
+{"job": "health", "gap_seconds": 10364, "gap_minutes": 172.7, "expected_interval_seconds": 900, "missed_runs": 10, "from": "2026-08-14T10:59:10Z", "to": "2026-08-14T13:51:54Z", "backfilled": true}
+{"job": "board", "gap_seconds": 26584, "gap_minutes": 443.1, "expected_interval_seconds": 900, "missed_runs": 28, "from": "2026-08-14T13:51:54Z", "to": "2026-08-14T21:14:58Z", "backfilled": true}
+{"job": "health", "gap_seconds": 26584, "gap_minutes": 443.1, "expected_interval_seconds": 900, "missed_runs": 28, "from": "2026-08-14T13:51:54Z", "to": "2026-08-14T21:14:58Z", "backfilled": true}
+{"job": "health", "gap_seconds": 2572, "gap_minutes": 42.9, "expected_interval_seconds": 900, "missed_runs": 1, "from": "2026-08-14T22:30:35Z", "to": "2026-08-14T23:13:27Z"}
+{"job": "board", "gap_seconds": 2597, "gap_minutes": 43.3, "expected_interval_seconds": 900, "missed_runs": 1, "from": "2026-08-14T22:30:10Z", "to": "2026-08-14T23:13:27Z"}
+{"job": "board", "gap_seconds": 2507, "gap_minutes": 41.8, "expected_interval_seconds": 900, "missed_runs": 1, "from": "2026-08-15T00:04:21Z", "to": "2026-08-15T00:46:08Z"}
+{"job": "health", "gap_seconds": 2507, "gap_minutes": 41.8, "expected_interval_seconds": 900, "missed_runs": 1, "from": "2026-08-15T00:04:21Z", "to": "2026-08-15T00:46:08Z"}
+{"job": "dag", "gap_seconds": 2507, "gap_minutes": 41.8, "expected_interval_seconds": 900, "missed_runs": 1, "from": "2026-08-15T00:04:21Z", "to": "2026-08-15T00:46:08Z"}
+{"job": "board", "gap_seconds": 14195, "gap_minutes": 236.6, "expected_interval_seconds": 900, "missed_runs": 14, "from": "2026-08-15T00:46:08Z", "to": "2026-08-15T04:42:43Z"}
+{"job": "health", "gap_seconds": 14195, "gap_minutes": 236.6, "expected_interval_seconds": 900, "missed_runs": 14, "from": "2026-08-15T00:46:08Z", "to": "2026-08-15T04:42:43Z"}
+{"job": "dag", "gap_seconds": 14195, "gap_minutes": 236.6, "expected_interval_seconds": 900, "missed_runs": 14, "from": "2026-08-15T00:46:08Z", "to": "2026-08-15T04:42:43Z"}
+{"job": "board", "gap_seconds": 5810, "gap_minutes": 96.8, "expected_interval_seconds": 900, "missed_runs": 5, "from": "2026-08-15T04:42:43Z", "to": "2026-08-15T06:19:33Z"}
+{"job": "health", "gap_seconds": 5810, "gap_minutes": 96.8, "expected_interval_seconds": 900, "missed_runs": 5, "from": "2026-08-15T04:42:43Z", "to": "2026-08-15T06:19:33Z"}
+{"job": "dag", "gap_seconds": 5810, "gap_minutes": 96.8, "expected_interval_seconds": 900, "missed_runs": 5, "from": "2026-08-15T04:42:43Z", "to": "2026-08-15T06:19:33Z"}
+{"job": "board", "gap_seconds": 16473, "gap_minutes": 274.6, "expected_interval_seconds": 900, "missed_runs": 17, "from": "2026-08-15T06:19:33Z", "to": "2026-08-15T10:54:06Z"}
+{"job": "health", "gap_seconds": 16473, "gap_minutes": 274.6, "expected_interval_seconds": 900, "missed_runs": 17, "from": "2026-08-15T06:19:33Z", "to": "2026-08-15T10:54:06Z"}
+{"job": "dag", "gap_seconds": 16473, "gap_minutes": 274.6, "expected_interval_seconds": 900, "missed_runs": 17, "from": "2026-08-15T06:19:33Z", "to": "2026-08-15T10:54:06Z"}
+{"job": "board", "gap_seconds": 2701, "gap_minutes": 45.0, "expected_interval_seconds": 900, "missed_runs": 2, "from": "2026-08-15T14:54:42Z", "to": "2026-08-15T15:39:43Z"}
+{"job": "dag", "gap_seconds": 2701, "gap_minutes": 45.0, "expected_interval_seconds": 900, "missed_runs": 2, "from": "2026-08-15T14:54:42Z", "to": "2026-08-15T15:39:43Z"}
+{"job": "health", "gap_seconds": 2701, "gap_minutes": 45.0, "expected_interval_seconds": 900, "missed_runs": 2, "from": "2026-08-15T14:54:42Z", "to": "2026-08-15T15:39:43Z"}

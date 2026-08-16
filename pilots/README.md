@@ -1,3 +1,12 @@
+---
+type: overview
+title: Pilot 服務總覽
+description: "What pilots are for: validating the platform, never representing product requirements."
+tags:
+  - pilot
+  - entry-point
+timestamp: 2026-08-09T01:15:06+08:00
+---
 # Pilot Services
 
 目前 Pilot：`station1-hello`。

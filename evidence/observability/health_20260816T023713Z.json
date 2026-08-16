@@ -1,0 +1,47 @@
+{
+  "verdict": "UNKNOWN",
+  "exit_code": 3,
+  "checked_at": "2026-08-16T02:37:13Z",
+  "monitoring_integrity": [
+    {
+      "check": "prometheus_reachable",
+      "ok": true,
+      "detail": "api/v1/rules responded"
+    },
+    {
+      "check": "alert_rules_loaded",
+      "ok": true,
+      "detail": "4 rules"
+    },
+    {
+      "check": "alert_rules_evaluating",
+      "ok": false,
+      "detail": "DevelopServiceDown: None; ProductionLikeAllColorsDown: None; ScrapeTargetDownProlonged: None"
+    },
+    {
+      "check": "alertmanager_wired",
+      "ok": false,
+      "detail": "0 active"
+    },
+    {
+      "check": "alertmanager_reachable",
+      "ok": true,
+      "detail": "api/v2/alerts responded"
+    },
+    {
+      "check": "scrape_targets_visible",
+      "ok": false,
+      "detail": "0 targets"
+    }
+  ],
+  "integrity_blockers": [
+    "3 alert rule(s) failing to evaluate",
+    "Prometheus has no active Alertmanager -- alerts go nowhere"
+  ],
+  "active_alerts": [],
+  "scrape_targets": {},
+  "sources": {
+    "prometheus": "http://127.0.0.1:19090",
+    "alertmanager": "http://127.0.0.1:19093"
+  }
+}

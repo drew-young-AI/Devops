@@ -1,0 +1,19 @@
+# Per-tenant limit overrides. Reloaded every 30s without restarting Loki --
+# so tightening retention on sensitive data takes effect immediately rather
+# than waiting for a maintenance window.
+#
+# Restricted data is kept for LESS time than operational data, not more.
+# How long sensitive material continues to exist is itself a control: 72h is
+# enough to investigate an incident without accumulating a growing store of
+# identifiable data. The lower ingestion caps are the same reasoning applied
+# to volume rather than time.
+#
+# The audit-style long retention a compliance body might eventually require
+# is deliberately NOT set here. That requirement does not exist yet, and
+# guessing at it would mean holding sensitive data longer than anyone has
+# actually asked for -- the wrong direction to err in.
+overrides:
+  restricted:
+    retention_period: 72h
+    ingestion_rate_mb: 4
+    per_stream_rate_limit: 2MB

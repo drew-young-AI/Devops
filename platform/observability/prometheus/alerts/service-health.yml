@@ -1,0 +1,92 @@
+# Deterministic "is the service healthy" definitions.
+#
+# These exist so that a scheduled agent (or a human) has a *single, fixed,
+# reproducible* answer to "服務好不好" instead of re-interpreting a Grafana
+# dashboard by eye every time. The threshold lives here, in version control,
+# not in whoever happens to be looking at the graph.
+#
+# Every rule below is written only against metrics that actually exist today
+# (`up`, `station1_requests_total`, `station1_errors_total`). Rules for CPU,
+# memory and container restarts are deliberately absent -- nothing collects
+# those metrics yet (no cAdvisor/node-exporter). Writing rules against
+# metrics that are never produced would give alerts that can never fire,
+# which reads as "all clear" and is worse than an acknowledged gap. See
+# README.md "Known gaps".
+
+groups:
+  - name: service-availability
+    rules:
+      - alert: DevelopServiceDown
+        expr: up{job="station1-hello"} == 0
+        for: 1m
+        labels:
+          severity: warning
+          environment: develop
+        annotations:
+          summary: "station1-hello develop is not responding to scrapes"
+          description: >-
+            Prometheus could not scrape the develop instance for 1 minute.
+            Develop is warning, not critical: it carries no traffic and is
+            expected to be torn down and rebuilt routinely.
+          runbook: "platform/compose/deploy.sh status develop pilots/station1-hello"
+
+      # Blue/green: exactly one color serves at a time, so the *idle* color
+      # being down is normal and must not alert. Production-like is down only
+      # when NO color is up. `sum()` over the job expresses precisely that,
+      # and keeps working when a promote flips which color is idle.
+      - alert: ProductionLikeAllColorsDown
+        expr: sum(up{job="station1-hello-productionlike"}) == 0
+        for: 1m
+        labels:
+          severity: critical
+          environment: production-like
+        annotations:
+          summary: "station1-hello production-like has no healthy color"
+          description: >-
+            Neither blue nor green responded to scrapes for 1 minute, so
+            production-like is serving nothing. This is the real outage
+            signal; a single color being down is expected and does not fire.
+          runbook: "platform/compose/deploy.sh rollback pilots/station1-hello"
+
+      # Catch-all so any future scrape target (a second pilot, a dataops
+      # service, an exporter) gets availability coverage the moment it is
+      # added, without someone remembering to write a rule for it.
+      #
+      # The blue/green job is excluded on purpose. A bare `up == 0` here
+      # fires forever on whichever color is parked -- which is the normal,
+      # correct state -- and a permanently-firing alert trains everyone to
+      # ignore the alert list. Production-like availability is already
+      # expressed correctly by ProductionLikeAllColorsDown above.
+      - alert: ScrapeTargetDownProlonged
+        expr: up{job!="station1-hello-productionlike"} == 0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Scrape target {{ $labels.job }}/{{ $labels.instance }} down 10m+"
+          description: >-
+            A monitored target has been unreachable for 10 minutes. Generic
+            coverage for targets that have no dedicated rule yet.
+
+  - name: service-errors
+    rules:
+      # Guarded against 0/0: with no traffic the ratio is undefined, and an
+      # unguarded division yields NaN, which compares false and silently
+      # never fires. The `> 0` traffic clause makes "no traffic" an explicit
+      # non-alerting state rather than an accidental one.
+      - alert: HighErrorRate
+        expr: >-
+          rate(station1_errors_total[5m])
+            / rate(station1_requests_total[5m]) > 0.10
+          and rate(station1_requests_total[5m]) > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.service }} ({{ $labels.environment }}) error ratio above 10%"
+          description: >-
+            More than 10% of requests returned 404 over a 5 minute window,
+            sustained for 5 minutes. station1_errors_total counts 404s only,
+            so this detects bad routing/clients, not 5xx -- the pilot does
+            not expose a 5xx counter yet.
+          runbook: "Grafana DevOps Overview, then Loki: {compose_project=~\"station1-hello.*\"}"

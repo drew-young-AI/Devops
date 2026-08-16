@@ -1,3 +1,13 @@
+---
+type: how-to
+title: 新服務接入指引
+description: "How to onboard a new HTTP service onto this platform: service contract, required files, gates, and the human release decision."
+tags:
+  - devops
+  - onboarding
+  - contract
+timestamp: 2026-08-15T20:00:54+08:00
+---
 # 新服務接入 DevOps 指引
 
 本文件用於下次建立新的 Python、Node.js、Java、Go、.NET 或其他 HTTP 服務時，將服務接入現有 DevOps 平台。
@@ -134,6 +144,7 @@ compile / lint
 ```text
 Build once
   -> Test in develop
+  -> LLM review (advisory evidence)
   -> Human review
   -> Promote same digest
   -> Blue/Green production-like
@@ -142,6 +153,8 @@ Build once
 ```
 
 LLM 可以執行測試、diff review、scan、報告與低風險診斷，但不能代替人類進行 PRD、產品體驗或 production release approval。
+
+上面流程中的 `LLM review` 由 `platform/llm-review/review.sh` 產出，只是餵給人類的 evidence：它的 verdict 不影響 exit code，`deploy.sh promote` 顯示它之後仍然要求真人輸入 `PROMOTE`。它讓人類的決策更有依據，不代替人類決策。詳見 `platform/llm-review/README.md`。
 
 ## 9. 未來 Kubernetes 搬遷檢查
 

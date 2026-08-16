@@ -1,0 +1,17 @@
+{
+  "job": "dast",
+  "started_at": "2026-08-14T10:11:21Z",
+  "status": "ok",
+  "exit_code": 0,
+  "duration_seconds": 37,
+  "interval_seconds": 86400,
+  "command": "platform/security/scan_dast.sh",
+  "output_tail": [
+    "=== [dast] OWASP ZAP baseline against https://host.docker.internal:18443 ===",
+    "    gate: fail at MEDIUM and above",
+    "  URLs examined: 3",
+    "  HIGH=0  MEDIUM=0  LOW=0  INFO=2",
+    "DAST PASS",
+    "artifact=/Users/drew/ENV/Devops/evidence/security/dast_summary_20260814T101121Z.json"
+  ]
+}

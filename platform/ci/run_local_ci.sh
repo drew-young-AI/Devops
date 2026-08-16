@@ -8,16 +8,27 @@ IMAGE_NAME="${IMAGE_NAME:-station1-hello:ci}"
 
 mkdir -p "$ARTIFACT_DIR"
 
-echo "[1/5] lint / compile"
+echo "[1/6] lint / compile"
 python3 -m py_compile "$PILOT_DIR/app.py"
 
-echo "[2/5] unit / contract test"
+echo "[2/6] SAST (source security scan)"
+# Runs on the PILOT SOURCE, before the image is built. Every other security
+# gate in this pipeline inspects an artifact (Trivy on the image, SBOM,
+# Cosign) or history (Gitleaks) -- none of them reads the application source,
+# so an injection flaw written today passes all of them: the image has no
+# CVEs and no secret was committed. This is the gate that would catch it.
+if ! "$PLATFORM_ROOT/platform/security/scan_sast.sh" "$PILOT_DIR" "$ARTIFACT_DIR"; then
+  echo "CI FAILED: SAST gate" >&2
+  exit 1
+fi
+
+echo "[3/6] unit / contract test"
 python3 -m unittest discover -s "$PILOT_DIR/tests" -p 'test_*.py' -v
 
-echo "[3/5] container build"
+echo "[4/6] container build"
 docker build --tag "$IMAGE_NAME" "$PILOT_DIR"
 
-echo "[4/5] graceful shutdown smoke test"
+echo "[5/6] graceful shutdown smoke test"
 # NEW_SERVICE_GUIDE.md section 5 explicitly requires a "graceful shutdown
 # test" for every service -- this was previously only verified manually,
 # once, ad hoc. Making it a permanent CI step closes that gap for real
@@ -73,7 +84,7 @@ PY
 trap - EXIT
 cleanup_smoke
 
-echo "[5/5] artifact metadata"
+echo "[6/6] artifact metadata"
 IMAGE_DIGEST="$(docker image inspect "$IMAGE_NAME" --format '{{index .RepoDigests 0}}' 2>/dev/null || true)"
 IMAGE_ID="$(docker image inspect "$IMAGE_NAME" --format '{{.Id}}')"
 COMMIT_SHA="$(git -C "$PILOT_DIR" rev-parse HEAD 2>/dev/null || printf 'local-uncommitted')"

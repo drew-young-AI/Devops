@@ -1,3 +1,13 @@
+---
+type: plan
+title: 平台計畫細節（站別）
+description: Full station-by-station plan with acceptance criteria, hardware capacity gating, and Kubernetes migration preconditions.
+tags:
+  - planning
+  - stations
+  - detail
+timestamp: 2026-08-15T20:00:54+08:00
+---
 # Enterprise Application and LLM Delivery Platform Plan
 
 > 目標：建立一套可套用於 Python、Node.js、Java、Go、.NET 等技術棧的企業級容器開發、交付、部署與資安標準。
@@ -155,10 +165,15 @@ MLOps 與 LLMOps 保留接口與未來擴充位置，但目前不應主導平台
 
 ### Station 5：MLX automation integration
 
-- [ ] 由 LLM endpoint 執行 code、Git diff、API test 或 pipeline report 檢查。
-- [ ] 只允許讀取與低風險、可逆操作。
-- [ ] 產出 `LLM-generated evidence`，不產出 Human Acceptance。
-- [ ] 驗證 LLM unavailable、timeout、錯誤輸出與人工 review 路徑。
+已建置：`platform/llm-review/`（見該目錄 README）。
+
+- [x] 由 LLM endpoint 執行 code、Git diff、API test 或 pipeline report 檢查。
+- [x] 只允許讀取與低風險、可逆操作（只讀 git diff 與 `evidence/*.json`，
+      不寫入任何服務狀態；唯一的寫入是新增一個 evidence 檔）。
+- [x] 產出 `LLM-generated evidence`，不產出 Human Acceptance
+      （verdict 不影響 exit code；`promote` 顯示後仍要求真人確認）。
+- [x] 驗證 LLM unavailable、timeout、錯誤輸出與人工 review 路徑
+      （5 種降級情境真實注入測試，非推論）。
 
 ### Station 6：Production-like release
 

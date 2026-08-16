@@ -1,3 +1,12 @@
+---
+type: review
+title: 階段性審查
+description: Point-in-time assessment of platform stages, including the Cloudflare Quick Tunnel finding.
+tags:
+  - devops
+  - review
+timestamp: 2026-08-11T20:05:56+08:00
+---
 # DevOps 平台階段性 Review（2026-08-11）
 
 本文件是目前實際建置狀態的快照，給討論下一步用。詳細規格與逐項驗證證據見

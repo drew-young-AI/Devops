@@ -1,0 +1,45 @@
+{
+  "tool": "owasp-zap-baseline",
+  "scanned_at": "20260814T031524Z",
+  "target": "https://host.docker.internal:18443",
+  "scan_type": "baseline (passive rules + spider; no attack traffic)",
+  "gate_policy": "fail on HIGH risk; MEDIUM/LOW/INFO recorded, not blocking",
+  "gate_result": "PASS",
+  "urls_examined": 3,
+  "counts_by_risk": {
+    "HIGH": 0,
+    "MEDIUM": 0,
+    "LOW": 1,
+    "INFO": 2
+  },
+  "alerts": [
+    {
+      "risk": "LOW",
+      "confidence": 2,
+      "name": "Cross-Origin-Resource-Policy Header Missing or Invalid",
+      "instances": 1,
+      "example_uri": "https://host.docker.internal:18443",
+      "solution": "<p>Ensure that the application/web server sets the Cross-Origin-Resource-Policy header appropriately, and that it sets the Cross-Origin-Resource-Policy header to 'same-origin' for all web pages.</p><p>'same-site' is considered as less secured and should be avoided.</p><p>If resources must be shared,"
+    },
+    {
+      "risk": "INFO",
+      "confidence": 1,
+      "name": "Re-examine Cache-control Directives",
+      "instances": 1,
+      "example_uri": "https://host.docker.internal:18443",
+      "solution": "<p>For secure content, ensure the cache-control HTTP header is set with \"no-cache, no-store, must-revalidate\". If an asset should be cached consider setting the directives \"public, max-age, immutable\".</p>"
+    },
+    {
+      "risk": "INFO",
+      "confidence": 2,
+      "name": "Storable and Cacheable Content",
+      "instances": 3,
+      "example_uri": "https://host.docker.internal:18443",
+      "solution": "<p>Validate that the response does not contain sensitive, personal or user-specific information. If it does, consider the use of the following HTTP response headers, to limit, or prevent the content being stored and retrieved from the cache by another user:</p><p>Cache-Control: no-cache, no-store, m"
+    }
+  ],
+  "scan_integrity": {
+    "ok": true,
+    "note": "Zero URLs examined means the spider never reached the target. That is a broken scan, not a clean result, and is treated as a gate failure."
+  }
+}

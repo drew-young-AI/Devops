@@ -2,16 +2,24 @@
 # to GitLab CI, GitHub Actions, Azure Pipelines or Jenkins.
 stages:
   - lint
+  - sast
   - unit_test
   - container_build
   - artifact_metadata
+  # dast runs against a DEPLOYED instance, so it is not part of the build
+  # pipeline -- it belongs after `deploy develop` and before `promote`.
+  # Listing it here as a stage would imply the build can perform it, which
+  # it cannot: there is nothing running to scan at build time.
+  - dast_post_deploy
 
 required_checks:
   - source_compile_or_lint
+  - sast_no_error_findings
   - unit_test
   - docker_build
   - image_digest
   - immutable_artifact_metadata
+  - dast_no_medium_or_above  # verified against the deployed develop instance
 
 failure_policy:
   any_required_check_failed: block
@@ -21,7 +29,13 @@ failure_policy:
 artifact_metadata:
   required:
     - commit_sha
-    - image_tag
+    # Was `image_tag`, which no producer ever emitted -- every build
+    # artifact writes `image`, and the value is a full tagged reference
+    # ("station1-hello:6a54ff3"), not a bare tag. The contract name was the
+    # wrong one, so the contract moved rather than 5 existing artifacts.
+    # Found by platform/tests/test_evidence_contract.sh, which exists
+    # because nothing previously checked the contract against reality.
+    - image
     - image_digest
     - build_timestamp
     - source_path

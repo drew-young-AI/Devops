@@ -1,3 +1,12 @@
+---
+type: checklist
+title: 人因可用性審查清單
+description: Checklist for reviewing whether platform output is usable by the humans who must act on it.
+tags:
+  - review
+  - usability
+timestamp: 2026-08-11T20:05:56+08:00
+---
 # Human Platform Usability Review — 走查清單
 
 依 `docs/Pilot-Validation.md` 的定義，這項檢查「operator 能否理解 CI、

@@ -1,3 +1,12 @@
+---
+type: checklist
+title: Pilot 驗證項目
+description: What a pilot service must demonstrate before it counts as validating the platform.
+tags:
+  - pilot
+  - validation
+timestamp: 2026-08-09T01:15:06+08:00
+---
 # Pilot Validation
 
 ```text

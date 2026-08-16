@@ -1,3 +1,13 @@
+---
+type: overview
+title: DevOps 平台總覽
+description: "Entry point: what this platform is, its directory boundaries, and how platform/ pilots/ and evidence/ relate."
+tags:
+  - devops
+  - platform
+  - entry-point
+timestamp: 2026-08-11T20:05:56+08:00
+---
 # DevOps Platform Workspace
 
 ## 新視窗接續工作

@@ -1,17 +1,24 @@
 services:
   vault:
     image: hashicorp/vault:1.18
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
     command: server
     volumes:
       - ./config/vault.hcl:/vault/config/vault.hcl:ro
       - vault-file:/vault/file
+      # WAS a 4MB tmpfs, on the reasoning that "/vault/logs isn't used --
+      # Vault logs to stdout by default". That stopped being true the moment
+      # the audit device was enabled, and the old setup would have failed in
+      # the worst possible way for an audit trail: silently capped at 4MB and
+      # erased on every restart, while `vault audit list` still reported a
+      # healthy device. An audit log that evaporates is worse than none,
+      # because it looks like coverage.
+      - vault-logs:/vault/logs
     tmpfs:
-      # /vault/logs isn't used (Vault logs to stdout by default) but the
-      # official entrypoint unconditionally chowns it with no error
-      # fallback (unlike /vault/config) -- under read_only: true it must
-      # exist and be writable or the container fails to start. size is
-      # nominal since nothing is actually written here.
-      - /vault/logs:size=4m,noexec,nosuid,mode=1777
       - /tmp:size=8m,noexec,nosuid,mode=1777
     ports:
       - "127.0.0.1:18200:8200"
@@ -43,7 +50,14 @@ services:
     mem_limit: 256m
     cpus: 0.5
     pids_limit: 64
-    restart: "no"
+    # Survive a host reboot. Every service was `restart: no`, so a
+    # reboot took the entire platform down and left it down: the
+    # launchd agents still fired, every job failed against absent
+    # containers, and the failures went to a local notification file
+    # nobody was reading. `unless-stopped` rather than `always` -- a
+    # deliberately stopped container must stay stopped, which is what
+    # the parked blue/green colour depends on.
+    restart: unless-stopped
     healthcheck:
       # `vault status` exits 0 only when unsealed and active -- sealed
       # (exit 2, the state immediately after a fresh `vault operator init`)
@@ -57,3 +71,4 @@ services:
 
 volumes:
   vault-file:
+  vault-logs:

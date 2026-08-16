@@ -1,3 +1,14 @@
+---
+type: platform-adapter
+title: 安全掃描 Adapter
+description: "Four scanning layers: source (SAST), artifact (Trivy, SBOM, signing), infrastructure (policy), and the running system (DAST)."
+tags:
+  - security
+  - sast
+  - dast
+  - supply-chain
+timestamp: 2026-08-15T19:57:20+08:00
+---
 # Security Scanning — Container Vulnerabilities, SBOM, Signing, Secret History
 
 Closes items from `Plan.md`'s "尚未完成的主要交付鏈": the container scan
@@ -177,6 +188,136 @@ incorrectly — when the last-matching pattern is itself a negation).
 | **Idempotency (fixed)** | Signed once, immediately re-ran against the *unchanged* file → correctly skipped re-signing, re-verified the existing bundle, exit 0, **zero new Rekor entries** |
 | **Idempotency (bug reproduced before the fix)** | Re-ran `scan_image.sh` (which regenerates the SBOM fresh) with the old name-only check → stale bundle + regenerated content → verify failed. Confirmed root cause via direct digest comparison before fixing |
 | `.pub` gitignore fix | `git add -n platform/security/keys/cosign.pub` → confirmed it would be staged (the authoritative check; `git check-ignore -v`'s exit code alone was misleading here) |
+
+## SAST and DAST (2026-08-14)
+
+```bash
+platform/security/scan_sast.sh              # source  -> evidence/security/sast_summary_*.json
+platform/security/scan_dast.sh              # runtime -> evidence/security/dast_summary_*.json
+```
+
+### The hole these fill
+
+Every scanner here before today looked at an **artifact** (Trivy on the
+image, SBOM, Cosign) or at **infrastructure** (Checkov/OPA on IaC) or at
+**history** (Gitleaks on commits). Nothing looked at the application source,
+and nothing looked at the running system.
+
+That leaves two whole classes invisible:
+
+- A SQL injection written today passes every existing gate — the image it
+  lands in has no CVEs, the IaC is fine, no secret was committed.
+- A missing security header, an exposed version banner, or a reachable debug
+  endpoint exists in **no file at all**. It is a property of the deployed
+  system, so no amount of source analysis will ever find it.
+
+SAST covers the first. DAST covers the second. They are not redundant.
+
+### Where each one runs
+
+| Gate | Tool | Stage | Blocks on |
+|---|---|---|---|
+| SAST | Semgrep OSS | `run_local_ci.sh` step 2/6, before build | ERROR severity |
+| DAST | OWASP ZAP baseline | after `deploy develop`, before `promote` | MEDIUM and above |
+
+DAST is deliberately **not** in the build pipeline: at build time there is
+nothing running to scan. `pipeline-contract.yml` lists it as
+`dast_post_deploy` for the same reason.
+
+### Both gates refuse to call an empty scan clean
+
+This is the same principle as `check_health.sh`'s exit 3, and both scanners
+needed it for a concrete reason discovered in practice:
+
+- **Semgrep**: `p/shell` and `p/bash` do not exist in the registry (both
+  404). A mistyped ruleset makes Semgrep scan **zero files** and still exit
+  reporting zero findings — observed exactly that during development. The
+  gate now fails when `files_scanned == 0` or any config error appears.
+- **ZAP**: an unreachable target produces a report with no alerts, which
+  looks identical to a clean one. The gate fails when `urls_examined == 0`.
+
+`platform/tests/test_evidence_contract.sh` additionally asserts that any
+recorded PASS actually examined something, so a zero-coverage PASS cannot sit
+in `evidence/` looking like assurance.
+
+### Rulesets are pinned, not `--config=auto`
+
+`auto` resolves rules over the network at run time, so the same commit can
+pass today and fail tomorrow with nothing in the repo having changed. That
+breaks the deterministic feedback these gates exist to provide. Pinned:
+`p/security-audit`, `p/secrets`, `p/dockerfile`, `p/owasp-top-ten`,
+`p/python`, `p/ci`.
+
+### The DAST threshold was measured, not guessed
+
+Set at **MEDIUM**, not HIGH. A passive baseline scan essentially never emits
+HIGH — those come from active attack traffic, which the baseline deliberately
+does not send. A HIGH-only gate was tested against a deliberately
+header-less page producing three MEDIUM findings and **still reported PASS**.
+A gate that passes that target is not a gate. Override per-target with
+`DAST_FAIL_ON`.
+
+Active scanning (`zap-full-scan`) genuinely attacks the target and is
+deliberately not wired in: that needs an explicit decision about what may be
+attacked and when.
+
+### Verified — both gates proven in both directions
+
+| Check | Result |
+|---|---|
+| SAST on current codebase | PASS, 121 files, 0 ERROR |
+| SAST on a deliberately vulnerable file | **FAIL**, exit 1 — 7 ERRORs across command injection, SQL injection, `eval` injection |
+| SAST with a mistyped ruleset | **FAIL** on scan-integrity, not a false PASS |
+| DAST on the develop vhost | PASS, 3 URLs, 0 MEDIUM+ |
+| DAST on a header-less page | **FAIL**, exit 1 — 3 blocking MEDIUM findings |
+| DAST against an unreachable target | **FAIL** with a reachability error, not a clean report |
+
+### Three real findings on the first run
+
+Adding these gates immediately produced fixes, which is the point:
+
+1. **GitHub Actions shell injection** — `${{ }}` context values interpolated
+   directly into a `run:` script body. GitHub substitutes those *before* the
+   shell runs, so any value containing shell metacharacters becomes code.
+   Fixed by passing through `env:`. The same step also built JSON by
+   `sed`-escaping only double quotes, so an attacker-controlled commit
+   message containing a backslash produced invalid JSON — now built with
+   python's `json` module.
+2. **`curl | bash` installing tfsec from a mutable `master` ref.** Three
+   problems in one step: unverified remote code execution, a mutable source,
+   and a *deprecated* tool duplicating a capability the platform already has.
+   Replaced with `trivy config` from a version-pinned action.
+3. **NGINX leaked its version** in the `Server` header, and lacked a
+   Cross-Origin-Resource-Policy header. Neither exists in any source file —
+   the version banner is simply nginx's default. Only a scanner looking at
+   the running system finds these. ZAP also rejected `same-site` as
+   insufficient for CORP, which pushed the value to `same-origin` — the
+   stricter and, for a service never embedded cross-origin, the correct one.
+
+### Installation
+
+- **Semgrep**: `uv tool install semgrep` — not `pip install`, keeping it off
+  the host python, per the isolation rule this platform follows everywhere.
+- **ZAP**: `docker pull --platform linux/arm64 zaproxy/zap-stable`. Both
+  tools are ARM-native; no x86 emulation.
+
+### Known gaps in SAST/DAST specifically
+
+- **16 Semgrep WARNINGs are unaddressed.** Non-blocking by policy and
+  recorded in every summary, but nobody has triaged them. A growing warning
+  count that nobody reads eventually makes the ERROR tier meaningless too.
+- **No active DAST.** Baseline only — passive rules plus a spider. Real
+  injection and authentication flaws in a running app need
+  `zap-full-scan`, which sends attack traffic.
+- **DAST covers one endpoint.** `station1-hello` exposes a handful of paths
+  and no authenticated area, so the spider has almost nothing to crawl.
+  Coverage numbers here say more about the pilot than about the scanner.
+- **No DAST scan of the production-like vhost.** Only develop is scanned.
+  Blue/green means the two can genuinely differ.
+- **Staleness is reported, not enforced.** `promote` warns when the DAST
+  result is over 24h old but still lets the release proceed.
+- **Neither gate runs in GitHub Actions yet.** Both run locally and in
+  `run_local_ci.sh`; the CI workflow only covers IaC and platform tests.
 
 ## Known Gaps / Next Steps
 

@@ -2,6 +2,14 @@ global:
   scrape_interval: 15s
   evaluation_interval: 15s
 
+rule_files:
+  - /etc/prometheus/alerts/*.yml
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ["alertmanager:9093"]
+
 scrape_configs:
   - job_name: station1-hello
     metrics_path: /metrics
@@ -10,3 +18,25 @@ scrape_configs:
         labels:
           environment: develop
           service: station1-hello
+
+  # Production-like was previously not scraped at all: the environment that
+  # actually matters was the one with zero monitoring, while develop had
+  # full coverage. Both blue/green colors are scraped here.
+  #
+  # The idle color is legitimately down (blue/green means exactly one color
+  # serves traffic at a time), so a per-target `up == 0` alert would fire
+  # permanently on whichever color is parked. The alert rules therefore
+  # aggregate across colors -- see alerts/service-health.yml.
+  - job_name: station1-hello-productionlike
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["host.docker.internal:18081"]
+        labels:
+          environment: production-like
+          service: station1-hello
+          color: blue
+      - targets: ["host.docker.internal:18082"]
+        labels:
+          environment: production-like
+          service: station1-hello
+          color: green

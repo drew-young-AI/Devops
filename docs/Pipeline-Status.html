@@ -1,0 +1,178 @@
+<title>DevOps 管線燈號</title>
+<style>
+:root{--ground:#F7F8F9;--surface:#FFFFFF;--sunk:#EFF2F4;--ink:#16202B;
+ --muted:#5A6875;--faint:#8794A1;--rule:#DDE3E8;--accent:#0F6E6B;
+ --ok:#2F7D4F;--ok-s:#E1EFE6;--warn:#B07A16;--warn-s:#F7EEDA;
+ --bad:#A03C3C;--bad-s:#F5E4E4;--unk:#8794A1;--unk-s:#EFF2F4}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+ --ground:#10161C;--surface:#171F27;--sunk:#1E2831;--ink:#E3E9EE;
+ --muted:#9AA8B4;--faint:#6E7D8A;--rule:#2A353F;--accent:#4FB3AF;
+ --ok:#6BBF8B;--ok-s:#17301F;--warn:#D9A945;--warn-s:#302711;
+ --bad:#D97676;--bad-s:#331B1B;--unk:#6E7D8A;--unk-s:#1E2831}}
+:root[data-theme="dark"]{--ground:#10161C;--surface:#171F27;--sunk:#1E2831;
+ --ink:#E3E9EE;--muted:#9AA8B4;--faint:#6E7D8A;--rule:#2A353F;--accent:#4FB3AF;
+ --ok:#6BBF8B;--ok-s:#17301F;--warn:#D9A945;--warn-s:#302711;
+ --bad:#D97676;--bad-s:#331B1B;--unk:#6E7D8A;--unk-s:#1E2831}
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink);line-height:1.6;
+ font-family:-apple-system,BlinkMacSystemFont,"Noto Sans TC","PingFang TC",sans-serif;
+ -webkit-font-smoothing:antialiased}
+.wrap{max-width:1200px;margin:0 auto;padding:40px 24px 72px}
+.eyebrow{font-family:ui-monospace,Menlo,monospace;font-size:11px;letter-spacing:.14em;
+ text-transform:uppercase;color:var(--accent);margin:0 0 10px}
+h1{font-size:clamp(26px,3.4vw,36px);font-weight:800;letter-spacing:-.025em;margin:0 0 10px}
+.lede{color:var(--muted);max-width:66ch;margin:0 0 20px;font-size:15.5px}
+.strip{display:flex;flex-wrap:wrap;gap:10px;padding:14px 0;border-top:1px solid var(--rule);
+ border-bottom:1px solid var(--rule);font-family:ui-monospace,Menlo,monospace;font-size:12.5px}
+.pill{padding:3px 11px;border-radius:2px;font-weight:700}
+.p-ok{background:var(--ok-s);color:var(--ok)}
+.p-warn{background:var(--warn-s);color:var(--warn)}
+.p-bad{background:var(--bad-s);color:var(--bad)}
+.p-unk{background:var(--unk-s);color:var(--unk)}
+.ts{margin-left:auto;color:var(--faint)}
+.banner{margin:20px 0 0;padding:13px 18px;border-left:3px solid var(--bad);
+ background:var(--bad-s);font-size:14.5px;border-radius:0 3px 3px 0}
+.banner.warn{border-left-color:var(--warn);background:var(--warn-s)}
+.graph{margin:26px 0 0;padding:18px;background:var(--surface);border:1px solid var(--rule);
+ border-radius:3px;overflow-x:auto}
+h2{font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;
+ color:var(--muted);margin:34px 0 12px;padding-bottom:9px;border-bottom:2px solid var(--rule)}
+table{width:100%;border-collapse:collapse;font-size:14px;min-width:640px}
+.tw{overflow-x:auto}
+th{text-align:left;font-size:10.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;
+ color:var(--faint);padding:0 12px 8px 0;border-bottom:1px solid var(--rule)}
+td{padding:9px 12px 9px 0;border-bottom:1px solid var(--rule);vertical-align:top}
+.mono{font-family:ui-monospace,Menlo,monospace;font-size:12px;color:var(--muted)}
+.det{color:var(--faint)}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:7px}
+.d-ok{background:var(--ok)} .d-warn{background:var(--warn)}
+.d-fail{background:var(--bad)} .d-unknown{background:var(--unk);
+ box-shadow:inset 0 0 0 1px var(--faint)}
+.imp{display:inline-block;margin-left:8px;padding:1px 7px;border-radius:2px;
+ font-size:11px;font-family:ui-monospace,Menlo,monospace;
+ background:var(--bad-s);color:var(--bad)}
+footer{margin-top:40px;padding-top:18px;border-top:1px solid var(--rule);
+ font-size:13px;color:var(--faint)}
+a{color:var(--accent)}
+</style>
+<div class="wrap">
+<p class="eyebrow">平台燈號 · 衍生自實際探測</p>
+<h1>DevOps 管線燈號</h1>
+<p class="lede">節點是<strong>平台機制本身</strong>，不是工作項目。連線是真實依賴，
+所以一個節點失敗時，下游會被標為<strong>受影響</strong>——這是清單做不到、
+只有 DAG 才表達得出來的爆炸半徑。</p>
+<div class="strip">
+  <span class="pill p-ok">正常 19</span>
+  <span class="pill p-warn">注意 1</span>
+  <span class="pill p-bad">失敗 0</span>
+  <span class="pill p-unk">無法判定 0</span>
+  <span class="ts">2026-08-16T02:38:45Z</span>
+</div>
+
+<div class="graph">
+<pre class="mermaid">
+flowchart LR
+  subgraph layer_foundation["基礎（橫切）"]
+    direction TB
+    vault["Vault 機密/身分<br/><small>unsealed</small>"]
+    audit["稽核軌跡<br/><small>518 KB</small>"]
+    scheduler["排程器<br/><small>late: audit, backup, dast</small>"]
+    backup["備份<br/><small>0h ago</small>"]
+    restore["還原演練<br/><small>passed 1.7d ago</small>"]
+  end
+  subgraph layer_source["原始碼"]
+    direction TB
+    sast["SAST 原始碼<br/><small>PASS, 27h ago</small>"]
+    secrets["Secret 歷史掃描<br/><small>no leaks, 1d ago</small>"]
+  end
+  subgraph layer_build["建置"]
+    direction TB
+    ci["CI 建置<br/><small>sha 9d68668</small>"]
+    trivy["映像漏洞掃描<br/><small>PASS</small>"]
+    registry["Registry 推送<br/><small>station1-hello:d830501</small>"]
+  end
+  subgraph layer_deploy["部署"]
+    direction TB
+    develop["develop 部署<br/><small>sha 9d68668</small>"]
+  end
+  subgraph layer_verify["驗證"]
+    direction TB
+    dast["DAST 執行中系統<br/><small>PASS, 27h ago</small>"]
+    llmreview["LLM 複審<br/><small>verdict CONCERN, 67h ago</small>"]
+  end
+  subgraph layer_gate["人工關卡"]
+    direction TB
+    gate["真人 PROMOTE<br/><small>manual by design</small>"]
+  end
+  subgraph layer_release["上線"]
+    direction TB
+    prodlike["production-like<br/><small>blue @ sha 6a54ff3</small>"]
+    nginx["NGINX 入口<br/><small>running healthy</small>"]
+  end
+  subgraph layer_observe["觀測"]
+    direction TB
+    prometheus["Prometheus 指標<br/><small>running none</small>"]
+    loki["Loki 日誌<br/><small>running none</small>"]
+    alertmgr["Alertmanager 告警<br/><small>no active alerts</small>"]
+    grafana["Grafana 檢視<br/><small>running none</small>"]
+  end
+  vault --> audit
+  vault --> ci
+  vault --> grafana
+  scheduler --> backup
+  scheduler --> dast
+  scheduler --> sast
+  backup --> restore
+  sast --> ci
+  secrets --> ci
+  ci --> trivy
+  trivy --> registry
+  ci --> develop
+  develop --> dast
+  develop --> llmreview
+  dast --> gate
+  llmreview --> gate
+  gate --> prodlike
+  prodlike --> nginx
+  develop --> prometheus
+  prodlike --> prometheus
+  prometheus --> alertmgr
+  loki --> grafana
+  prometheus --> grafana
+  alertmgr --> grafana
+  class vault ok;
+  class audit ok;
+  class scheduler warn;
+  class backup ok;
+  class restore ok;
+  class sast ok;
+  class secrets ok;
+  class ci ok;
+  class trivy ok;
+  class registry ok;
+  class develop ok;
+  class dast ok;
+  class llmreview ok;
+  class gate ok;
+  class prodlike ok;
+  class nginx ok;
+  class prometheus ok;
+  class loki ok;
+  class alertmgr ok;
+  class grafana ok;
+  classDef ok fill:#E1EFE6,stroke:#2F7D4F,stroke-width:1px,color:#16202B;
+  classDef warn fill:#F7EEDA,stroke:#B07A16,stroke-width:1px,color:#16202B;
+  classDef fail fill:#F5E4E4,stroke:#A03C3C,stroke-width:2px,color:#16202B;
+  classDef unknown fill:#EFF2F4,stroke:#8794A1,stroke-width:1px,color:#16202B,stroke-dasharray:4 3;
+  classDef impacted fill:#FFFFFF,stroke:#A03C3C,stroke-width:1px,color:#16202B,stroke-dasharray:2 3;
+</pre>
+</div>
+<h2>逐節點狀態</h2>
+<div class="tw"><table>
+<thead><tr><th>燈號</th><th>機制</th><th>層</th><th>依據</th></tr></thead>
+<tbody><tr><td><span class="dot d-ok"></span>正常</td><td>Vault 機密/身分</td><td class="mono">基礎（橫切）</td><td class="mono det">unsealed</td></tr><tr><td><span class="dot d-ok"></span>正常</td><td>稽核軌跡</td><td class="mono">基礎（橫切）</td><td class="mono det">518 KB</td></tr><tr><td><span class="dot d-warn"></span>注意</td><td>排程器</td><td class="mono">基礎（橫切）</td><td class="mono det">late: audit, backup, dast</td></tr><tr><td><span class="dot d-ok"></span>正常</td><td>備份</td><td class="mono">基礎（橫切）</td><td class="mono det">0h ago</td></tr><tr><td><span class="dot d-ok"></span>正常</td><td>還原演練</td><td class="mono">基礎（橫切）</td><td class="mono det">passed 1.7d ago</td></tr><tr><td><span class="dot d-ok"></span>正常</td><td>SAST 原始碼</td><td class="mono">原始碼</td><td class="mono det">PASS, 27h ago</td></tr><tr><td><span class="dot d-ok"></span>正常</td><td>Secret 歷史掃描</td><td class="mono">原始碼</td><td class="mono det">no leaks, 1d ago</td></tr><tr><td><span class="dot d-ok"></span>正常</td><td>CI 建置</td><td class="mono">建置</td><td class="mono det">sha 9d68668</td></tr><tr><td><span class="dot d-ok"></span>正常</td><td>映像漏洞掃描</td><td class="mono">建置</td><td class="mono det">PASS</td></tr><tr><td><span class="dot d-ok"></span>正常</td><td>Registry 推送</td><td class="mono">建置</td><td class="mono det">station1-hello:d830501</td></tr><tr><td><span class="dot d-ok"></span>正常</td><td>develop 部署</td><td class="mono">部署</td><td class="mono det">sha 9d68668</td></tr><tr><td><span class="dot d-ok"></span>正常</td><td>DAST 執行中系統</td><td class="mono">驗證</td><td class="mono det">PASS, 27h ago</td></tr><tr><td><span class="dot d-ok"></span>正常</td><td>LLM 複審</td><td class="mono">驗證</td><td class="mono det">verdict CONCERN, 67h ago</td></tr><tr><td><span class="dot d-ok"></span>正常</td><td>真人 PROMOTE</td><td class="mono">人工關卡</td><td class="mono det">manual by design</td></tr><tr><td><span class="dot d-ok"></span>正常</td><td>production-like</td><td class="mono">上線</td><td class="mono det">blue @ sha 6a54ff3</td></tr><tr><td><span class="dot d-ok"></span>正常</td><td>NGINX 入口</td><td class="mono">上線</td><td class="mono det">running (healthy)</td></tr><tr><td><span class="dot d-ok"></span>正常</td><td>Prometheus 指標</td><td class="mono">觀測</td><td class="mono det">running (none)</td></tr><tr><td><span class="dot d-ok"></span>正常</td><td>Loki 日誌</td><td class="mono">觀測</td><td class="mono det">running (none)</td></tr><tr><td><span class="dot d-ok"></span>正常</td><td>Alertmanager 告警</td><td class="mono">觀測</td><td class="mono det">no active alerts</td></tr><tr><td><span class="dot d-ok"></span>正常</td><td>Grafana 檢視</td><td class="mono">觀測</td><td class="mono det">running (none)</td></tr></tbody>
+</table></div>
+<footer>由 <code>platform/statusdag/dag.py</code> 產生。每個燈號都來自磁碟上的
+evidence 或即時探測，沒有任何一格是手動維護的——因此本圖無法與它描述的系統脫節。
+<strong>無法判定</strong>刻意與<strong>正常</strong>分開：跑不起來的檢查不是通過的檢查。</footer>
+</div>

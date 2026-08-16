@@ -50,8 +50,10 @@ usage() {
   echo "  $0 build    <pilot_dir>" >&2
   echo "  $0 push     <pilot_dir>" >&2
   echo "  $0 deploy   develop <pilot_dir>" >&2
-  echo "  $0 status   <develop|production-like> <pilot_dir>" >&2
-  echo "  $0 teardown <develop|production-like> <pilot_dir>" >&2
+  echo "  $0 promote  <pilot_dir>                 # blue/green, human-approved" >&2
+  echo "  $0 rollback <pilot_dir>                 # flip back, human-approved" >&2
+  echo "  $0 status   <develop|production-like> <pilot_dir> [blue|green]" >&2
+  echo "  $0 teardown <develop|production-like> <pilot_dir> [blue|green]" >&2
   exit 1
 }
 
@@ -287,9 +289,9 @@ cmd_deploy() {
   local env="$1"
   if [ "$env" != "develop" ]; then
     echo "'deploy' currently only supports 'develop'." >&2
-    echo "production-like promotion (develop-validation gate, blue/green," >&2
-    echo "human approval, rollback) is a separate, not-yet-built work item" >&2
-    echo "-- see Plan.md 'production-like blue/green 與 rollback'." >&2
+    echo "production-like is never deployed directly -- it is reached only" >&2
+    echo "through '$0 promote <pilot_dir>', which enforces the" >&2
+    echo "develop-validation gate, blue/green and human approval." >&2
     exit 1
   fi
   local pilot_dir
@@ -359,6 +361,101 @@ PY
   echo "artifact=$evidence_file"
 }
 
+# Surfaces the most recent DAST result before the promote confirmation.
+#
+# Unlike show_llm_review below, this reports a REAL GATE: DAST examines the
+# deployed system, which is the only thing that can find a runtime-only
+# problem (a missing security header, an exposed banner, a reachable debug
+# endpoint). None of those exist in any file, so no source-level gate will
+# ever catch them.
+#
+# Still display-only here, for a different reason than the LLM review: the
+# gate belongs at scan time (scan_dast.sh exits non-zero), not bolted onto
+# promote. Re-running a full scan inside promote would make an interactive
+# release step take minutes and tempt people to skip it. What promote owes
+# the human is the result, and a clear warning when there is no recent scan
+# to show.
+show_dast_result() {
+  local pilot_name="$1"
+  local report
+  report="$(ls -1 "$REPO_ROOT/evidence/security/dast_summary_"*.json 2>/dev/null | tail -1 || true)"
+
+  echo "--- DAST (deployed-system scan) ---"
+  if [ -z "$report" ]; then
+    echo "  No DAST result found."
+    echo "  Run: platform/security/scan_dast.sh"
+    echo ""
+    return 0
+  fi
+
+  python3 - "$report" <<'PY'
+import json, sys, datetime
+d = json.load(open(sys.argv[1]))
+counts = d["counts_by_risk"]
+print(f"  {d['gate_result']}  target={d['target']}")
+print(f"  HIGH={counts['HIGH']} MEDIUM={counts['MEDIUM']} LOW={counts['LOW']}"
+      f"  ({len(d.get('sites_scanned', [])) or d.get('urls_in_alerts', d.get('urls_examined', 0))} site(s), gate: {d.get('fail_on','?')}+)")
+for name in d.get("blocking_alerts", []):
+    print(f"    BLOCKING: {name}")
+# Age matters more than result: a green scan from three deploys ago says
+# nothing about the code about to be promoted.
+try:
+    when = datetime.datetime.strptime(d["scanned_at"], "%Y%m%dT%H%M%SZ").replace(
+        tzinfo=datetime.timezone.utc)
+    age_h = (datetime.datetime.now(datetime.timezone.utc) - when).total_seconds() / 3600
+    print(f"  scanned {age_h:.1f}h ago" + ("  <-- STALE, re-run before relying on it" if age_h > 24 else ""))
+except ValueError:
+    pass
+print(f"  artifact={sys.argv[1]}")
+PY
+  echo ""
+}
+
+# Surfaces Station 5's LLM-generated evidence (platform/llm-review/) to the
+# human standing at the promote confirmation prompt.
+#
+# Read-only and non-blocking, on purpose. A FAIL verdict prints in full and
+# then still lets the human type PROMOTE; a missing review prints a notice
+# and still lets them proceed. Making this gate the release would hand the
+# LLM production release authority, which NEW_SERVICE_GUIDE.md section 8 and
+# Plan-detail.md Station 5 ("產出 LLM-generated evidence，不產出 Human
+# Acceptance") both forbid. The point is a better-informed human decision,
+# not an automated one.
+show_llm_review() {
+  local pilot_name="$1" sha="$2"
+  local review
+  # `|| true` is load-bearing: this script runs under `set -euo pipefail`, so
+  # without it the no-review case (ls exits 2, pipefail propagates it) aborts
+  # the whole promote. That is the *common* case -- a review is optional --
+  # so an advisory display would have killed the release path it was meant to
+  # inform. Verified by running this function under `bash -euo pipefail`.
+  review="$(ls -1 "$REPO_ROOT/evidence/$pilot_name/llm_review_${sha}_"*.json 2>/dev/null | tail -1 || true)"
+
+  echo "--- LLM review (advisory evidence, not approval) ---"
+  if [ -z "$review" ]; then
+    echo "  No LLM review evidence for sha=$sha."
+    echo "  To generate one: platform/llm-review/review.sh <pilot_dir> $sha"
+    echo ""
+    return 0
+  fi
+
+  python3 - "$review" <<'PY'
+import json, sys
+d = json.load(open(sys.argv[1]))
+if d.get("status") != "OK":
+    err = d.get("error") or {}
+    print(f"  DEGRADED ({err.get('kind')}): {err.get('detail')}")
+    print("  No usable LLM evidence -- human review only.")
+else:
+    print(f"  verdict: {d['verdict']}   ({d['generated_at']}, model={d['reproducibility']['model']})")
+    print(f"  summary: {d['summary']}")
+    for f in d.get("findings", []):
+        print(f"    [{f.get('severity')}] {f.get('area')}: {f.get('detail')}")
+print(f"  artifact={sys.argv[1]}")
+PY
+  echo ""
+}
+
 cmd_promote() {
   local pilot_dir
   pilot_dir="$(cd "$1" && pwd)"
@@ -425,6 +522,8 @@ cmd_promote() {
   fi
   echo "Smoke test passed."
   echo ""
+  show_dast_result "$pilot_name"
+  show_llm_review "$pilot_name" "$sha"
   echo "$new_color is healthy and smoke-tested but NOT YET receiving traffic."
   echo "Flipping production-like traffic from '$current_color' to '$new_color' is"
   echo "a release decision, not something this script decides on its own"
