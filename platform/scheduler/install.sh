@@ -91,14 +91,65 @@ echo "=== installing launchd agents ==="
 # Snapshot once; see the same SIGPIPE-under-pipefail note in --status.
 LOADED_NOW="$(launchctl list 2>/dev/null || true)"
 
-# Stagger start times. Every job firing at the same instant would run a
-# backup, a DAST scan and a restore drill concurrently on a laptop -- and the
-# restore drill starts a container while the backup is reading the volume it
-# is about to archive.
-offset=0
+# SHORT JOBS GET StartInterval. LONG JOBS GET StartCalendarInterval.
+#
+# StartInterval counts from when the agent was LOADED, so every reload
+# restarts the countdown. For a 15-minute job that is invisible. For a daily
+# or weekly one it is fatal in a way that hides itself: during active
+# development the scheduler config is touched far more often than every
+# seven days, so the timer is reset before it ever expires and the job never
+# runs -- while its last (manual) run still looks recent and green.
+#
+# The "only reload if changed" guard below reduces how often that happens but
+# cannot fix it, because a legitimate config change still resets every timer.
+#
+# StartCalendarInterval fires at an absolute wall-clock time. Reloading an
+# agent does not move the next occurrence, so a daily job stays daily no
+# matter how often the platform is reinstalled -- and launchd runs a missed
+# calendar job when the machine wakes, which is the behaviour a laptop needs.
+#
+# Stagger. The previous version computed an `offset` for exactly this reason
+# and then never referenced it, so the comment described behaviour that did
+# not exist. Long jobs are now spread 20 minutes apart for real: a backup, a
+# DAST scan and a restore drill firing together on a laptop is bad enough,
+# and the restore drill starts a container while the backup is reading the
+# volume it is about to archive.
+DAILY_BASE_HOUR=3
+WEEKLY_BASE_HOUR=4
+WEEKLY_WEEKDAY=0        # Sunday
+STAGGER_MINUTES=20
+long_idx=0
+
 while IFS='|' read -r name interval timeout command; do
   label="${LABEL_PREFIX}.${name}"
   plist="$AGENT_DIR/${label}.plist"
+
+  if [ "$interval" -lt 3600 ]; then
+    schedule_xml="  <key>StartInterval</key><integer>${interval}</integer>"
+    schedule_desc="every $((interval / 60))m"
+  else
+    shift_min=$(( long_idx * STAGGER_MINUTES ))
+    fire_min=$(( shift_min % 60 ))
+    if [ "$interval" -eq 604800 ]; then
+      fire_hour=$(( WEEKLY_BASE_HOUR + shift_min / 60 ))
+      schedule_xml="  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Weekday</key><integer>${WEEKLY_WEEKDAY}</integer>
+    <key>Hour</key><integer>${fire_hour}</integer>
+    <key>Minute</key><integer>${fire_min}</integer>
+  </dict>"
+      schedule_desc="Sundays $(printf '%02d:%02d' "$fire_hour" "$fire_min")"
+    else
+      fire_hour=$(( DAILY_BASE_HOUR + shift_min / 60 ))
+      schedule_xml="  <key>StartCalendarInterval</key>
+  <dict>
+    <key>Hour</key><integer>${fire_hour}</integer>
+    <key>Minute</key><integer>${fire_min}</integer>
+  </dict>"
+      schedule_desc="daily $(printf '%02d:%02d' "$fire_hour" "$fire_min")"
+    fi
+    long_idx=$((long_idx + 1))
+  fi
 
   cat > "$plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
@@ -112,7 +163,7 @@ while IFS='|' read -r name interval timeout command; do
     <string>${SCRIPT_DIR}/run_job.sh</string>
     <string>${name}</string>
   </array>
-  <key>StartInterval</key><integer>${interval}</integer>
+${schedule_xml}
   <key>WorkingDirectory</key><string>${REPO_ROOT}</string>
   <!-- launchd provides almost no environment. run_job.sh sets PATH itself,
        but HOME is needed before that to resolve ~/.local/bin. -->
@@ -145,20 +196,24 @@ PLIST
   # Confirmed, not theorised: `launchctl print` reported `runs = 0` for the
   # daily jobs while the 15-minute job showed `runs = 58`. The weekly ones
   # had never executed on their own schedule even once.
+  #
+  # This guard is still worth keeping now that long jobs use
+  # StartCalendarInterval -- an unnecessary bootout/bootstrap is churn either
+  # way -- but it is no longer load-bearing for them. Measured: an agent
+  # rebooted 41 seconds before its calendar time still fired at that time.
   if [ -f "$plist.new" ]; then rm -f "$plist.new"; fi
   mv "$plist" "$plist.new"
   if [ -f "$plist.installed" ] && cmp -s "$plist.new" "$plist.installed" \
      && printf '%s\n' "$LOADED_NOW" | grep -qF "$label"; then
     mv "$plist.new" "$plist"
-    echo "  unchanged $label  (timer preserved, every $((interval / 60))m)"
+    echo "  unchanged  $label  ($schedule_desc)"
   else
     mv "$plist.new" "$plist"
     launchctl bootout "gui/$(id -u)/${label}" 2>/dev/null || true
     launchctl bootstrap "gui/$(id -u)" "$plist"
     cp "$plist" "$plist.installed"
-    echo "  (re)loaded $label  (every $((interval / 60))m, timeout ${timeout}s)"
+    echo "  (re)loaded $label  ($schedule_desc, timeout ${timeout}s)"
   fi
-  offset=$((offset + 60))
 done < <(jobs)
 
 mkdir -p "$REPO_ROOT/evidence/scheduler/logs"

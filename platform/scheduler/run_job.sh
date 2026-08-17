@@ -73,8 +73,27 @@ if ! mkdir "$LOCK_DIR" 2>/dev/null; then
 fi
 trap 'rm -rf "$LOCK_DIR"' EXIT
 
+# WHO STARTED THIS RUN.
+#
+# Freshness alone cannot tell a working schedule from a human who happened to
+# run the job by hand -- both leave an identical, recent, successful record.
+# That is not hypothetical: every long-interval job in this platform showed a
+# healthy recent run for days while `launchctl print` reported `runs = 0`,
+# because every one of those runs had been typed at a terminal. The schedule
+# was completely unexercised and nothing said so.
+#
+# launchd sets XPC_SERVICE_NAME to the agent's label for processes it spawns.
+# Matching it exactly (rather than merely non-empty -- a login shell can carry
+# XPC_SERVICE_NAME=0) separates the two cases.
+if [ "${XPC_SERVICE_NAME:-}" = "devops.platform.${JOB}" ]; then
+  TRIGGER="scheduled"
+else
+  TRIGGER="manual"
+fi
+
 PREVIOUS_STATUS="unknown"
 PREVIOUS_STARTED=""
+PREVIOUS_SCHEDULED=""
 if [ -f "$STATE_FILE" ]; then
   PREVIOUS_STATUS="$(python3 -c "
 import json
@@ -86,6 +105,19 @@ import json
 try: print(json.load(open('$STATE_FILE')).get('started_at', ''))
 except Exception: print('')
 " 2>/dev/null || echo '')"
+  PREVIOUS_SCHEDULED="$(python3 -c "
+import json
+try: print(json.load(open('$STATE_FILE')).get('last_scheduled_at') or '')
+except Exception: print('')
+" 2>/dev/null || echo '')"
+fi
+
+# Carried forward across manual runs, so a hand-run job cannot erase the
+# evidence that its schedule has never fired.
+if [ "$TRIGGER" = "scheduled" ]; then
+  LAST_SCHEDULED="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+else
+  LAST_SCHEDULED="$PREVIOUS_SCHEDULED"
 fi
 
 STARTED_AT="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
@@ -159,9 +191,10 @@ if [ "$(wc -c < "$LOG_FILE" | tr -d ' ')" -gt 1048576 ]; then
 fi
 
 python3 - "$STATE_FILE" "$JOB" "$STARTED_AT" "$STATUS" "$RC" "$DURATION" \
-  "$INTERVAL" "$COMMAND" "$OUTPUT_FILE" <<'PY'
+  "$INTERVAL" "$COMMAND" "$OUTPUT_FILE" "$TRIGGER" "$LAST_SCHEDULED" <<'PY'
 import json, pathlib, sys
-state_file, job, started, status, rc, duration, interval, command, out = sys.argv[1:]
+(state_file, job, started, status, rc, duration, interval, command, out,
+ trigger, last_scheduled) = sys.argv[1:]
 tail = pathlib.Path(out).read_text(errors="replace").strip().splitlines()[-15:]
 pathlib.Path(state_file).write_text(json.dumps({
     "job": job,
@@ -171,6 +204,11 @@ pathlib.Path(state_file).write_text(json.dumps({
     "duration_seconds": int(duration),
     "interval_seconds": int(interval),
     "command": command,
+    # Who started this run, and when the SCHEDULE last fired. A job can look
+    # perpetually fresh on manual runs alone; last_scheduled_at is the only
+    # field that distinguishes a working timer from a diligent human.
+    "trigger": trigger,
+    "last_scheduled_at": last_scheduled or None,
     "output_tail": tail,
 }, indent=2) + "\n")
 PY

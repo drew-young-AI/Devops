@@ -163,9 +163,68 @@ assert_equals "" "$FORBIDDEN" "no human-approval command is scheduled"
 # development the config changes far more often than every seven days, so
 # the restore drill and SAST sweep never fired at all. `launchctl print`
 # reported runs = 0 for them.
-RELOAD_LOGIC="$(grep -c 'timer preserved' "$REPO_ROOT/platform/scheduler/install.sh" || true)"
+RELOAD_LOGIC="$(grep -c 'cmp -s "$plist.new" "$plist.installed"' "$REPO_ROOT/platform/scheduler/install.sh" || true)"
 assert_equals "1" "$RELOAD_LOGIC" \
-  "install.sh reloads only changed plists (long-interval timers survive)"
+  "install.sh reloads only changed plists (avoids needless churn)"
+
+# The real defence, asserted against WHAT IS INSTALLED rather than against
+# the installer's source or its log messages.
+#
+# The previous version of this check grepped install.sh for the string
+# "timer preserved". That passed for as long as nobody reworded an echo, and
+# said nothing about whether the machine was actually scheduled correctly --
+# a test of a log line, not of a behaviour.
+#
+# StartInterval counts from load, so any reload restarts it and a daily or
+# weekly job can be starved indefinitely. StartCalendarInterval fires at an
+# absolute time and survives reload (measured: an agent rebootstrapped 41
+# seconds before its calendar time still fired at that time). So: every job
+# at or above an hour must be calendar-scheduled, and every short one must
+# not be -- a 15-minute calendar entry is not expressible.
+if [ -d "$HOME/Library/LaunchAgents" ]; then
+  WRONG_SCHED=""
+  while IFS='|' read -r name interval _ _; do
+    p="$HOME/Library/LaunchAgents/devops.platform.${name}.plist"
+    [ -f "$p" ] || continue
+    if [ "$interval" -ge 3600 ]; then
+      grep -q 'StartCalendarInterval' "$p" \
+        || WRONG_SCHED="$WRONG_SCHED $name(interval=${interval}s uses StartInterval)"
+    else
+      grep -q 'StartCalendarInterval' "$p" \
+        && WRONG_SCHED="$WRONG_SCHED $name(short job wrongly calendar-scheduled)"
+    fi
+  done < <(grep -vE '^\s*#|^\s*$' "$REAL_CONF")
+  assert_equals "" "$WRONG_SCHED" \
+    "installed plists: long jobs are calendar-scheduled, short jobs are not"
+else
+  _pass "installed plists: skipped (no LaunchAgents dir on this machine)"
+fi
+
+# A job that only ever ran because a human typed it is not a working
+# schedule. run_job.sh must be able to tell the two apart, and a manual run
+# must not overwrite the record of when the schedule last fired -- otherwise
+# hand-running a job papers over a dead timer, which is exactly how every
+# long-interval job here looked healthy while launchd showed runs = 0.
+RUN_JOB="$REPO_ROOT/platform/scheduler/run_job.sh"
+assert_equals "1" "$(grep -c 'XPC_SERVICE_NAME:-' "$RUN_JOB" || true)" \
+  "run_job.sh distinguishes a scheduled run from a manual one"
+assert_equals "1" "$(grep -cF 'LAST_SCHEDULED="$PREVIOUS_SCHEDULED"' "$RUN_JOB" || true)" \
+  "a manual run preserves the last-scheduled timestamp rather than clearing it"
+
+# Behavioural, not textual: drive run_job.sh both ways and read the record.
+PROV_JOB="health"
+env XPC_SERVICE_NAME="devops.platform.$PROV_JOB" "$RUN_JOB" "$PROV_JOB" >/dev/null 2>&1 || true
+PROV_SCHED="$(python3 -c "
+import json;d=json.load(open('$REPO_ROOT/evidence/scheduler/${PROV_JOB}_last.json'))
+print(d.get('trigger'), d.get('last_scheduled_at') is not None)" 2>/dev/null || echo "err")"
+assert_equals "scheduled True" "$PROV_SCHED" "a launchd-spawned run records trigger=scheduled"
+
+"$RUN_JOB" "$PROV_JOB" >/dev/null 2>&1 || true
+PROV_MANUAL="$(python3 -c "
+import json;d=json.load(open('$REPO_ROOT/evidence/scheduler/${PROV_JOB}_last.json'))
+print(d.get('trigger'), d.get('last_scheduled_at') is not None)" 2>/dev/null || echo "err")"
+assert_equals "manual True" "$PROV_MANUAL" \
+  "a manual run records trigger=manual WITHOUT erasing the schedule evidence"
 
 UNCONDITIONAL="$(grep -cE '^\s*launchctl bootout .*\$\{label\}' "$REPO_ROOT/platform/scheduler/install.sh" || true)"
 if [ "$UNCONDITIONAL" -le 2 ]; then

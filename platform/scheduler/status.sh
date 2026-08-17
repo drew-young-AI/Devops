@@ -99,6 +99,14 @@ for line in open(jobs_conf, encoding="utf-8"):
         "late": late and fresh,
         "exit_code": state.get("exit_code"),
         "duration_seconds": state.get("duration_seconds"),
+        # Freshness alone cannot separate a working timer from a human who
+        # keeps running the job by hand -- both leave a recent, green record.
+        # Every long-interval job here looked healthy for days while
+        # `launchctl print` reported runs = 0, because every run had been
+        # typed at a terminal. This is the field that would have said so.
+        "trigger": state.get("trigger"),
+        "last_scheduled_at": state.get("last_scheduled_at"),
+        "ever_scheduled": state.get("last_scheduled_at") is not None,
     })
 
     # Staleness outranks the recorded status. A job reporting "ok" from four
@@ -133,20 +141,32 @@ def human(seconds):
 
 print(f"scheduler: {verdict}")
 print()
-print(f"  {'JOB':<10} {'STATUS':<14} {'LAST RUN':<12} {'EVERY':<8} FRESH")
-print("  " + "-" * 56)
+print(f"  {'JOB':<10} {'STATUS':<14} {'LAST RUN':<12} {'EVERY':<8} {'FRESH':<20} SCHEDULE")
+print("  " + "-" * 78)
 for r in rows:
     every = (f"{r['interval_seconds'] // 3600}h" if r["interval_seconds"] >= 3600
              else f"{r['interval_seconds'] // 60}m")
     mark = ("NO  <-- not running" if not r["fresh"]
             else "late" if r.get("late") else "yes")
-    print(f"  {r['job']:<10} {r['status']:<14} {human(r['age_seconds']):<12} {every:<8} {mark}")
+    sched = "fired" if r.get("ever_scheduled") else "NEVER FIRED"
+    print(f"  {r['job']:<10} {r['status']:<14} {human(r['age_seconds']):<12} "
+          f"{every:<8} {mark:<20} {sched}")
+
+never = [r["job"] for r in rows if not r.get("ever_scheduled")]
+if never:
+    print()
+    print("  NEVER FIRED means launchd has not once started that job -- every")
+    print("  run on record was typed by hand. A green row proves the command")
+    print("  works; it does not prove the schedule does, and the two are")
+    print("  indistinguishable without this column.")
+    print(f"  Affected: {', '.join(never)}")
+    print("  Verify with: launchctl print gui/$(id -u)/devops.platform.<job>")
 
 if any(r.get("late") for r in rows):
     print()
     print("  A job marked 'late' missed its slot but is still inside the grace")
-    print("  window. Common cause: install.sh reloading an agent resets its")
-    print("  StartInterval timer, which matters most for the weekly jobs.")
+    print("  window. Long jobs use StartCalendarInterval (absolute times), so")
+    print("  a reload no longer resets them; short jobs still use StartInterval.")
 
 if worst == 3:
     print()

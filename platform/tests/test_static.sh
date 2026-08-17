@@ -186,6 +186,35 @@ else
   _fail "OKF v0.1 conformance" "$(echo "$OKF_OUT" | head -4 | tr '\n' ' ')"
 fi
 
+# EVERY ASSERTION HELPER A TEST CALLS MUST ACTUALLY EXIST.
+#
+# The suites do not use `set -e`, on purpose -- a failed assertion has to let
+# the rest of the file run. So a call to a helper that does not exist exits
+# 127, is ignored, and the check silently never happens while the suite still
+# reports "0 failed". A test that cannot fail is not a test, and this is the
+# one failure mode the test suite could not catch about itself.
+#
+# Found by writing two `assert_contains` calls (the real helper is
+# assert_output_contains) and watching the suite stay green.
+#
+# bash's command_not_found_handle would be the natural home for this, but it
+# needs bash 4.0 and macOS ships 3.2.57 -- so it is a static scan instead.
+DEFINED_HELPERS="$(grep -oE '^[a-z_]+\(\)' "$REPO_ROOT/platform/tests/lib.sh" | sed 's/()//' | sort -u)"
+UNDEFINED_CALLS=""
+for tf in "$REPO_ROOT"/platform/tests/test_*.sh; do
+  # Helper calls only ever appear at the start of a line (possibly indented).
+  # sed, not `tr -d '[:space:]'`: tr deletes newlines too, which glued every
+  # match in the file into one giant token that matched nothing.
+  CALLED="$(grep -oE '^[[:space:]]*(assert|run_cmd|_pass|_fail|suite)[a-z_]*' "$tf" \
+            | sed 's/^[[:space:]]*//' | sort -u)"
+  for c in $CALLED; do
+    printf '%s\n' "$DEFINED_HELPERS" | grep -qx "$c" \
+      || UNDEFINED_CALLS="$UNDEFINED_CALLS $(basename "$tf"):$c"
+  done
+done
+assert_equals "" "$UNDEFINED_CALLS" \
+  "every assertion helper called by a test suite is defined in lib.sh"
+
 find "$REPO_ROOT/platform" -name '__pycache__' -type d -exec rm -rf {} + 2>/dev/null || true
 
 suite_summary

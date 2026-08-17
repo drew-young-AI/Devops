@@ -43,6 +43,25 @@ _fail() {
   FAILURE_LOG="${FAILURE_LOG}\n  - ${CURRENT_SUITE}: $1\n      $2"
 }
 
+# A MISTYPED ASSERTION MUST FAIL THE SUITE, NOT VANISH.
+#
+# These suites deliberately do not use `set -e`: an assertion that fails has
+# to let the rest of the file keep running, and several tests exist precisely
+# to observe a non-zero exit. The cost is that calling a helper that does not
+# exist exits 127 and is simply ignored -- so the assertion never runs, and
+# the suite reports green for a check it did not perform. That is strictly
+# worse than a red test, because nothing indicates the gap.
+#
+# Not hypothetical: two calls to `assert_contains` (no such helper -- the real
+# one is assert_output_contains) sat in test_scheduler.sh and the suite still
+# printed "0 failed" while silently skipping both checks.
+#
+# The obvious fix, bash's `command_not_found_handle` hook, is NOT usable here:
+# it arrived in bash 4.0 and macOS ships 3.2.57. Defining it looks like a
+# safety net and silently does nothing, which is the same class of mistake.
+# The guard therefore lives in test_static.sh as an undefined-helper scan,
+# which does not depend on the shell version.
+
 # run_cmd <description> -- <command...>
 # Never lets a non-zero exit kill the suite; that IS the thing under test.
 run_cmd() {
