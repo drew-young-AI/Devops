@@ -18,6 +18,7 @@ SUITES=(
   test_deploy_contract.sh
   test_check_health.sh
   test_scheduler.sh
+  test_ingress.sh
   test_llm_review.sh
   test_evidence_contract.sh
 )
