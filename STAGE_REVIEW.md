@@ -1,13 +1,17 @@
 ---
 type: review
 title: 階段性審查
-description: Point-in-time assessment of platform stages, including the Cloudflare Quick Tunnel finding.
+description: Point-in-time assessment of platform stages; second review 2026-08-18 covers ingress, stateful pilot, migration gate and the public-health twin.
 tags:
   - devops
   - review
-timestamp: 2026-08-11T20:05:56+08:00
+timestamp: 2026-08-18T14:30:00+08:00
 ---
-# DevOps 平台階段性 Review（2026-08-11）
+# DevOps 平台階段性 Review
+
+- **第二次 review：2026-08-18**（見文末 §9，涵蓋 ingress、有狀態 pilot、
+  migration gate、公衛 twin、k3d 練習叢集）
+- 第一次 review：2026-08-11（以下 §1–§8）
 
 本文件是目前實際建置狀態的快照，給討論下一步用。詳細規格與逐項驗證證據見
 `Plan.md`（交接狀態權威來源）與各 `platform/*/README.md`。
@@ -285,3 +289,87 @@ develop-gate、真人核准），不是機制本身。
 2. 資料來源是內部系統匯出，還是要接外部 API/資料庫？（決定 Stage 4 的 ETL 形狀）
 3. 「老闆提到 Databricks」是已經有 license/帳號，還是也在評估中？
    （若還在評估，Stage 1 可以先用 Free Edition，不急著用掉正式 license 額度）
+
+---
+
+## 9. 第二次 Review（2026-08-18）
+
+第一次 review 之後的十個 commit。這一輪的主題不是「加功能」，而是**發現既有
+機制其實沒在運作**——三次都是「檢查通過、機制沒作用」的同一種形狀。
+
+### 9.1 三個「看起來在運作、其實沒有」
+
+| 機制 | 表面狀態 | 實際 | 怎麼發現的 |
+|---|---|---|---|
+| 排程（6 個日/週任務） | 全部「最近成功」 | **`runs = 0`，launchd 從未觸發過**，紀錄全是手動執行 | 追查 DAG 變紅 |
+| 備份覆蓋率 | `BACKUP PASS` | station2-twin 的 volume **不在任何清單**，仍回報成功 | 建立第一個有狀態服務 |
+| 測試套件自身 | `0 failed` | 兩個拼錯的 helper **靜默跳過**，斷言從未執行 | 自己打錯字 |
+
+共同點：**清單、log 訊息、exit code 都無法回報自己缺什麼。** 修法一律是把
+「宣稱」換成「觀測」——排程加執行來源溯源（`XPC_SERVICE_NAME`）、備份加
+全域 volume 覆蓋率掃描、測試加未定義 helper 靜態掃描。
+
+### 9.2 Public URL：卡住的是錯誤前提，不是缺決策
+
+`Plan.md` 掛了數週的「rathole/Cloudflare 需要人類決定雲端供應商」——不需要。
+所有服務綁 127.0.0.1，Tailscale 在 host 上直接可達 loopback。不開 router
+port、不設 inbound 規則、不需要雲端帳號。
+
+`platform/ingress/` 的設計重點是**暴露天花板**：依「靠什麼驗證」決定，不依
+「名字聽起來多敏感」。prometheus / loki / alertmanager / vault 一律 `never`。
+alertmanager 最尖銳——`/api/v2/silences` 是寫入端點，碰得到就能無聲關掉監控。
+
+⚠️ 測試套件自己曾把 Vault 暴露到 tailnet 上（約兩分鐘，已移除並確認不可連）：
+refusal 測試跑的是**正式設定**，而我為了驗證防護把 vault 天花板暫時提高，
+於是套件真的執行了那個操作。現在測試跑在指向死埠的 fixture 上，正式設定只讀
+不執行。
+
+### 9.3 Station 2：有狀態服務與 migration gate
+
+平台第一個有狀態服務（PostgreSQL）。關鍵設計是 **readiness ≠ liveness**：
+Docker healthcheck 只打 `/health/live`，接 readiness 會讓資料庫一抖就重啟
+所有 replica，而重啟修不好資料庫。
+
+`platform/db/migrate.sh` 拒絕三件事，皆以注入驗證：套用後被修改的 migration
+（checksum 不符）、未標記 `CONTRACT-PHASE` 的破壞性變更、半套用（單一 transaction）。
+
+第二項的理由具體：blue/green 共用同一個資料庫，舊顏色還在服務時 `DROP COLUMN`
+等於毀掉回滾目標——部署在最需要能倒回去的那一刻變成不可逆。
+
+### 9.4 公衛 CDC 監測：pilot 的真實負載
+
+疾管署 RODS 急診監測開放資料，109,907 列、2007→2026、22 縣市、**無 PHI**。
+
+在此之前 station2-twin 只是「有 twin 之名的狀態儲存」。**twin 的第 4、5 要素
+（模型、背離偵測）到這一步才存在**：歷史同週分布是模型，當期是觀測，兩者的
+差距就是疫情訊號。方法用 historical limits（同 ISO 週 ±1、前 5 年、mean ± 2sd），
+是公衛實務界既有方法，長官一句話能聽懂。
+
+2026-W32 實測：2/22 縣市超出歷史上限（宜蘭 z=2.49、南投 z=2.16），嘉義市
+z=1.07 未告警。**它不亂叫**，這是偵測器最重要的性質。
+
+過程中的真實缺陷：疾管署伺服器**送錯中繼憑證**（leaf 的發行者與伺服器送出的
+中繼是不同的 CA），瀏覽器靠 AIA 自動補抓所以看不出來。解法是釘住正確中繼，
+不是 `verify=False`——這個 job 的輸出是「官方通報數字」。
+
+### 9.5 目前完成狀態（相對 §4 的增補）
+
+| 層 | 元件 | 狀態 |
+|---|---|---|
+| Ingress | Tailscale serve + 暴露天花板 | ✅ tailnet 已用；funnel 待 admin console 啟用 HTTPS |
+| 資料庫 | PostgreSQL + migration gate | ✅ 四項注入驗證 |
+| 有狀態 pilot | station2-twin | ✅ 四種 readiness 狀態實測 |
+| 真實負載 | CDC RODS 公衛監測 | ✅ 11 萬列，冪等 ingest，證據鏈 |
+| Twin 模型 | historical limits 背離偵測 | ✅ 2/22 告警 |
+| 排程 | launchd 日曆觸發 + 來源溯源 | ⚠️ 已修正，**首次真實觸發待觀察** |
+| K8s | k3d 3 節點 + Calico + kube-prometheus | ✅ 練習環境；NetworkPolicy 四向驗證 |
+| 異地備份 | rclone crypt | ⏸ 機制完成，使用者決定保留討論 |
+
+### 9.6 下一步
+
+1. Spark 回放 pipeline（**誠實定位**：11 萬列不需要 Spark，它是 CYCH 自家
+   急診即時 feed 的架構預演）
+2. k3d 叢集重建（真 StorageClass + registry）→ pilot 上 K8s
+3. Kubeflow Pipelines standalone
+4. Vault 動態資料庫憑證（**建議插隊先做**——Vault 側設定與底層無關，
+   100% 帶得走）

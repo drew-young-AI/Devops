@@ -138,10 +138,67 @@ MLOps/LLMOps：保留接口，延後擴充
 11. [x] Secret rotation policy（rotate_secret.sh + check_rotation_due.sh + runbook）
 12. [x] Registry promotion（GHCR，`deploy.sh push`；classic PAT `write:packages`，見上的教訓）
 13. [x] Container image 本身的 Cosign 簽章（`cosign sign`，非 `sign-blob`；`SIGN_ARTIFACTS=1`）
-14. [ ] 建立 rathole Public URL experiment  <- 需要人類決定雲端供應商，暫停待決策
+14. [x] **Public URL — 已解決，且不需要雲端供應商決策**（2026-08-17）
+15. [x] Station 2：有狀態 pilot（PostgreSQL）+ migration gate（2026-08-18）
+16. [x] 公衛 CDC 監測 digital twin — 真實資料負載（2026-08-18）
+17. [ ] Spark 回放 pipeline（CYCH 急診即時 feed 的架構預演）
+18. [ ] k3d 叢集重建（真 StorageClass + registry）→ pilot 上 K8s
+19. [ ] Kubeflow Pipelines standalone
 ```
 
-所有目前已知「本機可自主完成」的項目至此已全部完成。唯一剩餘項目 rathole Public URL experiment 需要使用者決定雲端供應商才能繼續。
+### 2026-08-16 ~ 08-18 新增（第二輪）
+
+- [x] **Public URL：原方案不需要了**。卡了數週的「rathole/Cloudflare 需要人類
+      決定雲端供應商」其實是個錯誤前提。所有服務綁 127.0.0.1，Tailscale 跑在
+      host 上直接可達 loopback——不開 router port、不設 inbound 規則、不需要任何
+      雲端帳號。`platform/ingress/`：每個目標有**暴露天花板**（never / tailnet /
+      funnel），依「靠什麼驗證」而非「名字聽起來多敏感」決定；prometheus /
+      alertmanager / loki / vault 一律 `never`（alertmanager 最尖銳：
+      `/api/v2/silences` 是**寫入**端點，碰得到就能無聲關掉監控）。暴露後以
+      「抓下來比對 byte」驗證，不符即拆除。station1-hello 現在在
+      `http://macbook-m5-agent.taild8621c.ts.net:8080/`（僅 tailnet）。
+- [x] **排程機制其實從未真正觸發過**。audit/backup/dast/sast/restore/rotation
+      全部顯示「最近成功」，但 `launchctl print` 對每一個都回報 `runs = 0`——
+      所有紀錄都是手動執行。三個缺陷互相掩護：`StartInterval` 從載入時刻起算
+      （reload 就重新計時，開發期間週任務永遠等不到）、沒有欄位區分排程與人工
+      執行、註解寫的 stagger 根本沒實作（`offset` 只累加未被引用）。長任務改用
+      `StartCalendarInterval`（實測：排定時刻前 41 秒 bootstrap 仍準時觸發）。
+- [x] **Station 2（station2-twin）：平台第一個有狀態服務**。readiness 與
+      liveness 嚴格分離——Docker healthcheck 只打 `/health/live`，因為接
+      readiness 會讓資料庫一抖就重啟所有 replica，而重啟修不好資料庫。
+      readiness 分辨四種原因，其中 `schema_mismatch` 讓配錯 schema 的部署
+      「啟動但拒收流量」而非「接了流量才炸」。
+- [x] **Migration gate（`platform/db/migrate.sh`）**：拒絕已套用後被修改的
+      migration（checksum）、拒絕未標記 `CONTRACT-PHASE` 的破壞性變更
+      （blue/green 共用資料庫，`DROP COLUMN` 會毀掉回滾目標）、單一 transaction
+      防半套用。四項皆以注入驗證。
+- [x] **公衛 CDC 監測 digital twin**——pilot 的真實負載。疾管署 RODS 急診監測
+      開放資料，109,907 列、2007-W01～2026-W32、22 縣市、無 PHI。模型用
+      historical limits（同 ISO 週 ±1、前 5 年、mean ± 2sd），這是公衛實務界
+      既有方法。**twin 的第 4、5 要素（模型、背離偵測）到此才真正存在**——
+      在此之前只是有 twin 之名的狀態儲存。
+- [x] **備份覆蓋率檢查**：station2-twin 的 volume 一開始被任何清單覆蓋，
+      而 `backup.sh` 照樣回報成功——手動維護的清單無法回報自己缺什麼。
+      加檢查後立刻又抓到 `observability_alloy-data`。另修正：對執行中的
+      PostgreSQL volume 做 tar 不是備份（改用 `pg_dump -Fc`，停止時才 tar）。
+- [x] **k3d 練習叢集**（1 server + 2 agents，Calico，kube-prometheus-stack）。
+      NetworkPolicy 四向實測會擋——kind 預設的 kindnet **完全不執行
+      NetworkPolicy**，套用會成功但沒有流量被擋。
+
+### 尚未完成 / 待決策
+
+- [ ] Vault **動態資料庫憑證**：接縫已留（`database/creds/` policy 註解、
+      connection pool 的 `max_lifetime`），目前仍是靜態 bootstrap 密碼。
+      **建議現在做**——Vault 側設定與底層無關，100% 帶得走到 K8s。
+- [ ] **異地備份**：機制完成且雙向驗證，使用者決定「保留討論」，
+      `offsite` job 持續誠實回報 `not-configured`（黃燈）。
+- [ ] **測試資料管理 + redaction v2**：真實醫療資料前的硬性前提。
+      目前選的公衛開放資料無 PHI，所以不阻塞本 pilot。
+- [ ] **Human Platform Usability Review**：本質需要使用者本人操作。
+
+> **不要投入的項目**（見 `docs/Backlog.md` 的逐項判定）：把 station2-twin 接進
+> Compose blue/green、重構 `deploy.sh`（629 行）、移植 launchd scheduler。
+> 這些在 K8s 上有原生對應，移植等於把兩套錯的東西合成一套。
 
 ## 1. 定位
 
