@@ -1,235 +1,352 @@
 ---
 type: plan
-title: Spark 串流分析設計（公衛監測回放）
-description: "Design for the Spark replay pipeline: what it rehearses, what it decomposes, how event time is derived, and what it deliberately does not prove."
+title: Spark 串流分析設計（台中類流感預測）
+description: "What we predict, exactly how Spark is used, the government open-data structures behind it, and the roles Kafka and Redis play."
 tags:
   - spark
+  - kafka
+  - redis
   - streaming
   - surveillance
   - design
-timestamp: 2026-08-18T16:10:00+08:00
+timestamp: 2026-08-18T17:30:00+08:00
 ---
 
 # Spark 串流分析設計
 
-審查用文件，尚未實作。
+審查用，尚未實作。第二版——第一版沒有回答「預測什麼」，而且把異常偵測
+（這週是否超標）誤當成預測（下週會是多少）。那是兩件事。
 
-## 1. 誠實定位：Spark 在這裡是為了什麼
+**地理範圍改為台中市**（中醫大資料未來進駐）。台中在資料中是
+`縣市別代碼 66000`，2007–2026 連續、143 萬人次；疾管署已回溯統一縣市代碼，
+**沒有 2010 年縣市合併造成的斷點**（已查證）。
 
-**109,907 列不需要 Spark。** 單機 pandas 幾秒跑完，這件事不會因為換個說法而改變。
+---
 
-Spark 的正當性只有一個：**它是 CYCH 自家急診即時 feed 的架構預演。**
+## 1. 政府開放資料的實際結構
 
-這句話有個直接的設計後果——**如果回放的資料形狀和未來的真實 feed 不一樣，這場預演就沒有意義**。下面第 2 節整個設計都由這一條推導出來。
+疾管署開放資料平台（`data.cdc.gov.tw`，CKAN API）共 73 個資料集，
+與疫情監測相關的 15 個。實際下載並檢視後，**分成兩個家族，結構不同**：
 
-## 2. 核心決策一：回放什麼
+### 1.1 RODS 家族——急診症候群監測
 
-未來 CYCH 送過來的會是**一筆一筆的急診就診事件**（HL7/FHIR message 或資料庫 CDC），不是每週彙總的 CSV。
+`https://od.cdc.gov.tw/eic/RODS_Influenza_like_illness.csv`
 
-| | 回放週彙總 | 回放個別就診事件 |
+| 欄位 | 範例 |
+|---|---|
+| 年 | 2026 |
+| 週 | 32 |
+| 年齡別 | `0~6` `7~12` `13~18` `19~64` `65+`（5 組）|
+| 縣市 | 台中市 |
+| **類流感急診就診人次** | 347 |
+| 縣市別代碼 | 66000 |
+
+- 109,907 列，**2007–2026（20 年）**
+- **只有分子，沒有分母**
+- 同家族另有 `RODS_COVID-19.csv`（13,713 列，2022 起）
+
+### 1.2 NHI 家族——健保就診統計
+
+`https://od.cdc.gov.tw/eic/NHI_Influenza_like_illness.csv`
+
+| 欄位 | 範例 |
+|---|---|
+| 年 / 週 | 2026 / 32 |
+| **就診類別** | `門診` `住院`（**沒有急診**）|
+| 年齡別 | `0~2` `3~6` `7~12` `13~15` `16~18` `19~24` `25~64` `65+` `不詳`（9 組）|
+| 縣市 | 台中市 |
+| 類流感健保就診人次 | 13,996 |
+| **健保就診總人次** | 741,507 |
+| 縣市別代碼 | 66000 |
+
+- 187,908 列，**2016–2026（11 年）**
+- **有分母**——這是關鍵差異
+- 同家族有腸病毒、COVID、腹瀉、肺炎等多種疾病，欄位結構一致
+
+### 1.3 兩個家族不能直接 join（實測）
+
+| | RODS | NHI |
 |---|---|---|
-| 事件數 | 109,907 | **12,943,342** |
-| 形狀符合未來 feed | ❌ 完全不同 | ✅ 一筆事件 = 一次就診 |
-| 需要 windowed aggregation | 幾乎不用 | ✅ 真的要 |
-| 需要 watermark / 遲到處理 | 無從練起 | ✅ 真的要 |
-| Spark 是否被真正使用 | 否，只是裝飾 | 是 |
+| 年份 | 2007–2026 | 2016–2026 |
+| 年齡分組 | 5 組 | 9 組，**切點完全不同** |
+| 就診類別 | 急診 | 門診 / 住院 |
+| 分母 | 無 | 有 |
 
-**選後者。** 前者會讓整個 pipeline 變成「用 Spark 讀 CSV 再寫回去」，那不是預演。
+年齡分組 `0~6` 與 `0~2`+`3~6` 可以對上，但 `19~64` 與 `19~24`+`25~64` 也可以——
+**其餘切點對不上**（`13~18` vs `13~15`+`16~18` 可以，但 RODS 沒有 `不詳`）。
+要合併必須降到最粗的共同分組，會丟掉解析度。
 
-### 這不是捏造資料——是可逆的分解
+**決定：不合併。** 兩者當作兩個獨立訊號來源餵給模型，各自保留原始解析度。
 
-把「嘉義市 0~6 歲 2026-W32 共 347 人次」展開成 347 筆個別事件，聽起來像無中生有。
-所以它必須遵守一條硬規則：
+### 1.4 分母為什麼重要（實測）
 
-> **把展開後的事件流重新彙總，必須逐格等於疾管署的原始數字。**
-
-這讓它成為**分解（decomposition）**而不是**發明（invention）**。而且這條性質同時
-是 pipeline 的正確性檢查——我們事先就知道 Spark 應該算出什麼答案。
-
-伴隨的紀律：
-
-- 合成事件寫入 `source = 'cdc-rods-synthetic-replay'`，與真實的 `cdc-rods` **永不混用**
-- 每筆事件帶 `synthetic = true` 欄位，下游無法「不小心」把它當真實個案
-- 週內的時間分布是**確定性**的（固定 seed），同樣輸入永遠得到同樣輸出
-- 年齡別、縣市、週次都來自真實資料，**只有「週內第幾秒」是合成的**
-
-⚠️ **這個資料集永遠不得用於流行病學推論。** 它存在的唯一目的是產生正確形狀的
-事件流來測試管線。文件、欄位名稱、資料表名稱都會這樣標示。
-
-## 3. 核心決策二：event time 從哪來（本設計最棘手的部分）
-
-Spark Structured Streaming 的 windowing 和 watermark 都建立在 event time 上。
-所以每筆事件需要一個時間戳。而 `(epi_year, epi_week)` → 日曆日期的對應，
-**經查證後發現無法用任何標準慣例推導**。
-
-實測資料中有第 53 週的年份是 **2009、2014、2020、2025**。對照六種慣例：
-
-| 慣例 | 53 週年份 | 吻合 |
-|---|---|---|
-| ISO 8601（週一起、4 天規則） | 2009, 2015, 2020, 2026 | ❌ |
-| MMWR（週日起、4 天規則） | 2008, 2014, 2020, 2025 | ❌ |
-| 週日起／含 1/1 | 2011, 2016, 2022 | ❌ |
-| 週日起／首個完整週 | 2012, 2017, 2023 | ❌ |
-| 週一起／含 1/1 | 2012, 2017, 2023 | ❌ |
-| 週一起／首個完整週 | 2007, 2012, 2018, 2024 | ❌ |
-
-**沒有一種吻合。** 資料同時具有 ISO 的 2009 和 MMWR 的 2014/2025——
-這與「約 2010 年前後更換過慣例」一致，但那是推論，不是證據。
-每一年的週數都完整（52 或 53），所以不是資料缺漏造成的。
-
-依專案規則「**NEVER guess or force data mappings**」，這裡不能猜。
-
-### 解法：不要從週次推導日曆日期
-
-回放時鐘本來就是合成的（我們是把 20 年壓縮成幾分鐘播放），**絕對日曆日期
-對管線的正確性毫無作用**。真正需要的性質只有一個：**window 必須與 epi week
-一對一對齊**。
-
-所以 event time 用**序號**產生，不用日曆換算：
+台中市門診，近 8 週：
 
 ```
-week_index = (年, 週) 在排序後的相異清單中的位置       # 0, 1, 2, ...
-event_time = REPLAY_EPOCH + week_index × 7 天 + 週內偏移
+2026-W29   12,031 / 746,321 = 1.61%
+2026-W30   13,031 / 740,477 = 1.76%
+2026-W31   13,564 / 722,443 = 1.88%
+2026-W32   13,996 / 741,507 = 1.89%
 ```
 
-- 對齊**保證正確**（依建構即成立），不依賴任何慣例假設
-- 遲到資料、watermark、window 邊界全部照常可以練
-- 對人類報告時**一律沿用原始的 `epi_year` / `epi_week` 標籤**，不做任何換算，
-  所以沒有標錯週次的風險
+**分子與分母的相關係數 = 0.671。** 就診總量本身就在波動（連假、疫情期間
+就醫行為改變、健保政策）。只看原始人次，會把「看病的人變多」誤判成
+「流感變多」。
 
-⚠️ 未來接真實 CYCH feed 時這個問題不存在——真實事件自帶時間戳。
-若日後仍需要把 epi week 對到日曆日期（例如與其他資料源 join），
-**必須先向疾管署查證慣例定義**，列為未解項目。
+所以**預測目標用佔比，不用原始人次**。這是公衛界的標準做法（等同美國 CDC 的 %ILI）。
 
-## 4. 資料結構
+---
 
-四層，各有明確職責。
+## 2. 我們要預測什麼
 
-### 4.1 來源（疾管署 RODS，唯讀）
+> **未來 1 週與 2 週，台中市門診類流感就診佔比（%ILI）。**
 
 ```
-年 / 週 / 年齡別 / 縣市 / 類流感急診就診人次 / 縣市別代碼
+目標  y(t+1), y(t+2)  =  類流感健保就診人次 / 健保就診總人次   （台中市，門診）
 ```
 
-### 4.2 落地（已存在，`surveillance_observations`）
+### 為什麼是這個
 
-真實彙總，`source = 'cdc-rods'`。**Spark 不寫這張表。**
+| 候選 | 為何不選 |
+|---|---|
+| 原始就診人次 | 分母會漂移，見 §1.4 |
+| 「是否爆發」二元分類 | 爆發罕見、標籤主觀，且醫院要的是量能數字不是布林值 |
+| 全國各縣市 | 先把一個縣市做對；台中有 143 萬人次、訊號足夠 |
+| 4 週以上 | 週資料落後 2 週，再往後推可信度快速下降 |
 
-### 4.3 合成事件流（新，Spark 的輸入）
+**1–2 週對醫院是可行動的**：急診／門診人力排班、床位與抗病毒藥物備量，
+前置期正好在這個區間。
 
-由 4.2 確定性展開，寫成分區 Parquet 檔供 Spark file source 讀取：
+### 這與「異常偵測」的差別
+
+第一版做的 historical limits 是**回顧**：這週有沒有超出歷史範圍。
+預測是**前瞻**：下週會是多少。兩者都保留，因為它們回答不同問題——
+但這次的主軸是後者。
+
+### 特徵（全部可在預測時點取得，無未來資訊洩漏）
 
 ```
-replay/
-  week_index=0000/part-*.parquet
-  week_index=0001/part-*.parquet
-  ...
+lag_1..lag_4          前 1–4 週的 %ILI
+delta_1               lag_1 - lag_2（近期斜率）
+same_week_last_year   去年同週 %ILI
+seasonal_index        該 epi week 的歷史中位數（僅用訓練期資料計算）
+week_of_year          季節性
+denominator_lag_1     前一週就診總量（就醫行為的代理變數）
+covid_lag_1           同期 COVID 佔比（跨疾病干擾／競爭）
+entero_lag_1          同期腸病毒佔比
+age_share_0_6_lag_1   幼童就診佔比（學校群聚的早期訊號）
 ```
+
+⚠️ `seasonal_index` **只能用訓練期資料計算**。用全期資料算再回頭當特徵，
+是最常見的洩漏形式，會讓 backtest 分數虛高而上線後崩掉。
+
+### 驗收標準（沒有這個就是自我感覺良好）
+
+必須贏過兩個**天真基準**：
+
+1. `y(t+1) = y(t)`（持平）
+2. `y(t+1) = 去年同週值 × 今年趨勢`（季節天真）
+
+**時間序列切分，不是隨機切分。** 隨機切分會把未來混進訓練集，
+分數會很漂亮而且完全沒有意義。用 rolling-origin backtest：
+訓練到第 t 週 → 預測 t+1 → 前推一週 → 重複。
+
+指標：MAE、MAPE、以及**方向準確率**（升／降預測對不對）——
+對排班決策而言方向常比絕對值更有用。
+
+---
+
+## 3. Spark 到底怎麼用（第一版沒講清楚的部分）
+
+三個階段，各自用到 Spark 的不同能力。
+
+### 3.1 Structured Streaming——即時彙總與偵測
 
 ```python
-event_id      string    # 確定性：sha1(county|age|year|week|seq)
-event_time    timestamp # 見 §3，序號推導
-epi_year      short
-epi_week      short
-county_code   string
-county        string
-age_group     string
-disease       string
-synthetic     boolean   # 恆為 true
-source        string    # 恆為 'cdc-rods-synthetic-replay'
+events = (spark.readStream
+    .format("kafka")
+    .option("subscribe", "ed-visits")
+    .load()
+    .select(from_json(col("value").cast("string"), EVENT_SCHEMA).alias("e"))
+    .select("e.*")
+    .withWatermark("event_time", "2 weeks"))
+
+# 1) 事件 → 週彙總。這是 Spark 真正在做事的地方：
+#    12.9M 筆事件收斂成 (縣市 × 週) 的計數。
+weekly = (events
+    .groupBy(window(col("event_time"), "7 days"), col("county_code"))
+    .agg(count("*").alias("visits"),
+         sum(when(col("is_ili"), 1).otherwise(0)).alias("ili_visits")))
+
+# 2) stream-static join：基線是批次算好的 static DataFrame
+baseline = spark.read.jdbc(PG_URL, "surveillance_baseline")
+scored = weekly.join(broadcast(baseline), ["county_code", "epi_week"]) \
+               .withColumn("z", (col("ili_rate") - col("mean")) / col("sd"))
+
+# 3) 冪等 sink
+scored.writeStream \
+      .foreachBatch(upsert_to_postgres) \
+      .option("checkpointLocation", CHECKPOINT) \
+      .trigger(processingTime="5 seconds") \
+      .start()
 ```
 
-一筆事件 = 一次急診就診。**沒有 count 欄位**——這正是與週彙總的關鍵差異，
-也是讓 Spark 真的需要做 aggregation 的原因。
+用到的 Spark 能力：**watermark、event-time window、stream-static join
+（broadcast）、foreachBatch 冪等寫入、checkpoint 續跑**。
 
-### 4.4 串流輸出（新資料表）
+### 3.2 批次特徵工程——Window functions
 
-```sql
-CREATE TABLE surveillance_stream_windows (
-    disease       TEXT     NOT NULL,
-    county_code   TEXT     NOT NULL,
-    epi_year      SMALLINT NOT NULL,
-    epi_week      SMALLINT NOT NULL,
-    visits        INTEGER  NOT NULL,   -- Spark 算出來的
-    baseline_mean REAL,                -- 來自 static join
-    baseline_sd   REAL,
-    z_score       REAL,
-    alert         BOOLEAN  NOT NULL,
-    window_closed_at TIMESTAMPTZ NOT NULL,
-    batch_id      BIGINT   NOT NULL,   -- Spark 的 microbatch id
-    CONSTRAINT stream_window_key
-        UNIQUE (disease, county_code, epi_year, epi_week)
-);
+```python
+w = Window.partitionBy("county_code").orderBy("week_index")
+
+feat = (obs
+    .withColumn("ili_rate", col("ili_visits") / col("total_visits"))
+    .withColumn("lag_1", lag("ili_rate", 1).over(w))
+    .withColumn("lag_2", lag("ili_rate", 2).over(w))
+    .withColumn("lag_4", lag("ili_rate", 4).over(w))
+    .withColumn("delta_1", col("lag_1") - col("lag_2"))
+    .withColumn("same_week_last_year", lag("ili_rate", 52).over(w))
+    .withColumn("y_next", lead("ili_rate", 1).over(w)))    # 標籤
 ```
 
-`UNIQUE` 是冪等寫入的依據——Structured Streaming 在失敗重試時**會重送
-同一個 microbatch**，沒有它就會重複計數。
+`lag` / `lead` / `Window` 是 Spark SQL 的核心，也是這套語法**原封不動**
+可以擴展到多縣市、多疾病的原因。
 
-## 5. 架構
+### 3.3 MLlib——訓練與 backtest
+
+```python
+from pyspark.ml.regression import GBTRegressor
+from pyspark.ml.feature import VectorAssembler
+from pyspark.ml import Pipeline
+
+pipeline = Pipeline(stages=[
+    VectorAssembler(inputCols=FEATURES, outputCol="features"),
+    GBTRegressor(labelCol="y_next", featuresCol="features",
+                 maxIter=60, maxDepth=4, seed=42),   # seed 固定 → 可重現
+])
+
+# Rolling-origin backtest：一定要按時間切
+for cutoff in backtest_weeks:
+    train = feat.filter(col("week_index") <= cutoff)
+    test  = feat.filter(col("week_index") == cutoff + 1)
+    model = pipeline.fit(train)
+    preds = model.transform(test)
+```
+
+⚠️ **會刻意寫錯一次再修正**：先用 `randomSplit` 跑一遍，記錄那個
+虛高的分數，再換成時間切分，把兩者並列在證據裡。這是最容易犯、
+也最難從結果看出來的錯誤，值得留下對照。
+
+---
+
+## 4. Kafka 與 Redis 的角色
+
+「殺雞用牛刀」成立，目的是練習，並且讓 pilot 頭尾串起來。但即使如此，
+每個元件仍必須有一個**說得出口的職責**，否則就是擺著好看。
 
 ```mermaid
 flowchart LR
-  A[("surveillance_observations<br/>真實彙總 109,907 列")]
-  A --> B["decompose.py<br/>確定性展開（固定 seed）"]
-  B --> C[/"replay/*.parquet<br/>12.9M 事件"/]
+  A[("surveillance_observations<br/>真實彙總")] --> B["decompose<br/>展開為個別事件"]
   B --> RT{{"往返檢查<br/>重新彙總必須逐格相等"}}
-  RT -.->|不符即中止| X["拒絕產出"]
-  C --> D["replay_producer<br/>依 week_index 逐批投放"]
-  D --> E["Spark Structured Streaming<br/>file source + checkpoint"]
-  A ==>|static join| E
-  E --> F["windowed count<br/>groupBy county, week"]
-  F --> G["baseline join<br/>+ z-score"]
-  G --> H["foreachBatch<br/>冪等 upsert"]
-  H --> I[("surveillance_stream_windows")]
-  I --> J["對帳：串流結果<br/>vs 批次真值"]
+  RT -.->|不符| X["拒絕產出"]
+  B --> K[["Kafka topic<br/>ed-visits"]]
+  K --> S["Spark Structured Streaming"]
+  A ==>|"static join"| S
+  S --> R[("Redis<br/>最新狀態 + 特徵快取")]
+  S --> P[("PostgreSQL<br/>視窗結果 / 預測")]
+  R --> API["twin API<br/>/surveillance /forecast"]
+  P --> API
+  P --> BT["批次特徵 + MLlib<br/>rolling backtest"]
+  BT --> P
 ```
 
-**注意 `A ==> E` 那條**：基線（前 5 年同週分布）是 static DataFrame，
-與串流做 stream-static join。這是 Structured Streaming 的標準模式，
-也是未來真實 feed 會用的同一套結構。
+### Kafka：`ed-visits` topic
 
-## 6. 串流語意（真正要練的東西）
+- **職責**：事件傳輸與重播。取代第一版的 file source。
+- **練到的東西**：consumer group、offset 管理、partition（依 `county_code` 分區）、
+  Spark 的 `startingOffsets` 與 checkpoint 交互作用。
+- **為什麼值得**：consumer group 正是先前指出「blue/green 對串流任務語意錯誤」
+  的根源——兩個顏色同時消費會分走 partition。**這是唯一能真正練到那個問題的方式**，
+  而那個問題會在 K8s 上再次出現。
+- 單機 KRaft 模式（不需要 ZooKeeper），1 broker。
 
-| 議題 | 設計 | 為什麼重要 |
-|---|---|---|
-| Checkpoint | `checkpointLocation` 落在具名 volume | 重啟後不重算、不漏算 |
-| 冪等 sink | `foreachBatch` + `ON CONFLICT` upsert | microbatch 會重送 |
-| Watermark | 2 個 replay 週 | 遲到資料要能歸入正確 window |
-| 遲到資料 | 刻意注入超過 watermark 的事件 | 觀察它被丟棄且**有計數**，不是靜默消失 |
-| Trigger | `processingTime` 可調 | 控制回放速度與 M5 負載 |
-| 背壓 | `maxFilesPerTrigger` | 避免一次吃進 12.9M 事件 |
+### Redis：最新狀態與特徵快取
 
-**對帳是驗收標準**：串流算出的每一格 `visits`，必須等於
-`surveillance_observations` 的真值。不相等就是管線有錯——這是我們少數
-「事先知道正確答案」的機會，不用白不用。
+- **職責**：
+  1. 每個縣市的**最新視窗結果**（API 讀這裡，不打 PostgreSQL）
+  2. **預測用的特徵向量快取**（lag 特徵每週才變一次，重算浪費）
+  3. Spark 與 API 之間的**去耦**——API 不必等 Spark 寫完 DB
+- **練到的東西**：cache invalidation、TTL、以及「快取與真值不一致」
+  這個經典問題——我會刻意注入不一致並驗證能偵測到。
+- ⚠️ **Redis 不是真值來源。** PostgreSQL 才是。Redis 掛掉時 API 必須
+  降級去讀 PostgreSQL，而不是回報無資料——這一點會實測。
 
-## 7. 這個設計「沒有」預演到什麼
+### 誠實的負載評估
 
-誠實列出，避免日後誤以為已驗證：
+| 元件 | 記憶體 |
+|---|---|
+| Kafka（KRaft，1 broker） | ~1.0 GB |
+| Redis | ~0.1 GB |
+| Spark driver + 2 executors | ~2.5 GB |
+| 現有 Compose 平台 | ~0.5 GB |
+| k3d 練習叢集 | ~4.0 GB（可先 `k3d cluster stop`） |
 
-- **不是 Kafka。** 用 file source。因此**沒有**練到 consumer group、partition
-  rebalance、broker 故障。其中 consumer group 特別關鍵——那正是先前指出的
-  「blue/green 對串流任務語意錯誤」的根源。M5 上再加 Kafka（約 1 GB+）
-  在目前階段不划算。
-- **不是真實 HL7/FHIR 解析。** 事件已經是結構化的，省略了真實院內整合最髒的一段。
-- **不是真實延遲特性。** 回放是壓縮時間，不會出現真實系統的抖動與塞車。
-- **單機。** Spark 的分散式 shuffle、executor 故障恢復要等上 K8s 才練得到。
+Docker VM 上限 15.6 GB。全開約 8 GB，**可行但不寬裕**；
+練 Spark 時建議先停 k3d，兩者不需要同時跑。
 
-## 8. 分階段
+---
 
-1. **decompose + 往返檢查**（無 Spark）。先確定分解是可逆的，再談串流。
-2. **Spark local mode**，跑完整 pipeline，與批次真值對帳。
-3. **注入故障**：中途砍掉 job 驗 checkpoint 續跑；重送 microbatch 驗冪等；
-   投遲到事件驗 watermark 計數。
-4. **上 K8s**（需先重建叢集：真 StorageClass + registry，現有 agent 上限
+## 5. 合成事件流：分解而非發明
+
+RODS 的 109,907 列彙總展開成 **12,943,342 筆個別就診事件**，因為未來 CYCH／
+中醫大送來的是一筆一筆的就診，不是週彙總。回放彙總等於「用 Spark 讀 CSV
+再寫回去」，練不到任何東西。
+
+硬規則：**重新彙總必須逐格等於原始數字。** 這讓它是分解不是發明，
+而且同時是管線的正確性檢查——我們事先知道答案。
+
+紀律：`source='cdc-rods-synthetic-replay'`、每筆帶 `synthetic=true`、
+固定 seed、**只有「週內第幾秒」是合成的**。
+⚠️ 此資料集永不得用於流行病學推論。
+
+---
+
+## 6. 關於 window 與資料來源的確認
+
+第一版發現 `(年, 週)` 無法用任何標準慣例換算成日曆日期
+（資料的 53 週年份是 2009/2014/2020/2025，六種慣例全部不吻合）。
+
+**你要求確認資料來源，這是對的。** 我原本的做法是繞過它（用序號當回放時鐘），
+那對回放管線正確，但**不能解決「未來要和其他資料源 join」的問題**——
+中醫大的資料進來時，一定要能對到同一個時間軸。
+
+所以列為**必須向疾管署查證的項目**，不再只是繞過：
+
+- [ ] 疾管署「流行病學週」的正式定義（起始日、第 1 週判定規則）
+- [ ] 是否曾變更慣例（資料同時具 ISO 的 2009 與 MMWR 的 2014/2025，
+      與「約 2010 年前後更換」一致，但那是推論不是證據）
+
+在查證完成前，回放時鐘用序號，且**所有對外報表一律沿用原始
+`epi_year`/`epi_week` 標籤，不做任何換算**。
+
+---
+
+## 7. 分階段
+
+1. **decompose + 往返檢查**（無 Spark、無 Kafka）。分解可逆才有後面。
+2. **Kafka + Redis 起服務**，producer 灌事件，驗 offset 與 consumer group。
+3. **Spark Structured Streaming**，串流結果與批次真值**逐格對帳**。
+4. **故障注入**：砍 job 驗 checkpoint、重送 microbatch 驗冪等、
+   遲到事件驗 watermark 有計數、Redis 掛掉驗 API 降級。
+5. **批次特徵 + MLlib backtest**，含刻意的 `randomSplit` 錯誤對照。
+6. **上 K8s**（需重建叢集：真 StorageClass + registry；現有 agent 上限
    1.465 GB 對 executor 太小）。
 
-前三階段不需要動叢集，負載可控。
+---
 
-## 9. 需要決定的事
+## 8. 尚待確認
 
-1. **回放速度**：20 年壓成幾分鐘？影響 demo 節奏與 M5 負載。建議先 5 分鐘。
-2. **合成事件是否落地保存**（12.9M 筆 Parquet 約數百 MB），或每次重新產生。
-   建議**不保存**——它是衍生物，且保存等於多一份可能被誤用的假資料。
-3. **是否要加 Kafka**。我建議這個階段不要，理由見 §7；但如果 demo 需要
-   出現「訊息佇列」這個元件，那要另外評估負載。
+1. 回放速度：20 年壓成幾分鐘？建議 5 分鐘。
+2. 合成事件是否落地保存（約數百 MB）？**建議不保存**——衍生物，
+   且保存等於多一份可能被誤用的假資料。
+3. 中醫大資料的形狀與時間軸為何？會決定 §6 的查證優先度。

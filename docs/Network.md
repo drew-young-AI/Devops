@@ -47,40 +47,27 @@ Cloudflare Quick Tunnel
 
 ### Option B：推薦的企業網路縮小版
 
-```text
-Public DNS
-  -> Cloud trial VM with public IP
-  -> NGINX + TLS
-  -> rathole relay server
-  -> MacBook rathole client
-  -> local NGINX
-  -> Pilot
-```
+### 已由 Tailscale 取代（2026-08-17）
 
-這需要一台 Cloud trial VM，但 Cloud provider 不固定。VM 只作 relay，不承載 application；因此可以驗證 public IP、DNS、TLS、firewall、reverse proxy、tunnel、access log、timeout 與回收流程。
+本節原本規劃 rathole relay + Cloud trial VM，並以 Cloudflare Tunnel 為替代
+路徑。**兩者都不再需要。**
 
-- `rathole`：本專案主方案。Rust 實作的輕量 reverse proxy，需一台有 public IP 的 server，支援 token、TLS 與 Noise。[rathole repository](https://github.com/rathole-org/rathole)
-- `frp`：保留為替代方案，不在第一版同時安裝。它同樣可將 NAT/Firewall 後的 local service 暴露到 Internet，但必須配置 authentication 與 allowlist。[frp repository](https://github.com/fatedier/frp)
-
-第一版固定採 `rathole`，藉此驗證跨語言 runtime、relay protocol、token、TLS、firewall 與 NGINX 交握。
-
-### Optional Cloudflare adapter
-
-Cloudflare Tunnel 可以作為另一條獨立的 edge path：
+卡住的是一個錯誤前提，而不是一個缺少的決策：所有服務都綁 127.0.0.1，
+Tailscale 跑在同一台主機上、直接可達 loopback。因此不必開 router port、
+不必設 inbound 防火牆規則、不必申請雲端 VM、也不必有網域。
 
 ```text
-Cloudflare DNS / WAF / CDN
-  -> cloudflared CLI on Mac
-  -> local NGINX
-  -> Pilot
+Tailscale tailnet
+  -> tailscale serve（tailnet only）／ funnel（公開網際網路）
+  -> 127.0.0.1 上的本機服務
 ```
 
-它適合驗證 CLI、DNS、edge TLS、WAF、CDN、Zero Trust policy 與快速外部 URL；但不應取代 rathole 主方案，因為 Cloudflare relay、control plane 與 edge network 是託管服務，不是本機可重建的開源元件。Cloudflare Tunnel 使用 outbound-only connection，不要求 origin 有 public IP。[Cloudflare Tunnel](https://developers.cloudflare.com/tunnel/)
+實作與暴露天花板見 [platform/ingress/README.md](../platform/ingress/README.md)。
+每個目標的暴露上限依「靠什麼驗證」決定，而非依名稱敏感度：
+prometheus / loki / alertmanager / vault 一律 `never`。
 
-- [ ] Cloudflare path 與 rathole path 分開驗收，不混用結果。
-- [ ] Cloudflare credential 使用獨立、最小權限 token，不使用個人全權限 token。
-- [ ] Cloudflare URL 只指向 local NGINX，不直接指向 Docker socket、observability、Vault 或 MLX。
-- [ ] Cloudflare Quick Tunnel 只作短期測試，不作 SLA、HA 或 production capacity 證據。
+原 rathole / Cloudflare 段落已移除，因為保留一份不會被執行的計畫，
+會讓讀者以為那是待辦事項。歷史決策見 `STAGE_REVIEW.md` §7。
 
 ### Public URL 安全邊界
 
