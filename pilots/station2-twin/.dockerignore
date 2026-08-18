@@ -1,0 +1,5 @@
+migrations/
+tests/
+README.md
+config.example.env
+*.md

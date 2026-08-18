@@ -1,0 +1,102 @@
+services:
+  db:
+    image: postgres:16-alpine
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    ports:
+      # Loopback only. The migration runner and the restore drill both reach
+      # it from the host; nothing outside this machine ever should.
+      - "127.0.0.1:${DB_HOST_PORT:-15432}:5432"
+    environment:
+      POSTGRES_DB: ${PGDATABASE:-twin}
+      POSTGRES_USER: ${PGUSER:-twin}
+      # Bootstrap credential only. Vault issues the short-lived credentials
+      # the application uses; this one exists so the container can initialise
+      # at all, and is what the dynamic-credentials work replaces.
+      POSTGRES_PASSWORD: ${PGPASSWORD:-twin-bootstrap}
+      # Deterministic collation. Without this the image picks a locale from
+      # the host, and an index built under one collation is silently wrong
+      # under another -- which turns a restore onto a different machine into
+      # corrupt query results rather than an error.
+      LANG: C
+      POSTGRES_INITDB_ARGS: "--locale=C --encoding=UTF8"
+    volumes:
+      # NAMED volume, not a bind mount. This is the first stateful thing on
+      # the platform, so it is also the first thing the backup mechanism has
+      # to actually cover -- backup.sh enumerates named volumes.
+      - station2-twin-db:/var/lib/postgresql/data
+    restart: unless-stopped
+    healthcheck:
+      # pg_isready, not a TCP probe: postgres accepts connections while still
+      # running recovery, so "the port is open" is not "the database works".
+      test: ["CMD-SHELL", "pg_isready -U ${PGUSER:-twin} -d ${PGDATABASE:-twin} -q"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+    mem_limit: 512m
+    cpus: 0.5
+
+  twin:
+    build:
+      context: .
+    image: station2-twin:dev
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    labels:
+      # Consumed by Alloy to route logs to the right Loki tenant. Twin data is
+      # operational telemetry, not patient data -- but the label is set
+      # explicitly rather than defaulted, because an unlabelled service
+      # silently lands in the wrong tenant.
+      platform.data_class: platform
+    ports:
+      - "127.0.0.1:${HOST_PORT:-18090}:8080"
+    environment:
+      PGHOST: db
+      PGPORT: 5432
+      PGDATABASE: ${PGDATABASE:-twin}
+      PGUSER: ${PGUSER:-twin}
+      PGPASSWORD: ${PGPASSWORD:-twin-bootstrap}
+      APP_VERSION: ${APP_VERSION:-station2-dev}
+      EXPECTED_SCHEMA_VERSION: ${EXPECTED_SCHEMA_VERSION:-2}
+      GRACEFUL_DRAIN_SECONDS: ${GRACEFUL_DRAIN_SECONDS:-3}
+    depends_on:
+      db:
+        condition: service_healthy
+    init: true
+    read_only: true
+    tmpfs:
+      - /tmp:size=16m,noexec,nosuid
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    mem_limit: 256m
+    cpus: 0.5
+    pids_limit: 128
+    restart: unless-stopped
+    healthcheck:
+      # Hits /health/live, NOT /health/ready.
+      #
+      # Docker restarts a container whose healthcheck fails. Readiness fails
+      # when the DATABASE is unreachable -- a condition restarting this
+      # container cannot fix. Wiring readiness here would turn a brief
+      # database blip into a restart loop across every replica at once, which
+      # is the textbook way to convert a recoverable dependency failure into
+      # a full outage. Readiness is for routing; the proxy and the deploy gate
+      # consume it.
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8080/health/live', timeout=2).status==200 else 1)"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+
+volumes:
+  station2-twin-db:
+    name: station2-twin-db
