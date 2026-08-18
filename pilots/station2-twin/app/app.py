@@ -41,6 +41,7 @@ import psycopg
 from psycopg_pool import ConnectionPool
 
 import surveillance
+import vault_creds
 
 PORT = int(os.environ.get("PORT", "8080"))
 APP_VERSION = os.environ.get("APP_VERSION", "dev")
@@ -66,16 +67,23 @@ db_error_count = 0
 _pool = None
 
 
+CREDENTIALS = vault_creds.CredentialSource()
+
+
 def dsn():
     url = os.environ.get("DATABASE_URL")
     if url:
         return url
-    return (
-        f"host={os.environ.get('PGHOST', 'db')} "
-        f"port={os.environ.get('PGPORT', '5432')} "
-        f"dbname={os.environ.get('PGDATABASE', 'twin')} "
-        f"user={os.environ.get('PGUSER', 'twin')} "
-        f"password={os.environ.get('PGPASSWORD', '')}"
+    # Vault when an AppRole is configured, the static password otherwise.
+    # The fallback is explicit rather than implicit: an operator who thinks
+    # the service is using dynamic credentials and is wrong has no way to
+    # notice, so /health/ready and /version both report which mode is live.
+    return CREDENTIALS.dsn(
+        host=os.environ.get("PGHOST", "db"),
+        port=os.environ.get("PGPORT", "5432"),
+        dbname=os.environ.get("PGDATABASE", "twin"),
+        static_user=os.environ.get("PGUSER", "twin"),
+        static_password=os.environ.get("PGPASSWORD", ""),
     )
 
 
@@ -117,6 +125,13 @@ def readiness():
         return False, {"status": "draining"}
     try:
         version = schema_version()
+    except vault_creds.VaultUnavailable as exc:
+        # Distinct from db_unreachable on purpose: the database may be
+        # perfectly healthy and simply unreachable BY US because no valid
+        # credential could be obtained. Merging the two sends whoever is
+        # paged to the wrong system.
+        CREDENTIALS.last_error = str(exc)
+        return False, {"status": "credentials_unavailable", "detail": str(exc)}
     except Exception as exc:
         return False, {"status": "db_unreachable", "detail": type(exc).__name__}
     if version is None:
@@ -125,7 +140,8 @@ def readiness():
     if version != EXPECTED_SCHEMA_VERSION:
         return False, {"status": "schema_mismatch",
                        "expected": EXPECTED_SCHEMA_VERSION, "actual": version}
-    return True, {"status": "ready", "schema_version": version}
+    return True, {"status": "ready", "schema_version": version,
+                  "credentials": CREDENTIALS.status()}
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -163,7 +179,8 @@ class Handler(BaseHTTPRequestHandler):
 
         if path == "/version":
             return self.send_json(200, {"service": "station2-twin", "version": APP_VERSION,
-                                        "expected_schema_version": EXPECTED_SCHEMA_VERSION})
+                                        "expected_schema_version": EXPECTED_SCHEMA_VERSION,
+                                        "credentials": CREDENTIALS.status()})
 
         if path == "/metrics":
             try:

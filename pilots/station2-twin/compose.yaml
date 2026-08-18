@@ -66,6 +66,16 @@ services:
       APP_VERSION: ${APP_VERSION:-station2-dev}
       EXPECTED_SCHEMA_VERSION: ${EXPECTED_SCHEMA_VERSION:-3}
       GRACEFUL_DRAIN_SECONDS: ${GRACEFUL_DRAIN_SECONDS:-3}
+      # Vault AppRole. When both are set the service fetches a
+      # short-lived database credential instead of using PGPASSWORD.
+      # Empty by default so the pilot still runs without Vault -- and
+      # /health/ready reports which mode is actually live, because an
+      # operator who believes rotation is happening and is wrong has
+      # no other way to find out.
+      VAULT_ADDR: ${VAULT_ADDR:-http://host.docker.internal:18200}
+      VAULT_ROLE_ID: ${VAULT_ROLE_ID:-}
+      VAULT_SECRET_ID: ${VAULT_SECRET_ID:-}
+      VAULT_DB_ROLE: ${VAULT_DB_ROLE:-station2-twin}
     depends_on:
       db:
         condition: service_healthy

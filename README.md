@@ -25,8 +25,11 @@ timestamp: 2026-08-11T20:05:56+08:00
 9. [docs/Backlog.md](docs/Backlog.md)——遞延項目，**每一項附「現在做 vs 等 K8s」判定**
 10. [docs/Kubernetes-Readiness.md](docs/Kubernetes-Readiness.md)——什麼帶得走、什麼被取代、什麼完全沒碰過
 
-**給主管閱讀**：[docs/Executive-Brief.html](docs/Executive-Brief.html)（架構圖、流程圖、
-現況燈號）與 [docs/System-State.html](docs/System-State.html)（機制盤點與擴充／收斂建議）。
+**給主管閱讀**：[docs/System-State.html](docs/System-State.html)（機制盤點與擴充／收斂建議）。
+
+主管簡報（架構圖／流程圖／現況燈號）是**依需求生成的衍生產物，不入庫**——
+來源是 `Plan.md`、`STAGE_REVIEW.md` 與各 `platform/*/README.md`。需要時請 AI
+依當下狀態重新生成，不要保留過期的簡報檔（過期的架構圖比沒有更糟）。
 
 目前正在建造的是「單一 Mac 上的縮小版企業 DevOps 控制面」，不是實際產品，也不是完整企業 HA 環境。
 

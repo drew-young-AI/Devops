@@ -430,3 +430,74 @@ privilege than seeing that a secret exists.**
   would be a meaningful behavior change to an already-working flow outside
   this repo's scope (`~/.env` is the user's global credential file, not
   something `platform/vault/` owns) — noted here rather than done silently.
+
+## Dynamic database credentials（2026-08-18）
+
+最後一項未兌現的 Vault 機制。接縫在 `workload-station1-hello.hcl` 留了很久，
+在此之前一直用長期靜態密碼——這是決定，不是疏漏：當時沒有資料庫可以簽發。
+station2-twin 改變了這一點。
+
+```bash
+platform/vault/scripts/setup_database_secrets.sh station2-twin
+platform/vault/scripts/verify_database_secrets.sh station2-twin
+```
+
+**身分模型完全沒有改變。** 同一套 AppRole、同樣的認證、同樣的管理方式。
+只有 workload 讀取的**路徑**變了：靜態的 `secret/data/...` 變成動態的
+`database/creds/...`。這正是當初「先建身分、後建憑證」的論據——而那個論據
+成立了。
+
+| | 靜態密碼 | 動態憑證 |
+|---|---|---|
+| 誰在用 | 共用，稽核記錄無法歸屬 | 每個 workload 自己的資料庫使用者 |
+| 撤銷 | 換一次要重啟全部 | 撤銷單一 lease，其他不受影響 |
+| 洩漏 | 永久有效 | TTL 到期自動失效 |
+| 權限 | 連 schema owner 權限一起拿到 | 只有 SELECT / INSERT / UPDATE |
+
+### Verified
+
+| 注入條件 | 結果 |
+|---|---|
+| 讀取 `database/creds/station2-twin` | 可連線、讀到 109,907 列 |
+| 連續讀兩次 | **產生兩個不同的使用者**，非共用 |
+| 以該憑證 INSERT | 允許（應用程式需要） |
+| 以該憑證 `DROP TABLE` | **拒絕** — least privilege 成立 |
+| 以該憑證 `DELETE` | **拒絕** — 未授予即不可用 |
+| **撤銷 lease 後再用同一組憑證** | **被 postgres 拒絕** |
+| 服務實際運行 | `pg_stat_activity` 顯示 `v-approle-station2-...` |
+| 撤銷服務正在用的 lease 後重啟 | 自動取得新憑證，`mode=vault` |
+
+最後一列之前的每一項，在「dynamic 只是裝飾」的系統上都會照樣通過。
+**撤銷測試是唯一能分辨真假的一項。**
+
+### 一個安靜失敗，值得記錄
+
+第一版的 revocation statements 用了標準寫法
+`REASSIGN OWNED BY` → `DROP OWNED BY` → `DROP ROLE`。它**失敗的方式最糟糕**：
+
+- `vault lease revoke` 回報 `All revocation operations queued successfully!`
+- HTTP 202
+- 憑證**繼續可用**
+- Vault 在背景無限重試，只有 server log 說得出原因
+
+```
+permission denied to reassign objects (SQLSTATE 42501)
+Only roles with privileges of role "v-..." may drop objects owned by it
+```
+
+PostgreSQL 16 要求「繼承的」成員資格才算擁有該 role 的權限，而 `vault_admin`
+是刻意設為 `NOINHERIT`——為了讓它「是 schema owner 的成員」不等於「就是
+schema owner」。為了讓 `DROP OWNED` 能跑而放寬這一點，是拿真實的權限邊界
+換方便。
+
+改法：**明確撤銷當初授予的東西**。`vault_admin` 是授予者，撤銷不需要繼承
+任何權限；而產生的 role 本來就不可能擁有任何物件（它沒有 DDL 權限），
+`DROP OWNED BY` 從頭到尾只是在失敗而已。
+
+### 已知限制
+
+- **沒有實作持續續約（lease renewal）**。connection pool 的 `max_lifetime`
+  設得比憑證 TTL 短，所以連線會回收並重新取得憑證。續約迴圈是第二個更難
+  察覺的出錯點，而這個 pilot 的目的是證明機制，不是實作 Vault client。
+- **`secret_id` 目前沒有 TTL**（`secret_id_ttl=0`）。正式環境應設定期限並
+  搭配 response-wrapping 交付。
