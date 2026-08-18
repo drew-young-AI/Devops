@@ -78,6 +78,19 @@ class Station2ContractTests(unittest.TestCase):
         self.assertEqual(highest, app_default,
                          "app.py's default schema version disagrees with the migrations")
 
+        # compose.yaml too. This assertion was missing, and the omission bit
+        # immediately: migration 003 landed, app.py's default was bumped to 3,
+        # and the service still came up refusing traffic because
+        # `${EXPECTED_SCHEMA_VERSION:-2}` in compose overrides the app default.
+        # The version lives in three files; a test that checks two of them
+        # certifies a consistency that does not exist.
+        compose_default = int(re.search(
+            r"EXPECTED_SCHEMA_VERSION:\s*\$\{EXPECTED_SCHEMA_VERSION:-(\d+)\}",
+            (ROOT / "compose.yaml").read_text()).group(1))
+        self.assertEqual(highest, compose_default,
+                         "compose.yaml's default overrides app.py and disagrees "
+                         "with the migrations")
+
     def test_migration_versions_are_unique_and_gapless(self):
         """A duplicate version silently skips a migration: the ledger is keyed
         on version, so the second file with the same number is recorded as

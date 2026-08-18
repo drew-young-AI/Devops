@@ -40,12 +40,16 @@ from urllib.parse import urlparse, parse_qs
 import psycopg
 from psycopg_pool import ConnectionPool
 
+import surveillance
+
 PORT = int(os.environ.get("PORT", "8080"))
 APP_VERSION = os.environ.get("APP_VERSION", "dev")
 
 # The schema this build was written against. Bumped in the same commit as the
 # migration that introduces it, so code and schema move together or not at all.
-EXPECTED_SCHEMA_VERSION = int(os.environ.get("EXPECTED_SCHEMA_VERSION", "2"))
+EXPECTED_SCHEMA_VERSION = int(os.environ.get("EXPECTED_SCHEMA_VERSION", "3"))
+
+DEFAULT_DISEASE = os.environ.get("DEFAULT_DISEASE", "influenza_like_illness")
 
 GRACEFUL_DRAIN_SECONDS = float(os.environ.get("GRACEFUL_DRAIN_SECONDS", "3"))
 
@@ -192,6 +196,11 @@ class Handler(BaseHTTPRequestHandler):
                 return self._latest(parts[1])
             if len(parts) == 3 and parts[0] == "twin" and parts[2] == "history":
                 return self._history(parts[1], query)
+            # --- the surveillance twin ---
+            if parts == ["surveillance", "scan"]:
+                return self._scan(query)
+            if len(parts) == 2 and parts[0] == "surveillance":
+                return self._county(parts[1], query)
         except Exception as exc:
             db_error_count += 1
             error_count += 1
@@ -263,6 +272,48 @@ class Handler(BaseHTTPRequestHandler):
             return self.send_json(404, {"error": "no_observations", "asset_id": asset_id})
         return self.send_json(200, {"asset_id": asset_id, "metric": row[0],
                                     "value": float(row[1]), "observed_at": row[2].isoformat()})
+
+    def _week_args(self, query, cur, disease):
+        """Default to the newest week present, not to 'now'.
+
+        The feed lags reality by about two weeks. Defaulting to the current
+        calendar week would return an empty result and render as zero cases
+        -- a silent all-clear produced by a reporting delay.
+        """
+        if "year" in query and "week" in query:
+            return int(query["year"][0]), int(query["week"][0])
+        return surveillance.latest_week(cur, disease)
+
+    def _county(self, county_code, query):
+        disease = query.get("disease", [DEFAULT_DISEASE])[0]
+        weeks = min(int(query.get("weeks", ["26"])[0]), 520)
+        with pool().connection() as conn:
+            with conn.cursor() as cur:
+                year, week = self._week_args(query, cur, disease)
+                if year is None:
+                    return self.send_json(404, {"error": "no_data", "disease": disease})
+                payload = surveillance.divergence(cur, disease, county_code, year, week)
+                payload["series"] = surveillance.series(cur, disease, county_code, weeks)
+        if payload["baseline_n"] == 0 and not payload["series"]:
+            return self.send_json(404, {"error": "unknown_county", "county_code": county_code})
+        return self.send_json(200, payload)
+
+    def _scan(self, query):
+        disease = query.get("disease", [DEFAULT_DISEASE])[0]
+        with pool().connection() as conn:
+            with conn.cursor() as cur:
+                year, week = self._week_args(query, cur, disease)
+                if year is None:
+                    return self.send_json(404, {"error": "no_data", "disease": disease})
+                rows = surveillance.scan(cur, disease, year, week)
+        return self.send_json(200, {
+            "disease": disease, "epi_year": year, "epi_week": week,
+            "counties": len(rows),
+            "alerting": sum(1 for r in rows if r["alert"]),
+            "method": "historical limits (mean +/- 2sd of same week +/-1 over "
+                      f"previous {surveillance.BASELINE_YEARS} years)",
+            "results": rows,
+        })
 
     def _history(self, asset_id, query):
         try:

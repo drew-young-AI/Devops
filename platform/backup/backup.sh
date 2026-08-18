@@ -81,6 +81,11 @@ declare -a EXCLUDED_VOLUMES=(
   # and a data-handling decision that is not ours to make. Listed rather than
   # ignored so the next person sees it was considered.
   mongo
+  # k3d practice cluster's container image cache. Disposable by construction:
+  # the whole cluster is `k3d cluster delete` away from gone and rebuilt from
+  # a script, and the cache re-populates from registries on demand. Anything
+  # in that cluster worth keeping is a defect in where it was put.
+  k3d-devops-lab-images
 )
 
 STAMP="$(date -u '+%Y%m%dT%H%M%SZ')"
