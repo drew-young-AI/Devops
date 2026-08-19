@@ -1,0 +1,56 @@
+{
+  "verdict": "DEGRADED",
+  "exit_code": 1,
+  "checked_at": "2026-08-19T09:46:14Z",
+  "monitoring_integrity": [
+    {
+      "check": "prometheus_reachable",
+      "ok": true,
+      "detail": "api/v1/rules responded"
+    },
+    {
+      "check": "alert_rules_loaded",
+      "ok": true,
+      "detail": "5 rules"
+    },
+    {
+      "check": "alert_rules_evaluating",
+      "ok": true,
+      "detail": "all ok"
+    },
+    {
+      "check": "alertmanager_wired",
+      "ok": true,
+      "detail": "1 active"
+    },
+    {
+      "check": "alertmanager_reachable",
+      "ok": true,
+      "detail": "api/v2/alerts responded"
+    },
+    {
+      "check": "scrape_targets_visible",
+      "ok": true,
+      "detail": "1 targets"
+    }
+  ],
+  "integrity_blockers": [],
+  "active_alerts": [
+    {
+      "alertname": "SchemaVersionUnknown",
+      "severity": "warning",
+      "environment": "develop",
+      "service": "station2-twin",
+      "summary": "station2-twin cannot determine its schema version",
+      "runbook": "platform/db/migrate.sh station2-twin --status",
+      "started_at": "2026-08-19T08:41:04.095Z"
+    }
+  ],
+  "scrape_targets": {
+    "station2-twin/develop": "up"
+  },
+  "sources": {
+    "prometheus": "http://127.0.0.1:19090",
+    "alertmanager": "http://127.0.0.1:19093"
+  }
+}

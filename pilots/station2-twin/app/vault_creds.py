@@ -25,11 +25,37 @@ and neither must look like "everything is fine". So:
                                        something different from what the
                                        operator thinks is happening
 
-NOT IMPLEMENTED, ON PURPOSE: continuous lease renewal. The connection pool's
-max_lifetime is set shorter than the credential TTL, so connections are
-recycled and a fresh credential is fetched before the old one expires. A
-renewal loop would be a second, subtler thing to get wrong -- and this pilot
-exists to prove the mechanism, not to ship a Vault client library.
+CREDENTIAL EXPIRY -- AND THE MITIGATION THAT DID NOT WORK.
+
+This module previously claimed:
+
+    "NOT IMPLEMENTED, ON PURPOSE: continuous lease renewal. The connection
+     pool's max_lifetime is set shorter than the credential TTL, so
+     connections are recycled and a fresh credential is fetched before the
+     old one expires."
+
+The first half was a real decision. The second half was false, and it was
+false in the way that is hardest to notice: psycopg_pool's ConnectionPool
+takes its connection string as a STRING, evaluated once at construction.
+max_lifetime does recycle connections -- and every reconnection dials with the
+same, now-expired username and password. Nothing ever fetched a fresh
+credential.
+
+Observed, not theorised: one hour and one minute after start, the pilot went
+to `db_unreachable: PoolTimeout` and stayed there. /health/live stayed green
+throughout, because the process was perfectly healthy; it simply could no
+longer log in. Docker therefore never restarted it, which is correct
+behaviour for liveness and exactly why the failure could persist for five
+hours before a metric caught it.
+
+This is the third time on this platform that a written-down mitigation turned
+out to do nothing while reading as correct. The pattern is worth naming: a
+comment describing a mechanism is not evidence the mechanism exists.
+
+WHAT IS IMPLEMENTED NOW: the pool is rebuilt when the credential is inside a
+margin of expiry (see app.py's pool()). Still not a renewal loop -- the lease
+is allowed to expire and a new one is issued, which keeps credentials
+genuinely short-lived instead of holding one open indefinitely.
 """
 import json
 import os
@@ -133,6 +159,17 @@ class CredentialSource:
         self.last_error = None
         return (f"host={host} port={port} dbname={dbname} "
                 f"user={user} password={password}")
+
+    def expires_within(self, margin_seconds):
+        """True when the credential is inside `margin` of expiry, or already gone.
+
+        Static credentials never expire, so this is always False for them --
+        which is the whole difference between the two modes and the reason the
+        caller does not need to branch on mode itself.
+        """
+        if self.mode != "vault" or not self.issued_at or not self.ttl:
+            return False
+        return (time.time() - self.issued_at) >= (self.ttl - margin_seconds)
 
     def status(self):
         """Reported by /health/ready and /version, so an operator can tell

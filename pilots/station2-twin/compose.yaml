@@ -76,6 +76,13 @@ services:
       VAULT_ROLE_ID: ${VAULT_ROLE_ID:-}
       VAULT_SECRET_ID: ${VAULT_SECRET_ID:-}
       VAULT_DB_ROLE: ${VAULT_DB_ROLE:-station2-twin}
+      # How close to expiry a Vault credential may get before the pool is
+      # rebuilt with a fresh one. Declared here so it can be driven from the
+      # environment at all -- a value the process reads but compose does not
+      # pass is not configurable, it is a constant with a misleading name,
+      # and that is exactly how the first attempt to TEST this silently did
+      # nothing (the shell variable never reached the container).
+      CRED_REFRESH_MARGIN: ${CRED_REFRESH_MARGIN:-300}
     depends_on:
       db:
         condition: service_healthy

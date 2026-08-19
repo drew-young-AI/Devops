@@ -134,3 +134,39 @@ class Station2ContractTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class CredentialLifecycleTests(unittest.TestCase):
+    """The pool must not outlive the credential it was built with.
+
+    psycopg_pool's ConnectionPool takes its connection string as a STRING,
+    fixed at construction. The original design relied on max_lifetime to
+    "fetch a fresh credential", which it cannot do -- every reconnection
+    redialled with the same expired username. The service went permanently
+    unready one hour after start while /health/live stayed green, so nothing
+    restarted it.
+
+    These assertions are static because the behavioural proof needs a live
+    Vault (recorded in README.md); what they defend against is someone
+    deleting the rebuild and leaving the comment.
+    """
+
+    def test_pool_consults_credential_expiry(self):
+        source = (ROOT / "app" / "app.py").read_text()
+        self.assertIn("expires_within", source,
+                      "pool() must check whether the credential is near expiry")
+        self.assertIn("CRED_REFRESH_MARGIN", source)
+
+    def test_refresh_margin_is_configurable_through_compose(self):
+        """A value the process reads but compose never passes is not
+        configurable -- it is a constant with a misleading name. This exact
+        gap made the first attempt to test the refresh silently do nothing."""
+        compose = (ROOT / "compose.yaml").read_text()
+        self.assertIn("CRED_REFRESH_MARGIN:", compose)
+
+    def test_credential_source_reports_expiry_to_operators(self):
+        source = (ROOT / "app" / "vault_creds.py").read_text()
+        for field in ("expires_in", "ttl_seconds", "age_seconds"):
+            self.assertIn(field, source,
+                          "an operator must be able to see how long the live "
+                          "credential has left")

@@ -87,8 +87,38 @@ def dsn():
     )
 
 
+# How close to expiry a Vault credential may get before the pool is rebuilt.
+# Must exceed the time a request can hold a connection, or a connection handed
+# out just inside the margin outlives its own credential mid-query.
+CRED_REFRESH_MARGIN_SECONDS = float(os.environ.get("CRED_REFRESH_MARGIN", "300"))
+
+
 def pool():
+    """The pool, rebuilt when its credential is about to expire.
+
+    ConnectionPool takes a connection STRING, fixed at construction. That is
+    the detail that broke the previous design: max_lifetime recycled
+    connections, but every reconnection redialled with the same expired Vault
+    credential, so the service went permanently unready one hour after start
+    while /health/live stayed green. See vault_creds.py.
+
+    Rebuilding rather than renewing keeps the credential genuinely
+    short-lived: the old lease is allowed to expire on Vault's schedule and a
+    new user is issued, which is the property that makes a leaked credential
+    self-limiting.
+    """
     global _pool
+    if _pool is not None and CREDENTIALS.expires_within(CRED_REFRESH_MARGIN_SECONDS):
+        log("db_credential_expiring", username=CREDENTIALS.username,
+            lease_id=CREDENTIALS.lease_id, action="rebuilding pool")
+        old, _pool = _pool, None
+        try:
+            # Closing waits for in-flight connections to be returned, so a
+            # request already holding one finishes on the old credential
+            # rather than having it pulled mid-query.
+            old.close()
+        except Exception as exc:
+            log("db_pool_close_failed", detail=type(exc).__name__)
     if _pool is None:
         _pool = ConnectionPool(
             dsn(),

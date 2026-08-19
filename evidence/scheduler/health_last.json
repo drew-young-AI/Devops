@@ -1,20 +1,20 @@
 {
   "job": "health",
-  "started_at": "2026-08-19T09:38:06Z",
-  "status": "degraded",
-  "exit_code": 1,
+  "started_at": "2026-08-19T10:04:49Z",
+  "status": "ok",
+  "exit_code": 0,
   "duration_seconds": 2,
   "interval_seconds": 900,
   "command": "platform/observability/check_health.sh --json",
   "trigger": "manual",
-  "last_scheduled_at": "2026-08-19T09:38:04Z",
+  "last_scheduled_at": "2026-08-19T10:04:47Z",
   "output_tail": [
-    "      \"service\": \"station2-twin\",",
-    "      \"summary\": \"station2-twin cannot determine its schema version\",",
-    "      \"runbook\": \"platform/db/migrate.sh station2-twin --status\",",
-    "      \"started_at\": \"2026-08-19T08:41:04.095Z\"",
+    "      \"ok\": true,",
+    "      \"detail\": \"1 targets\"",
     "    }",
     "  ],",
+    "  \"integrity_blockers\": [],",
+    "  \"active_alerts\": [],",
     "  \"scrape_targets\": {",
     "    \"station2-twin/develop\": \"up\"",
     "  },",
@@ -22,7 +22,7 @@
     "    \"prometheus\": \"http://127.0.0.1:19090\",",
     "    \"alertmanager\": \"http://127.0.0.1:19093\"",
     "  },",
-    "  \"artifact\": \"/Users/drew/ENV/Devops/evidence/observability/health_20260819T093806Z.json\"",
+    "  \"artifact\": \"/Users/drew/ENV/Devops/evidence/observability/health_20260819T100449Z.json\"",
     "}"
   ]
 }
