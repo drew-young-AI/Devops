@@ -97,6 +97,38 @@ def _get(path, token):
         return json.loads(r.read())
 
 
+# Vault's HTTP codes carry the diagnosis; collapsing them into one message
+# throws it away. This mapping exists because the first version reported EVERY
+# login failure as "secret_id may be expired or revoked", and on 2026-08-19 a
+# Docker Desktop restart brought Vault back SEALED -- which answers login with
+# 503. The credential was fine. The message sent the reader to rotate a secret
+# that did not need rotating, while the actual fix was one `operator unseal`.
+#
+# Same defect shape as the CI smoke test reporting "graceful drain window is
+# not working" for a container that never had an HTTP endpoint: the failure is
+# real, the stated cause is fiction, and fiction costs more than silence.
+_LOGIN_FAILURE = {
+    400: "AppRole login rejected (HTTP 400) -- malformed request; role_id or "
+         "secret_id is empty or not a valid UUID",
+    403: "AppRole login rejected (HTTP 403) -- secret_id is expired, revoked, "
+         "or past its use limit. This one really is a credential problem",
+    500: "Vault internal error (HTTP 500) -- check the Vault server log; not a "
+         "credential problem",
+    501: "Vault is NOT INITIALIZED (HTTP 501) -- run init_and_unseal.sh. No "
+         "credential exists yet",
+    503: "Vault is SEALED (HTTP 503) -- run platform/vault/scripts/"
+         "init_and_unseal.sh. The credential is fine; Vault cannot decrypt its "
+         "own storage until it is unsealed. Expected after any restart, "
+         "because this deployment has no auto-unseal",
+}
+
+
+def _login_failure(code):
+    return _LOGIN_FAILURE.get(
+        code, f"AppRole login rejected (HTTP {code}) -- unmapped Vault status; "
+              f"read the Vault server log before assuming a credential fault")
+
+
 def fetch_credentials():
     """Returns (username, password, lease_id, ttl_seconds).
 
@@ -111,9 +143,7 @@ def fetch_credentials():
         auth = _post("auth/approle/login",
                      {"role_id": VAULT_ROLE_ID, "secret_id": VAULT_SECRET_ID})
     except urllib.error.HTTPError as exc:
-        raise VaultUnavailable(
-            f"AppRole login rejected (HTTP {exc.code}) -- secret_id may be "
-            f"expired or revoked") from exc
+        raise VaultUnavailable(_login_failure(exc.code)) from exc
     except (urllib.error.URLError, OSError) as exc:
         raise VaultUnavailable(f"Vault unreachable at {VAULT_ADDR}: {exc}") from exc
 
@@ -122,9 +152,12 @@ def fetch_credentials():
     try:
         creds = _get(f"database/creds/{VAULT_DB_ROLE}", token)
     except urllib.error.HTTPError as exc:
+        if exc.code in (501, 503):
+            raise VaultUnavailable(_login_failure(exc.code)) from exc
         raise VaultUnavailable(
-            f"credential request denied (HTTP {exc.code}) -- the policy may "
-            f"not grant database/creds/{VAULT_DB_ROLE}") from exc
+            f"credential request denied (HTTP {exc.code}) -- the token is "
+            f"valid but the policy may not grant database/creds/"
+            f"{VAULT_DB_ROLE}, or postgres rejected the CREATE ROLE") from exc
     except (urllib.error.URLError, OSError) as exc:
         raise VaultUnavailable(f"Vault unreachable: {exc}") from exc
 

@@ -110,6 +110,15 @@ groups:
         annotations:
           summary: "station2-twin cannot determine its schema version"
           description: >-
-            The service cannot read schema_migrations. It is either not
-            connected to its database or connected to the wrong one.
-          runbook: "platform/db/migrate.sh station2-twin --status"
+            The service cannot read schema_migrations. Three causes, in the
+            order they have actually occurred here: (1) Vault is SEALED, so no
+            database credential can be issued -- happens after EVERY restart of
+            the Docker VM, because this deployment has no auto-unseal;
+            (2) the Vault credential expired and the pool was not rebuilt;
+            (3) the database is genuinely unreachable or is the wrong one.
+            Check /health/ready first -- it names which one.
+          runbook: >-
+            curl -s localhost:18090/health/ready | python3 -m json.tool;
+            if it says credentials_unavailable, run
+            platform/vault/scripts/init_and_unseal.sh;
+            otherwise platform/db/migrate.sh station2-twin --status

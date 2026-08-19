@@ -1,0 +1,80 @@
+# TEMPLATE. The live config.yml is GENERATED from this file by
+# platform/observability/scripts/setup_notifications.sh and is gitignored,
+# because the Telegram chat id is an identifier for a private channel and this
+# repository is public. The bot token is never in either file: Alertmanager
+# reads it from bot_token_file, written chmod 600 alongside.
+#
+# WHY DELIVERY IS NOW WIRED, HAVING DELIBERATELY NOT BEEN.
+#
+# The previous version of this file said notification was "deliberately not
+# wired" and that a scheduled agent polls /api/v2/alerts instead. On 2026-08-19
+# that reasoning was tested by events and failed:
+#
+#   18:45  Docker VM restarted; Vault came back SEALED
+#   19:20  station2_schema_version -> -1 (no database credential obtainable)
+#   18:45  SchemaVersionUnknown -> firing, and it kept firing for 3h55m
+#   22:45  a human happened to look, and only because of unrelated work
+#
+# Every layer worked. The metric was right, the rule was right, the alert
+# fired, Alertmanager grouped it, /api/v2/alerts served it. The chain simply
+# ended in `local-null`, and no polling agent was actually running -- so the
+# design's one delivery assumption was the part nobody had verified.
+#
+# An alert that fires into a null receiver is indistinguishable from an alert
+# that never fired. Grouping and inhibition are worth nothing if the last hop
+# reaches no one.
+
+route:
+  # Group by alertname+environment so a promote that briefly bounces both
+  # colors produces one notification, not one per target.
+  group_by: ["alertname", "environment"]
+  group_wait: 30s
+  group_interval: 5m
+  # 4h repeat, not 24h. A warning that repeats once a day is a warning you
+  # learn to ignore; one that repeats every four hours is one you either fix
+  # or silence deliberately -- and a deliberate silence is auditable, whereas
+  # a habit of ignoring is not.
+  repeat_interval: 4h
+  receiver: telegram
+
+  routes:
+    - matchers:
+        - severity = "critical"
+      receiver: telegram
+      group_wait: 10s
+      repeat_interval: 1h
+
+inhibit_rules:
+  # A total production-like outage makes the generic long-scrape-failure
+  # alert redundant noise for the same service.
+  - source_matchers:
+      - alertname = "ProductionLikeAllColorsDown"
+    target_matchers:
+      - alertname = "ScrapeTargetDownProlonged"
+    equal: ["service"]
+
+receivers:
+  - name: telegram
+    telegram_configs:
+      - bot_token_file: /etc/alertmanager/telegram-token
+        chat_id: __TELEGRAM_CHAT_ID__
+        api_url: https://api.telegram.org
+        parse_mode: HTML
+        # send_resolved is the half people forget. Without it you are told
+        # something broke and never told it recovered, so every alert has to be
+        # chased manually to find out whether it still matters -- which is how
+        # people start ignoring the channel.
+        send_resolved: true
+        message: |-
+          <b>{{ if eq .Status "firing" }}🔴 FIRING{{ else }}✅ RESOLVED{{ end }} · {{ .CommonLabels.alertname }}</b>
+          {{ range .Alerts }}
+          {{ .Annotations.summary }}
+
+          {{ .Annotations.description }}
+          {{ if .Annotations.runbook }}<b>Runbook:</b> <code>{{ .Annotations.runbook }}</code>{{ end }}
+          {{ end }}
+
+  # Kept for the deliberate-silence case: routing something here is an explicit
+  # decision to not be told, which reads differently from a route that was never
+  # finished. Nothing routes here today.
+  - name: local-null
