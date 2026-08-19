@@ -81,11 +81,12 @@ declare -a EXCLUDED_VOLUMES=(
   # and a data-handling decision that is not ours to make. Listed rather than
   # ignored so the next person sees it was considered.
   mongo
-  # k3d practice cluster's container image cache. Disposable by construction:
-  # the whole cluster is `k3d cluster delete` away from gone and rebuilt from
-  # a script, and the cache re-populates from registries on demand. Anything
-  # in that cluster worth keeping is a defect in where it was put.
-  k3d-devops-lab-images
+  # REMOVED 2026-08-19: k3d-devops-lab-images. The practice cluster is gone --
+  # volume, network, images and kubeconfig context all deleted. The exclusion is
+  # not kept "just in case": an entry naming a volume that does not exist reads
+  # as coverage of something real, and the next reader has to go and check. When
+  # the cluster is rebuilt for the Kubernetes phase, add its cache back then,
+  # against the name it actually has at that point.
 )
 
 STAMP="$(date -u '+%Y%m%dT%H%M%SZ')"
