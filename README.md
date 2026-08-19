@@ -82,9 +82,10 @@ Devops/
 │   ├── iac/            # OpenTofu skeleton、Checkov、OPA policy
 │   └── tests/          # 平台自身的測試套件
 ├── pilots/
-│   ├── station1-hello/ # 無狀態 HTTP，驗證部署主線
 │   └── station2-twin/  # 有狀態：PostgreSQL + 公衛監測 digital twin
+│                       # （station1-hello 於 2026-08-19 退役）
 └── evidence/           # 測試輸出、報告與驗證紀錄
+    └── _retired/       # 已退役服務的證據，移出探針的 glob 範圍
 ```
 
 ## 邊界規則

@@ -1,0 +1,35 @@
+-- CONTRACT-PHASE: nothing reads surveillance_observations any more.
+--
+-- Verified before writing this file, not asserted:
+--   grep -rn surveillance_observations --include='*.py' --include='*.sh' .
+-- returns only this migration and 003 (which created it). app/surveillance.py
+-- was ported to surveillance_fact in the same change, ingest/fetch_cdc_rods.py
+-- was retired, and platform/vault/scripts/verify_database_secrets.sh had its
+-- assertions moved to a table that still exists.
+--
+-- 007: retire the single-source landing table.
+--
+-- THIS IS THE CONTRACT HALF OF AN EXPAND/CONTRACT PAIR THAT TOOK FOUR
+-- MIGRATIONS AND ABOUT A WEEK.
+--
+--   003  created surveillance_observations -- one feed, one shape, county x
+--        epi_week, a `visits` column. Correct for what existed.
+--   004  EXPAND: added the dimensional model beside it. Both tables live.
+--        The running colour kept reading 003's table throughout.
+--   005  fixed two key defects the first real load exposed.
+--   006  adopted official geography and added the metric dimension.
+--   007  CONTRACT: the old table goes, now that no code reads it.
+--
+-- That gap between 004 and 007 is the entire point of the discipline. Blue and
+-- green share one database; had 004 dropped this table while the old colour
+-- was still serving, the rollback target would have been destroyed by the
+-- deploy that was supposed to be reversible. The cost of doing it properly was
+-- carrying a redundant table for a few days. The cost of not doing it is an
+-- outage you cannot roll back out of.
+--
+-- WHAT IS LOST, STATED PLAINLY: the 109,907 RODS rows in this table. They are
+-- re-derivable in ~40 seconds by ingest/load_dimensional.py from the published
+-- CSV, and they already exist in surveillance_fact -- verified by count before
+-- this migration was written. Nothing here is the only copy of anything.
+
+DROP TABLE IF EXISTS surveillance_observations;

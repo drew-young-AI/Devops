@@ -76,7 +76,7 @@ check() {
 }
 
 echo "=== seeding throwaway secrets ==="
-v kv put secret/pilots/station1-hello/test-placeholder value=throwaway >/dev/null
+v kv put secret/pilots/pilot-fixture/test-placeholder value=throwaway >/dev/null
 v kv put secret/pilots/other-pilot/test-placeholder value=throwaway >/dev/null
 echo "  seeded (deleted at the end of this script)"
 
@@ -93,20 +93,20 @@ approle_token() {
   v write -field=token auth/approle/login role_id="$role_id" secret_id="$secret_id"
 }
 
-S1_TOKEN="$(approle_token workload-station1-hello)"
+S1_TOKEN="$(approle_token workload-pilot-fixture)"
 if [ -n "$S1_TOKEN" ]; then
-  PASSED=$((PASSED + 1)); printf '  \033[32mPASS\033[0m [allow] workload-station1-hello can log in via approle\n'
+  PASSED=$((PASSED + 1)); printf '  \033[32mPASS\033[0m [allow] workload-pilot-fixture can log in via approle\n'
 else
-  FAILED=$((FAILED + 1)); printf '  \033[31mFAIL\033[0m [allow] workload-station1-hello approle login\n'
+  FAILED=$((FAILED + 1)); printf '  \033[31mFAIL\033[0m [allow] workload-pilot-fixture approle login\n'
 fi
 
-check allow "station1 workload reads its own secret" \
-  as "$S1_TOKEN" kv get secret/pilots/station1-hello/test-placeholder
-check deny "station1 workload CANNOT read another pilot's secret" \
+check allow "pilot workload reads its own secret" \
+  as "$S1_TOKEN" kv get secret/pilots/pilot-fixture/test-placeholder
+check deny "pilot workload CANNOT read another pilot's secret" \
   as "$S1_TOKEN" kv get secret/pilots/other-pilot/test-placeholder
-check deny "station1 workload CANNOT read devops secrets" \
+check deny "pilot workload CANNOT read devops secrets" \
   as "$S1_TOKEN" kv get secret/devops/github
-check deny "station1 workload CANNOT write policies" \
+check deny "pilot workload CANNOT write policies" \
   as "$S1_TOKEN" policy list
 
 # A workload token must be short-lived even while the credential it reads is
@@ -171,13 +171,13 @@ check allow "viewer reads secret METADATA (exists, versions, rotation dates)" \
 check deny "viewer CANNOT read the secret VALUE" \
   as "$VIEW_TOKEN" kv get secret/devops/github
 check deny "viewer CANNOT read a pilot secret value either" \
-  as "$VIEW_TOKEN" kv get secret/pilots/station1-hello/test-placeholder
+  as "$VIEW_TOKEN" kv get secret/pilots/pilot-fixture/test-placeholder
 
 # --- cleanup ------------------------------------------------------------
 
 echo ""
 echo "=== cleanup ==="
-v kv metadata delete secret/pilots/station1-hello/test-placeholder >/dev/null 2>&1
+v kv metadata delete secret/pilots/pilot-fixture/test-placeholder >/dev/null 2>&1
 v kv metadata delete secret/pilots/other-pilot/test-placeholder >/dev/null 2>&1
 for t in "$S1_TOKEN" "$CI_TOKEN" "$OP_TOKEN" "$VIEW_TOKEN"; do
   [ -n "$t" ] && v token revoke "$t" >/dev/null 2>&1

@@ -1,15 +1,29 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-PILOT_DIR="${1:-$(cd "$(dirname "$0")/../../pilots/station1-hello" && pwd)}"
+# Defaults derive from the pilot directory rather than naming one pilot three
+# times. The previous version hardcoded station1-hello into the default path,
+# the evidence path and the image tag, so pointing CI at a different pilot
+# quietly wrote its artefacts into the wrong pilot's evidence directory.
+PILOT_DIR="${1:-$(cd "$(dirname "$0")/../../pilots/station2-twin" && pwd)}"
 PLATFORM_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-ARTIFACT_DIR="${2:-$PLATFORM_ROOT/evidence/station1-hello}"
-IMAGE_NAME="${IMAGE_NAME:-station1-hello:ci}"
+PILOT_NAME="$(basename "$PILOT_DIR")"
+ARTIFACT_DIR="${2:-$PLATFORM_ROOT/evidence/$PILOT_NAME}"
+IMAGE_NAME="${IMAGE_NAME:-$PILOT_NAME:ci}"
 
 mkdir -p "$ARTIFACT_DIR"
 
 echo "[1/6] lint / compile"
-python3 -m py_compile "$PILOT_DIR/app.py"
+# Pilots differ in layout: a single-file service keeps app.py at the root, a
+# larger one puts a package under app/. Compile whatever is there, and fail if
+# there is nothing -- "no sources found" must not pass as "nothing broken".
+PY_SOURCES=()
+while IFS= read -r f; do PY_SOURCES+=("$f"); done < <(
+  find "$PILOT_DIR" -name '*.py' -not -path '*/tests/*' -not -path '*/__pycache__/*' \
+    -not -path '*/ingest/*' | sort)
+[ "${#PY_SOURCES[@]}" -gt 0 ] || { echo "No Python sources under $PILOT_DIR" >&2; exit 1; }
+python3 -m py_compile "${PY_SOURCES[@]}"
+echo "  compiled ${#PY_SOURCES[@]} file(s)"
 
 echo "[2/6] SAST (source security scan)"
 # Runs on the PILOT SOURCE, before the image is built. Every other security

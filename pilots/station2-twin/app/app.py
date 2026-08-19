@@ -48,7 +48,7 @@ APP_VERSION = os.environ.get("APP_VERSION", "dev")
 
 # The schema this build was written against. Bumped in the same commit as the
 # migration that introduces it, so code and schema move together or not at all.
-EXPECTED_SCHEMA_VERSION = int(os.environ.get("EXPECTED_SCHEMA_VERSION", "5"))
+EXPECTED_SCHEMA_VERSION = int(os.environ.get("EXPECTED_SCHEMA_VERSION", "7"))
 
 DEFAULT_DISEASE = os.environ.get("DEFAULT_DISEASE", "influenza_like_illness")
 
@@ -301,28 +301,52 @@ class Handler(BaseHTTPRequestHandler):
             return int(query["year"][0]), int(query["week"][0])
         return surveillance.latest_week(cur, disease)
 
+    def _unmodelled(self, disease):
+        """A disease with no bound series is refused, not approximated.
+
+        surveillance_fact now holds a stock measure (TB cases under
+        management) alongside the weekly flows. Answering /surveillance/
+        ?disease=tuberculosis from whatever rows matched would return a
+        confident z-score built from prevalence, which is meaningless and
+        indistinguishable from a real one. 422, not 404: the data exists, the
+        request is the thing that cannot be honoured.
+        """
+        return self.send_json(422, {
+            "error": "unmodelled_disease",
+            "disease": disease,
+            "modelled": sorted(surveillance.MODELS),
+            "detail": "this endpoint models weekly incidence; no series is "
+                      "bound to this disease. See app/surveillance.py MODELS.",
+        })
+
     def _county(self, county_code, query):
         disease = query.get("disease", [DEFAULT_DISEASE])[0]
         weeks = min(int(query.get("weeks", ["26"])[0]), 520)
-        with pool().connection() as conn:
-            with conn.cursor() as cur:
-                year, week = self._week_args(query, cur, disease)
-                if year is None:
-                    return self.send_json(404, {"error": "no_data", "disease": disease})
-                payload = surveillance.divergence(cur, disease, county_code, year, week)
-                payload["series"] = surveillance.series(cur, disease, county_code, weeks)
+        try:
+            with pool().connection() as conn:
+                with conn.cursor() as cur:
+                    year, week = self._week_args(query, cur, disease)
+                    if year is None:
+                        return self.send_json(404, {"error": "no_data", "disease": disease})
+                    payload = surveillance.divergence(cur, disease, county_code, year, week)
+                    payload["series"] = surveillance.series(cur, disease, county_code, weeks)
+        except surveillance.UnmodelledDisease:
+            return self._unmodelled(disease)
         if payload["baseline_n"] == 0 and not payload["series"]:
             return self.send_json(404, {"error": "unknown_county", "county_code": county_code})
         return self.send_json(200, payload)
 
     def _scan(self, query):
         disease = query.get("disease", [DEFAULT_DISEASE])[0]
-        with pool().connection() as conn:
-            with conn.cursor() as cur:
-                year, week = self._week_args(query, cur, disease)
-                if year is None:
-                    return self.send_json(404, {"error": "no_data", "disease": disease})
-                rows = surveillance.scan(cur, disease, year, week)
+        try:
+            with pool().connection() as conn:
+                with conn.cursor() as cur:
+                    year, week = self._week_args(query, cur, disease)
+                    if year is None:
+                        return self.send_json(404, {"error": "no_data", "disease": disease})
+                    rows = surveillance.scan(cur, disease, year, week)
+        except surveillance.UnmodelledDisease:
+            return self._unmodelled(disease)
         return self.send_json(200, {
             "disease": disease, "epi_year": year, "epi_week": week,
             "counties": len(rows),

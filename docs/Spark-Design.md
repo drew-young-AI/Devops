@@ -246,7 +246,7 @@ for cutoff in backtest_weeks:
 
 ```mermaid
 flowchart LR
-  A[("surveillance_observations<br/>真實彙總")] --> B["decompose<br/>展開為個別事件"]
+  A[("surveillance_fact<br/>真實彙總")] --> B["decompose<br/>展開為個別事件"]
   B --> RT{{"往返檢查<br/>重新彙總必須逐格相等"}}
   RT -.->|不符| X["拒絕產出"]
   B --> K[["Kafka topic<br/>ed-visits"]]

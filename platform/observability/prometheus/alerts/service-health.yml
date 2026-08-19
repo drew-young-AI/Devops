@@ -6,59 +6,42 @@
 # not in whoever happens to be looking at the graph.
 #
 # Every rule below is written only against metrics that actually exist today
-# (`up`, `station1_requests_total`, `station1_errors_total`). Rules for CPU,
+# (`up`, `station2_requests_total`, `station2_errors_total`,
+# `station2_db_errors_total`, `station2_schema_version`). Rules for CPU,
 # memory and container restarts are deliberately absent -- nothing collects
 # those metrics yet (no cAdvisor/node-exporter). Writing rules against
 # metrics that are never produced would give alerts that can never fire,
 # which reads as "all clear" and is worse than an acknowledged gap. See
 # README.md "Known gaps".
+#
+# Retargeted from station1-hello to station2-twin on 2026-08-19. The old rules
+# were syntactically fine and permanently green, because they watched a service
+# that had been deleted -- the exact "unknown is not healthy" failure, with the
+# extra twist that the monitoring looked healthiest at the moment it had
+# stopped monitoring anything.
 
 groups:
   - name: service-availability
     rules:
       - alert: DevelopServiceDown
-        expr: up{job="station1-hello"} == 0
+        expr: up{job="station2-twin"} == 0
         for: 1m
         labels:
           severity: warning
           environment: develop
         annotations:
-          summary: "station1-hello develop is not responding to scrapes"
+          summary: "station2-twin develop is not responding to scrapes"
           description: >-
             Prometheus could not scrape the develop instance for 1 minute.
             Develop is warning, not critical: it carries no traffic and is
             expected to be torn down and rebuilt routinely.
-          runbook: "platform/compose/deploy.sh status develop pilots/station1-hello"
-
-      # Blue/green: exactly one color serves at a time, so the *idle* color
-      # being down is normal and must not alert. Production-like is down only
-      # when NO color is up. `sum()` over the job expresses precisely that,
-      # and keeps working when a promote flips which color is idle.
-      - alert: ProductionLikeAllColorsDown
-        expr: sum(up{job="station1-hello-productionlike"}) == 0
-        for: 1m
-        labels:
-          severity: critical
-          environment: production-like
-        annotations:
-          summary: "station1-hello production-like has no healthy color"
-          description: >-
-            Neither blue nor green responded to scrapes for 1 minute, so
-            production-like is serving nothing. This is the real outage
-            signal; a single color being down is expected and does not fire.
-          runbook: "platform/compose/deploy.sh rollback pilots/station1-hello"
+          runbook: "docker compose -f pilots/station2-twin/compose.yaml ps"
 
       # Catch-all so any future scrape target (a second pilot, a dataops
       # service, an exporter) gets availability coverage the moment it is
       # added, without someone remembering to write a rule for it.
-      #
-      # The blue/green job is excluded on purpose. A bare `up == 0` here
-      # fires forever on whichever color is parked -- which is the normal,
-      # correct state -- and a permanently-firing alert trains everyone to
-      # ignore the alert list. Production-like availability is already
-      # expressed correctly by ProductionLikeAllColorsDown above.
       - alert: ScrapeTargetDownProlonged
-        expr: up{job!="station1-hello-productionlike"} == 0
+        expr: up == 0
         for: 10m
         labels:
           severity: warning
@@ -68,6 +51,12 @@ groups:
             A monitored target has been unreachable for 10 minutes. Generic
             coverage for targets that have no dedicated rule yet.
 
+      # No blue/green rule any more. station1-hello had two colours and this
+      # file carried a sum()-over-colours rule so the parked colour would not
+      # alert. station2-twin has no colours yet -- its compose bundles the
+      # database with the app -- so a rule mentioning them would be fiction.
+      # It comes back with the tier split (docs/Backlog.md).
+
   - name: service-errors
     rules:
       # Guarded against 0/0: with no traffic the ratio is undefined, and an
@@ -76,17 +65,51 @@ groups:
       # non-alerting state rather than an accidental one.
       - alert: HighErrorRate
         expr: >-
-          rate(station1_errors_total[5m])
-            / rate(station1_requests_total[5m]) > 0.10
-          and rate(station1_requests_total[5m]) > 0
+          rate(station2_errors_total[5m])
+            / rate(station2_requests_total[5m]) > 0.10
+          and rate(station2_requests_total[5m]) > 0
         for: 5m
         labels:
           severity: warning
         annotations:
           summary: "{{ $labels.service }} ({{ $labels.environment }}) error ratio above 10%"
           description: >-
-            More than 10% of requests returned 404 over a 5 minute window,
-            sustained for 5 minutes. station1_errors_total counts 404s only,
-            so this detects bad routing/clients, not 5xx -- the pilot does
-            not expose a 5xx counter yet.
-          runbook: "Grafana DevOps Overview, then Loki: {compose_project=~\"station1-hello.*\"}"
+            More than 10% of requests returned 4xx/5xx over a 5 minute window,
+            sustained for 5 minutes.
+          runbook: "Grafana DevOps Overview, then Loki: {compose_project=~\"station2-twin.*\"}"
+
+  - name: data-plane
+    rules:
+      # station2-twin is stateful, which gives it failure modes station1-hello
+      # could not have. These two are the ones that are invisible from the
+      # outside: the service answers /health/live perfectly while being unable
+      # to read its own data.
+
+      - alert: DatabaseErrorsRising
+        expr: rate(station2_db_errors_total[5m]) > 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "station2-twin is failing database operations"
+          description: >-
+            Database errors have been non-zero for 5 minutes. Liveness stays
+            green through this -- the process is fine, its dependency is not --
+            so nothing else would surface it.
+          runbook: "curl -s localhost:18090/health/ready | jq"
+
+      # -1 is what the app reports when it cannot read schema_migrations at
+      # all. A mismatch against the expected version is caught by readiness
+      # (the deploy never takes traffic); this catches the case where the
+      # service is already serving and the schema moves underneath it.
+      - alert: SchemaVersionUnknown
+        expr: station2_schema_version == -1
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "station2-twin cannot determine its schema version"
+          description: >-
+            The service cannot read schema_migrations. It is either not
+            connected to its database or connected to the wrong one.
+          runbook: "platform/db/migrate.sh station2-twin --status"

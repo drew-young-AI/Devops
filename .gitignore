@@ -51,15 +51,21 @@ platform/observability/.grafana.env
 # Raw Trivy scan output (hundreds of KB per scan, fully regenerable from the
 # image) -- platform/security/scan_image.sh commits only the small
 # trivy_summary_*.json / sbom_summary_*.json derived from these instead.
-evidence/*/_raw.trivy_*.json
-evidence/*/_raw.sbom_*.json
+# `**/` not `evidence/*/`: moving a pilot's evidence into
+# evidence/_retired/<pilot>/ put these one directory deeper, and the old
+# single-level pattern silently stopped matching -- four raw scan dumps
+# (~MB each, one containing every matched line of source) went from
+# ignored to stage-on-next-`git add -A`. An ignore rule that depends on
+# directory depth breaks the moment anything is reorganised.
+evidence/**/_raw.trivy_*.json
+evidence/**/_raw.sbom_*.json
 # Same raw/summary split for the SAST and DAST gates: Semgrep's full JSON
 # carries every matched line of source, and ZAP's carries full request and
 # response bodies -- both large, both regenerable, and the ZAP one can
 # contain whatever the scanned app returned. Only the summaries are evidence
 # of record.
-evidence/*/_raw.semgrep_*.json
-evidence/*/_raw.zap_*.json
+evidence/**/_raw.semgrep_*.json
+evidence/**/_raw.zap_*.json
 
 # Terraform / OpenTofu
 .terraform/
@@ -157,9 +163,9 @@ temp/
 *.temp
 
 # Evidence outputs (except committed baseline)
-evidence/*/build/
-evidence/*/*.log
-evidence/*/tmp/
+evidence/**/build/
+evidence/**/*.log
+evidence/**/tmp/
 
 # Node modules (if any)
 node_modules/
@@ -171,7 +177,7 @@ yarn.lock
 # evidence of record. A stray metadata.json only appears when CI is invoked
 # directly, and committing it would put an unversioned duplicate next to the
 # real artifact.
-evidence/*/metadata.json
+evidence/**/metadata.json
 
 # Baseline copies used by platform/scheduler/install.sh to detect whether a
 # plist actually changed. They live next to the plists in ~/Library, not in

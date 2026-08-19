@@ -61,7 +61,11 @@ echo "  issued user: $U1   ttl: ${TTL1}s"
 echo ""
 
 # 1. It works.
-OUT="$(as_user "$U1" "$P1" "SELECT COUNT(*) FROM surveillance_observations")"
+# surveillance_fact, not surveillance_observations: the latter was dropped
+# in migration 007. A verification script pointed at a table that no longer
+# exists fails for the wrong reason, and a reader has to work out whether
+# Vault broke or the schema moved.
+OUT="$(as_user "$U1" "$P1" "SELECT COUNT(*) FROM surveillance_fact")"
 if [ "$(echo "$OUT" | tr -d ' \n')" -gt 0 ] 2>/dev/null; then
   ok "issued credential connects and reads ($(echo "$OUT" | tr -d ' \n') rows)"
 else
@@ -87,7 +91,7 @@ else
   bad "can INSERT" "$INS"
 fi
 
-DROP="$(as_user "$U1" "$P1" "DROP TABLE surveillance_observations")"
+DROP="$(as_user "$U1" "$P1" "DROP TABLE surveillance_fact")"
 if echo "$DROP" | grep -qi "must be owner\|denied\|permission"; then
   ok "CANNOT DROP TABLE -- least privilege holds"
 else

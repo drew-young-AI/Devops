@@ -124,7 +124,11 @@ create_approle() {
 # role_id is an identifier, not a credential -- it is safe to log and to
 # bake into config. The secret_id is the credential, and is minted on demand
 # (see README "Minting a workload credential"), never stored here.
-STATION1_ROLE_ID="$(create_approle workload-station1-hello workload-station1-hello | tail -1)"
+# A fixture, not a service -- see policies/workload-pilot-fixture.hcl.
+# station2-twin's real workload identity is created by
+# setup_database_secrets.sh, which owns it because it binds the dynamic
+# database role. Two scripts creating the same AppRole would race.
+FIXTURE_ROLE_ID="$(create_approle workload-pilot-fixture workload-pilot-fixture | tail -1)"
 DATAOPS_ROLE_ID="$(create_approle workload-dataops dataops-readonly | tail -1)"
 CI_ROLE_ID="$(create_approle ci-pipeline ci-pipeline | tail -1)"
 
@@ -152,9 +156,9 @@ v write auth/userpass/users/platform-viewer \
 echo "  platform-viewer   -> policy=platform-viewer (metadata only, no secret values)"
 
 python3 - "$OUTPUT_FILE" "$ADMIN_PW" "$OPERATOR_PW" "$VIEWER_PW" \
-  "$STATION1_ROLE_ID" "$DATAOPS_ROLE_ID" "$CI_ROLE_ID" <<'PY'
+  "$FIXTURE_ROLE_ID" "$DATAOPS_ROLE_ID" "$CI_ROLE_ID" <<'PY'
 import json, os, pathlib, sys
-path, admin, operator, viewer, s1, dataops, ci = sys.argv[1:]
+path, admin, operator, viewer, fixture, dataops, ci = sys.argv[1:]
 pathlib.Path(path).write_text(json.dumps({
     "_warning": "Move these to a password manager and delete this file.",
     "humans": {
@@ -163,7 +167,7 @@ pathlib.Path(path).write_text(json.dumps({
         "platform-viewer": viewer,
     },
     "workload_role_ids": {
-        "workload-station1-hello": s1,
+        "workload-pilot-fixture": fixture,
         "workload-dataops": dataops,
         "ci-pipeline": ci,
     },

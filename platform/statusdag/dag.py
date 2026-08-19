@@ -285,7 +285,14 @@ def probe_deploy(env):
         if data.get("health_status") != "healthy":
             return FAIL, f"health={data.get('health_status')}"
         return OK, f"sha {data.get('commit_sha', '?')}"
-    state = load(os.path.join(EVIDENCE, "station1-hello/production_like_state.json"))
+    # Globbed like every other probe rather than naming one pilot. The
+    # hardcoded path here outlived the pilot it named: after station1-hello was
+    # retired this would have kept reporting its last promote as the platform's
+    # current production state, which is worse than reporting nothing. Retired
+    # pilots live under evidence/_retired/ precisely so these globs stop
+    # matching them.
+    files = sorted(glob.glob(os.path.join(EVIDENCE, "*/production_like_state.json")))
+    state = load(files[-1]) if files else None
     if not state:
         return UNKNOWN, "never promoted"
     return OK, f"{state.get('active_color')} @ sha {state.get('promoted_sha', '?')}"

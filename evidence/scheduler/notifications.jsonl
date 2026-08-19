@@ -1,2 +1,6 @@
 {"at": "2026-08-14T10:10:14Z", "job": "health", "from": "critical", "to": "ok", "severity": "recovered", "summary": "[OK] health: critical -> ok"}
 {"at": "2026-08-16T02:37:16Z", "job": "health", "from": "ok", "to": "unknown", "severity": "warning", "summary": "[WARN] health: ok -> unknown"}
+{"at": "2026-08-19T00:43:47Z", "job": "health", "from": "ok", "to": "critical", "severity": "critical", "summary": "[FAIL] health: ok -> critical"}
+{"at": "2026-08-19T00:58:51Z", "job": "health", "from": "critical", "to": "degraded", "severity": "warning", "summary": "[WARN] health: critical -> degraded"}
+{"at": "2026-08-19T04:45:49Z", "job": "health", "from": "degraded", "to": "ok", "severity": "recovered", "summary": "[OK] health: degraded -> ok"}
+{"at": "2026-08-19T05:15:54Z", "job": "health", "from": "ok", "to": "degraded", "severity": "warning", "summary": "[WARN] health: ok -> degraded"}

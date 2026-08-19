@@ -11,32 +11,32 @@ alerting:
         - targets: ["alertmanager:9093"]
 
 scrape_configs:
-  - job_name: station1-hello
+  # station1-hello was retired on 2026-08-19. It was a stateless pilot whose
+  # job was to prove the pipeline end to end; station2-twin now carries real
+  # data, a database, migrations and Vault-issued credentials, so it is the
+  # workload worth monitoring.
+  #
+  # Retiring it exposed a gap worth naming: station2-twin had been running for
+  # days with NO scrape target at all. The monitoring stack was green the whole
+  # time, because it was watching the pilot that no longer mattered. A dashboard
+  # showing "all healthy" for the wrong service is the failure mode this
+  # platform keeps coming back to -- unknown is not healthy, and neither is
+  # "healthy, but about something else".
+  - job_name: station2-twin
     metrics_path: /metrics
     static_configs:
-      - targets: ["host.docker.internal:18080"]
+      - targets: ["host.docker.internal:18090"]
         labels:
           environment: develop
-          service: station1-hello
+          service: station2-twin
 
-  # Production-like was previously not scraped at all: the environment that
-  # actually matters was the one with zero monitoring, while develop had
-  # full coverage. Both blue/green colors are scraped here.
+  # NO production-like job yet, on purpose.
   #
-  # The idle color is legitimately down (blue/green means exactly one color
-  # serves traffic at a time), so a per-target `up == 0` alert would fire
-  # permanently on whichever color is parked. The alert rules therefore
-  # aggregate across colors -- see alerts/service-health.yml.
-  - job_name: station1-hello-productionlike
-    metrics_path: /metrics
-    static_configs:
-      - targets: ["host.docker.internal:18081"]
-        labels:
-          environment: production-like
-          service: station1-hello
-          color: blue
-      - targets: ["host.docker.internal:18082"]
-        labels:
-          environment: production-like
-          service: station1-hello
-          color: green
+  # Blue/green for station2-twin is not wired: its compose bundles the database
+  # with the application, so a second colour would try to start a second
+  # postgres on the same host port and the same named volume. Splitting the
+  # tiers is the open item (see docs/Backlog.md).
+  #
+  # Listing 18081/18082 here anyway would give two targets that are down
+  # permanently, which trains everyone to ignore a red panel. An acknowledged
+  # gap beats an alert that can never mean anything.

@@ -1,22 +1,26 @@
 {
   "job": "backup",
-  "started_at": "2026-08-14T10:11:21Z",
+  "started_at": "2026-08-18T19:20:04Z",
   "status": "ok",
   "exit_code": 0,
-  "duration_seconds": 4,
+  "duration_seconds": 9,
   "interval_seconds": 86400,
   "command": "platform/backup/backup.sh",
+  "trigger": "scheduled",
+  "last_scheduled_at": "2026-08-18T19:20:04Z",
   "output_tail": [
-    "=== [backup] 20260814T101121Z -> /Users/drew/ENV/Devops/platform/backup/archives/20260814T101121Z ===",
-    "  vault_vault-file -> vault_vault-file.tar.gz  34384 bytes",
-    "  vault_vault-logs -> vault_vault-logs.tar.gz  25287 bytes",
-    "  observability_grafana-data -> observability_grafana-data.tar.gz  22920633 bytes",
+    "=== [backup] 20260818T192004Z -> /Users/drew/ENV/Devops/platform/backup/archives/20260818T192004Z ===",
+    "  vault_vault-file -> vault_vault-file.tar.gz  39739 bytes",
+    "  vault_vault-logs -> vault_vault-logs.tar.gz  63609 bytes",
+    "  observability_grafana-data -> observability_grafana-data.tar.gz  22920741 bytes",
     "  observability_alertmanager-data -> observability_alertmanager-data.tar.gz  141 bytes",
+    "  observability_alloy-data -> observability_alloy-data.tar.gz  12175 bytes",
+    "  station2-twin-db -> station2-twin-db.dump  3637185 bytes  [pg_dump, consistent snapshot]",
     "",
-    "BACKUP PASS",
-    "artifact=/Users/drew/ENV/Devops/platform/backup/archives/20260814T101121Z/manifest.json",
+    "BACKUP PASS -- every named volume on this host is accounted for",
+    "artifact=/Users/drew/ENV/Devops/platform/backup/archives/20260818T192004Z/manifest.json",
     "",
     "A backup that has never been restored is not a backup.",
-    "Verify it: platform/backup/restore_drill.sh /Users/drew/ENV/Devops/platform/backup/archives/20260814T101121Z"
+    "Verify it: platform/backup/restore_drill.sh /Users/drew/ENV/Devops/platform/backup/archives/20260818T192004Z"
   ]
 }

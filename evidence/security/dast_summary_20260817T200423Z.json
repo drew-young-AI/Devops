@@ -1,0 +1,34 @@
+{
+  "tool": "owasp-zap-baseline",
+  "scanned_at": "20260817T200423Z",
+  "target": "https://host.docker.internal:18443",
+  "scan_type": "baseline (passive rules + spider; no attack traffic)",
+  "gate_policy": "fail at MEDIUM and above; below that recorded, not blocking",
+  "fail_on": "MEDIUM",
+  "blocking_alerts": [],
+  "gate_result": "PASS",
+  "sites_scanned": [
+    "https://host.docker.internal:18443"
+  ],
+  "urls_in_alerts": 1,
+  "counts_by_risk": {
+    "HIGH": 0,
+    "MEDIUM": 0,
+    "LOW": 0,
+    "INFO": 1
+  },
+  "alerts": [
+    {
+      "risk": "INFO",
+      "confidence": 1,
+      "name": "Re-examine Cache-control Directives",
+      "instances": 1,
+      "example_uri": "https://host.docker.internal:18443",
+      "solution": "<p>For secure content, ensure the cache-control HTTP header is set with \"no-cache, no-store, must-revalidate\". If an asset should be cached consider setting the directives \"public, max-age, immutable\".</p>"
+    }
+  ],
+  "scan_integrity": {
+    "ok": true,
+    "note": "No site entry means ZAP never reached the target. That is a broken scan, not a clean result, and is treated as a gate failure. Coverage is judged by sites scanned, never by how many findings were produced."
+  }
+}

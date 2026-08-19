@@ -32,9 +32,16 @@ timestamp: 2026-08-18T11:05:00+08:00
 
 ## 1. Vault 動態資料庫憑證 — 現在做
 
-接縫已保留在 `platform/vault/policies/workload-station1-hello.hcl`，
-station2-twin 的 connection pool 也已設 `max_lifetime`，就是為了讓帶 TTL 的
-憑證會回收而不是被長期持有。目前 `PGPASSWORD` 仍是靜態 bootstrap 憑證。
+**✅ 已完成（2026-08-19）。** `platform/vault/scripts/setup_database_secrets.sh`
+建立 database secrets engine、`workload-station2-twin` policy 與 AppRole；
+`verify_database_secrets.sh` 6 項斷言全過，關鍵一項是**被撤銷的憑證確實會被
+postgres 拒絕**——不是「Vault 說它撤銷了」。station2-twin 目前
+`/health/ready` 回報 `credentials.mode = vault`，使用者名稱形如
+`v-approle-station2-...`，TTL 3600 秒。
+
+當初保留接縫的那個 policy 檔（`workload-station1-hello.hcl`）已隨 pilot 退役
+刪除；證明「換的只是路徑，不是身分模型」這件事的測試改由
+`workload-pilot-fixture` 承擔——一個**具名的測試夾具**，不是服務。
 
 **為什麼現在做**：Vault 的 database secrets engine 設定（connection、role、
 TTL、revocation）與底層無關。K8s 上改變的只有「憑證怎麼送進 Pod」
@@ -42,6 +49,19 @@ TTL、revocation）與底層無關。K8s 上改變的只有「憑證怎麼送進
 **Vault 這一側一行都不用改**。這是少數現在做、之後原封不動帶走的工作。
 
 ## 2. station2-twin 接進 blue/green — 不要投入
+
+**2026-08-19 補充：station1-hello 退役後，blue/green 現在沒有任何目標 Pilot。**
+station2-twin 接不上的原因是具體的，不是抽象的：它的 `compose.yaml` 把
+`db` 與 `twin` 綁在同一份檔案，第二個顏色會嘗試在同一個 host port (15432)
+啟動第二個 postgres、掛同一個具名 volume `station2-twin-db`。要接上就得把
+資料庫層與應用層拆成兩份 compose，讓兩個顏色共用同一個資料庫——那正是
+expand/contract migration 紀律存在的理由。
+
+依下面的判定，這件事**不做**：拆分本身要改動一個正在運作的 Pilot，而產出的
+機制不會被帶到 K8s。相關的東西已據實移除而非假裝存在——Prometheus 沒有
+production-like 的 scrape job（否則兩個目標會永遠紅），告警規則沒有
+`sum() over colours` 的規則（否則是虛構），`recover.sh` 沒有選顏色的分支
+（否則是假裝成安全機制的死程式碼）。
 
 `platform/compose/deploy.sh` 的 blue/green 是 Compose 專屬實作。K8s 用
 Deployment rolling update，或 Argo Rollouts 做真正的漸進式發布。**這段
@@ -63,8 +83,11 @@ body 的寫入端點，也是第一個值得用 form-aware profile 掃的目標�
 
 ## 4. station2-twin 的 ingress ceiling — 只寫政策
 
-`platform/ingress/targets.conf` 尚未收錄 station2-twin。它**有資料**，不該
-預設繼承 station1 的 `funnel` ceiling。
+**✅ 政策已寫入（2026-08-19）。** `targets.conf` 現有
+`station2-twin|18090|tailnet`。它**沒有**繼承 station1 的 `funnel` ceiling：
+資料本身是公開資料、發布出去無害，但**服務**是一條沒有自身速率限制、
+不需認證就能讀的活資料庫路徑，readiness 還會洩漏 schema 狀態。
+公開資料是「做一份匯出」的工作，不是「把持有資料的伺服器暴露出去」的理由。
 
 **判定**：把 ceiling 與理由寫進 `targets.conf`（政策），但不要為它擴充
 Tailscale 實作。政策本身——「可暴露到什麼程度，由『它靠什麼驗證』決定，

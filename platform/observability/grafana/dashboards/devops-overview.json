@@ -8,18 +8,18 @@
     {
       "id": 1,
       "type": "stat",
-      "title": "Station 1 Requests",
+      "title": "Station 2 Requests",
       "gridPos": {"h": 4, "w": 8, "x": 0, "y": 0},
       "datasource": {"type": "prometheus", "uid": "PBFA97CFB590B2093"},
-      "targets": [{"expr": "station1_requests_total", "refId": "A", "datasource": {"type": "prometheus", "uid": "PBFA97CFB590B2093"}}]
+      "targets": [{"expr": "station2_requests_total", "refId": "A", "datasource": {"type": "prometheus", "uid": "PBFA97CFB590B2093"}}]
     },
     {
       "id": 2,
       "type": "stat",
-      "title": "Station 1 Errors",
+      "title": "Station 2 Errors",
       "gridPos": {"h": 4, "w": 8, "x": 8, "y": 0},
       "datasource": {"type": "prometheus", "uid": "PBFA97CFB590B2093"},
-      "targets": [{"expr": "station1_errors_total", "refId": "A", "datasource": {"type": "prometheus", "uid": "PBFA97CFB590B2093"}}]
+      "targets": [{"expr": "station2_errors_total", "refId": "A", "datasource": {"type": "prometheus", "uid": "PBFA97CFB590B2093"}}]
     },
     {
       "id": 3,
@@ -27,7 +27,7 @@
       "title": "Metrics Target Up",
       "gridPos": {"h": 4, "w": 8, "x": 16, "y": 0},
       "datasource": {"type": "prometheus", "uid": "PBFA97CFB590B2093"},
-      "targets": [{"expr": "up{job=\"station1-hello\"}", "refId": "A", "datasource": {"type": "prometheus", "uid": "PBFA97CFB590B2093"}}]
+      "targets": [{"expr": "up{job=\"station2-twin\"}", "refId": "A", "datasource": {"type": "prometheus", "uid": "PBFA97CFB590B2093"}}]
     },
     {
       "id": 4,
@@ -35,15 +35,31 @@
       "title": "Request Rate",
       "gridPos": {"h": 8, "w": 24, "x": 0, "y": 4},
       "datasource": {"type": "prometheus", "uid": "PBFA97CFB590B2093"},
-      "targets": [{"expr": "rate(station1_requests_total[1m])", "refId": "A", "datasource": {"type": "prometheus", "uid": "PBFA97CFB590B2093"}}]
+      "targets": [{"expr": "rate(station2_requests_total[1m])", "refId": "A", "datasource": {"type": "prometheus", "uid": "PBFA97CFB590B2093"}}]
+    },
+    {
+      "id": 6,
+      "type": "stat",
+      "title": "Schema Version (-1 = unknown)",
+      "gridPos": {"h": 4, "w": 12, "x": 0, "y": 12},
+      "datasource": {"type": "prometheus", "uid": "PBFA97CFB590B2093"},
+      "targets": [{"expr": "station2_schema_version", "refId": "A", "datasource": {"type": "prometheus", "uid": "PBFA97CFB590B2093"}}]
+    },
+    {
+      "id": 7,
+      "type": "timeseries",
+      "title": "Database Error Rate",
+      "gridPos": {"h": 4, "w": 12, "x": 12, "y": 12},
+      "datasource": {"type": "prometheus", "uid": "PBFA97CFB590B2093"},
+      "targets": [{"expr": "rate(station2_db_errors_total[5m])", "refId": "A", "datasource": {"type": "prometheus", "uid": "PBFA97CFB590B2093"}}]
     },
     {
       "id": 5,
       "type": "logs",
       "title": "Container Logs",
-      "gridPos": {"h": 10, "w": 24, "x": 0, "y": 12},
+      "gridPos": {"h": 10, "w": 24, "x": 0, "y": 16},
       "datasource": {"type": "loki", "uid": "P8E80F9AEF21F6940"},
-      "targets": [{"expr": "{container=~\".*station1.*\"}", "refId": "A", "datasource": {"type": "loki", "uid": "P8E80F9AEF21F6940"}}]
+      "targets": [{"expr": "{container=~\".*station2.*\"}", "refId": "A", "datasource": {"type": "loki", "uid": "P8E80F9AEF21F6940"}}]
     }
   ]
 }

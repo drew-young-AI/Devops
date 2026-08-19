@@ -35,9 +35,9 @@
 # 'rollback' can flip traffic straight back without redeploying anything.
 #
 # Example:
-#   platform/compose/deploy.sh build pilots/station1-hello
-#   platform/compose/deploy.sh deploy develop pilots/station1-hello
-#   platform/compose/deploy.sh promote pilots/station1-hello
+#   platform/compose/deploy.sh build pilots/station2-twin
+#   platform/compose/deploy.sh deploy develop pilots/station2-twin
+#   platform/compose/deploy.sh promote pilots/station2-twin
 
 set -euo pipefail
 
@@ -280,8 +280,19 @@ reload_nginx() {
 
 write_production_like_vhost() {
   local port="$1"
-  local template="$PLATFORM_ROOT/nginx/conf.d/station1-hello.production-like.conf.template"
-  local generated="$PLATFORM_ROOT/nginx/conf.d/_generated.station1-hello.production-like.conf"
+  local pilot="$2"
+  # Per-pilot template, not a hardcoded one. The previous version named
+  # station1-hello directly, so promoting any other pilot would have silently
+  # published station1-hello's vhost pointing at the new pilot's port.
+  local template="$PLATFORM_ROOT/nginx/conf.d/${pilot}.production-like.conf.template"
+  local generated="$PLATFORM_ROOT/nginx/conf.d/_generated.${pilot}.production-like.conf"
+  if [ ! -f "$template" ]; then
+    echo "No production-like vhost template for '$pilot'." >&2
+    echo "Expected: $template" >&2
+    echo "A promote without a vhost would start the new colour and route" >&2
+    echo "nothing to it, which looks like success and serves the old one." >&2
+    exit 1
+  fi
   sed "s/__UPSTREAM_PORT__/${port}/" "$template" > "$generated"
 }
 
@@ -536,7 +547,7 @@ cmd_promote() {
     exit 1
   fi
 
-  write_production_like_vhost "$new_port"
+  write_production_like_vhost "$new_port" "$pilot_name"
   reload_nginx
 
   local promoted_at
@@ -604,7 +615,7 @@ cmd_rollback() {
     exit 1
   fi
 
-  write_production_like_vhost "$prev_port"
+  write_production_like_vhost "$prev_port" "$pilot_name"
   reload_nginx
 
   local rolled_back_at

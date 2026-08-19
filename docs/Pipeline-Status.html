@@ -62,43 +62,43 @@ a{color:var(--accent)}
 所以一個節點失敗時，下游會被標為<strong>受影響</strong>——這是清單做不到、
 只有 DAG 才表達得出來的爆炸半徑。</p>
 <div class="strip">
-  <span class="pill p-ok">正常 18</span>
+  <span class="pill p-ok">正常 12</span>
   <span class="pill p-warn">注意 2</span>
   <span class="pill p-bad">失敗 0</span>
-  <span class="pill p-unk">無法判定 0</span>
-  <span class="ts">2026-08-18T12:20:51Z</span>
+  <span class="pill p-unk">無法判定 6</span>
+  <span class="ts">2026-08-19T09:30:58Z</span>
 </div>
-
+<div class="banner warn"><b>無法判定：</b>CI 建置、映像漏洞掃描、Registry 推送、develop 部署、LLM 複審、production-like。無法判定<em>不等於</em>正常——是檢查沒跑成功。</div>
 <div class="graph">
 <pre class="mermaid">
 flowchart LR
   subgraph layer_foundation["基礎（橫切）"]
     direction TB
     vault["Vault 機密/身分<br/><small>unsealed</small>"]
-    audit["稽核軌跡<br/><small>649 KB</small>"]
+    audit["稽核軌跡<br/><small>793 KB</small>"]
     scheduler["排程器<br/><small>not configured: offsite</small>"]
-    backup["備份<br/><small>5h ago</small>"]
-    restore["還原演練<br/><small>passed 4.1d ago</small>"]
+    backup["備份<br/><small>14h ago</small>"]
+    restore["還原演練<br/><small>passed 5.0d ago</small>"]
   end
   subgraph layer_source["原始碼"]
     direction TB
-    sast["SAST 原始碼<br/><small>PASS, 85h ago</small>"]
+    sast["SAST 原始碼<br/><small>PASS, 106h ago</small>"]
     secrets["Secret 歷史掃描<br/><small>no leaks, 4d ago</small>"]
   end
   subgraph layer_build["建置"]
     direction TB
-    ci["CI 建置<br/><small>sha 9d68668</small>"]
-    trivy["映像漏洞掃描<br/><small>PASS</small>"]
-    registry["Registry 推送<br/><small>station1-hello:d830501</small>"]
+    ci["CI 建置<br/><small>no build evidence</small>"]
+    trivy["映像漏洞掃描<br/><small>no evidence</small>"]
+    registry["Registry 推送<br/><small>nothing pushed</small>"]
   end
   subgraph layer_deploy["部署"]
     direction TB
-    develop["develop 部署<br/><small>sha 9d68668</small>"]
+    develop["develop 部署<br/><small>no deploy evidence</small>"]
   end
   subgraph layer_verify["驗證"]
     direction TB
-    dast["DAST 執行中系統<br/><small>PASS, 16h ago</small>"]
-    llmreview["LLM 複審<br/><small>verdict CONCERN, 125h ago -- stale</small>"]
+    dast["DAST 執行中系統<br/><small>PASS, 14h ago</small>"]
+    llmreview["LLM 複審<br/><small>no review</small>"]
   end
   subgraph layer_gate["人工關卡"]
     direction TB
@@ -106,14 +106,14 @@ flowchart LR
   end
   subgraph layer_release["上線"]
     direction TB
-    prodlike["production-like<br/><small>blue @ sha 6a54ff3</small>"]
+    prodlike["production-like<br/><small>never promoted</small>"]
     nginx["NGINX 入口<br/><small>running healthy</small>"]
   end
   subgraph layer_observe["觀測"]
     direction TB
     prometheus["Prometheus 指標<br/><small>running none</small>"]
     loki["Loki 日誌<br/><small>running none</small>"]
-    alertmgr["Alertmanager 告警<br/><small>no active alerts</small>"]
+    alertmgr["Alertmanager 告警<br/><small>1 alerts firing</small>"]
     grafana["Grafana 檢視<br/><small>running none</small>"]
   end
   vault --> audit
@@ -147,18 +147,18 @@ flowchart LR
   class restore ok;
   class sast ok;
   class secrets ok;
-  class ci ok;
-  class trivy ok;
-  class registry ok;
-  class develop ok;
+  class ci unknown;
+  class trivy unknown;
+  class registry unknown;
+  class develop unknown;
   class dast ok;
-  class llmreview warn;
+  class llmreview unknown;
   class gate ok;
-  class prodlike ok;
+  class prodlike unknown;
   class nginx ok;
   class prometheus ok;
   class loki ok;
-  class alertmgr ok;
+  class alertmgr warn;
   class grafana ok;
   classDef ok fill:#E1EFE6,stroke:#2F7D4F,stroke-width:1px,color:#16202B;
   classDef warn fill:#F7EEDA,stroke:#B07A16,stroke-width:1px,color:#16202B;
@@ -170,7 +170,7 @@ flowchart LR
 <h2>逐節點狀態</h2>
 <div class="tw"><table>
 <thead><tr><th>燈號</th><th>機制</th><th>層</th><th>依據</th></tr></thead>
-<tbody><tr><td><span class="dot d-ok"></span>正常</td><td>Vault 機密/身分</td><td class="mono">基礎（橫切）</td><td class="mono det">unsealed</td></tr><tr><td><span class="dot d-ok"></span>正常</td><td>稽核軌跡</td><td class="mono">基礎（橫切）</td><td class="mono det">649 KB</td></tr><tr><td><span class="dot d-warn"></span>注意</td><td>排程器</td><td class="mono">基礎（橫切）</td><td class="mono det">not configured: offsite</td></tr><tr><td><span class="dot d-ok"></span>正常</td><td>備份</td><td class="mono">基礎（橫切）</td><td class="mono det">5h ago</td></tr><tr><td><span class="dot d-ok"></span>正常</td><td>還原演練</td><td class="mono">基礎（橫切）</td><td class="mono det">passed 4.1d ago</td></tr><tr><td><span class="dot d-ok"></span>正常</td><td>SAST 原始碼</td><td class="mono">原始碼</td><td class="mono det">PASS, 85h ago</td></tr><tr><td><span class="dot d-ok"></span>正常</td><td>Secret 歷史掃描</td><td class="mono">原始碼</td><td class="mono det">no leaks, 4d ago</td></tr><tr><td><span class="dot d-ok"></span>正常</td><td>CI 建置</td><td class="mono">建置</td><td class="mono det">sha 9d68668</td></tr><tr><td><span class="dot d-ok"></span>正常</td><td>映像漏洞掃描</td><td class="mono">建置</td><td class="mono det">PASS</td></tr><tr><td><span class="dot d-ok"></span>正常</td><td>Registry 推送</td><td class="mono">建置</td><td class="mono det">station1-hello:d830501</td></tr><tr><td><span class="dot d-ok"></span>正常</td><td>develop 部署</td><td class="mono">部署</td><td class="mono det">sha 9d68668</td></tr><tr><td><span class="dot d-ok"></span>正常</td><td>DAST 執行中系統</td><td class="mono">驗證</td><td class="mono det">PASS, 16h ago</td></tr><tr><td><span class="dot d-warn"></span>注意</td><td>LLM 複審</td><td class="mono">驗證</td><td class="mono det">verdict CONCERN, 125h ago -- stale</td></tr><tr><td><span class="dot d-ok"></span>正常</td><td>真人 PROMOTE</td><td class="mono">人工關卡</td><td class="mono det">manual by design</td></tr><tr><td><span class="dot d-ok"></span>正常</td><td>production-like</td><td class="mono">上線</td><td class="mono det">blue @ sha 6a54ff3</td></tr><tr><td><span class="dot d-ok"></span>正常</td><td>NGINX 入口</td><td class="mono">上線</td><td class="mono det">running (healthy)</td></tr><tr><td><span class="dot d-ok"></span>正常</td><td>Prometheus 指標</td><td class="mono">觀測</td><td class="mono det">running (none)</td></tr><tr><td><span class="dot d-ok"></span>正常</td><td>Loki 日誌</td><td class="mono">觀測</td><td class="mono det">running (none)</td></tr><tr><td><span class="dot d-ok"></span>正常</td><td>Alertmanager 告警</td><td class="mono">觀測</td><td class="mono det">no active alerts</td></tr><tr><td><span class="dot d-ok"></span>正常</td><td>Grafana 檢視</td><td class="mono">觀測</td><td class="mono det">running (none)</td></tr></tbody>
+<tbody><tr><td><span class="dot d-ok"></span>正常</td><td>Vault 機密/身分</td><td class="mono">基礎（橫切）</td><td class="mono det">unsealed</td></tr><tr><td><span class="dot d-ok"></span>正常</td><td>稽核軌跡</td><td class="mono">基礎（橫切）</td><td class="mono det">793 KB</td></tr><tr><td><span class="dot d-warn"></span>注意</td><td>排程器</td><td class="mono">基礎（橫切）</td><td class="mono det">not configured: offsite</td></tr><tr><td><span class="dot d-ok"></span>正常</td><td>備份</td><td class="mono">基礎（橫切）</td><td class="mono det">14h ago</td></tr><tr><td><span class="dot d-ok"></span>正常</td><td>還原演練</td><td class="mono">基礎（橫切）</td><td class="mono det">passed 5.0d ago</td></tr><tr><td><span class="dot d-ok"></span>正常</td><td>SAST 原始碼</td><td class="mono">原始碼</td><td class="mono det">PASS, 106h ago</td></tr><tr><td><span class="dot d-ok"></span>正常</td><td>Secret 歷史掃描</td><td class="mono">原始碼</td><td class="mono det">no leaks, 4d ago</td></tr><tr><td><span class="dot d-unknown"></span>無法判定</td><td>CI 建置</td><td class="mono">建置</td><td class="mono det">no build evidence</td></tr><tr><td><span class="dot d-unknown"></span>無法判定</td><td>映像漏洞掃描</td><td class="mono">建置</td><td class="mono det">no evidence</td></tr><tr><td><span class="dot d-unknown"></span>無法判定</td><td>Registry 推送</td><td class="mono">建置</td><td class="mono det">nothing pushed</td></tr><tr><td><span class="dot d-unknown"></span>無法判定</td><td>develop 部署</td><td class="mono">部署</td><td class="mono det">no deploy evidence</td></tr><tr><td><span class="dot d-ok"></span>正常</td><td>DAST 執行中系統</td><td class="mono">驗證</td><td class="mono det">PASS, 14h ago</td></tr><tr><td><span class="dot d-unknown"></span>無法判定</td><td>LLM 複審</td><td class="mono">驗證</td><td class="mono det">no review</td></tr><tr><td><span class="dot d-ok"></span>正常</td><td>真人 PROMOTE</td><td class="mono">人工關卡</td><td class="mono det">manual by design</td></tr><tr><td><span class="dot d-unknown"></span>無法判定</td><td>production-like</td><td class="mono">上線</td><td class="mono det">never promoted</td></tr><tr><td><span class="dot d-ok"></span>正常</td><td>NGINX 入口</td><td class="mono">上線</td><td class="mono det">running (healthy)</td></tr><tr><td><span class="dot d-ok"></span>正常</td><td>Prometheus 指標</td><td class="mono">觀測</td><td class="mono det">running (none)</td></tr><tr><td><span class="dot d-ok"></span>正常</td><td>Loki 日誌</td><td class="mono">觀測</td><td class="mono det">running (none)</td></tr><tr><td><span class="dot d-warn"></span>注意</td><td>Alertmanager 告警</td><td class="mono">觀測</td><td class="mono det">1 alert(s) firing</td></tr><tr><td><span class="dot d-ok"></span>正常</td><td>Grafana 檢視</td><td class="mono">觀測</td><td class="mono det">running (none)</td></tr></tbody>
 </table></div>
 <footer>由 <code>platform/statusdag/dag.py</code> 產生。每個燈號都來自磁碟上的
 evidence 或即時探測，沒有任何一格是手動維護的——因此本圖無法與它描述的系統脫節。

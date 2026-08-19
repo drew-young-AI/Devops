@@ -155,8 +155,13 @@ MLOps/LLMOps：保留接口，延後擴充
       funnel），依「靠什麼驗證」而非「名字聽起來多敏感」決定；prometheus /
       alertmanager / loki / vault 一律 `never`（alertmanager 最尖銳：
       `/api/v2/silences` 是**寫入**端點，碰得到就能無聲關掉監控）。暴露後以
-      「抓下來比對 byte」驗證，不符即拆除。station1-hello 現在在
-      `http://macbook-m5-agent.taild8621c.ts.net:8080/`（僅 tailnet）。
+      「抓下來比對 byte」驗證，不符即拆除。實際暴露的 URL 形如
+      `http://<node>.<tailnet>.ts.net:8080/`（僅 tailnet）；具體節點名與
+      tailnet 網域**不寫進 repo**——那是私有網路的 DNS 名稱，公開後等於把
+      「這台機器在哪個 tailnet、叫什麼」交出去。以 `ingress.sh --status`
+      查當下實際值。
+      （2026-08-19：station1-hello 退役，此處暴露已撤除；現行目標見
+      `platform/ingress/targets.conf`。）
 - [x] **排程機制其實從未真正觸發過**。audit/backup/dast/sast/restore/rotation
       全部顯示「最近成功」，但 `launchctl print` 對每一個都回報 `runs = 0`——
       所有紀錄都是手動執行。三個缺陷互相掩護：`StartInterval` 從載入時刻起算
@@ -185,11 +190,61 @@ MLOps/LLMOps：保留接口，延後擴充
       NetworkPolicy 四向實測會擋——kind 預設的 kindnet **完全不執行
       NetworkPolicy**，套用會成功但沒有流量被擋。
 
+### 2026-08-19 新增（第三輪：資料層 + Pilot 汰換）
+
+- [x] **Vault 動態資料庫憑證**（上一輪的待辦，已完成）：
+      `setup_database_secrets.sh` 建 database secrets engine、
+      `workload-station2-twin` policy 與 AppRole；`verify_database_secrets.sh`
+      6/6，關鍵一項是**被撤銷的憑證確實會被 postgres 拒絕**，而不是
+      「Vault 說它撤銷了」。修掉的實際缺陷：revocation 用
+      `REASSIGN OWNED BY` 會因 PostgreSQL 16 要求 INHERIT 成員資格而失敗
+      （`vault_admin` 刻意 NOINHERIT），但 Vault 仍回報
+      「All revocation operations queued successfully!」+ HTTP 202，
+      憑證繼續可用、無限重試。改為明確 REVOKE。
+- [x] **公開資料盤點與最細粒度**：對 `data.cdc.gov.tw` CKAN API 列舉全部 73
+      個 dataset 逐一 `package_show`，找到 `tbdata001`（結核病每日縣市鄉鎮
+      管理中個案）——**空間與時間同時最細**的公開資料，鄉鎮 × 日，
+      2016–2026。村里級疫情 feed 確認**不存在**（`Dengue_Daily.csv` 已下架）。
+- [x] **地理權威**：改用內政部國土測繪中心（`api.nlsc.gov.tw`）的官方代碼，
+      22 縣市 / 365 鄉鎮 / 7,667 村里。鄉鎮代碼是 villageId 前 7 碼，
+      載入器**雙向驗證**（同鄉鎮前綴一致、跨鄉鎮不重複）而非假設。
+      維度建到村里、事實只到鄉鎮——維度描述國家的行政區劃，不是今天的 feed。
+- [x] **名稱對照走 evidence，不走模糊比對**：`crosswalk/geo_alias.csv` 每列
+      是一筆附可查證理由的宣告（截斷 / 改制 / 類別錯誤 / 已廢止實體），
+      載入器只做精確查表，查不到就拒絕。權威缺口（新竹市、嘉義市無區級代碼）
+      以 `code_system='derived'` 明示宣告 5 筆。
+- [x] **stock / flow 語意進 schema**：`metric.measure_type`。存量沿時間加總
+      會把同一個病人在他生病的每一天各算一次（結核病療程 6–9 個月，年度
+      `SUM` 高估約 200 倍），而舊 schema 沒有任何欄位能阻止那個查詢。
+      `surveillance.py` 的 `MODELS` 把疾病綁定到唯一一組 (source, metric,
+      time_level)，問 TB 得到 HTTP 422 而不是一個從 prevalence 算出來的
+      z-score。
+- [x] **expand/contract 走完一輪**（004 EXPAND → 007 CONTRACT，約一週）：
+      舊表 `surveillance_observations` 在確認無人再讀之後才 drop。
+- [x] **抓到三個「安靜地錯」的缺陷**：(1) 值衝突被當成重複列丟棄，且**修掉
+      前後總列數完全相同**（4,085,772），筆數檢查抓不到；(2) 事實表自然鍵
+      假設「一列一個數字」，CareMag 一列三個量測會 UPSERT 蓋掉三分之二；
+      (3) Prometheus 盯著已退役的 station1-hello，station2-twin 好幾天完全
+      沒有被抓，而監控整段時間是綠的。
+- [x] **station1-hello 退役**：連根拔除。Prometheus job、告警規則、Grafana
+      面板、nginx vhost、compose 環境、Vault policy/AppRole、ingress ceiling、
+      `recover.sh`、`statusdag`、CI 預設值全部改指或據實移除。證據移到
+      `evidence/_retired/`，讓平台探針的 glob 不再匹配到它——否則它最後一次
+      promote 會被當成平台現況持續回報。
+- [x] **載入器有自己的執行環境**：`ingest/Dockerfile` 釘死 python 3.12 +
+      psycopg 3.2.3 + certifi。先前用「PATH 上剛好有的 python」，而本機
+      python 是 3.9、無 psycopg，裝它就會污染主機。地理參考資料改為
+      repo 內帶日期快照（sha256 已記錄），不每次打第三方 API。
+- [x] **送 GitHub 前檢查**：全文掃 token/私鑰/密碼樣式無命中；`Plan.md`
+      洩漏的 Tailscale 節點名與 tailnet 網域已改寫；`.gitignore` 的
+      `evidence/*/_raw.*` 單層 pattern 在證據目錄搬深一層後失效，改為
+      `evidence/**/`。
+
+詳見 [STAGE_REVIEW.md §10](STAGE_REVIEW.md) 與
+[pilots/station2-twin/DATAOPS-LOG.md](pilots/station2-twin/DATAOPS-LOG.md)。
+
 ### 尚未完成 / 待決策
 
-- [ ] Vault **動態資料庫憑證**：接縫已留（`database/creds/` policy 註解、
-      connection pool 的 `max_lifetime`），目前仍是靜態 bootstrap 密碼。
-      **建議現在做**——Vault 側設定與底層無關，100% 帶得走到 K8s。
 - [ ] **異地備份**：機制完成且雙向驗證，使用者決定「保留討論」，
       `offsite` job 持續誠實回報 `not-configured`（黃燈）。
 - [ ] **測試資料管理 + redaction v2**：真實醫療資料前的硬性前提。

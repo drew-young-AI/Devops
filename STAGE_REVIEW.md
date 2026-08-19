@@ -1,17 +1,22 @@
 ---
 type: review
 title: 階段性審查
-description: Point-in-time assessment of platform stages; second review 2026-08-18 covers ingress, stateful pilot, migration gate and the public-health twin.
+description: Point-in-time assessment of platform stages; third review 2026-08-19 covers the dimensional data layer, four public-health feeds at three granularities, and the retirement of station1-hello.
 tags:
   - devops
   - review
-timestamp: 2026-08-18T14:30:00+08:00
+timestamp: 2026-08-19T12:00:00+08:00
 ---
 # DevOps 平台階段性 Review
 
-- **第二次 review：2026-08-18**（見文末 §9，涵蓋 ingress、有狀態 pilot、
-  migration gate、公衛 twin、k3d 練習叢集）
-- 第一次 review：2026-08-11（以下 §1–§8）
+- **第三次 review：2026-08-19**（見文末 §10，涵蓋資料層、四個公衛 feed、
+  官方地理代碼、stock/flow 語意、station1-hello 退役、送 GitHub 前的檢查）
+- 第二次 review：2026-08-18（§9，ingress、有狀態 pilot、migration gate、
+  公衛 twin、k3d 練習叢集）
+- 第一次 review：2026-08-11（§1–§8）
+
+> §1–§9 是**當時**的快照，刻意不回頭改寫。文中提到 station1-hello 的地方
+> 記錄的是那個階段的真實狀態；它已於 2026-08-19 退役，見 §10.5。
 
 本文件是目前實際建置狀態的快照，給討論下一步用。詳細規格與逐項驗證證據見
 `Plan.md`（交接狀態權威來源）與各 `platform/*/README.md`。
@@ -373,3 +378,146 @@ z=1.07 未告警。**它不亂叫**，這是偵測器最重要的性質。
 3. Kubeflow Pipelines standalone
 4. Vault 動態資料庫憑證（**建議插隊先做**——Vault 側設定與底層無關，
    100% 帶得走）
+
+---
+
+## 10. 第三次 Review（2026-08-19）— 資料層與 Pilot 汰換
+
+這一階段的主題是**把資料當成一等公民**，以及**汰換掉不再有用的 Pilot**。
+兩件事互為因果：station1-hello 已經把部署主線走完，剩下所有值得驗證的
+問題都是有狀態的問題。
+
+### 10.1 資料：從 11 萬列到 439 萬列，並且知道每一列的來歷
+
+| | 第二次 review | 現在 |
+|---|---|---|
+| feed 數 | 1（RODS） | **4** |
+| 空間粒度 | 縣市 | 縣市 / **鄉鎮** |
+| 時間粒度 | 流行病學週 | 週 / 年 / **日** |
+| 量測型別 | 只有 flow | flow + **stock**（且 schema 記錄是哪一種） |
+| 地理鍵 | 自創（`tw-台中市`） | **內政部官方代碼**（22 縣市 / 365 鄉鎮 / 7,667 村里） |
+| 事實列數 | 109,907 | **4,390,947** |
+
+`cdc-tb-caremag`（結核病每日縣市鄉鎮管理中個案）是公開資料裡空間與時間
+**同時最細**的一組。找到它的方法值得記下來：不是猜 URL，是對
+`data.cdc.gov.tw` 的 CKAN API 列舉全部 73 個 dataset、逐一 `package_show`
+再過濾。**先列舉再過濾，不要先假設再驗證。**
+
+村里級的疫情 feed **不存在**（`Dengue_Daily.csv` 已下架）。所以維度建到村里、
+事實只到鄉鎮——維度描述的是國家的行政區劃，不是今天剛好有哪些 feed。
+
+完整的來源盤點、髒資料清單與每一個清理決定的理由，見
+[`pilots/station2-twin/DATAOPS-LOG.md`](pilots/station2-twin/DATAOPS-LOG.md)。
+
+### 10.2 這一階段抓到的三個缺陷，都是「安靜地錯」
+
+**(1) 值衝突被當成重複列丟掉。** CareMag 有 187,724 列逐位元組相同的重複
+（占 12%），去重是對的。但其中**一對鍵相同、值不同**：`舊中縣/豐原市` = 1
+對上 `台中市/豐原區` = 24，同一天同一地。第一版去重只比對鍵，保留先遇到的、
+丟掉另一個，**沒有任何訊息**。
+
+最危險的地方：修掉之後**總列數完全沒變**，都是 4,085,772。任何基於筆數的
+檢查都抓不到。現在的規則是「值相同 → 重複，計數後丟棄；值不同 → 衝突，
+拒絕並具名印出」。不加總成 25，因為資料沒說這是兩群人還是一筆重述——
+加總是猜測。
+
+**(2) 監控盯著已經不重要的服務。** station2-twin 跑了好幾天，Prometheus
+完全沒有抓它；監控整段時間都是綠的，因為它盯的是 station1-hello。
+儀表板對著錯的服務顯示「一切正常」，比沒有儀表板更糟。
+
+**(3) 事實表的自然鍵假設「一列一個數字」。** 舊鍵是
+`(source, disease, geo, period, age, visit_type)`，這在每個 feed 只發布一個
+計數時**碰巧**成立。CareMag 一列發布三個量測，第二、三個會 UPSERT 蓋掉第一個
+——沒有錯誤、沒有違反約束、表面完全正常、三分之二的資料消失。`metric_id`
+現在是自然鍵的一部分。
+
+### 10.3 stock 不是 flow，而且 schema 現在說得出來
+
+`管理中個案數` 是**存量**：那一天還在治療中的人數。`就診人次` 是**流量**。
+存量沿時間加總是胡說——同一個病人會在他生病的每一天各被算一次，結核病療程
+6–9 個月，天真的年度 `SUM` 高估約 200 倍。
+
+舊 schema 沒有任何欄位記錄一個數字是哪一種，所以沒有任何東西能阻止那個查詢
+被寫出來。`metric.measure_type` 把它變成資料的屬性；
+`app/surveillance.py` 的 `MODELS` 把每個疾病綁定到唯一一組
+(source, metric, time_level)，問 `?disease=tuberculosis` 得到 **HTTP 422**，
+不是一個從 prevalence 算出來、看起來很有信心的 z-score。
+
+### 10.4 expand/contract 走完一輪（004 → 007，約一週）
+
+```
+003  建 surveillance_observations      單一 feed、單一形狀
+004  EXPAND：星型模型建在旁邊           兩張表並存，舊顏色照讀舊表
+005  修第一次真實載入暴露的兩個鍵缺陷
+006  改用官方地理代碼 + 加入 metric 維度
+007  CONTRACT：舊表退場                 確認無人再讀之後
+```
+
+004 到 007 之間那段時間差就是紀律的全部意義。blue 與 green 共用一個資料庫；
+若 004 就把舊表 drop 掉，那個「應該可回滾」的部署會親手毀掉回滾目標。
+代價是多帶一張冗餘表幾天，換掉的是一場滾不回去的故障。
+
+### 10.5 station1-hello 退役
+
+它的任務完成了：build → SAST → Trivy → SBOM → deploy → blue/green promote
+→ rollback 全部走通並留下證據（`evidence/_retired/station1-hello/`）。
+無狀態服務驗證不了備份、還原、schema 遷移與憑證輪替，而那才是真正會出事的
+地方。
+
+退役是**連根拔除，不是留半截**：Prometheus job、告警規則、Grafana 面板、
+nginx vhost、compose 環境、Vault policy 與 AppRole、ingress ceiling、
+`recover.sh`、`statusdag`、CI 預設值全部改指 station2-twin 或據實移除。
+`statusdag` 的 `probe_deploy` 原本硬寫死 station1 的證據路徑，會在 Pilot
+消失後繼續回報它最後一次 promote 當成平台現況——比回報「不知道」更糟。
+
+**沒有假裝還在的東西**：Prometheus 沒有 production-like 的 scrape job，
+告警沒有 blue/green 規則，`recover.sh` 沒有選顏色的分支。station2-twin 的
+compose 把資料庫與應用綁在一起，接不上 blue/green（見
+`docs/Backlog.md` §2）。空著並寫明理由，好過留下永遠紅的目標與虛構的規則。
+
+### 10.6 可重現性：載入器現在有自己的執行環境
+
+先前 ingest 腳本是用「PATH 上剛好有的 python」跑的。那台主機的 python 是
+3.9、沒有 psycopg，而要裝它就得污染主機——本機規則明文禁止。
+**結果取決於你當時在哪個 shell 的管線不叫可重現。**
+
+現在 `pilots/station2-twin/ingest/Dockerfile` 釘死 python 3.12 +
+psycopg 3.2.3 + certifi，`run.sh` 在容器裡執行。地理參考資料是 repo 內的
+**帶日期快照**（`reference/moi_admin_20260818.csv`，sha256 已記錄），
+不是每次去打第三方 API——依賴即時 API 的載入器無法重現上個月的結果。
+
+### 10.7 目前完成狀態
+
+| 層 | 元件 | 狀態 |
+|---|---|---|
+| 資料來源 | 4 個 CDC feed，3 種粒度，2 種量測型別 | ✅ 4,390,947 列，重跑後列數不變 |
+| 地理維度 | 內政部官方代碼（含 7,667 村里） | ✅ 鄉鎮代碼推導經雙向驗證 |
+| 名稱對照 | `geo_alias` + crosswalk CSV | ✅ 10 筆宣告，皆附可查證理由 |
+| 資料品質 | 重複 / 衝突 / 拒絕分開計數 | ✅ 全部寫入 `ingest_runs` |
+| Schema | expand/contract 007 | ✅ gate 兩次正確擋下 |
+| Vault | 動態資料庫憑證 | ✅ 6/6，含撤銷後確實被 postgres 拒絕 |
+| 身分 | 人員 RBAC + 工作負載身分 | ✅ 14/14 邊界斷言 |
+| 監控 | Prometheus / 告警 / Grafana | ✅ 改指 station2-twin，新增 schema 與 DB 錯誤面板 |
+| Pilot | station2-twin | ✅ ready, schema=7, creds=vault |
+| 測試 | 平台套件 + pilot 契約 | ✅ 32/0 suites、115/0 static、10/10 contract |
+| blue/green | — | ❌ 無目標 Pilot（原因與判定見 Backlog §2） |
+
+### 10.8 送上 GitHub 之前做過的事
+
+- `git ls-files` 全文掃 token / 私鑰 / 密碼樣式 → **無**（命中的兩處是變數引用）
+- `Plan.md` 洩漏 Tailscale 節點名與 tailnet 網域 → **已改寫**；私有網路的
+  DNS 名稱不進 repo
+- `.gitignore` 的 `evidence/*/_raw.*` 是**單層** pattern，把 pilot 證據移到
+  `evidence/_retired/<pilot>/` 之後就失效了，四份原始掃描輸出（其中一份含
+  每一行被比對到的原始碼）從「被忽略」變成「下次 `git add -A` 就進版控」→
+  改為 `evidence/**/`。**依賴目錄深度的忽略規則，一次重整就會壞掉。**
+
+### 10.9 下一步
+
+1. **Kafka + Redis + Spark 回放**——使用者判定：資料尚未清洗完畢，先不動。
+   `docs/Spark-Design.md` §7 的分期仍然有效，起點是「分解 + 往返檢查」。
+2. 事實表無法承載 rate（`value INTEGER`），要接 `tb_town_inc_rate` 需要
+   numeric 量測欄位。
+3. 流行病學週 ↔ 曆法日期仍未確立（六種慣例都對不上 53 週年），週層級與
+   日層級目前無法 join。
+4. k3d 叢集重建（真 StorageClass + registry）→ pilot 上 K8s。

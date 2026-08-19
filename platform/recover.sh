@@ -92,32 +92,38 @@ if [ "$down" -gt 0 ]; then
   done
 fi
 
-# The pilot is deliberately handled separately: develop is safe to bring up
-# unconditionally, but production-like is blue/green and only the ACTIVE
-# colour should return. Starting both would put two colours in service.
+# The pilot is handled separately from the platform services above because it
+# is stateful: postgres has to be healthy before the application will pass
+# readiness, and compose's `depends_on: service_healthy` is what enforces that
+# ordering. Bringing it up is otherwise a single command.
+#
+# There is no blue/green branch here any more. station1-hello had two colours
+# and this block used to read evidence/station1-hello/production_like_state.json
+# to decide which one to restart -- starting both would have put two colours in
+# service at once. station2-twin has no colours yet (its compose bundles the
+# database with the app), so a colour-selection branch would be dead code
+# pretending to be a safety mechanism. It returns with the tier split.
 echo ""
 echo "=== [recover] pilot ==="
-PILOT_STATE="$REPO_ROOT/evidence/station1-hello/production_like_state.json"
-(cd "$REPO_ROOT" && docker compose -p station1-hello-develop \
-  --env-file platform/compose/environments/station1-hello/develop.env \
-  -f pilots/station1-hello/compose.yaml up -d --no-build >/dev/null 2>&1) \
-  && echo "  develop up" || echo "  WARNING: develop did not start" >&2
+(cd "$REPO_ROOT" && docker compose -p station2-twin \
+  -f pilots/station2-twin/compose.yaml up -d --no-build >/dev/null 2>&1) \
+  && echo "  station2-twin up (db + app)" \
+  || echo "  WARNING: station2-twin did not start" >&2
 
-if [ -f "$PILOT_STATE" ]; then
-  ACTIVE="$(python3 -c "
-import json
-print(json.load(open('$PILOT_STATE')).get('active_color', ''))" 2>/dev/null)"
-  PORT="$(python3 -c "
-import json
-print(json.load(open('$PILOT_STATE')).get('active_port', ''))" 2>/dev/null)"
-  if [ -n "$ACTIVE" ] && [ -n "$PORT" ]; then
-    (cd "$REPO_ROOT" && HOST_PORT="$PORT" docker compose \
-      -p "station1-hello-productionlike-${ACTIVE}" \
-      --env-file platform/compose/environments/station1-hello/production-like.env \
-      -f pilots/station1-hello/compose.yaml up -d --no-build >/dev/null 2>&1) \
-      && echo "  production-like $ACTIVE up (the parked colour is left down on purpose)" \
-      || echo "  WARNING: production-like $ACTIVE did not start" >&2
-  fi
+# Readiness, not liveness: the app answers /health/live while its database is
+# still in recovery, and a recover script that reports success on that has
+# told the operator nothing.
+for _ in $(seq 1 30); do
+  STATUS="$(curl -fsS --max-time 2 http://127.0.0.1:18090/health/ready 2>/dev/null \
+            | python3 -c "import json,sys; print(json.load(sys.stdin).get('status',''))" \
+            2>/dev/null || true)"
+  [ "$STATUS" = "ready" ] && break
+  sleep 2
+done
+if [ "${STATUS:-}" = "ready" ]; then
+  echo "  station2-twin ready"
+else
+  echo "  WARNING: station2-twin came up but is not ready (${STATUS:-no response})" >&2
 fi
 
 echo ""
