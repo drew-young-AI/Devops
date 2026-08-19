@@ -55,3 +55,6 @@
 {"job": "dag", "gap_seconds": 3585, "gap_minutes": 59.8, "expected_interval_seconds": 900, "missed_runs": 2, "from": "2026-08-19T07:46:03Z", "to": "2026-08-19T08:45:48Z"}
 {"job": "board", "gap_seconds": 3585, "gap_minutes": 59.8, "expected_interval_seconds": 900, "missed_runs": 2, "from": "2026-08-19T07:46:03Z", "to": "2026-08-19T08:45:48Z"}
 {"job": "health", "gap_seconds": 3584, "gap_minutes": 59.7, "expected_interval_seconds": 900, "missed_runs": 2, "from": "2026-08-19T07:46:19Z", "to": "2026-08-19T08:46:03Z"}
+{"job": "board", "gap_seconds": 5712, "gap_minutes": 95.2, "expected_interval_seconds": 900, "missed_runs": 5, "from": "2026-08-19T12:16:44Z", "to": "2026-08-19T13:51:56Z"}
+{"job": "dag", "gap_seconds": 5712, "gap_minutes": 95.2, "expected_interval_seconds": 900, "missed_runs": 5, "from": "2026-08-19T12:16:44Z", "to": "2026-08-19T13:51:56Z"}
+{"job": "health", "gap_seconds": 5712, "gap_minutes": 95.2, "expected_interval_seconds": 900, "missed_runs": 5, "from": "2026-08-19T12:16:51Z", "to": "2026-08-19T13:52:03Z"}
