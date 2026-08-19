@@ -110,6 +110,16 @@ END
 # is how PostgreSQL expresses that.
 psql_admin -c "GRANT $DB_ADMIN_USER TO $VAULT_DB_USER;" >/dev/null 2>&1 || true
 psql_admin -c "ALTER ROLE $VAULT_DB_USER NOINHERIT;" >/dev/null 2>&1 || true
+# The group role from migration 010 -- Vault's creation_statement GRANTs it to
+# every dynamic user, and postgres requires ADMIN OPTION to do that. Done here
+# as well as in migration 011 because the two run in either order: a fresh
+# database is migrated before Vault is configured, an existing one the other way
+# round. NOT silenced with `|| true` like the lines above: if this fails, every
+# credential Vault issues from now on fails too, and that must be loud.
+if ! psql_admin -c "GRANT station2_app TO $VAULT_DB_USER WITH ADMIN OPTION;" >/dev/null 2>&1; then
+  echo "  NOTE: station2_app does not exist yet -- apply migration 010 and 011," >&2
+  echo "        then re-run this script, or credentials will fail to issue." >&2
+fi
 echo "  $VAULT_DB_USER created (LOGIN CREATEROLE NOINHERIT, not superuser)"
 
 echo ""
@@ -166,13 +176,23 @@ echo "=== [3/5] role: least privilege, short lease ==="
 # revoke without inheriting anything, and the generated role owns nothing to
 # begin with -- it has no DDL privileges, so `DROP OWNED BY` was never doing
 # anything except failing.
+# The ON ALL TABLES lines below are a SNAPSHOT, not a rule: postgres expands
+# them once, against the tables that exist at role-creation time. On 2026-08-19
+# migration 008 added a table and every already-issued credential went to
+# `InsufficientPrivilege` -- reported by readiness as `db_unreachable`, so it
+# read as a database outage against a perfectly healthy database, for up to the
+# full 3600s TTL. The GRANT station2_app line is the actual fix (migration 010
+# gives that group ALTER DEFAULT PRIVILEGES, so future tables are covered
+# automatically). The snapshot grants are kept only so a credential still works
+# if 010 has not been applied yet.
 v write database/roles/"$ROLE" \
   db_name="$PILOT" \
   creation_statements="CREATE ROLE \"{{name}}\" WITH LOGIN PASSWORD '{{password}}' VALID UNTIL '{{expiration}}';
     GRANT CONNECT ON DATABASE ${DB_NAME} TO \"{{name}}\";
     GRANT USAGE ON SCHEMA public TO \"{{name}}\";
     GRANT SELECT, INSERT, UPDATE ON ALL TABLES IN SCHEMA public TO \"{{name}}\";
-    GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO \"{{name}}\";" \
+    GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO \"{{name}}\";
+    GRANT station2_app TO \"{{name}}\";" \
   revocation_statements="REVOKE ALL PRIVILEGES ON ALL TABLES IN SCHEMA public FROM \"{{name}}\";
     REVOKE ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public FROM \"{{name}}\";
     REVOKE USAGE ON SCHEMA public FROM \"{{name}}\";
