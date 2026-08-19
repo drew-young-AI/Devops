@@ -321,15 +321,27 @@ def main():
         "SET geo_code = EXCLUDED.geo_code, rule = EXCLUDED.rule, "
         "    evidence = EXCLUDED.evidence", alias_rows)
 
+    # Lineage. rows_in_file is the SNAPSHOT's row count, not the loaded count:
+    # the 204 unnamed villages are a rejection with a reason, and recording the
+    # post-filter number as "in file" would erase the fact that a decision was
+    # made. The 5 derived 新竹市/嘉義市 district codes are synthesised, so they
+    # belong to output and never to source -- which is why output (8,059)
+    # legitimately exceeds accepted (8,054), and why the old single
+    # `rows_accepted` column made this run look like it accepted more rows than
+    # the file contained.
     cur.execute(
         "INSERT INTO ingest_runs (source, source_url, fetched_at, content_sha256, "
         " content_bytes, rows_in_file, rows_accepted, rows_rejected, rows_inserted, "
-        " rows_updated, status, note) "
-        "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+        " rows_updated, status, note, source_rows_accepted, duplicate_rows, "
+        " synthesized_rows, output_rows_written) "
+        "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
         ("moi-admin-geography", f"{NLSC}/ListCounty|ListTown|ListVillage",
-         datetime.now(timezone.utc), digest, len(raw), len(rows),
-         len(rows) + len(derived), 0, 0, 0, "ok",
-         f"snapshot={snapshot.name} derived={len(derived)} aliases={len(alias_rows)}"))
+         datetime.now(timezone.utc), digest, len(raw),
+         len(rows) + len(unnamed),
+         len(rows) + len(derived), len(unnamed), 0, 0, "ok",
+         f"snapshot={snapshot.name} derived={len(derived)} aliases={len(alias_rows)} "
+         f"unnamed_excluded={len(unnamed)}",
+         len(rows), 0, len(derived), len(rows) + len(derived)))
     conn.commit()
 
     cur.execute("SELECT geo_level, code_system, COUNT(*) FROM geo_area "
