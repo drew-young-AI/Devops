@@ -73,8 +73,13 @@ def norm(s):
 METRICS = {
     "ili_ed_visits": ("類流感急診就診人次", "flow", "人次",
                       "RODS 急診監測；期間內的事件計數，可沿時間加總"),
-    "ili_visits": ("類流感健保就診人次", "flow", "人次",
-                   "健保門診/住院；期間內的事件計數，可沿時間加總"),
+    # ONE metric for all eleven NHI diseases. The disease is a DIMENSION -- see
+    # migration 012. Minting covid_visits / entero_visits / varicella_visits
+    # alongside this would encode the disease twice, and nothing would stop a
+    # row saying metric=covid_visits with disease=enterovirus.
+    "nhi_visits": ("健保就診人次", "flow", "人次",
+                   "健保門診/住院就診人次；期間內的事件計數，可沿時間加總。"
+                   "疾病由 disease_id 表示"),
     "tb_new_cases": ("結核病新案發生數", "flow", "人",
                      "年度內新通報個案；可沿時間加總"),
     "tb_under_management": ("結核病管理中個案數", "stock", "人",
@@ -102,7 +107,7 @@ FEEDS = {
         spatial="county", temporal="epi_week", denom=True,
         disease="influenza_like_illness", disease_zh="類流感",
         shape="county_week",
-        measures=[("ili_visits", "類流感健保就診人次", "健保就診總人次")],
+        measures=[("nhi_visits", "類流感健保就診人次", "健保就診總人次")],
         visit_type=None,
     ),
     "tb": dict(
@@ -127,6 +132,74 @@ FEEDS = {
                   ("tb_mdr_under_management", "MDR_number", None)],
         visit_type="all",
     ),
+}
+
+
+# ── NHI 家族其餘十種疾病 ─────────────────────────────────────────────────────
+#
+# Every column name below was READ from the live file by probe_feed.py, not
+# inferred from the pattern. The pattern does hold -- the numerator is always
+# `<疾病>健保就診人次` -- but "the pattern holds" is a hypothesis until checked,
+# and this project has already been wrong once about a naming assumption
+# (the 員林市/頭份市 crosswalk). Each entry below is evidence, not a guess:
+#
+#   file                                  rows      numerator column
+#   NHI_Influenza.csv                     187,908   流感及其所致肺炎健保就診人次
+#   NHI_OtherPneumonia.csv                187,908   其他肺炎健保就診人次
+#   NHI_COVID-19.csv                      187,908   COVID-19健保就診人次
+#   NHI_EnteroviralInfection.csv          187,908   腸病毒健保就診人次
+#   NHI_HandFootMouthDisease.csv          187,908   手足口病健保就診人次
+#   NHI_Herpangina.csv                    187,908   疱疹性咽峽炎健保就診人次
+#   NHI_Diarrhea.csv                      187,908   腹瀉健保就診人次
+#   NHI_AcuteUpperRespiratoryInfections   187,908   急性上呼吸道感染健保就診人次
+#   NHI_ScarletFever.csv                  187,908   猩紅熱健保就診人次
+#   NHI_Varicella.csv                     187,908   水痘健保就診人次
+#
+# All eleven share one denominator column (健保就診總人次) and one metric
+# (nhi_visits). Note that COVID-19 starts at 2021 while the rest start at 2016 --
+# the loader does not pad the gap, because MISSING IS NOT ZERO: a disease that
+# was not being counted must not look like a disease with no cases.
+_NHI_FAMILY = [
+    # (feed key, file stem, source code, disease code, disease 中文, numerator column)
+    ("nhi_flu",      "NHI_Influenza",       "cdc-nhi-influenza",
+     "influenza", "流感及其所致肺炎",       "流感及其所致肺炎健保就診人次"),
+    ("nhi_pneu",     "NHI_OtherPneumonia",  "cdc-nhi-pneumonia",
+     "other_pneumonia", "其他肺炎",          "其他肺炎健保就診人次"),
+    ("nhi_covid",    "NHI_COVID-19",        "cdc-nhi-covid",
+     "covid19", "COVID-19",                  "COVID-19健保就診人次"),
+    ("nhi_entero",   "NHI_EnteroviralInfection", "cdc-nhi-enterovirus",
+     "enterovirus", "腸病毒",                "腸病毒健保就診人次"),
+    ("nhi_hfmd",     "NHI_HandFootMouthDisease", "cdc-nhi-hfmd",
+     "hand_foot_mouth", "手足口病",          "手足口病健保就診人次"),
+    ("nhi_herpang",  "NHI_Herpangina",      "cdc-nhi-herpangina",
+     "herpangina", "疱疹性咽峽炎",           "疱疹性咽峽炎健保就診人次"),
+    ("nhi_diarrhea", "NHI_Diarrhea",        "cdc-nhi-diarrhea",
+     "diarrhea", "腹瀉",                     "腹瀉健保就診人次"),
+    ("nhi_uri",      "NHI_AcuteUpperRespiratoryInfections", "cdc-nhi-uri",
+     "acute_uri", "急性上呼吸道感染",        "急性上呼吸道感染健保就診人次"),
+    ("nhi_scarlet",  "NHI_ScarletFever",    "cdc-nhi-scarlet-fever",
+     "scarlet_fever", "猩紅熱",              "猩紅熱健保就診人次"),
+    ("nhi_varicella", "NHI_Varicella",      "cdc-nhi-varicella",
+     "varicella", "水痘",                    "水痘健保就診人次"),
+]
+
+for _key, _stem, _code, _dis, _dis_zh, _numerator in _NHI_FAMILY:
+    FEEDS[_key] = dict(
+        url=f"https://od.cdc.gov.tw/eic/{_stem}.csv",
+        code=_code, name=f"健保{_dis_zh}就診統計",
+        spatial="county", temporal="epi_week", denom=True,
+        disease=_dis, disease_zh=_dis_zh,
+        shape="county_week",
+        measures=[("nhi_visits", _numerator, "健保就診總人次")],
+        visit_type=None,
+    )
+
+# Convenience group so the whole family can be loaded in one invocation without
+# retyping ten keys -- and, more importantly, without anyone loading nine of
+# them and believing they loaded all ten.
+FEED_GROUPS = {
+    "nhi_all": ["nhi"] + [k for k, *_ in _NHI_FAMILY],
+    "all": list(FEEDS),
 }
 
 
@@ -208,12 +281,25 @@ class Geography:
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--dry-run", action="store_true")
-    ap.add_argument("--sources", default="rods,nhi,tb,caremag")
+    ap.add_argument("--sources", default="rods,nhi,tb,caremag",
+                    help="feed keys, or a group: " + ", ".join(FEED_GROUPS))
     args = ap.parse_args()
-    wanted = [s.strip() for s in args.sources.split(",") if s.strip()]
+    wanted = []
+    for s in args.sources.split(","):
+        s = s.strip()
+        if not s:
+            continue
+        # Groups expand in place and de-duplicate, so `--sources nhi_all,nhi`
+        # loads the ILI feed once rather than twice. A second pass would be
+        # harmless (the upsert is idempotent) but the lineage row would record a
+        # load that did nothing, which reads as a load that found nothing.
+        for k in FEED_GROUPS.get(s, [s]):
+            if k not in wanted:
+                wanted.append(k)
     for w in wanted:
         if w not in FEEDS:
-            sys.exit(f"unknown source '{w}'; known: {', '.join(FEEDS)}")
+            sys.exit(f"unknown source '{w}'; known feeds: {', '.join(FEEDS)}; "
+                     f"groups: {', '.join(FEED_GROUPS)}")
 
     import psycopg
     dsn = os.environ.get("DATABASE_URL") or (
@@ -415,15 +501,32 @@ def main():
         """)
         upserted = cur.rowcount
 
+        # Lineage. The counts below are in DIFFERENT units on purpose and each
+        # column says which, because the previous single `rows_accepted` did
+        # not: it held source rows for the ILI feeds, dimension rows for
+        # geography and FACT rows here, so `in_file = accepted + rejected`
+        # failed on this feed by 2.5 million and nothing could tell whether
+        # that was a bug or a three-metric fan-out. Migration 008 split them;
+        # 009 turns the identity into a CHECK.
+        #
+        #   rows_in_file          rows read from the source artifact
+        #   source_rows_accepted  source rows that produced output
+        #   duplicate_rows        dropped: same key AND same value seen before
+        #   rows_rejected         refused: same key, DIFFERENT value, or unresolvable
+        #   output_rows_written   fact rows written (= accepted x metrics here)
+        source_accepted = in_file - rejected - dup
         cur.execute(
             "INSERT INTO ingest_runs (source, source_url, fetched_at, content_sha256, "
             " content_bytes, rows_in_file, rows_accepted, rows_rejected, rows_inserted, "
-            " rows_updated, status, note) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+            " rows_updated, status, note, source_rows_accepted, duplicate_rows, "
+            " synthesized_rows, output_rows_written) "
+            "VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)",
             (f["code"], " ".join(urls), datetime.now(timezone.utc), digest, raw_len,
              in_file, written, rejected, upserted, 0,
              "ok" if conflicts == 0 else "ok-with-conflicts",
              f"duplicates_in_source={dup} conflicts={conflicts} "
-             f"metrics={len(f['measures'])} periods={len(pid_of)}"))
+             f"metrics={len(f['measures'])} periods={len(pid_of)}",
+             source_accepted, dup, 0, written))
         conn.commit()
 
         print(f"  {in_file:,} 列  來源重複: {dup:,}   衝突: {conflicts:,}   "
