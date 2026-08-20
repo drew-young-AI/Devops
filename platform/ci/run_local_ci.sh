@@ -17,10 +17,21 @@ echo "[1/6] lint / compile"
 # Pilots differ in layout: a single-file service keeps app.py at the root, a
 # larger one puts a package under app/. Compile whatever is there, and fail if
 # there is nothing -- "no sources found" must not pass as "nothing broken".
+#
+# ingest/ USED TO BE EXCLUDED HERE. That exclusion meant roughly two thousand
+# lines of loader -- every feed declaration, every crosswalk, the whole DataOps
+# layer -- was never compiled, never linted and never tested by CI. The platform
+# had a build pipeline and a data pipeline with nothing joining them, so a
+# broken feed declaration could only be found by running a forty-minute load and
+# reading the output.
+#
+# The exclusion was not even necessary: py_compile parses, it does not import,
+# so `import psycopg` in a loader has never been a reason to skip it. Verified
+# on this host's python 3.9, which has no psycopg -- all four loaders compile.
 PY_SOURCES=()
 while IFS= read -r f; do PY_SOURCES+=("$f"); done < <(
   find "$PILOT_DIR" -name '*.py' -not -path '*/tests/*' -not -path '*/__pycache__/*' \
-    -not -path '*/ingest/*' | sort)
+    | sort)
 [ "${#PY_SOURCES[@]}" -gt 0 ] || { echo "No Python sources under $PILOT_DIR" >&2; exit 1; }
 python3 -m py_compile "${PY_SOURCES[@]}"
 echo "  compiled ${#PY_SOURCES[@]} file(s)"
@@ -59,40 +70,92 @@ for _ in $(seq 1 20); do
 done
 
 python3 - "$SMOKE_CONTAINER" "$SMOKE_PORT" <<'PY'
-import subprocess, sys, threading, time, urllib.request, urllib.error
+import json, subprocess, sys, threading, time, urllib.request, urllib.error
+
+# THIS TEST WAS BROKEN IN TWO WAYS, BOTH OF WHICH IT REPORTED AS THE SAME LIE.
+#
+# It asserted on the bare 503 status code with a 0.3s client timeout.
+#
+#  1. FALSE FAILURE. The smoke container runs with no database, so
+#     /health/ready blocks on the connection pool and answers 503 after 3.005s,
+#     measured. Every request exceeded the 0.3s timeout, the loop broke on its
+#     first iteration, and the test printed "graceful drain window is not
+#     working". The drain window was fine. Same family as Vault reporting a
+#     sealed server as an expired secret_id: real failure, fictional cause.
+#
+#  2. FALSE PASS, which is worse. Without a database, readiness is 503
+#     `db_unreachable` from the moment the process starts -- BEFORE any signal
+#     is sent. A 503 therefore proved nothing about draining. Given a longer
+#     timeout, the old test would have passed on a service whose drain logic was
+#     deleted entirely.
+#
+# The fix is to assert on the REASON, not the code. app.py answers
+# {"status": "draining"} when the shutdown flag is set and
+# {"status": "db_unreachable"} when it is not, so the two 503s are already
+# distinguishable -- the test simply was not looking. And the absence of
+# "draining" BEFORE the signal is now asserted too, because a test that cannot
+# fail before the event it is timing is not measuring that event.
 
 container, port = sys.argv[1], sys.argv[2]
 url = f"http://127.0.0.1:{port}/health/ready"
+# Must exceed the app's own readiness timeout (PoolTimeout, ~3s with no
+# database) or every probe times out and the failure is attributed to drain.
+PROBE_TIMEOUT = 8.0
 
-def kill_it():
-    time.sleep(0.1)
-    subprocess.run(["docker", "kill", "-s", "SIGTERM", container], capture_output=True)
 
-threading.Thread(target=kill_it).start()
+def probe():
+    """Return the reported status string, or None if the socket is gone."""
+    try:
+        with urllib.request.urlopen(url, timeout=PROBE_TIMEOUT) as r:
+            return json.loads(r.read()).get("status", "ready")
+    except urllib.error.HTTPError as e:
+        try:
+            return json.loads(e.read()).get("status", f"http-{e.code}")
+        except Exception:
+            return f"http-{e.code}"
+    except Exception:
+        return None
+
+
+before = probe()
+if before is None:
+    print("FAIL: /health/ready did not answer at all before SIGTERM. This image "
+          "either exposes no HTTP readiness endpoint or did not finish starting "
+          "-- it is NOT a drain problem.", file=sys.stderr)
+    sys.exit(1)
+if before == "draining":
+    print(f"FAIL: already reporting 'draining' BEFORE any signal was sent. The "
+          f"shutdown flag is set at startup, so the drain signal means nothing.",
+          file=sys.stderr)
+    sys.exit(1)
+print(f"  pre-signal status: {before}")
+
+subprocess.run(["docker", "kill", "-s", "SIGTERM", container], capture_output=True)
 
 saw_draining = False
-saw_ready_after_drain_started = False
-for _ in range(100):
-    try:
-        with urllib.request.urlopen(url, timeout=0.3) as r:
-            if r.status == 200 and saw_draining:
-                saw_ready_after_drain_started = True
-    except urllib.error.HTTPError as e:
-        if e.code == 503:
-            saw_draining = True
-    except Exception:
-        break
+regressed = False
+deadline = time.monotonic() + 15
+while time.monotonic() < deadline:
+    status = probe()
+    if status is None:
+        break                      # socket closed: drain finished
+    if status == "draining":
+        saw_draining = True
+    elif saw_draining:
+        regressed = True           # went back to something else after draining
     time.sleep(0.05)
 
 if not saw_draining:
-    print("FAIL: never observed 503 (draining) during shutdown -- "
-          "graceful drain window is not working", file=sys.stderr)
+    print(f"FAIL: never reported status 'draining' after SIGTERM (last seen: "
+          f"{before}). The shutdown handler did not set the flag, or the "
+          f"process exited before serving one request.", file=sys.stderr)
     sys.exit(1)
-if saw_ready_after_drain_started:
-    print("FAIL: observed 200 (ready) AFTER a 503 was already seen -- "
-          "shutdown flag is not sticky", file=sys.stderr)
+if regressed:
+    print("FAIL: reported 'draining' and then stopped -- the shutdown flag is "
+          "not sticky, so a load balancer could route traffic back.",
+          file=sys.stderr)
     sys.exit(1)
-print("PASS: observed 503 (draining) before the connection closed")
+print("PASS: reported 'draining' only after SIGTERM, and stayed draining")
 PY
 
 trap - EXIT

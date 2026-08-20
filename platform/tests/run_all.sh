@@ -21,6 +21,11 @@ SUITES=(
   test_ingress.sh
   test_llm_review.sh
   test_evidence_contract.sh
+  # Data contracts against the LIVE database. Deliberately last, and deliberately
+  # a hard failure rather than a skip when postgres is absent: a data-contract
+  # suite that passes with no data would have reported success throughout the
+  # 3h55m credential outage on 2026-08-19.
+  test_data_contract_live.sh
 )
 
 FAILED_SUITES=()

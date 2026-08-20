@@ -64,8 +64,6 @@ import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
 
-import psycopg
-
 HERE = Path(__file__).resolve().parent
 API = "https://www.ris.gov.tw/rs-opendata/api/v1/datastore"
 UA = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
@@ -234,6 +232,12 @@ def main():
     ap.add_argument("--years", default="114", help="ROC years, e.g. 110-114")
     ap.add_argument("--dry-run", action="store_true")
     args = ap.parse_args()
+
+    # Imported here, not at module scope, so the declarations above can be
+    # imported and asserted on by tests running on the host interpreter, which
+    # has no psycopg. A data contract that can only be checked inside the
+    # container is a contract CI will never run.
+    import psycopg
 
     wanted = [d.strip() for d in args.datasets.split(",") if d.strip()]
     unknown = [d for d in wanted if d not in DATASETS]

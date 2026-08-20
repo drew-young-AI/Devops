@@ -47,7 +47,13 @@ import ssl
 import sys
 import time
 import urllib.request
-import xml.etree.ElementTree as ET
+# defusedxml, not xml.etree: the stdlib parser expands entities, so a hostile or
+# merely corrupted response can cause a billion-laughs denial of service. Found
+# by SAST the first time it was pointed at ingest/ -- CI had excluded this whole
+# directory, so the finding had been sitting here unseen since the file was
+# written. Pinned in the Dockerfile; the API is identical, so only this line and
+# the import change.
+import defusedxml.ElementTree as ET
 from collections import defaultdict
 from datetime import date, datetime, timezone
 from pathlib import Path

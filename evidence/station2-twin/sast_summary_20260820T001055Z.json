@@ -1,0 +1,78 @@
+{
+  "tool": "semgrep",
+  "scanned_at": "20260820T001055Z",
+  "target": "/Users/drew/ENV/Devops/pilots/station2-twin",
+  "rulesets": [
+    "p/security-audit",
+    "p/secrets",
+    "p/dockerfile",
+    "p/owasp-top-ten",
+    "p/python",
+    "p/ci"
+  ],
+  "gate_policy": "fail on ERROR severity; WARNING/INFO reported, not blocking",
+  "gate_result": "PASS",
+  "files_scanned": 32,
+  "counts_by_severity": {
+    "ERROR": 0,
+    "WARNING": 7,
+    "INFO": 0
+  },
+  "error_findings": [],
+  "non_blocking_findings": [
+    {
+      "severity": "WARNING",
+      "rule": "python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected",
+      "path": "/Users/drew/ENV/Devops/pilots/station2-twin/app/vault_creds.py",
+      "line": 89,
+      "message": "Detected a dynamic value being used with urllib. urllib supports 'file://' schemes, so a dynamic value controlled by a malicious actor may allow them to read arbitrary files. Audit uses of urllib calls to ensure user data cannot control the URLs, or consider using the 'requests' library instead."
+    },
+    {
+      "severity": "WARNING",
+      "rule": "python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected",
+      "path": "/Users/drew/ENV/Devops/pilots/station2-twin/app/vault_creds.py",
+      "line": 96,
+      "message": "Detected a dynamic value being used with urllib. urllib supports 'file://' schemes, so a dynamic value controlled by a malicious actor may allow them to read arbitrary files. Audit uses of urllib calls to ensure user data cannot control the URLs, or consider using the 'requests' library instead."
+    },
+    {
+      "severity": "WARNING",
+      "rule": "python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected",
+      "path": "/Users/drew/ENV/Devops/pilots/station2-twin/ingest/discover_sources.py",
+      "line": 56,
+      "message": "Detected a dynamic value being used with urllib. urllib supports 'file://' schemes, so a dynamic value controlled by a malicious actor may allow them to read arbitrary files. Audit uses of urllib calls to ensure user data cannot control the URLs, or consider using the 'requests' library instead."
+    },
+    {
+      "severity": "WARNING",
+      "rule": "python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected",
+      "path": "/Users/drew/ENV/Devops/pilots/station2-twin/ingest/load_dimensional.py",
+      "line": 224,
+      "message": "Detected a dynamic value being used with urllib. urllib supports 'file://' schemes, so a dynamic value controlled by a malicious actor may allow them to read arbitrary files. Audit uses of urllib calls to ensure user data cannot control the URLs, or consider using the 'requests' library instead."
+    },
+    {
+      "severity": "WARNING",
+      "rule": "python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected",
+      "path": "/Users/drew/ENV/Devops/pilots/station2-twin/ingest/load_geography.py",
+      "line": 98,
+      "message": "Detected a dynamic value being used with urllib. urllib supports 'file://' schemes, so a dynamic value controlled by a malicious actor may allow them to read arbitrary files. Audit uses of urllib calls to ensure user data cannot control the URLs, or consider using the 'requests' library instead."
+    },
+    {
+      "severity": "WARNING",
+      "rule": "python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected",
+      "path": "/Users/drew/ENV/Devops/pilots/station2-twin/ingest/load_registry.py",
+      "line": 131,
+      "message": "Detected a dynamic value being used with urllib. urllib supports 'file://' schemes, so a dynamic value controlled by a malicious actor may allow them to read arbitrary files. Audit uses of urllib calls to ensure user data cannot control the URLs, or consider using the 'requests' library instead."
+    },
+    {
+      "severity": "WARNING",
+      "rule": "python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected",
+      "path": "/Users/drew/ENV/Devops/pilots/station2-twin/ingest/probe_feed.py",
+      "line": 43,
+      "message": "Detected a dynamic value being used with urllib. urllib supports 'file://' schemes, so a dynamic value controlled by a malicious actor may allow them to read arbitrary files. Audit uses of urllib calls to ensure user data cannot control the URLs, or consider using the 'requests' library instead."
+    }
+  ],
+  "scan_integrity": {
+    "ok": true,
+    "config_errors": [],
+    "note": "A mistyped ruleset makes semgrep scan nothing and still report zero findings. files_scanned==0 is treated as a gate failure, not as a clean result."
+  }
+}

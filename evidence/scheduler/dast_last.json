@@ -1,19 +1,17 @@
 {
   "job": "dast",
-  "started_at": "2026-08-18T20:00:04Z",
-  "status": "ok",
-  "exit_code": 0,
-  "duration_seconds": 33,
+  "started_at": "2026-08-19T20:00:04Z",
+  "status": "failed",
+  "exit_code": 1,
+  "duration_seconds": 2,
   "interval_seconds": 86400,
   "command": "platform/security/scan_dast.sh",
   "trigger": "scheduled",
-  "last_scheduled_at": "2026-08-18T20:00:04Z",
+  "last_scheduled_at": "2026-08-19T20:00:04Z",
   "output_tail": [
     "=== [dast] OWASP ZAP baseline against https://host.docker.internal:18443 ===",
     "    gate: fail at MEDIUM and above",
-    "  sites scanned: https://host.docker.internal:18443   (urls in alerts: 1)",
-    "  HIGH=0  MEDIUM=0  LOW=0  INFO=1",
-    "DAST PASS",
-    "artifact=/Users/drew/ENV/Devops/evidence/security/dast_summary_20260818T200004Z.json"
+    "DAST FAILED: target https://host.docker.internal:18443 (probed as https://127.0.0.1:18443) is not reachable.",
+    "Is the develop deployment up? platform/compose/deploy.sh status develop <pilot>"
   ]
 }
