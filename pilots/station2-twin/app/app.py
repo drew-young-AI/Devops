@@ -48,7 +48,7 @@ APP_VERSION = os.environ.get("APP_VERSION", "dev")
 
 # The schema this build was written against. Bumped in the same commit as the
 # migration that introduces it, so code and schema move together or not at all.
-EXPECTED_SCHEMA_VERSION = int(os.environ.get("EXPECTED_SCHEMA_VERSION", "13"))
+EXPECTED_SCHEMA_VERSION = int(os.environ.get("EXPECTED_SCHEMA_VERSION", "14"))
 
 DEFAULT_DISEASE = os.environ.get("DEFAULT_DISEASE", "influenza_like_illness")
 
@@ -308,6 +308,9 @@ class Handler(BaseHTTPRequestHandler):
                 return self._latest(parts[1])
             if len(parts) == 3 and parts[0] == "twin" and parts[2] == "history":
                 return self._history(parts[1], query)
+            # --- the forecast ---
+            if parts == ["forecast"]:
+                return self._forecast(query)
             # --- the surveillance twin ---
             if parts == ["surveillance", "scan"]:
                 return self._scan(query)
@@ -316,6 +319,9 @@ class Handler(BaseHTTPRequestHandler):
         except Exception as exc:
             db_error_count += 1
             error_count += 1
+            if condemn_pool_if_auth_failure(exc):
+                log("db_credential_rejected", path=path)
+                return self.send_json(503, {"error": "credential_rejected"})
             log("db_error", error=type(exc).__name__, path=path)
             return self.send_json(503, {"error": "database_unavailable"})
 
@@ -430,6 +436,85 @@ class Handler(BaseHTTPRequestHandler):
         if payload["baseline_n"] == 0 and not payload["series"]:
             return self.send_json(404, {"error": "unknown_county", "county_code": county_code})
         return self.send_json(200, payload)
+
+    def _forecast(self, query):
+        """Serve a published forecast, or explain why there is not one.
+
+        THIS HANDLER LOADS NO MODEL. It reads a row. Migration 014 explains
+        why: unpickling an estimator in the most network-exposed process here
+        would be arbitrary code execution, and a pickle silently returns
+        different numbers after a library upgrade instead of failing.
+
+        A 404 here is a real answer, not a gap. The forecast_gate trigger
+        refuses any forecast whose model lost to persistence, so "no forecast
+        for t+1" means the model was not good enough to serve -- which the
+        caller is told, with the numbers, rather than being handed a prediction
+        nobody should act on.
+        """
+        geo = (query.get("geo") or ["66000"])[0]
+        visit = (query.get("visit_type") or ["門診"])[0]
+        with pool().connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("""
+                    SELECT f.horizon_weeks, f.target_epi_year, f.target_epi_week,
+                           f.origin_epi_year, f.origin_epi_week,
+                           f.observed_at_origin, f.predicted_value,
+                           f.backtest_mae, f.baseline_persistence_mae,
+                           f.model_run_id, f.generated_at, g.name
+                    FROM forecast f JOIN geo_area g ON g.geo_code = f.geo_code
+                    WHERE f.geo_code = %s AND f.visit_type = %s
+                    ORDER BY f.horizon_weeks
+                """, (geo, visit))
+                rows = cur.fetchall()
+
+                if not rows:
+                    # Say WHY, with the numbers. "No forecast" alone reads as a
+                    # broken endpoint; the actual situation is that the model
+                    # was measured and did not qualify.
+                    cur.execute("""
+                        SELECT horizon_weeks, mae, baseline_persistence_mae,
+                               beats_baselines
+                        FROM model_run WHERE split_strategy = 'rolling_origin'
+                        ORDER BY horizon_weeks, mae LIMIT 4
+                    """)
+                    ev = [{"horizon_weeks": h, "backtest_mae": m,
+                           "baseline_persistence_mae": b,
+                           "beats_baselines": w} for h, m, b, w in cur.fetchall()]
+                    return self.send_json(404, {
+                        "status": "no_published_forecast",
+                        "detail": "No model has beaten both naive baselines for "
+                                  "this series, so nothing is published. A "
+                                  "forecast worse than assuming next week "
+                                  "equals this week is not served.",
+                        "evaluated": ev})
+
+                out = []
+                for (h, ty, tw, oy, ow, obs, pred, mae, base, mrid,
+                     gen, name) in rows:
+                    out.append({
+                        "horizon_weeks": h,
+                        "target": {"epi_year": ty, "epi_week": tw},
+                        # No calendar date, on purpose: the epi-week convention
+                        # is unconfirmed with the CDC, so emitting a date would
+                        # assert something this platform does not know in the
+                        # one field a clinician would read first.
+                        "origin": {"epi_year": oy, "epi_week": ow,
+                                   "observed_pct": None if obs is None
+                                   else round(obs * 100, 4)},
+                        "predicted_pct": round(pred * 100, 4),
+                        "accuracy": {
+                            "backtest_mae_pp": round(mae * 100, 4),
+                            "persistence_mae_pp": round(base * 100, 4),
+                            "note": "Backtest MAE comes from rolling-origin "
+                                    "folds; the served model is a refit on all "
+                                    "data, so this is a conservative estimate "
+                                    "of it, not a measurement of it."},
+                        "model_run_id": mrid,
+                        "generated_at": gen.isoformat(),
+                    })
+                return self.send_json(200, {"geo_code": geo, "geo_name": name,
+                                            "visit_type": visit,
+                                            "forecasts": out})
 
     def _scan(self, query):
         disease = query.get("disease", [DEFAULT_DISEASE])[0]
