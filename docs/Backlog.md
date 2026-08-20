@@ -145,6 +145,37 @@ disease=enterovirus` 這種 schema 擋不住的無意義列。
 RODS 家族尚未載入的 6 個 feed（腹瀉、結膜炎、COVID-19、腸病毒、手足口病、
 疱疹性咽峽炎）等這件事決定後再一起處理，否則會用錯的 metric 形狀載進去。
 
+## 9. 簡報用的八張圖 — 待完成
+
+`docs/Platform-Report.html` 是第一版，使用者評「品質不差，但我還不滿意」。
+缺的是**結構**：三層混在一張圖裡，各層沒有自己的圖。指定要補的八張，
+**配色由使用者指定，不要自行更換**：
+
+| # | 圖 | 顏色 |
+|---|---|---|
+| 1–2 | DevOps 架構 / 流程 | 藍 |
+| 3–4 | DataOps 架構 / 流程 | 綠 |
+| 5–6 | MLOps 架構 / 流程 | 棕 |
+| **7** | **大統整流程圖** | 三色分段 |
+| **8** | **大統整架構圖** | 三色分段 |
+
+7、8 是使用者特別強調的重點。目的是**報告長官**，所以每張圖要能單獨看懂。
+
+畫法：先安裝 `cathrynlavery/diagram-design`（MIT / v2.5.20 / 23.7k star，已查證
+skill 只帶 drawio_extract、mermaid_extract、self_check 三支解析器，無網路與系統存取）。
+**安裝是 Claude Code 互動指令，AI 跑不了**，需使用者自行輸入：
+
+```
+/plugin marketplace add cathrynlavery/diagram-design
+/plugin install diagram-design@diagram-design
+```
+
+它能重畫 draw.io 與 Mermaid，所以 `docs/Spark-Design.md` 的 flowchart 與
+`platform/statusdag/dag.py` 的輸出可以直接接進去，不必手繪 SVG。
+
+第 3 節列的三條斷層（週定義、中醫大前提、K8s）經使用者確認為**已知且刻意延後**，
+不是遺漏；補齊時一併更新該頁。
+
 ---
 
 ## 已知但尚未排期的技術債
