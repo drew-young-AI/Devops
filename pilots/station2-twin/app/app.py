@@ -92,6 +92,57 @@ def dsn():
 # out just inside the margin outlives its own credential mid-query.
 CRED_REFRESH_MARGIN_SECONDS = float(os.environ.get("CRED_REFRESH_MARGIN", "300"))
 
+# PREDICTING EXPIRY IS NOT ENOUGH, AND 2026-08-20 PROVED IT.
+#
+# The margin above schedules a rebuild against the credential's advertised TTL.
+# That number was wrong: the lease is a child of the AppRole token, so it died
+# after ~20 minutes while advertising 3600s. The margin had not fired and would
+# not have fired for another 26 minutes. Meanwhile postgres was answering
+# `password authentication failed` on every single connection attempt.
+#
+# vault_creds.py now computes the effective TTL correctly, so the prediction is
+# no longer wrong. This flag exists because a CORRECT prediction is still only a
+# prediction: an operator revoking a lease, `vault lease revoke -prefix`, a
+# Vault restart, or a clock skew all end a credential early, and none of them
+# announce it. The authoritative signal that a credential is dead is postgres
+# refusing it -- so react to that, rather than only to the calendar.
+_pool_is_condemned = False
+
+# psycopg raises OperationalError for both "wrong password" and "host is down".
+# Only the first should throw the credential away: rebuilding the pool because
+# the database is briefly unreachable would fetch a new Vault lease on every
+# blip, which is a credential-churn loop dressed up as resilience.
+_AUTH_FAILURE_MARKERS = (
+    "password authentication failed",
+    "role \"",                      # ... does not exist -- lease was revoked
+    "permission denied for",        # a grant vanished under us
+)
+
+
+def condemn_pool_if_auth_failure(exc):
+    """Mark the pool for rebuild when postgres says the CREDENTIAL is bad.
+
+    Returns True when the error was an authentication failure, so callers can
+    report the accurate cause instead of a generic `db_unreachable`.
+    """
+    global _pool_is_condemned
+    text = str(exc).lower()
+    if any(m in text for m in _AUTH_FAILURE_MARKERS):
+        _pool_is_condemned = True
+        return True
+    return False
+
+
+def _discard_pool():
+    global _pool, _pool_is_condemned
+    old, _pool = _pool, None
+    _pool_is_condemned = False
+    if old is not None:
+        try:
+            old.close()
+        except Exception as exc:
+            log("db_pool_close_failed", detail=type(exc).__name__)
+
 
 def pool():
     """The pool, rebuilt when its credential is about to expire.
@@ -108,17 +159,18 @@ def pool():
     self-limiting.
     """
     global _pool
+    if _pool is not None and _pool_is_condemned:
+        log("db_credential_rejected", username=CREDENTIALS.username,
+            lease_id=CREDENTIALS.lease_id,
+            action="rebuilding pool after an authentication failure")
+        _discard_pool()
     if _pool is not None and CREDENTIALS.expires_within(CRED_REFRESH_MARGIN_SECONDS):
         log("db_credential_expiring", username=CREDENTIALS.username,
             lease_id=CREDENTIALS.lease_id, action="rebuilding pool")
-        old, _pool = _pool, None
-        try:
-            # Closing waits for in-flight connections to be returned, so a
-            # request already holding one finishes on the old credential
-            # rather than having it pulled mid-query.
-            old.close()
-        except Exception as exc:
-            log("db_pool_close_failed", detail=type(exc).__name__)
+        # _discard_pool closes, which waits for in-flight connections to be
+        # returned, so a request already holding one finishes on the old
+        # credential rather than having it pulled mid-query.
+        _discard_pool()
     if _pool is None:
         _pool = ConnectionPool(
             dsn(),
@@ -163,6 +215,19 @@ def readiness():
         CREDENTIALS.last_error = str(exc)
         return False, {"status": "credentials_unavailable", "detail": str(exc)}
     except Exception as exc:
+        # A rejected credential is NOT an unreachable database, and calling it
+        # one is the mistake that cost hours on 2026-08-19 and again on 08-20:
+        # the reader follows a database-outage runbook and finds a healthy
+        # database. Name it, and mark the pool so the next call rebuilds with a
+        # fresh lease instead of retrying a credential postgres has already
+        # refused.
+        if condemn_pool_if_auth_failure(exc):
+            return False, {"status": "credential_rejected",
+                           "detail": "postgres refused the Vault-issued "
+                                     "credential; it was revoked or expired "
+                                     "early. The pool will be rebuilt on the "
+                                     "next attempt.",
+                           "username": CREDENTIALS.username}
         return False, {"status": "db_unreachable", "detail": type(exc).__name__}
     if version is None:
         return False, {"status": "schema_missing",

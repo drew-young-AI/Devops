@@ -170,3 +170,74 @@ class CredentialLifecycleTests(unittest.TestCase):
             self.assertIn(field, source,
                           "an operator must be able to see how long the live "
                           "credential has left")
+
+
+class CredentialRevokedEarlyTests(unittest.TestCase):
+    """A credential can die before its advertised TTL, and did.
+
+    2026-08-20: the pilot's Vault credential was rejected by postgres with
+    `password authentication failed` 29 minutes after issue, while advertising
+    3600 seconds of remaining life. The role had been dropped.
+
+    THE ADVERTISED TTL WAS THE WRONG NUMBER. The database lease is a CHILD of
+    the AppRole token (token_ttl=20m), and Vault revokes child leases when the
+    parent dies. Effective lifetime is min(credential TTL, token TTL) = 1200s,
+    not the 3600s the credential reports. The refresh margin was scheduled
+    against 3600 and would not have fired for another 26 minutes.
+
+    A CORRECT PREDICTION IS STILL ONLY A PREDICTION. An operator revoking a
+    lease, `vault lease revoke -prefix`, or a Vault restart all end a credential
+    early and none of them announce it. So the pool also reacts to postgres
+    actually refusing the credential.
+
+    Proved behaviourally against live Vault: revoking the lease mid-flight gave
+    `credential_rejected` on the next probe and `ready` with a DIFFERENT
+    username on the one after. These static assertions defend against someone
+    deleting that and leaving the comment -- which is the failure mode this
+    platform keeps hitting.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        root = pathlib.Path(__file__).resolve().parents[1]
+        cls.app = (root / "app" / "app.py").read_text()
+        cls.vault = (root / "app" / "vault_creds.py").read_text()
+
+    def test_effective_ttl_is_the_minimum_of_credential_and_token(self):
+        self.assertIn("min(ttls)", self.vault,
+                      "vault_creds must take the SMALLER of the credential TTL "
+                      "and the parent token TTL; scheduling against the "
+                      "credential's own 3600s is what let it die at 20 minutes")
+        self.assertIn("token_ttl", self.vault,
+                      "the parent token TTL must be read from the auth response")
+
+    def test_zero_ttl_is_treated_as_unknown_not_as_instant_expiry(self):
+        self.assertIn("if t > 0", self.vault,
+                      "a missing TTL must be excluded from the minimum, not "
+                      "taken as 0 -- that would mark every credential as "
+                      "already expired and rebuild the pool on every request")
+
+    def test_pool_reacts_to_an_authentication_failure(self):
+        self.assertIn("_pool_is_condemned", self.app,
+                      "the pool must be rebuildable on an auth failure, not "
+                      "only on predicted expiry")
+        self.assertIn("password authentication failed", self.app,
+                      "the postgres auth-failure text is the authoritative "
+                      "signal that a credential is dead")
+
+    def test_a_network_blip_does_not_throw_away_the_credential(self):
+        """Rebuilding on ANY OperationalError is a credential-churn loop.
+
+        psycopg raises OperationalError for both "wrong password" and "host is
+        down". Only the first should discard the lease; treating a brief
+        outage as a dead credential fetches a new Vault lease on every blip.
+        """
+        self.assertIn("_AUTH_FAILURE_MARKERS", self.app,
+                      "auth failures must be matched specifically, not by "
+                      "catching every OperationalError")
+
+    def test_a_rejected_credential_is_not_reported_as_db_unreachable(self):
+        self.assertIn("credential_rejected", self.app,
+                      "a refused credential must not be reported as "
+                      "db_unreachable -- that sends the reader to a healthy "
+                      "database with an outage runbook")

@@ -148,6 +148,22 @@ def fetch_credentials():
         raise VaultUnavailable(f"Vault unreachable at {VAULT_ADDR}: {exc}") from exc
 
     token = auth["auth"]["client_token"]
+    # THE CREDENTIAL LEASE IS A CHILD OF THIS TOKEN.
+    #
+    # Vault revokes child leases when their parent token dies. The AppRole is
+    # configured token_ttl=20m / token_max_ttl=1h, so a database credential with
+    # its own lease_duration of 3600s is in fact dead after at most the token's
+    # life -- and in practice after 20 minutes, because nothing renews the token.
+    #
+    # Observed 2026-08-20: the pilot's credential was issued, and 29 minutes
+    # later postgres answered `password authentication failed` because Vault had
+    # dropped the role. The credential's own TTL still had 55 minutes left on
+    # paper, so the refresh margin -- calibrated against that number -- had not
+    # fired and would not have fired for another 26 minutes.
+    #
+    # So the effective lifetime is min(credential TTL, token TTL), and the token
+    # TTL is the number the caller actually has to schedule against.
+    token_ttl = auth["auth"].get("lease_duration") or 0
 
     try:
         creds = _get(f"database/creds/{VAULT_DB_ROLE}", token)
@@ -161,8 +177,13 @@ def fetch_credentials():
     except (urllib.error.URLError, OSError) as exc:
         raise VaultUnavailable(f"Vault unreachable: {exc}") from exc
 
+    cred_ttl = creds.get("lease_duration", 0) or 0
+    # The smaller of the two wins, and 0 means "unknown" rather than "instant",
+    # so an absent value must not silently become the effective lifetime.
+    ttls = [t for t in (cred_ttl, token_ttl) if t > 0]
+    effective_ttl = min(ttls) if ttls else 0
     return (creds["data"]["username"], creds["data"]["password"],
-            creds.get("lease_id", ""), creds.get("lease_duration", 0))
+            creds.get("lease_id", ""), effective_ttl, cred_ttl, token_ttl)
 
 
 class CredentialSource:
@@ -173,6 +194,8 @@ class CredentialSource:
         self.lease_id = None
         self.issued_at = None
         self.ttl = None
+        self.cred_ttl = None
+        self.token_ttl = None
         self.mode = "static" if not enabled() else "vault"
         self.last_error = None
 
@@ -183,11 +206,13 @@ class CredentialSource:
             return (f"host={host} port={port} dbname={dbname} "
                     f"user={static_user} password={static_password}")
 
-        user, password, lease, ttl = fetch_credentials()
+        user, password, lease, ttl, cred_ttl, token_ttl = fetch_credentials()
         self.mode = "vault"
         self.username = user
         self.lease_id = lease
-        self.ttl = ttl
+        self.ttl = ttl                  # effective: min(credential, parent token)
+        self.cred_ttl = cred_ttl        # reported separately so the gap is visible
+        self.token_ttl = token_ttl
         self.issued_at = time.time()
         self.last_error = None
         return (f"host={host} port={port} dbname={dbname} "
@@ -214,6 +239,14 @@ class CredentialSource:
             out.update(lease_id=self.lease_id, ttl_seconds=self.ttl,
                        age_seconds=age,
                        expires_in=max(0, (self.ttl or 0) - age))
+            # Both reported, because they disagree and the disagreement is the
+            # whole point: the credential says 3600 and the parent token says
+            # 1200, and it is the smaller one that ends the credential's life.
+            if self.cred_ttl != self.ttl or self.token_ttl != self.ttl:
+                out.update(credential_ttl_seconds=self.cred_ttl,
+                           parent_token_ttl_seconds=self.token_ttl,
+                           effective_ttl_note="lease is a child of the AppRole "
+                           "token; the shorter lifetime wins")
         if self.last_error:
             out["last_error"] = self.last_error
         return out
