@@ -255,6 +255,73 @@ MLOps/LLMOps：保留接口，延後擴充
 > Compose blue/green、重構 `deploy.sh`（629 行）、移植 launchd scheduler。
 > 這些在 K8s 上有原生對應，移植等於把兩套錯的東西合成一套。
 
+## 0.2 三條主線與里程碑（2026-08-20 建立）
+
+> 這一節是**對外報告的依據**。每個里程碑都有一個「怎麼證明它成立」的欄位，
+> 沒有可重跑的證據就不算達成——這是本專案反覆栽跟頭之後定下的規矩：
+> **一句描述機制的註解，不是那個機制存在的證據。**
+
+### 主線 A — DevOps（藍）
+
+| # | 里程碑 | 狀態 | 證明方式（可重跑） |
+|---|---|---|---|
+| A1 | 服務契約：liveness / readiness 分離 | ✅ | `curl /health/ready` 回 503 `schema_mismatch`；重啟不會被觸發 |
+| A2 | Migration gate：expand/contract 強制 | ✅ | `platform/db/migrate.sh --dry-run` 擋下 contract 語句（實測擋過 3 次） |
+| A3 | Migration checksum：已套用不可改 | ✅ | 改動已套用檔案 → 拒絕並要求寫新 migration（實測擋過我一次） |
+| A4 | CI 六階段 | ✅ | `platform/ci/run_local_ci.sh` → `CI PASS`，編譯 11 檔 |
+| A5 | Vault 動態資料庫憑證 | ✅ | `verify_database_secrets.sh` 6/6，含「撤銷後 postgres 確實拒絕」 |
+| A6 | 憑證有效壽命正確 + 被拒即自癒 | ✅ | 撤銷運行中租約 → `credential_rejected` → 下一次請求 `ready`（換 username） |
+| A7 | 告警送達真人 | ✅ | 注入真實 alert → Alertmanager route `telegram` → 送達，零 `Notify failed` |
+| A8 | 備份覆蓋率不得有漏 | ✅ | `backup.sh` 對 11 個現存 volume 逐一歸屬，`UNCOVERED` 為空 |
+| A9 | **Kubernetes 底座** | ⬜ | 待建：真 StorageClass + registry；k3d 練習叢集已整組移除 |
+| A10 | **blue/green 真實顏色切換** | ⬜ | 需先拆 station2-twin 的 db/app compose；判定為 K8s 上一次做對 |
+
+### 主線 B — DataOps（綠）
+
+| # | 里程碑 | 狀態 | 證明方式（可重跑） |
+|---|---|---|---|
+| B1 | 來源以列舉發現，不猜 URL | ✅ | `ingest/discover_sources.py cdc` → 281 筆資源；最細的 feed 是這樣找到的 |
+| B2 | 官方地理權威 + 證據式對照 | ✅ | 22 縣市 / 365 鄉鎮 / 7,667 村里；`geo_alias.csv` 每筆帶 `evidence` |
+| B3 | 粒度即資料（星狀模型） | ✅ | 同一張事實表同時容納 縣市×週、鄉鎮×年、鄉鎮×日 |
+| B4 | stock vs flow 型別化 | ✅ | `metric.measure_type` CHECK；管理中個案數不可沿時間加總 |
+| B5 | 重複 vs 衝突分離 | ✅ | 值相同=重複、值不同=拒絕；CareMag 抓到 1 筆真衝突 |
+| B6 | 血緣算術收斂且可斷言 | ✅ | `in_file = accepted + rejected + duplicate`，32 筆全數成立（CHECK 約束） |
+| B7 | 分母到位，鄉鎮率可算 | ✅ | 戶政司村里人口 5 年；石岡區 43.2/10萬 對 大安區 28.1/10萬 |
+| B8 | NHI 全 11 疾病載入 | ✅ | 6,172,492 事實列；COVID 只有 90,373 列（2021 起，**未補零**） |
+| B9 | 資料契約進 CI | ✅ | 13 靜態 + 14 live；live 在資料庫缺席時**失敗不跳過** |
+| B10 | **流行病學週 ↔ 日曆日** | 🔴 | **阻斷中**：1,024 個週期間 `cal_date` 全 NULL，週/日資料無法 join。**只有向疾管署查證能解** |
+| B11 | **RODS 家族 6 個 feed** | ⬜ | 卡在 `ili_ed_visits` metric 過度指定（應用程式讀它，屬應用變更） |
+
+### 主線 C — MLOps（棕）
+
+| # | 里程碑 | 狀態 | 證明方式（可重跑） |
+|---|---|---|---|
+| C1 | 特徵集有版本與程式碼綁定 | ✅ | `feature_set.code_sha256`；554 週 × 11 特徵 |
+| C2 | 無前瞻性質測試 | ✅ | 截斷序列重建，過去不得改變；**注入 2 種洩漏皆被抓** |
+| C3 | seasonal_index 不落地（防洩漏） | ✅ | 每折從訓練窗重算，schema 刻意無此欄位 |
+| C4 | rolling-origin + 兩個天真基準 | ✅ | 449 折；持平與季節天真在**同一批折**上評分 |
+| C5 | 刻意的錯誤對照入庫 | ✅ | `split_strategy='random'` 保留，證明隨機切分的數字看不出是錯的 |
+| C6 | 「輸了不准上線」是 trigger 不是慣例 | ✅ | 實測：model_run 1（輸）與 4（隨機切分）INSERT 皆被拒 |
+| C7 | 預測可被服務且不載入模型 | ✅ | `GET /forecast`；API 只做 SELECT，服務路徑不反序列化 |
+| C8 | **模型真的贏過基準** | 🔴 | **未達成**：t+1 輸 12%；t+2 僅勝 0.3%（雜訊）。方向準確率 63.8% 是唯一有內容的數字 |
+| C9 | **排程重訓** | ⬜ | 尚未接 scheduler |
+| C10 | **中醫大個人／醫院級資料** | ⬜ | 有三個硬前提（見 `docs/Backlog.md` §7） |
+
+### 可以對外報告的門檻
+
+**現在就能報告的**：A1–A8、B1–B9、C1–C7 全部有可重跑證據。
+平台三層閉環，血緣從政府 API 一路到模型，且每個閘門都用**突變測試**驗證過
+（本階段注入 9 次刻意破壞，全部被抓到）。
+
+**報告時必須同時講的三件事**（不講會變成誤導）：
+
+1. **B10 是硬阻斷**，且只有疾管署能解——不是工程問題。
+2. **C8 未達成**：模型目前多數情況輸給「假設下週跟這週一樣」。
+   這是誠實結果不是待修 bug；週 %ILI 高度自相關，持平是很強的基準。
+   系統的正確反應是**拒絕上線**，而它確實拒絕了。
+3. **A9/A10 是刻意延後**，理由是避免在 Compose 上做一次、K8s 上再做一次。
+
+
 ## 1. 定位
 
 本專案在單一 MacBook 上建立縮小版企業 DevOps 控制面，不假裝具備多節點 HA、真實 VPC、F5、CDN 或 production capacity。
