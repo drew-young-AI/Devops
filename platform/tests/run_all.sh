@@ -26,6 +26,10 @@ SUITES=(
   # suite that passes with no data would have reported success throughout the
   # 3h55m credential outage on 2026-08-19.
   test_data_contract_live.sh
+  # The MLOps half of the same idea: a leak does not fail, it flatters. This
+  # rebuilds the feature set over a truncated series and requires the past not
+  # to change. Verified by injecting two deliberate leaks; both were caught.
+  test_no_lookahead.sh
 )
 
 FAILED_SUITES=()

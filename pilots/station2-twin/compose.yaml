@@ -64,7 +64,7 @@ services:
       PGUSER: ${PGUSER:-twin}
       PGPASSWORD: ${PGPASSWORD:-twin-bootstrap}
       APP_VERSION: ${APP_VERSION:-station2-dev}
-      EXPECTED_SCHEMA_VERSION: ${EXPECTED_SCHEMA_VERSION:-12}
+      EXPECTED_SCHEMA_VERSION: ${EXPECTED_SCHEMA_VERSION:-13}
       GRACEFUL_DRAIN_SECONDS: ${GRACEFUL_DRAIN_SECONDS:-3}
       # Vault AppRole. When both are set the service fetches a
       # short-lived database credential instead of using PGPASSWORD.
