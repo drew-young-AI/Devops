@@ -22,7 +22,7 @@ timestamp: 2026-08-18T11:05:00+08:00
 | # | 項目 | 轉移到 K8s | 現在做？ |
 |---|---|---|---|
 | 1 | Vault 動態資料庫憑證 | ✅ 完全轉移 | **現在做** |
-| 2 | station2-twin 接進 blue/green | ❌ 被取代 | **不要投入** |
+| 2 | station2-twin 接進 blue/green | ⚠️ 判定 2026-08-21 改變 | **A9 完成後接著做**（在 K8s 上，不在 Compose） |
 | 3 | DAST form-aware profile | ✅ 完全轉移 | **現在做** |
 | 4 | station2-twin 的 ingress ceiling | ⚠️ 政策轉移、實作不轉移 | 只寫政策 |
 | 5 | 異地備份（Google Drive） | ✅ 與底層無關 | 待使用者決定 |
@@ -48,7 +48,20 @@ TTL、revocation）與底層無關。K8s 上改變的只有「憑證怎麼送進
 （Vault Agent Injector / External Secrets Operator / CSI driver），
 **Vault 這一側一行都不用改**。這是少數現在做、之後原封不動帶走的工作。
 
-## 2. station2-twin 接進 blue/green — 不要投入
+## 2. station2-twin 接進 blue/green — 判定已於 2026-08-21 改變
+
+**原判定（station1-hello 還在時）：不要投入。** 理由是產出的 Compose blue/green
+機制不會被帶到 K8s。那個理由**現在仍然成立**——但前提變了：A9 已完成，
+K8s 底座就緒（`platform/k8s/verify_cluster.sh` 8/8），所以現在做 blue/green
+不必在 Compose 上補一次，直接在 K8s 上用 Deployment 做。
+
+使用者 2026-08-21 定序：**A9 先，A10 後**。下一步是拆 station2-twin 的
+db/app compose（讓兩個顏色共用同一個資料庫，那正是 expand/contract 紀律存在的理由），
+然後在 K8s 上驗證真實顏色切換。
+
+以下為原判定，保留供對照：
+
+### 原判定
 
 **2026-08-19 補充：station1-hello 退役後，blue/green 現在沒有任何目標 Pilot。**
 station2-twin 接不上的原因是具體的，不是抽象的：它的 `compose.yaml` 把

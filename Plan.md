@@ -273,8 +273,8 @@ MLOps/LLMOps：保留接口，延後擴充
 | A6 | 憑證有效壽命正確 + 被拒即自癒 | ✅ | 撤銷運行中租約 → `credential_rejected` → 下一次請求 `ready`（換 username） |
 | A7 | 告警送達真人 | ✅ | 注入真實 alert → Alertmanager route `telegram` → 送達，零 `Notify failed` |
 | A8 | 備份覆蓋率不得有漏 | ✅ | `backup.sh` 對 11 個現存 volume 逐一歸屬，`UNCOVERED` 為空 |
-| A9 | **Kubernetes 底座** | 🔴 | 待建：真 StorageClass + registry；k3d 練習叢集已整組移除 |
-| A10 | **blue/green 真實顏色切換** | ⬜ | 需先拆 station2-twin 的 db/app compose；判定為 K8s 上一次做對 |
+| A9 | Kubernetes 底座 | ✅ | k3d v5.9.0 重建；`verify_cluster.sh` 8/8 端到端（PVC 實際綁定寫入、image 實際推送並由節點拉取） |
+| A10 | **blue/green 真實顏色切換** | ⬜ | 底座已就緒（A9 完成）。下一步：拆 station2-twin 的 db/app，在 K8s 上用 Deployment 做，不在 Compose 上補 |
 
 ### 主線 B — DataOps（綠）
 
@@ -352,6 +352,40 @@ t+1 被 `publish_forecast.py` 擋下（輸給持平基準），t+2 發布 2026W3
 每週為此發一次警報，是讓警報被靜音的最快方法。
 
 **八張圖全部畫完**，在 `docs/diagrams/`，全部通過 diagram-design 的 `self_check`。
+
+### 2026-08-21 補記（A9 完成：Kubernetes 底座）
+
+k3d v5.9.0（darwin-arm64 原生）裝在 `~/.local/bin`——**不碰 `/usr/local`、不用全域套件管理器**，
+已登記進 AIS `registry.yaml` 並附 verify 指令。
+
+**舊叢集為什麼是砍掉重建而不是調整**：它已經是殭屍——CLI 沒安裝、API port 沒發布、
+kubeconfig 指向死位址、閒置 31 小時佔 4.4 GB。**沒有人有辦法判斷它是死的。**
+
+新叢集修掉兩個具體缺陷：
+
+| | 舊 | 新 |
+|---|---|---|
+| agent 記憶體上限 | 1.465 GB（閒置就 78–95% 滿） | **3 GB**（閒置 3%） |
+| registry | 無，只能 `k3d image import` | **有**，image 走名稱拉取 |
+| 總佔用 | 4.4 GB | **835 MiB** |
+| API port | 未發布 → 不可達 | `127.0.0.1:6551` 明確發布 |
+
+`platform/k8s/verify_cluster.sh` **執行動作而不是讀設定**——這是刻意的，
+因為舊叢集在 `kubectl get` 的輸出裡看起來完全正常：
+
+1. API 實際可達
+2. 3/3 節點 Ready
+3. agent 記憶體以 bytes 斷言 ≥ 2 GiB（Spark executor 放得下）
+4. **PVC 實際綁定**，provisioner 是 `rancher.io/local-path`
+5. **實際寫入並讀回**一個 byte
+6. registry 回應 `/v2/`
+7. **從主機實際推送**一個 image
+8. **由節點實際拉取**（證明 containerd mirror 真的設定成功）
+
+負控制兩則：指向不存在的叢集 → 第 1 項失敗；registry 埠指錯 → 第 6 項失敗。
+
+**A10 的順序依使用者判定改變**：底座先建（A9），再拆 blue/green（A10），
+在 K8s 上用 Deployment 做，不在 Compose 上補一次。
 
 ## 1. 定位
 
