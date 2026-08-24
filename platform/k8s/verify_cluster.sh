@@ -10,8 +10,26 @@
 # and actually pulled by a node. A check that only reads configuration would
 # have passed on the cluster we deleted.
 #
-# Time-bounded: the whole suite is seconds, and every object it creates is
-# removed in a trap, including on failure.
+# TWO MODES, BECAUSE THEY ANSWER DIFFERENT QUESTIONS.
+#
+#   --quick   Is this capability ALIVE?  (~2s, no objects created)
+#   (default) Does every feature WORK end-to-end?  (~60-90s, creates and
+#             removes a namespace, a PVC and two pods)
+#
+# The split was forced by a real failure: registering the full suite as the AIS
+# capability `verify` command made it a ZOMBIE, because that registry allows 60s
+# and the conformance run exceeds it. Raising the registry's timeout would have
+# been the wrong fix -- a liveness check that takes 90 seconds is not a liveness
+# check.
+#
+# --quick is NOT a weakened check. Every one of its three assertions performs a
+# real API round-trip, and all three are exactly what the deleted cluster failed:
+# its API was unreachable, so `kubectl get nodes` would have caught it on any day
+# of the 31 hours nobody noticed. What --quick omits is CONFORMANCE (does storage
+# provision, does the registry serve nodes) -- questions worth asking after a
+# rebuild or in CI, not every time something asks "is it up".
+#
+# Time-bounded: every object created is removed in a trap, including on failure.
 set -uo pipefail
 
 K3D="${K3D:-$HOME/.local/bin/k3d}"
@@ -19,6 +37,8 @@ CLUSTER="${CLUSTER:-devops-lab}"
 CTX="k3d-$CLUSTER"
 REGISTRY_PORT="${REGISTRY_PORT:-5111}"
 NS="verify-$$"
+QUICK=0
+[ "${1:-}" = "--quick" ] && QUICK=1
 
 PASS=0; FAIL=0
 ok()   { printf '  PASS  %s\n' "$1"; PASS=$((PASS+1)); }
@@ -32,7 +52,11 @@ cleanup() {
 }
 trap cleanup EXIT
 
-echo "=== k8s cluster verification ($CLUSTER) ==="
+if [ "$QUICK" = "1" ]; then
+  echo "=== k8s liveness ($CLUSTER) ==="
+else
+  echo "=== k8s cluster verification ($CLUSTER) ==="
+fi
 
 # ── 1. reachable ────────────────────────────────────────────────────────────
 # The old cluster failed HERE and nobody noticed for weeks, because nothing
@@ -60,6 +84,13 @@ SMALL=$(k get nodes --no-headers -o custom-columns=N:.metadata.name,M:.status.ca
 [ -z "$SMALL" ] \
   && ok "every agent has >= $((MIN_KI/1024/1024)) GiB (a Spark executor fits)" \
   || bad "agent memory too small: $SMALL" "this is what made the previous cluster unusable"
+
+if [ "$QUICK" = "1" ]; then
+  echo ""
+  [ "$FAIL" -gt 0 ] && { echo "  $PASS passed, $FAIL FAILED" >&2; exit 1; }
+  echo "  $PASS passed, 0 failed (liveness only -- run without --quick for conformance)"
+  exit 0
+fi
 
 # ── 3. StorageClass ACTUALLY BINDS ──────────────────────────────────────────
 # `get storageclass` proves a name exists. Binding a PVC and writing a byte
