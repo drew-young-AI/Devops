@@ -1,0 +1,55 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: station2-twin-__COLOR__
+  namespace: station2
+  labels: { app: station2-twin, color: __COLOR__ }
+spec:
+  replicas: 2
+  selector:
+    matchLabels: { app: station2-twin, color: __COLOR__ }
+  template:
+    metadata:
+      labels: { app: station2-twin, color: __COLOR__ }
+    spec:
+      containers:
+        - name: twin
+          image: k3d-registry:5111/station2-twin:__IMAGE_TAG__
+          ports: [{ containerPort: 8080 }]
+          env:
+            - { name: PGHOST, value: "host.k3d.internal" }
+            - { name: PGPORT, value: "15432" }
+            - { name: PGDATABASE, value: "twin" }
+            - { name: PGUSER, value: "twin" }
+            - { name: PGPASSWORD, value: "twin-bootstrap" }
+            # Placeholders are __DOUBLE_UNDERSCORED__ because the first version
+            # used bare SCHEMA_VERSION, which sed also matched INSIDE the
+            # variable name EXPECTED_SCHEMA_VERSION -- producing a container
+            # with `EXPECTED_99=99` and no EXPECTED_SCHEMA_VERSION at all. The
+            # app then fell back to its compiled default, which happened to
+            # match the database, so a deliberately-broken green reported
+            # "ready" and the promotion gate let it through. Caught by the
+            # negative control, not by review.
+            - { name: EXPECTED_SCHEMA_VERSION, value: "__SCHEMA__" }
+            - { name: APP_VERSION, value: "__COLOR__-__IMAGE_TAG__" }
+            - { name: GRACEFUL_DRAIN_SECONDS, value: "3" }
+          # readiness, NOT liveness, decides whether this pod receives traffic.
+          # A pod failing readiness is removed from the Service endpoints and
+          # left running -- which is exactly what makes the schema gate a deploy
+          # gate: green with the wrong schema version simply never becomes
+          # eligible, so the promotion cannot even be attempted.
+          readinessProbe:
+            httpGet: { path: /health/ready, port: 8080 }
+            initialDelaySeconds: 3
+            periodSeconds: 3
+            failureThreshold: 2
+          # liveness restarts. It must NOT depend on the database: a DB blip
+          # would otherwise restart every replica of both colours at once and
+          # turn a recoverable dependency failure into a full outage.
+          livenessProbe:
+            httpGet: { path: /health/live, port: 8080 }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          resources:
+            requests: { memory: "64Mi", cpu: "50m" }
+            limits:   { memory: "256Mi", cpu: "500m" }

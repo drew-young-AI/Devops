@@ -1,0 +1,34 @@
+# station2-twin on Kubernetes: the blue/green target the Compose platform never had.
+#
+# WHY THE DATABASE IS NOT IN HERE.
+#
+# Blue and green MUST share one database -- that is the entire reason
+# expand/contract migration discipline exists. Giving each colour its own
+# postgres would make the switch trivially safe and prove nothing, because the
+# thing blue/green actually risks is two code versions against one schema.
+#
+# So both colours point at the existing host postgres (host.k3d.internal:15432),
+# which holds the real 6.5M rows at real schema 15. The schema gate is therefore
+# a real gate, not a fixture.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: station2
+---
+# The Service is the switch. Blue/green here is a SELECTOR change, not a
+# rolling update: rolling replaces pods gradually and there is no moment where
+# you can decide "no, go back". A selector flip is atomic and reversible in one
+# command, which is what makes it a deploy strategy rather than an upgrade.
+apiVersion: v1
+kind: Service
+metadata:
+  name: station2-twin
+  namespace: station2
+spec:
+  selector:
+    app: station2-twin
+    color: blue          # <- promote.sh patches this, and only this
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080

@@ -274,7 +274,7 @@ MLOps/LLMOps：保留接口，延後擴充
 | A7 | 告警送達真人 | ✅ | 注入真實 alert → Alertmanager route `telegram` → 送達，零 `Notify failed` |
 | A8 | 備份覆蓋率不得有漏 | ✅ | `backup.sh` 對 11 個現存 volume 逐一歸屬，`UNCOVERED` 為空 |
 | A9 | Kubernetes 底座 | ✅ | k3d v5.9.0 重建；`verify_cluster.sh` 8/8 端到端（PVC 實際綁定寫入、image 實際推送並由節點拉取） |
-| A10 | **blue/green 真實顏色切換** | ⬜ | 底座已就緒（A9 完成）。下一步：拆 station2-twin 的 db/app，在 K8s 上用 Deployment 做，不在 Compose 上補 |
+| A10 | blue/green 真實顏色切換 | ✅ | K8s 上實測：blue→green→blue，Service `/version` 實際改變；回滾 0.72s；3 個負控制擋下壞 green |
 
 ### 主線 B — DataOps（綠）
 
@@ -386,6 +386,40 @@ kubeconfig 指向死位址、閒置 31 小時佔 4.4 GB。**沒有人有辦法�
 
 **A10 的順序依使用者判定改變**：底座先建（A9），再拆 blue/green（A10），
 在 K8s 上用 Deployment 做，不在 Compose 上補一次。
+
+### 2026-08-25 補記（A10 完成：K8s 上的 blue/green）
+
+**先回答「k3d 到底行不行」**：逐項實測 Deployment、Service selector、
+readinessProbe、Job、Secret、StatefulSet+PVC 全部可用（k3s v1.35.5）。
+
+**設計選擇：資料庫不進 manifest。** 藍綠**必須共用一個資料庫**——
+那正是 expand/contract 紀律存在的理由。各給一份 postgres 會讓切換變得
+無風險，也因此什麼都證明不了。兩個顏色都指向主機的 postgres
+（`host.k3d.internal:15432`，真實 650 萬列、真實 schema 15），
+所以 schema 閘門是真閘門不是夾具。
+
+**切換是改 Service selector，不是 rolling update。** rolling 是逐步替換，
+沒有任何一刻可以說「不對，退回去」。selector 一次到位、一行回滾。
+
+**閘門四道**（`promote.sh`），前三道都是為了「不要相信快取」：
+
+1. 現行 template 的副本數（不是 readyReplicas）
+2. **當下**直接問每個 pod `/health/ready`，不採信 Deployment 狀態
+3. pod 認定的 schema 與資料庫實際 schema 必須相等
+4. 切換後 endpoints 不得為空
+
+**實測結果**：blue-v15 → green-v15-green → blue-v15，Service 的 `/version`
+實際改變；**回滾 0.72 秒**，兩個顏色都還在。
+
+**兩個負控制各抓到一個真 bug**，兩個都不是靠 review 發現的：
+
+- **佔位符撞名**：template 用裸的 `SCHEMA_VERSION`，sed 連
+  `EXPECTED_SCHEMA_VERSION` 裡面也換掉，產生 `EXPECTED_99=99` 而
+  **完全沒有** `EXPECTED_SCHEMA_VERSION`。app 退回內建預設值 15，
+  剛好等於資料庫，於是一個**刻意做壞的 green 回報 ready 並被放行**。
+  改用 `__DOUBLE_UNDERSCORE__`。
+- **readyReplicas 會騙人**：rollout 卡住時舊世代的 pod 仍然 Ready 且被計入，
+  所以新 pod 永遠起不來的 green 照樣顯示 2/2。改查 `updatedReplicas`。
 
 ## 1. 定位
 

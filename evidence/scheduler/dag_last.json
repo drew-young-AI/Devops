@@ -1,13 +1,13 @@
 {
   "job": "dag",
-  "started_at": "2026-08-24T15:57:03Z",
+  "started_at": "2026-08-24T16:12:06Z",
   "status": "ok",
   "exit_code": 0,
   "duration_seconds": 2,
   "interval_seconds": 900,
   "command": "python3 platform/statusdag/dag.py",
   "trigger": "scheduled",
-  "last_scheduled_at": "2026-08-24T15:57:03Z",
+  "last_scheduled_at": "2026-08-24T16:12:06Z",
   "output_tail": [
     "  [ ???  ] CI \u5efa\u7f6e                no build evidence   <- impacted by scheduler",
     "  [ ???  ] \u6620\u50cf\u6f0f\u6d1e\u6383\u63cf               no evidence   <- impacted by scheduler",
