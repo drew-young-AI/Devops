@@ -30,3 +30,7 @@
 {"at": "2026-08-19T23:08:46Z", "job": "health", "from": "degraded", "to": "ok", "severity": "recovered", "summary": "[OK] health: degraded -> ok"}
 {"at": "2026-08-19T23:23:49Z", "job": "health", "from": "ok", "to": "degraded", "severity": "warning", "summary": "[WARN] health: ok -> degraded"}
 {"at": "2026-08-19T23:53:55Z", "job": "health", "from": "degraded", "to": "ok", "severity": "recovered", "summary": "[OK] health: degraded -> ok"}
+{"at": "2026-08-21T13:41:07Z", "job": "health", "from": "ok", "to": "unknown", "severity": "warning", "summary": "[WARN] health: ok -> unknown"}
+{"at": "2026-08-21T19:00:07Z", "job": "audit", "from": "ok", "to": "failed", "severity": "critical", "summary": "[FAIL] audit: ok -> failed"}
+{"at": "2026-08-22T21:54:24Z", "job": "restore", "from": "ok", "to": "failed", "severity": "critical", "summary": "[FAIL] restore: ok -> failed"}
+{"at": "2026-08-22T22:09:25Z", "job": "rotation", "from": "ok", "to": "failed", "severity": "critical", "summary": "[FAIL] rotation: ok -> failed"}

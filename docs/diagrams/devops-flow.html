@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DevOps 流程圖</title>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Geist:wght@400;500;600&family=Geist+Mono:wght@400;500;600&family=Noto+Sans+TC:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+  :root{--color-paper:#f5f5f5;--color-ink:#2d3142;--color-muted:#4f5d75;
+    --devops:#2e5aa8;--dataops:#2f7d52;--mlops:#8a5a2b;--blocked:#a8372c;
+    --font-sans:'Geist','Noto Sans TC',system-ui,sans-serif;
+    --font-serif:'Instrument Serif',serif;--font-mono:'Geist Mono',ui-monospace,monospace}
+  body{font-family:var(--font-sans);background:var(--color-paper);color:var(--color-ink);
+       min-height:100vh;display:flex;align-items:center;justify-content:center;padding:3rem 2rem}
+  .frame{max-width:1280px;width:100%}
+  .eyebrow{font-family:var(--font-mono);font-size:.66rem;font-weight:500;letter-spacing:.18em;
+           text-transform:uppercase;color:#2e5aa8;margin-bottom:.5rem}
+  h1{font-family:var(--font-serif);font-size:clamp(1.5rem,2.4vw + .75rem,2rem);font-weight:400;
+     letter-spacing:-.02em;line-height:1.15;margin-bottom:.4rem}
+  .sub{font-size:.86rem;color:var(--color-muted);margin-bottom:1.5rem;max-width:72ch}
+  svg{width:100%;min-width:960px;display:block}
+</style>
+</head>
+<body>
+<div class="frame">
+  <p class="eyebrow">Flowchart · DevOps</p>
+  <h1>DevOps 流程圖</h1>
+  <p class="sub">六個閘門，全部實測擋過東西——包括擋下我自己一次（我改了一個已經套用的 migration，checksum 立刻拒絕）。</p>
+<svg viewBox="0 0 1232 600" role="img" aria-labelledby="devops-flow-title devops-flow-desc">
+  <title id="devops-flow-title">DevOps 流程圖</title>
+  <desc id="devops-flow-desc">從提交到上線的六個閘門：靜態編譯與安全掃描、契約測試、映像建置、優雅退場驗證、遷移閘門、readiness 版本閘門。</desc>
+  <defs>
+    <marker id="d2-b" markerWidth="8" markerHeight="6" refX="7" refY="3" orient="auto">
+      <polygon points="0 0, 8 3, 0 6" fill="#2e5aa8"/></marker>
+  </defs>
+  <rect width="100%" height="100%" fill="#f5f5f5"/>
+
+  <rect x="32" y="72" width="1168" height="128" rx="8" fill="rgba(46,90,168,0.035)" stroke="rgba(46,90,168,0.28)" stroke-width="0.8"/>
+  <rect x="52" y="76" width="112" height="12" rx="2" fill="#f5f5f5"/>
+  <text x="108" y="85" fill="#2e5aa8" font-size="7" font-family="'Geist Mono',monospace" text-anchor="middle" letter-spacing="0.14em">建置階段</text>
+
+  <rect x="32" y="264" width="1168" height="128" rx="8" fill="rgba(46,90,168,0.035)" stroke="rgba(46,90,168,0.28)" stroke-width="0.8"/>
+  <rect x="52" y="268" width="112" height="12" rx="2" fill="#f5f5f5"/>
+  <text x="108" y="277" fill="#2e5aa8" font-size="7" font-family="'Geist Mono',monospace" text-anchor="middle" letter-spacing="0.14em">上線階段</text>
+
+  <line x1="296" y1="140" x2="452" y2="140" stroke="#2e5aa8" stroke-width="1.2" marker-end="url(#d2-b)"/>
+  <line x1="680" y1="140" x2="836" y2="140" stroke="#2e5aa8" stroke-width="1.2" marker-end="url(#d2-b)"/>
+  <path d="M 968,176 V 216 Q 968,224 960,224 H 192 Q 184,224 184,232 V 288"
+        fill="none" stroke="#2e5aa8" stroke-width="1.2" marker-end="url(#d2-b)"/>
+  <rect x="440" y="204" width="128" height="12" rx="2" fill="#f5f5f5"/>
+  <text x="448" y="213" fill="#2e5aa8" font-size="8" font-family="'Geist Mono',monospace" letter-spacing="0.06em">帶著 image digest 上線</text>
+  <line x1="296" y1="332" x2="452" y2="332" stroke="#2e5aa8" stroke-width="1.2" marker-end="url(#d2-b)"/>
+  <line x1="680" y1="332" x2="836" y2="332" stroke="#2e5aa8" stroke-width="1.2" marker-end="url(#d2-b)"/>
+
+  <rect x="72" y="104" width="224" height="72" rx="6" fill="#f5f5f5"/>
+  <rect x="72" y="104" width="224" height="72" rx="6" fill="rgba(46,90,168,0.09)" stroke="#2e5aa8" stroke-width="1.4"/>
+  <text x="88" y="124" fill="#2e5aa8" font-size="8" font-family="'Geist Mono',monospace" letter-spacing="0.1em">01 GATE</text>
+  <text x="184" y="144" fill="#2d3142" font-size="12" font-weight="600" text-anchor="middle">編譯 + SAST</text>
+  <text x="184" y="162" fill="#2e5aa8" font-size="9" font-family="'Geist Mono',monospace" text-anchor="middle">11 檔 · ERROR 一個就擋</text>
+
+  <rect x="456" y="104" width="224" height="72" rx="6" fill="#f5f5f5"/>
+  <rect x="456" y="104" width="224" height="72" rx="6" fill="rgba(46,90,168,0.09)" stroke="#2e5aa8" stroke-width="1.4"/>
+  <text x="472" y="124" fill="#2e5aa8" font-size="8" font-family="'Geist Mono',monospace" letter-spacing="0.1em">02 GATE</text>
+  <text x="568" y="144" fill="#2d3142" font-size="12" font-weight="600" text-anchor="middle">契約測試</text>
+  <text x="568" y="162" fill="#2e5aa8" font-size="9" font-family="'Geist Mono',monospace" text-anchor="middle">31 項 · 含資料契約 13 項</text>
+
+  <rect x="840" y="104" width="256" height="72" rx="6" fill="#f5f5f5"/>
+  <rect x="840" y="104" width="256" height="72" rx="6" fill="rgba(46,90,168,0.09)" stroke="#2e5aa8" stroke-width="1.4"/>
+  <text x="856" y="124" fill="#2e5aa8" font-size="8" font-family="'Geist Mono',monospace" letter-spacing="0.1em">03 GATE</text>
+  <text x="968" y="144" fill="#2d3142" font-size="12" font-weight="600" text-anchor="middle">建置 + 優雅退場驗證</text>
+  <text x="968" y="162" fill="#2e5aa8" font-size="9" font-family="'Geist Mono',monospace" text-anchor="middle">斷言 draining 只在 SIGTERM 後出現</text>
+
+  <rect x="72" y="296" width="224" height="72" rx="6" fill="#f5f5f5"/>
+  <rect x="72" y="296" width="224" height="72" rx="6" fill="rgba(46,90,168,0.09)" stroke="#2e5aa8" stroke-width="1.4"/>
+  <text x="88" y="316" fill="#2e5aa8" font-size="8" font-family="'Geist Mono',monospace" letter-spacing="0.1em">04 GATE</text>
+  <text x="184" y="336" fill="#2d3142" font-size="12" font-weight="600" text-anchor="middle">遷移閘門</text>
+  <text x="184" y="354" fill="#2e5aa8" font-size="9" font-family="'Geist Mono',monospace" text-anchor="middle">contract 語句需具名理由</text>
+
+  <rect x="456" y="296" width="224" height="72" rx="6" fill="#f5f5f5"/>
+  <rect x="456" y="296" width="224" height="72" rx="6" fill="rgba(46,90,168,0.09)" stroke="#2e5aa8" stroke-width="1.4"/>
+  <text x="472" y="316" fill="#2e5aa8" font-size="8" font-family="'Geist Mono',monospace" letter-spacing="0.1em">05 GATE</text>
+  <text x="568" y="336" fill="#2d3142" font-size="12" font-weight="600" text-anchor="middle">checksum 鎖定</text>
+  <text x="568" y="354" fill="#2e5aa8" font-size="9" font-family="'Geist Mono',monospace" text-anchor="middle">已套用檔案不得修改</text>
+
+  <rect x="840" y="296" width="256" height="72" rx="6" fill="#f5f5f5"/>
+  <rect x="840" y="296" width="256" height="72" rx="6" fill="rgba(46,90,168,0.09)" stroke="#2e5aa8" stroke-width="1.4"/>
+  <text x="856" y="316" fill="#2e5aa8" font-size="8" font-family="'Geist Mono',monospace" letter-spacing="0.1em">06 GATE</text>
+  <text x="968" y="336" fill="#2d3142" font-size="12" font-weight="600" text-anchor="middle">readiness 版本閘門</text>
+  <text x="968" y="354" fill="#2e5aa8" font-size="9" font-family="'Geist Mono',monospace" text-anchor="middle">版本不符 → 永不收到流量</text>
+
+  <line x1="32" y1="432" x2="1200" y2="432" stroke="rgba(45,49,66,0.10)" stroke-width="0.8"/>
+  <text x="32" y="452" fill="#4f5d75" font-size="8" font-family="'Geist Mono',monospace" letter-spacing="0.14em">六個閘門都實測擋過</text>
+  <text x="216" y="452" fill="#4f5d75" font-size="8" font-family="'Geist Mono',monospace">01 抓到 XXE · 03 兩種突變皆抓到 · 04 擋下三次 · 05 擋下我一次 · 06 回 503 schema_mismatch</text>
+  <text x="32" y="476" fill="#4f5d75" font-size="8" font-family="'Geist Mono',monospace" letter-spacing="0.14em">閘門的價值</text>
+  <text x="216" y="476" fill="#4f5d75" font-size="8" font-family="'Geist Mono',monospace">把「上線後才發現」變成「上線前就擋住」。第 6 個把版本不符變成不收流量，而不是事故。</text>
+</svg>
+</div>
+</body>
+</html>

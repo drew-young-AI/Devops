@@ -1,11 +1,13 @@
 {
   "job": "rotation",
-  "started_at": "2026-08-14T10:11:21Z",
-  "status": "ok",
-  "exit_code": 0,
+  "started_at": "2026-08-22T22:09:23Z",
+  "status": "failed",
+  "exit_code": 1,
   "duration_seconds": 2,
   "interval_seconds": 604800,
   "command": "platform/vault/scripts/check_rotation_due.sh",
+  "trigger": "scheduled",
+  "last_scheduled_at": "2026-08-22T22:09:23Z",
   "output_tail": [
     "platform/vault/scripts/check_rotation_due.sh: line 19: 1: Usage: check_rotation_due.sh <path> [interval_days]"
   ]

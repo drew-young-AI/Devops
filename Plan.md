@@ -273,7 +273,7 @@ MLOps/LLMOps：保留接口，延後擴充
 | A6 | 憑證有效壽命正確 + 被拒即自癒 | ✅ | 撤銷運行中租約 → `credential_rejected` → 下一次請求 `ready`（換 username） |
 | A7 | 告警送達真人 | ✅ | 注入真實 alert → Alertmanager route `telegram` → 送達，零 `Notify failed` |
 | A8 | 備份覆蓋率不得有漏 | ✅ | `backup.sh` 對 11 個現存 volume 逐一歸屬，`UNCOVERED` 為空 |
-| A9 | **Kubernetes 底座** | ⬜ | 待建：真 StorageClass + registry；k3d 練習叢集已整組移除 |
+| A9 | **Kubernetes 底座** | 🔴 | 待建：真 StorageClass + registry；k3d 練習叢集已整組移除 |
 | A10 | **blue/green 真實顏色切換** | ⬜ | 需先拆 station2-twin 的 db/app compose；判定為 K8s 上一次做對 |
 
 ### 主線 B — DataOps（綠）
@@ -290,7 +290,7 @@ MLOps/LLMOps：保留接口，延後擴充
 | B8 | NHI 全 11 疾病載入 | ✅ | 6,172,492 事實列；COVID 只有 90,373 列（2021 起，**未補零**） |
 | B9 | 資料契約進 CI | ✅ | 13 靜態 + 14 live；live 在資料庫缺席時**失敗不跳過** |
 | B10 | **流行病學週 ↔ 日曆日** | 🔴 | **阻斷中**：1,024 個週期間 `cal_date` 全 NULL，週/日資料無法 join。**只有向疾管署查證能解** |
-| B11 | **RODS 家族 6 個 feed** | ⬜ | 卡在 `ili_ed_visits` metric 過度指定（應用程式讀它，屬應用變更） |
+| B11 | RODS 家族 6 個 feed | ✅ | migration 015 改名 `rods_ed_visits` + 應用同步；6,503,799 事實列，逐 feed 對得上 |
 
 ### 主線 C — MLOps（棕）
 
@@ -304,7 +304,7 @@ MLOps/LLMOps：保留接口，延後擴充
 | C6 | 「輸了不准上線」是 trigger 不是慣例 | ✅ | 實測：model_run 1（輸）與 4（隨機切分）INSERT 皆被拒 |
 | C7 | 預測可被服務且不載入模型 | ✅ | `GET /forecast`；API 只做 SELECT，服務路徑不反序列化 |
 | C8 | **模型真的贏過基準** | 🔴 | **未達成**：t+1 輸 12%；t+2 僅勝 0.3%（雜訊）。方向準確率 63.8% 是唯一有內容的數字 |
-| C9 | **排程重訓** | ⬜ | 尚未接 scheduler |
+| C9 | 排程重訓 | ✅ | `platform/mlops/retrain.sh` 已進 jobs.conf（604800s）；實跑 1 published / 1 refused |
 | C10 | **中醫大個人／醫院級資料** | ⬜ | 有三個硬前提（見 `docs/Backlog.md` §7） |
 
 ### 可以對外報告的門檻
@@ -321,6 +321,37 @@ MLOps/LLMOps：保留接口，延後擴充
    系統的正確反應是**拒絕上線**，而它確實拒絕了。
 3. **A9/A10 是刻意延後**，理由是避免在 Compose 上做一次、K8s 上再做一次。
 
+
+### 2026-08-21 補記（B11 / C9 完成）
+
+**B11 — RODS 家族補齊。** migration 015 把 `ili_ed_visits` 改名 `rods_ed_visits`，
+理由與 012 相同：疾病由 `disease_id` 表示，不重複編碼在 metric 名稱裡。
+這次連同應用程式（`app/surveillance.py` 的 MODELS registry）一起改，
+所以是「應用變更 + 資料變更」在同一個 commit，不是默默做一半。
+
+載入結果 **6,503,799 列**（+331,307），六個 feed 逐一對得上：
+
+    急性腹瀉 107,355 · 腸病毒 61,283 · 紅眼症 60,234
+    疱疹性咽峽炎 54,538 · 手足口病 34,184 · COVID-19 13,713
+
+兩個原本會猜錯的地方，是讀出來不是推出來的：
+- **列數差異極大**（13,713 到 107,355）。NHI 家族每個疾病都是 187,908，
+  RODS 不是——各疾病進入監測的年份不同。**沒有補零。**
+- **結膜炎的欄位叫「紅眼症」不叫「結膜炎」。** 從資料集英文名推導欄位名會漏掉。
+
+副產品：12 種疾病現在同時有急診（RODS）與門診（NHI）兩種量測，
+靠 `disease_id` 直接 join，不需要任何對照表。這是維度模型該有的樣子。
+
+**C9 — 排程重訓。** `platform/mlops/retrain.sh` 進 `jobs.conf`，週期 604800s。
+週期依「它盯的東西多久變一次」決定，跟其他 job 同一條規則：
+來源是週資料且落後約兩週，天天重訓會有六天重建出一模一樣的特徵集。
+
+實跑一次的輸出正是設計要的：**1 published, 1 refused**。
+t+1 被 `publish_forecast.py` 擋下（輸給持平基準），t+2 發布 2026W34 預測 1.9779 pp。
+**沒東西發布時 exit 0**——「這週模型不夠好」是正確結果不是失敗，
+每週為此發一次警報，是讓警報被靜音的最快方法。
+
+**八張圖全部畫完**，在 `docs/diagrams/`，全部通過 diagram-design 的 `self_check`。
 
 ## 1. 定位
 

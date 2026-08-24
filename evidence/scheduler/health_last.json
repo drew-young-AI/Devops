@@ -1,13 +1,13 @@
 {
   "job": "health",
-  "started_at": "2026-08-20T13:56:30Z",
+  "started_at": "2026-08-24T15:27:40Z",
   "status": "ok",
   "exit_code": 0,
   "duration_seconds": 2,
   "interval_seconds": 900,
   "command": "platform/observability/check_health.sh --json",
-  "trigger": "scheduled",
-  "last_scheduled_at": "2026-08-20T13:56:30Z",
+  "trigger": "manual",
+  "last_scheduled_at": "2026-08-24T15:27:38Z",
   "output_tail": [
     "      \"ok\": true,",
     "      \"detail\": \"1 targets\"",
@@ -22,7 +22,7 @@
     "    \"prometheus\": \"http://127.0.0.1:19090\",",
     "    \"alertmanager\": \"http://127.0.0.1:19093\"",
     "  },",
-    "  \"artifact\": \"/Users/drew/ENV/Devops/evidence/observability/health_20260820T135631Z.json\"",
+    "  \"artifact\": \"/Users/drew/ENV/Devops/evidence/observability/health_20260824T152740Z.json\"",
     "}"
   ]
 }

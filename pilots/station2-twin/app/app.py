@@ -48,7 +48,7 @@ APP_VERSION = os.environ.get("APP_VERSION", "dev")
 
 # The schema this build was written against. Bumped in the same commit as the
 # migration that introduces it, so code and schema move together or not at all.
-EXPECTED_SCHEMA_VERSION = int(os.environ.get("EXPECTED_SCHEMA_VERSION", "14"))
+EXPECTED_SCHEMA_VERSION = int(os.environ.get("EXPECTED_SCHEMA_VERSION", "15"))
 
 DEFAULT_DISEASE = os.environ.get("DEFAULT_DISEASE", "influenza_like_illness")
 

@@ -71,7 +71,7 @@ def norm(s):
 
 # ── 度量：一個數字到底是什麼意思 ────────────────────────────────────────────
 METRICS = {
-    "ili_ed_visits": ("類流感急診就診人次", "flow", "人次",
+    "rods_ed_visits": ("急診就診人次", "flow", "人次",
                       "RODS 急診監測；期間內的事件計數，可沿時間加總"),
     # ONE metric for all eleven NHI diseases. The disease is a DIMENSION -- see
     # migration 012. Minting covid_visits / entero_visits / varicella_visits
@@ -98,7 +98,7 @@ FEEDS = {
         spatial="county", temporal="epi_week", denom=False,
         disease="influenza_like_illness", disease_zh="類流感",
         shape="county_week",
-        measures=[("ili_ed_visits", "類流感急診就診人次", None)],
+        measures=[("rods_ed_visits", "類流感急診就診人次", None)],
         visit_type="急診",
     ),
     "nhi": dict(
@@ -194,11 +194,66 @@ for _key, _stem, _code, _dis, _dis_zh, _numerator in _NHI_FAMILY:
         visit_type=None,
     )
 
+
+# ── RODS 家族其餘六種疾病 ────────────────────────────────────────────────────
+#
+# Column names READ from the live files, not inferred. Two things the NHI family
+# did NOT prepare us for, and both would have been wrong if assumed:
+#
+#   1. ROW COUNTS DIFFER WILDLY. NHI is 187,908 for every disease; RODS runs from
+#      13,713 (COVID-19, starts 2022) to 107,355 (acute diarrhea, starts 2007).
+#      Each disease entered surveillance in a different year. Nothing is padded.
+#   2. THE CONJUNCTIVITIS COLUMN SAYS 紅眼症, not 結膜炎. Deriving the column
+#      from the dataset's English name would have missed it.
+#
+#   file                                    rows     numerator column
+#   RODS_AcuteDiarrhea.csv                107,355   急性腹瀉急診就診人次
+#   RODS_EnteroviralInfection.csv          61,283   腸病毒急診就診人次
+#   RODS_AcuteHemorrhagicConjunctivitis    60,234   紅眼症急診就診人次
+#   RODS_Herpangina.csv                    54,538   疱疹性咽峽炎急診就診人次
+#   RODS_HandFootMouthDisease.csv          34,184   手足口病急診就診人次
+#   RODS_COVID-19.csv                      13,713   COVID-19急診就診人次
+#
+# RODS has NO denominator and no 就診類別 column -- every row is an emergency
+# department presentation, so visit_type is set to 急診 rather than read.
+#
+# FOUR OF THESE DISEASES ALREADY EXIST in the disease dimension, created by the
+# NHI loader. That is the dimensional model working: 腸病毒 seen through RODS
+# (emergency) and through NHI (outpatient) is ONE disease measured two ways, and
+# it joins on disease_id without a crosswalk.
+_RODS_FAMILY = [
+    ("rods_diarrhea", "RODS_AcuteDiarrhea", "cdc-rods-diarrhea",
+     "acute_diarrhea", "急性腹瀉", "急性腹瀉急診就診人次"),
+    ("rods_entero", "RODS_EnteroviralInfection", "cdc-rods-enterovirus",
+     "enterovirus", "腸病毒", "腸病毒急診就診人次"),
+    ("rods_conjunctivitis", "RODS_AcuteHemorrhagicConjunctivitis",
+     "cdc-rods-conjunctivitis", "conjunctivitis", "急性出血性結膜炎",
+     "紅眼症急診就診人次"),
+    ("rods_herpangina", "RODS_Herpangina", "cdc-rods-herpangina",
+     "herpangina", "疱疹性咽峽炎", "疱疹性咽峽炎急診就診人次"),
+    ("rods_hfmd", "RODS_HandFootMouthDisease", "cdc-rods-hfmd",
+     "hand_foot_mouth", "手足口病", "手足口病急診就診人次"),
+    ("rods_covid", "RODS_COVID-19", "cdc-rods-covid",
+     "covid19", "COVID-19", "COVID-19急診就診人次"),
+]
+
+for _key, _stem, _code, _dis, _dis_zh, _numerator in _RODS_FAMILY:
+    FEEDS[_key] = dict(
+        url=f"https://od.cdc.gov.tw/eic/{_stem}.csv",
+        code=_code, name=f"RODS {_dis_zh}急診監測",
+        spatial="county", temporal="epi_week", denom=False,
+        disease=_dis, disease_zh=_dis_zh,
+        shape="county_week",
+        measures=[("rods_ed_visits", _numerator, None)],
+        visit_type="急診",
+    )
+
 # Convenience group so the whole family can be loaded in one invocation without
 # retyping ten keys -- and, more importantly, without anyone loading nine of
 # them and believing they loaded all ten.
 FEED_GROUPS = {
     "nhi_all": ["nhi"] + [k for k, *_ in _NHI_FAMILY],
+    "rods_all": ["rods"] + [k for k, *_ in _RODS_FAMILY],
     "all": list(FEEDS),
 }
 

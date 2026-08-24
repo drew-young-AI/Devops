@@ -1,0 +1,38 @@
+{
+  "verdict": "UNKNOWN",
+  "exit_code": 3,
+  "checked_at": "2026-08-23T10:56:22Z",
+  "monitoring_integrity": [
+    {
+      "check": "prometheus_reachable",
+      "ok": false,
+      "detail": "[Errno 61] Connection refused"
+    },
+    {
+      "check": "alertmanager_wired",
+      "ok": false,
+      "detail": "[Errno 61] Connection refused"
+    },
+    {
+      "check": "alertmanager_reachable",
+      "ok": false,
+      "detail": "[Errno 61] Connection refused"
+    },
+    {
+      "check": "scrape_targets_visible",
+      "ok": false,
+      "detail": "[Errno 61] Connection refused"
+    }
+  ],
+  "integrity_blockers": [
+    "Prometheus unreachable: [Errno 61] Connection refused",
+    "Cannot confirm Alertmanager wiring: [Errno 61] Connection refused",
+    "Alertmanager unreachable: [Errno 61] Connection refused"
+  ],
+  "active_alerts": [],
+  "scrape_targets": {},
+  "sources": {
+    "prometheus": "http://127.0.0.1:19090",
+    "alertmanager": "http://127.0.0.1:19093"
+  }
+}

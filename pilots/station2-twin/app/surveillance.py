@@ -69,7 +69,7 @@ ALERT_Z = 2.0
 MODELS = {
     "influenza_like_illness": {
         "source": "cdc-rods-ili",
-        "metric": "ili_ed_visits",
+        "metric": "rods_ed_visits",
         "time_level": "epi_week",
     },
 }

@@ -1,12 +1,28 @@
 {
   "job": "restore",
-  "started_at": "2026-08-14T10:11:21Z",
-  "status": "ok",
-  "exit_code": 0,
-  "duration_seconds": 2,
+  "started_at": "2026-08-22T21:53:38Z",
+  "status": "failed",
+  "exit_code": 1,
+  "duration_seconds": 45,
   "interval_seconds": 604800,
   "command": "platform/backup/restore_drill.sh",
+  "trigger": "scheduled",
+  "last_scheduled_at": "2026-08-22T21:53:38Z",
   "output_tail": [
-    "No backup with a manifest found. Run platform/backup/backup.sh first."
+    "--- 2. restore Vault into a SCRATCH instance (live Vault untouched) ---",
+    "  \u001b[32mPASS\u001b[0m archive extracted into scratch volume",
+    "  \u001b[32mPASS\u001b[0m restored Vault reports initialized=true (real state, not an empty volume)",
+    "",
+    "--- 3. usability: unseal the restored Vault and read a real secret ---",
+    "  \u001b[32mPASS\u001b[0m restored Vault unseals with the real unseal keys",
+    "  \u001b[31mFAIL\u001b[0m secret read back from restored Vault",
+    "       restored=93 live=0",
+    "  \u001b[32mPASS\u001b[0m identity model survived the restore (9 policies)",
+    "  \u001b[32mPASS\u001b[0m auth methods survived the restore (approle present)",
+    "",
+    "--- 4. teardown ---",
+    "  scratch container and volume removed; live Vault never touched",
+    "",
+    "  11 passed, 1 failed"
   ]
 }
