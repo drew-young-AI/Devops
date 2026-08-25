@@ -23,10 +23,11 @@ timestamp: 2026-08-18T11:05:00+08:00
 |---|---|---|---|
 | 1 | Vault 動態資料庫憑證 | ✅ 完全轉移 | **現在做** |
 | 2 | station2-twin 接進 blue/green | ⚠️ 判定 2026-08-21 改變 | ✅ **已完成 2026-08-25**（K8s Deployment + Service selector；已接進 run_all.sh 第 3 層） |
-| 3 | DAST form-aware profile | ✅ 完全轉移 | **現在做** |
+| 3 | DAST form-aware profile | ✅ 完全轉移 | ⚠️ **目標已修好（2026-08-25），form-aware profile 仍待做** |
 | 4 | station2-twin 的 ingress ceiling | ⚠️ 政策轉移、實作不轉移 | 只寫政策 |
 | 5 | 異地備份（Google Drive） | ✅ 與底層無關 | 待使用者決定 |
 | 6 | 測試資料管理 + redaction v2 | ✅ 完全轉移 | 真實醫療資料前必須 |
+| 10 | 三把秘密沒有輪替紀錄 | ✅ 與底層無關 | **等使用者決定**（會動到活憑證） |
 
 ---
 
@@ -94,10 +95,23 @@ schema 不符時拒絕 readiness，實測 503 `schema_mismatch`。那個保護�
 endpoints）。所以「還沒經過真實顏色切換」這個缺口，等 K8s 上用 Deployment
 驗證即可，不必為 Compose 再補一次。
 
-## 3. DAST form-aware profile — 現在做
+## 3. DAST form-aware profile — 目標已修好，profile 仍待做
 
-station2-twin 的 `POST /twin/<asset>/observation` 是這個平台上第一個吃 JSON
-body 的寫入端點，也是第一個值得用 form-aware profile 掃的目標。
+**2026-08-25 修好的是「掃描目標」，不是 profile。** DAST job 之前每天紅，
+訊息是「Is the develop deployment up?」——指向一個**已經退役好幾天**的部署
+（station1-hello 的 nginx develop vhost，18443）。compose 仍然 publish 8443，
+所以失敗長成最會誤導人的形狀：**TCP 連得上、TLS 握手直接斷**
+（`SSL_ERROR_SYSCALL`）。port 有回應，後面沒有東西。
+
+已改指向 station2-twin 真實的 HTTP 介面（`http://host.docker.internal:18090`）。
+首次實掃：**DAST PASS，HIGH=0 MEDIUM=0 LOW=1**（`Server` header 洩漏版本，
+x2），閘門設在 MEDIUM。
+
+**仍待做**：station2-twin 的 `POST /twin/<asset>/observation` 是這個平台上第一個
+吃 JSON body 的寫入端點。ZAP baseline 只做 spider + passive（GET），**不會碰
+這個端點**，所以目前那條寫入路徑等於沒掃。要掃它需要 form-aware / API profile
+（餵 OpenAPI 或 context file）。順帶一提，掃寫入端點前要先想清楚它會不會把垃圾
+observation 寫進那個 650 萬列的資料庫。
 
 **為什麼現在做**：ZAP 掃的是 HTTP 端點，與跑在 Compose 還是 K8s 無關。
 掃描設定、規則集、掃描完整性檢查（`site` 條目而非 alert URL）全部帶得走。
@@ -196,6 +210,31 @@ skill 只帶 drawio_extract、mermaid_extract、self_check 三支解析器，無
 
 第 3 節列的三條斷層（週定義、中醫大前提、K8s）經使用者確認為**已知且刻意延後**，
 不是遺漏；補齊時一併更新該頁。
+
+## 10. 三個秘密沒有輪替紀錄 — 需要使用者決定，AI 不代決
+
+`rotation` job 現在會真的檢查了（2026-08-25 前它每次都以 bash usage error 收場，
+**訊息裡從來沒提過秘密**）。第一次真掃的結果是紅的，而且是**真的紅**：
+
+| 路徑 | 狀態 |
+|---|---|
+| `secret/devops/ghcr` | 無 `rotated_at` 紀錄 |
+| `secret/devops/github` | 無 `rotated_at` 紀錄 |
+| `secret/devops/grafana-admin` | 無 `rotated_at` 紀錄 |
+
+**為什麼停在這裡不自己做**：這三把是活的憑證。轉 `secret/devops/github`
+（git PAT）會直接弄壞 push；`ghcr` 會弄壞 image 推送。這是外部後果，不是本機
+重構，該由使用者決定時機。
+
+**另一條路不要走**：`check_rotation_due.sh` 的檔頭提到 `rotated_at` 可以
+「manually set for secrets migrated but not yet rotated by this tooling」。
+手動蓋一個日期會讓板子變綠，但那是**寫下一個沒人驗證過的宣稱**——正是這個專案
+一路上重複踩的那個坑。寧可紅著。
+
+兩個選項：
+1. `platform/vault/scripts/rotate_secret.sh <path>` 逐一真的轉（會需要同步更新
+   GitHub / GHCR / Grafana 那一側）。
+2. 明確決定某幾把不納入 90 天政策，並把理由寫進 policy，而不是讓它一直紅。
 
 ---
 
