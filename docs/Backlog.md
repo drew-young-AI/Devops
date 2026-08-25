@@ -22,7 +22,7 @@ timestamp: 2026-08-18T11:05:00+08:00
 | # | 項目 | 轉移到 K8s | 現在做？ |
 |---|---|---|---|
 | 1 | Vault 動態資料庫憑證 | ✅ 完全轉移 | **現在做** |
-| 2 | station2-twin 接進 blue/green | ⚠️ 判定 2026-08-21 改變 | **A9 完成後接著做**（在 K8s 上，不在 Compose） |
+| 2 | station2-twin 接進 blue/green | ⚠️ 判定 2026-08-21 改變 | ✅ **已完成 2026-08-25**（K8s Deployment + Service selector；已接進 run_all.sh 第 3 層） |
 | 3 | DAST form-aware profile | ✅ 完全轉移 | **現在做** |
 | 4 | station2-twin 的 ingress ceiling | ⚠️ 政策轉移、實作不轉移 | 只寫政策 |
 | 5 | 異地備份（Google Drive） | ✅ 與底層無關 | 待使用者決定 |
@@ -48,7 +48,15 @@ TTL、revocation）與底層無關。K8s 上改變的只有「憑證怎麼送進
 （Vault Agent Injector / External Secrets Operator / CSI driver），
 **Vault 這一側一行都不用改**。這是少數現在做、之後原封不動帶走的工作。
 
-## 2. station2-twin 接進 blue/green — 判定已於 2026-08-21 改變
+## 2. station2-twin 接進 blue/green — ✅ 已完成 2026-08-25
+
+**完成狀態**：`platform/k8s/station2-twin/`（`promote.sh` 四道閘門、
+`test_bluegreen.sh` 8/8、已接進 `platform/tests/run_all.sh` 第 3 層）。
+實測 blue → green → blue，回滾 0.72 秒。細節見 `Plan.md` 的 2026-08-25 補記。
+
+以下為判定過程，保留供對照：
+
+### 判定已於 2026-08-21 改變
 
 **原判定（station1-hello 還在時）：不要投入。** 理由是產出的 Compose blue/green
 機制不會被帶到 K8s。那個理由**現在仍然成立**——但前提變了：A9 已完成，

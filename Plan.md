@@ -421,6 +421,28 @@ readinessProbe、Job、Secret、StatefulSet+PVC 全部可用（k3s v1.35.5）。
 - **readyReplicas 會騙人**：rollout 卡住時舊世代的 pod 仍然 Ready 且被計入，
   所以新 pod 永遠起不來的 green 照樣顯示 2/2。改查 `updatedReplicas`。
 
+**已接進主測試套件**（2026-08-25）。`platform/tests/run_all.sh` 原本的檔頭宣稱
+「不需要 Docker、不需要網路」，那句話已經錯了五天——`test_data_contract_live.sh`
+與 `test_no_lookahead.sh` 都要 Docker 與活的 postgres。改成三層並實測雙向：
+
+| 層 | 內容 | 缺依賴時 |
+|---|---|---|
+| 1 | 靜態分析、契約、設定解析 | 不會發生 |
+| 2 | Docker + 活資料庫 | **FAIL**（無資料也會過的資料契約測試，在 3h55m 憑證中斷期間會一路報成功） |
+| 3 | k3d cluster | **大聲 SKIP**，數量寫進標題行 |
+
+- 負控制 `K8S_CTX=k3d-nope` → `PASSED, 1 SKIPPED (69s)` rc=0
+- 正控制 `k3d-devops-lab` → `ALL SUITES PASSED (181s)` rc=0，8 項藍綠斷言全在 log 裡
+
+第 3 層用 `kubectl get --raw /readyz` 這個真實 API round-trip 判定叢集是否活著；
+2026-08-19 被刪掉的那座叢集仍留著語法完全正確、指向死 port 的 kubeconfig，
+**讀設定檔證明不了任何事**。
+
+**副作用抓到一個真實故障**：重建叢集產生了 `k3d-devops-lab-images` 這個沒人分類的
+volume，2026-08-24 19:30 的備份因此 `ok -> failed`（critical）。那不是備份壞掉，
+是備份拒絕宣稱平台已備份——**閘門在運作**。已依 2026-08-19 移除該條目時自己寫下的
+條件補回（叢集重建後、用它當下真實的名字），實測回到 `BACKUP PASS`。
+
 ## 1. 定位
 
 本專案在單一 MacBook 上建立縮小版企業 DevOps 控制面，不假裝具備多節點 HA、真實 VPC、F5、CDN 或 production capacity。
