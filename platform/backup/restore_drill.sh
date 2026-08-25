@@ -201,8 +201,26 @@ LIVE_LEN="$(docker exec -i \
   -e VAULT_TOKEN="$SCRATCH_TOKEN" -e VAULT_ADDR=http://127.0.0.1:8200 \
   vault-vault-1 vault kv get -field=token secret/devops/github 2>/dev/null | tr -d '\n' | wc -c | tr -d ' ')"
 
+# THREE OUTCOMES, NOT TWO.
+#
+# The first version had two, and on 2026-08-22 it reported
+#   FAIL secret read back from restored Vault -- restored=93 live=0
+# The restore was fine: it read the secret, 93 chars. The LIVE Vault was the
+# side that returned nothing (down or sealed at that moment; it passed 12/12
+# on 2026-08-25 against the same code path). So a drill whose entire job is to
+# tell you whether your backup is restorable spent three days telling you it
+# was not, because of a problem on the other side of the comparison.
+#
+# Failing closed is right. Attributing the failure to the wrong component is
+# not: it sends the reader to the archive when the archive was never the
+# problem. So the unreachable-live case is now its own message.
 if [ "$RESTORED_LEN" -gt 0 ] && [ "$RESTORED_LEN" = "$LIVE_LEN" ]; then
   pass "secret read back from restored Vault matches live (${RESTORED_LEN} chars, value never printed)"
+elif [ "$RESTORED_LEN" -gt 0 ] && [ "$LIVE_LEN" -eq 0 ]; then
+  # Still a failure -- nothing was compared, so nothing was proved -- but named
+  # for the side that actually broke.
+  fail "cannot compare against live Vault (restore itself read ${RESTORED_LEN} chars)" \
+       "live Vault returned nothing: is vault-vault-1 running and unsealed? \`docker exec vault-vault-1 vault status\`"
 else
   fail "secret read back from restored Vault" "restored=${RESTORED_LEN} live=${LIVE_LEN}"
 fi
