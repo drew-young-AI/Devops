@@ -29,6 +29,7 @@ timestamp: 2026-08-18T11:05:00+08:00
 | 6 | 測試資料管理 + redaction v2 | ✅ 完全轉移 | 真實醫療資料前必須 |
 | 10 | 三把秘密沒有輪替紀錄 | ✅ 與底層無關 | **等使用者決定**（會動到活憑證） |
 | 11 | 憑證輪替自動化 | ✅ 與底層無關 | 分層：Grafana 先做，ghcr 要先實測 |
+| 12 | Docker → k3d 搬遷準則 | — | **不要通通搬**：有狀態層搬過去會安靜地弄壞備份 |
 
 ---
 
@@ -284,6 +285,45 @@ promotion 段）。要走 GitHub App 必須先實測，不能照推理。
 
 建議順序：Grafana（純本機、零外部依賴）→ GitHub App 換掉 `devops/github` →
 ghcr 先實測再決定。
+
+## 12. Docker → k3d 的搬遷準則（2026-08-26 定案）
+
+使用者問「聽起來是幾乎都可以移轉，是的話就通通移轉」。**不是。** 分兩層，
+而且分界線不是偏好，是一個可以當場示範的技術事實。
+
+### 不要搬：有狀態的平台層（Vault、Postgres、Prometheus／Loki／Grafana／Alertmanager）
+
+**理由是備份，不是記憶體。**
+
+k3d 的 PVC 由 local-path-provisioner 寫在節點的 `/var/lib/rancher/k3s/storage`，
+而那條路徑掛的是一個**匿名 docker volume**（實測 `b397a64fd0a7...`，64 位十六進位名）。
+
+`platform/backup/backup.sh` 對這種名字有一條明確規則：
+
+```bash
+# Anonymous volumes are docker's own scratch (64-hex names), not state
+# anybody chose to keep.
+case "$vol" in [0-9a-f]*) [ "${#vol}" -ge 64 ] && covered=1 ;; esac
+```
+
+也就是說，**今天把 postgres 搬進 k3d，資料會落在一個備份腳本明文歸類為
+「docker 自己的暫存、沒人想留」的 volume 裡，而備份仍然回報 PASS。**
+A8（備份覆蓋率不得有漏）與還原演練會同時失效，而且是**安靜地**失效——
+那正是這個平台一路在對付的失敗形狀。
+
+要搬這一層，得先重寫備份／還原鏈去理解 PVC。那是一件獨立的工作，不是搬遷的副作用。
+
+### 要搬：工作負載、政策、批次
+
+| # | 項目 | 為什麼是純收穫 |
+|---|---|---|
+| 1 | ingress ceiling → NetworkPolicy | ✅ **已完成**（見 §4）。Compose 做不出預設拒絕 |
+| 2 | `ingest` 批次 → k8s Job | 批次天生就是 Job；順帶示範資源限制與重試 |
+| 3 | scheduler → CronJob | 示範企業級排程語意——**但不解決睡眠問題**（見下） |
+
+**第 3 項要講清楚**：k3d 跑在同一台筆電的 Docker 裡，筆電睡著時 CronJob 一樣不觸發。
+它換到的是排程語意與可觀測性，不是修好那一夜 15 次錯過。把它當成「搬過去就不會漏跑」
+會是下一個「註解描述了一個機制」。
 
 ---
 
