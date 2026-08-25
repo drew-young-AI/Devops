@@ -134,3 +134,12 @@
 {"job": "health", "gap_seconds": 2043, "gap_minutes": 34.0, "expected_interval_seconds": 900, "missed_runs": 1, "from": "2026-08-24T10:35:50Z", "to": "2026-08-24T11:09:53Z"}
 {"job": "board", "gap_seconds": 2043, "gap_minutes": 34.0, "expected_interval_seconds": 900, "missed_runs": 1, "from": "2026-08-24T10:35:50Z", "to": "2026-08-24T11:09:53Z"}
 {"job": "dag", "gap_seconds": 2043, "gap_minutes": 34.0, "expected_interval_seconds": 900, "missed_runs": 1, "from": "2026-08-24T10:37:11Z", "to": "2026-08-24T11:11:14Z"}
+{"job": "health", "gap_seconds": 2698, "gap_minutes": 45.0, "expected_interval_seconds": 900, "missed_runs": 1, "from": "2026-08-24T17:25:53Z", "to": "2026-08-24T18:10:51Z"}
+{"job": "board", "gap_seconds": 2698, "gap_minutes": 45.0, "expected_interval_seconds": 900, "missed_runs": 1, "from": "2026-08-24T17:25:53Z", "to": "2026-08-24T18:10:51Z"}
+{"job": "dag", "gap_seconds": 3596, "gap_minutes": 59.9, "expected_interval_seconds": 900, "missed_runs": 2, "from": "2026-08-24T17:27:14Z", "to": "2026-08-24T18:27:10Z"}
+{"job": "health", "gap_seconds": 14798, "gap_minutes": 246.6, "expected_interval_seconds": 900, "missed_runs": 15, "from": "2026-08-24T18:10:51Z", "to": "2026-08-24T22:17:29Z"}
+{"job": "board", "gap_seconds": 14798, "gap_minutes": 246.6, "expected_interval_seconds": 900, "missed_runs": 15, "from": "2026-08-24T18:10:51Z", "to": "2026-08-24T22:17:29Z"}
+{"job": "dag", "gap_seconds": 14615, "gap_minutes": 243.6, "expected_interval_seconds": 900, "missed_runs": 15, "from": "2026-08-24T18:27:10Z", "to": "2026-08-24T22:30:45Z"}
+{"job": "health", "gap_seconds": 8667, "gap_minutes": 144.4, "expected_interval_seconds": 900, "missed_runs": 8, "from": "2026-08-24T22:17:29Z", "to": "2026-08-25T00:41:56Z"}
+{"job": "board", "gap_seconds": 8667, "gap_minutes": 144.4, "expected_interval_seconds": 900, "missed_runs": 8, "from": "2026-08-24T22:17:29Z", "to": "2026-08-25T00:41:56Z"}
+{"job": "dag", "gap_seconds": 7952, "gap_minutes": 132.5, "expected_interval_seconds": 900, "missed_runs": 7, "from": "2026-08-24T22:30:45Z", "to": "2026-08-25T00:43:17Z"}

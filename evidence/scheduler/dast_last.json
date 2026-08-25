@@ -1,13 +1,13 @@
 {
   "job": "dast",
-  "started_at": "2026-08-23T20:01:03Z",
+  "started_at": "2026-08-24T20:08:41Z",
   "status": "failed",
   "exit_code": 1,
   "duration_seconds": 2,
   "interval_seconds": 86400,
   "command": "platform/security/scan_dast.sh",
   "trigger": "scheduled",
-  "last_scheduled_at": "2026-08-23T20:01:03Z",
+  "last_scheduled_at": "2026-08-24T20:08:41Z",
   "output_tail": [
     "=== [dast] OWASP ZAP baseline against https://host.docker.internal:18443 ===",
     "    gate: fail at MEDIUM and above",

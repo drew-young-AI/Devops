@@ -34,3 +34,5 @@
 {"at": "2026-08-21T19:00:07Z", "job": "audit", "from": "ok", "to": "failed", "severity": "critical", "summary": "[FAIL] audit: ok -> failed"}
 {"at": "2026-08-22T21:54:24Z", "job": "restore", "from": "ok", "to": "failed", "severity": "critical", "summary": "[FAIL] restore: ok -> failed"}
 {"at": "2026-08-22T22:09:25Z", "job": "rotation", "from": "ok", "to": "failed", "severity": "critical", "summary": "[FAIL] rotation: ok -> failed"}
+{"at": "2026-08-24T19:14:04Z", "job": "audit", "from": "failed", "to": "ok", "severity": "recovered", "summary": "[OK] audit: failed -> ok"}
+{"at": "2026-08-24T19:30:13Z", "job": "backup", "from": "ok", "to": "failed", "severity": "critical", "summary": "[FAIL] backup: ok -> failed"}
