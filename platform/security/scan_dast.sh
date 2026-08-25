@@ -47,7 +47,30 @@ REPO_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 
 # host.docker.internal, not 127.0.0.1: ZAP runs in a container, so localhost
 # there is the container itself.
-TARGET="${1:-https://host.docker.internal:18443}"
+#
+# TARGET CHANGED 2026-08-25, from https://host.docker.internal:18443.
+#
+# That was station1-hello's nginx develop vhost. station1-hello was retired, its
+# vhost removed, and nothing replaced it -- nginx now serves only
+# _platform-health.conf on plain 8080. Compose still PUBLISHES 8443, so the TCP
+# connect succeeded and the TLS handshake then died with SSL_ERROR_SYSCALL:
+# a port that accepts and closes, which is exactly the shape of a target that
+# looks alive from the outside and is not there.
+#
+# So the job had been red every day since the retirement, with the message
+# "Is the develop deployment up?" pointing at a deployment that no longer
+# exists. Nobody was going to bring it up.
+#
+# station2-twin is the platform's actual HTTP surface (Backlog.md 4 records why
+# it is exposed directly rather than through nginx) and is the target Backlog.md
+# 3 asked for: its POST /twin/<asset>/observation is the first write endpoint
+# here that takes a JSON body.
+#
+# http, not https: station2-twin publishes plain HTTP on the loopback and TLS
+# is terminated at the tailnet edge, not here. Scanning the real surface over
+# the protocol it really speaks beats scanning a scheme that was only ever
+# true of the retired vhost.
+TARGET="${1:-http://host.docker.internal:18090}"
 EVIDENCE_DIR="${2:-$REPO_ROOT/evidence/security}"
 ZAP_IMAGE="${ZAP_IMAGE:-zaproxy/zap-stable}"
 SPIDER_MINUTES="${SPIDER_MINUTES:-1}"
@@ -86,7 +109,11 @@ echo "    gate: fail at $DAST_FAIL_ON and above"
 PROBE_URL="${TARGET//host.docker.internal/127.0.0.1}"
 if ! curl -sk -o /dev/null --max-time 10 "$PROBE_URL"; then
   echo "DAST FAILED: target $TARGET (probed as $PROBE_URL) is not reachable." >&2
-  echo "Is the develop deployment up? platform/compose/deploy.sh status develop <pilot>" >&2
+  echo "Check, in this order:" >&2
+  echo "  1. Is the target up?   docker compose -f pilots/station2-twin/compose.yaml ps" >&2
+  echo "  2. Is it still THERE?  A published port whose service was retired still" >&2
+  echo "     accepts TCP and then closes -- that is what 18443 did for days after" >&2
+  echo "     station1-hello went away. curl -v will show the handshake dying." >&2
   exit 1
 fi
 
