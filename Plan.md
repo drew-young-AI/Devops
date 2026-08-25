@@ -304,19 +304,30 @@ MLOps/LLMOps：保留接口，延後擴充
 | C6 | 「輸了不准上線」是 trigger 不是慣例 | ✅ | 實測：model_run 1（輸）與 4（隨機切分）INSERT 皆被拒 |
 | C7 | 預測可被服務且不載入模型 | ✅ | `GET /forecast`；API 只做 SELECT，服務路徑不反序列化 |
 | C8 | **模型真的贏過基準** | 🔴 | **未達成**：t+1 輸 12%；t+2 僅勝 0.3%（雜訊）。方向準確率 63.8% 是唯一有內容的數字 |
-| C9 | 排程重訓 | ⚠️ | `retrain.sh` 進 jobs.conf 且實跑 1 published / 1 refused，**但 launchd agent 一直沒安裝**（`install.sh --status` 顯示 `MISSING`）。2026-08-25 已載入，排週日 06:20。**在它自己真的觸發過之前，這格不是綠的** |
+| C9 | 排程重訓 | ✅ | **launchd 的日曆觸發已實測**：把 `StartCalendarInterval` 暫移到 3 分鐘後，launchd 自行觸發，`trigger=scheduled` / `status=ok` / 251s / 1 published；plist 還原 byte-exact（週日 06:20）。不是用 `launchctl kickstart` 充數 |
 | C10 | **中醫大個人／醫院級資料** | ⬜ | 有三個硬前提（見 `docs/Backlog.md` §7） |
 
 ### 可以對外報告的門檻
 
 **現在就能報告的**：A1–A10、B1–B9、C1–C7 全部有可重跑證據。
 
-**C9 的更正（2026-08-25）**：原本記 ✅，理由是「已進 jobs.conf 且實跑成功」。
+**C9 的更正與補證（2026-08-25）**：原本記 ✅，理由是「已進 jobs.conf 且實跑成功」。
 那句話兩半分開看都是真的，合起來卻不成立——`jobs.conf` 有一筆設定，不等於
 launchd 有一個 agent。實查 `install.sh --status` 是 `MISSING`，`status.sh` 是
-`NEVER FIRED`：**每一次「成功的」重訓都是手動打的**。指令會動，證明不了排程會動，
-而這兩件事在板子上長得一模一樣——`NEVER FIRED` 這一欄存在的唯一理由就是把它們分開。
-已安裝，排週日 06:20；在它自己觸發過一次之前，這格維持 ⚠️。
+`NEVER FIRED`：**每一次「成功的」重訓都是手動打的**。
+
+補證的方式刻意不是等到週日，也不是 `launchctl kickstart`。**kickstart 一樣會設
+`XPC_SERVICE_NAME`**，`run_job.sh` 會照樣記成 `trigger=scheduled`，板子會翻綠——
+但那只證明「launchd 叫得動它」，不證明**日曆條目**會觸發。用比較弱的證據去翻同一格燈，
+正是 `NEVER FIRED` 這一欄存在要防的替換。
+
+所以改成：把 `StartCalendarInterval` 暫時移到 3 分鐘後，讓 launchd **自己**觸發，
+再還原。結果 `trigger=scheduled` / `status=ok` / 251s / 1 published；plist 還原
+byte-exact，日曆確認回到 `Weekday=0 Hour=6 Minute=20`。
+
+**仍未證明的一件事**（不要在報告裡混過去）：日曆機制有效，不等於**週日 06:20 那台機器是醒的**。
+筆電睡著時 launchd 不觸發，醒來後合併補跑一次（`run_job.sh:227` 已記載），
+`coverage_gaps.jsonl` 一夜就記到 15 次錯過。這是筆電的物理限制，不是程式缺陷。
 平台三層閉環，血緣從政府 API 一路到模型，且每個閘門都用**突變測試**驗證過
 （本階段注入 9 次刻意破壞，全部被抓到）。
 
