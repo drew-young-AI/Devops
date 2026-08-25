@@ -119,6 +119,11 @@ for path in "${SECRETS[@]}"; do
   # set_rotation_policy.sh for why one global number was wrong), so the
   # argument to this script is only the DEFAULT for secrets that have not
   # been given one.
+  # The reason is read LAST and with `read -r a b rest`, so it keeps its own
+  # spaces. The first version space-encoded it as underscores and decoded with
+  # ${var//_/ }, which also ate the underscores that belonged to the text --
+  # "rotation_drill.sh" came out as "rotation drill.sh". An encoding that is
+  # not reversible is not an encoding.
   read -r rotated secret_interval exempt_reason <<<"$(printf '%s' "$meta" | python3 -c "
 import json,sys
 try:
@@ -127,14 +132,14 @@ except Exception:
     cm = {}
 print(cm.get('rotated_at','-'),
       cm.get('rotation_interval_days','-'),
-      (cm.get('rotation_exempt_reason','-') or '-').replace(' ','_'))
+      (cm.get('rotation_exempt_reason','') or '').replace(chr(10), ' '))
 " 2>/dev/null)"
   [ "$rotated" = "-" ] && rotated=""
   # An exempt secret is a DECISION that was recorded, so it is reported as its
   # own outcome rather than folded into the pass count -- "3 ok" must not mean
   # "2 rotated and 1 we agreed to stop checking".
   if [ "$secret_interval" = "0" ]; then
-    echo "  EXEMPT     secret/$path  (${exempt_reason//_/ })"
+    echo "  EXEMPT     secret/$path  ($exempt_reason)"
     exempt=$(( exempt + 1 ))
     continue
   fi

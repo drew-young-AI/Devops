@@ -98,13 +98,23 @@ if docker ps --format '{{.Names}}' | grep -qx "$GRAFANA_CONTAINER"; then
         grafana cli --homepath /usr/share/grafana \
         admin reset-admin-password --password-from-stdin >/dev/null 2>&1
 
-  if curl -s -o /dev/null -w '%{http_code}' \
-       -u "$ADMIN_USER:$(v kv get -field=password "$SECRET_PATH")" \
-       http://127.0.0.1:13000/api/org | grep -q 200; then
-    echo "Live admin password reset to the Vault-held credential (verified)."
-  else
-    echo "WARNING: admin password reset did not take effect -- check manually." >&2
-  fi
+  # Read the BODY, not just the status code. Grafana blocks a user after a few
+  # consecutive failed logins and a blocked account also answers 401 -- so
+  # "did not take effect" was being reported for an account that was merely
+  # rate-limited, and the operator was sent to check a password that was
+  # already correct. Observed on 2026-08-25 during the first real rotation:
+  # "too many consecutive incorrect login attempts for user".
+  RESET_BODY="$(curl -s -w '\n%{http_code}' \
+    -u "$ADMIN_USER:$(v kv get -field=password "$SECRET_PATH")" \
+    http://127.0.0.1:13000/api/org)"
+  case "$RESET_BODY" in
+    *$'\n'200) echo "Live admin password reset to the Vault-held credential (verified)." ;;
+    *"temporarily blocked"*)
+      echo "UNVERIFIED: Grafana has rate-limited this account, so the new" >&2
+      echo "            password could not be confirmed. It is NOT known to be" >&2
+      echo "            wrong -- retry in a few minutes." >&2 ;;
+    *) echo "WARNING: admin password reset did not take effect -- check manually." >&2 ;;
+  esac
 
   # Confirm the default is genuinely dead, rather than trusting the reset.
   if curl -s -o /dev/null -w '%{http_code}' -u admin:admin \

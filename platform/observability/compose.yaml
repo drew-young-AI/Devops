@@ -17,7 +17,13 @@ services:
     command:
       - --config.file=/etc/prometheus/prometheus.yml
       - --storage.tsdb.path=/prometheus
-      - --storage.tsdb.retention.time=24h
+      # 24h was enough when the only metrics were "is the pilot up". It is not
+      # enough for the platform's own stage history: a review that asks "when
+      # did this go red" is usually asking about last week. Size cap as well as
+      # time, because this runs on a laptop and an unbounded TSDB is how a dev
+      # machine fills its disk.
+      - --storage.tsdb.retention.time=30d
+      - --storage.tsdb.retention.size=2GB
     volumes:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ./prometheus/alerts:/etc/prometheus/alerts:ro
@@ -167,6 +173,41 @@ services:
       - loki
     mem_limit: 256m
     cpus: 0.50
+
+  # Transport for the platform's own status metrics, and ONLY that.
+  #
+  # dag.py writes evidence/statusdag/dag.prom every 15 minutes; this reads that
+  # directory and Prometheus scrapes it every 15s. The alternative -- a static
+  # HTML page somebody has to remember to regenerate -- cannot answer "when did
+  # this stage go red", which is the first question asked in a review.
+  #
+  # --collector.disable-defaults IS THE POINT, not a hardening tweak.
+  #
+  # This is a Linux container on macOS, so node_exporter's default collectors
+  # describe Docker Desktop's LinuxKit VM, NOT the Mac. Publishing those as
+  # "host CPU / memory / disk" would put numbers on a dashboard that look like
+  # the laptop and are not -- and the laptop's behaviour (sleeping, thermal
+  # throttling) is exactly what someone would reach for them to explain. A
+  # misleading metric is worse than a missing one, so only textfile is enabled.
+  node-exporter:
+    image: prom/node-exporter:v1.9.1
+    restart: unless-stopped
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+    command:
+      - --collector.disable-defaults
+      - --collector.textfile
+      - --collector.textfile.directory=/textfile
+      - --web.listen-address=:9100
+    volumes:
+      - ../../evidence/statusdag:/textfile:ro
+    ports:
+      - "127.0.0.1:19100:9100"
+    mem_limit: 64m
+    cpus: 0.10
 
 volumes:
   prometheus-data:

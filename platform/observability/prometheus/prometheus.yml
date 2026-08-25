@@ -40,3 +40,15 @@ scrape_configs:
   # Listing 18081/18082 here anyway would give two targets that are down
   # permanently, which trains everyone to ignore a red panel. An acknowledged
   # gap beats an alert that can never mean anything.
+
+  # The platform's own DAG state, via node_exporter's textfile collector.
+  # dag.py writes the .prom file every 15 minutes (jobs.conf); this scrapes it
+  # every 15s. The gap is deliberate -- probing a database and a cluster every
+  # 15 seconds would cost more than the freshness is worth, and
+  # devops_board_generated_seconds is exported so a dashboard can show exactly
+  # how old the underlying probe is rather than implying it is 15s fresh.
+  - job_name: platform-dag
+    static_configs:
+      - targets: ["node-exporter:9100"]
+        labels:
+          service: statusdag

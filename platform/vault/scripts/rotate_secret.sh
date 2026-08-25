@@ -50,8 +50,26 @@ get_current_version() {
 
 OLD_VERSION="$(get_current_version)"
 
+# `kv patch`, NOT `kv put`. put REPLACES the whole secret, so rotating one
+# field of a multi-field secret DELETES the others. Found by the rotation
+# drill: rotating `password` on secret/devops/grafana-admin destroyed
+# `username`, and the very next step failed with `Field "username" not present
+# in secret`. Nothing warned; the write succeeded.
+#
+# Same shape as the custom_metadata bug fixed in this file earlier the same
+# day -- Vault's write verbs replace rather than merge, in both the data and
+# the metadata path, and only one of the two had been fixed.
+#
+# patch requires the secret to exist. For a first write there is nothing to
+# preserve, so put is correct there and is used as the fallback.
+if docker exec -e VAULT_TOKEN="$VAULT_TOKEN" "$CONTAINER" \
+     vault kv get "secret/$SECRET_PATH" >/dev/null 2>&1 </dev/null; then
+  WRITE_VERB=patch
+else
+  WRITE_VERB=put
+fi
 docker exec -i -e VAULT_TOKEN="$VAULT_TOKEN" -e SECRET_VAL="$NEW_VALUE" "$CONTAINER" \
-  sh -c "vault kv put secret/$SECRET_PATH $FIELD=\"\$SECRET_VAL\"" >&2 </dev/null
+  sh -c "vault kv $WRITE_VERB secret/$SECRET_PATH $FIELD=\"\$SECRET_VAL\"" >&2 </dev/null
 
 NEW_VERSION="$(get_current_version)"
 
