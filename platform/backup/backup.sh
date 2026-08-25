@@ -81,12 +81,19 @@ declare -a EXCLUDED_VOLUMES=(
   # and a data-handling decision that is not ours to make. Listed rather than
   # ignored so the next person sees it was considered.
   mongo
-  # REMOVED 2026-08-19: k3d-devops-lab-images. The practice cluster is gone --
-  # volume, network, images and kubeconfig context all deleted. The exclusion is
-  # not kept "just in case": an entry naming a volume that does not exist reads
-  # as coverage of something real, and the next reader has to go and check. When
-  # the cluster is rebuilt for the Kubernetes phase, add its cache back then,
-  # against the name it actually has at that point.
+  # RE-ADDED 2026-08-25, on the terms the 2026-08-19 removal set: the cluster was
+  # rebuilt (platform/k8s/create_cluster.sh) and this is the name the volume
+  # actually has now, verified against `docker volume ls`, not assumed from the
+  # old entry. It is k3s's containerd image cache -- every byte of it is a layer
+  # that create_cluster.sh pulls or that platform/k8s/*/build.sh rebuilds, so
+  # backing it up would archive gigabytes of reproducible content and, worse,
+  # restore a stale image set over a rebuilt cluster.
+  #
+  # This exclusion is why the 2026-08-24 19:30 backup went ok -> failed: the
+  # rebuild introduced a volume nothing classified, and the job refused to claim
+  # the platform was backed up. That refusal was correct. Recorded here because
+  # the failure looked like a backup bug and was actually the gate working.
+  k3d-devops-lab-images
 )
 
 STAMP="$(date -u '+%Y%m%dT%H%M%SZ')"
