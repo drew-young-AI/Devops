@@ -28,6 +28,7 @@ timestamp: 2026-08-18T11:05:00+08:00
 | 5 | 異地備份（Google Drive） | ✅ 與底層無關 | 待使用者決定 |
 | 6 | 測試資料管理 + redaction v2 | ✅ 完全轉移 | 真實醫療資料前必須 |
 | 10 | 三把秘密沒有輪替紀錄 | ✅ 與底層無關 | **等使用者決定**（會動到活憑證） |
+| 11 | 憑證輪替自動化 | ✅ 與底層無關 | 分層：Grafana 先做，ghcr 要先實測 |
 
 ---
 
@@ -235,6 +236,28 @@ skill 只帶 drawio_extract、mermaid_extract、self_check 三支解析器，無
 1. `platform/vault/scripts/rotate_secret.sh <path>` 逐一真的轉（會需要同步更新
    GitHub / GHCR / Grafana 那一側）。
 2. 明確決定某幾把不納入 90 天政策，並把理由寫進 policy，而不是讓它一直紅。
+
+## 11. 憑證輪替自動化 — 分層，不是一句「能不能自動」
+
+2026-08-25 查一手文件後的結論。**能不能自動取決於「誰能發新憑證」，不是腳本寫不寫得出來。**
+
+| 憑證 | 能否全自動 | 機制 |
+|---|---|---|
+| 資料庫憑證 | **已經是了** | Vault database secrets engine（A5/A6 已實證，撤銷後 postgres 確實拒絕） |
+| `devops/grafana-admin` | **可以** | Grafana 有 API；`setup_grafana_identity.sh` 已會寫 Vault，只差排程 |
+| `devops/github` | **可以** | 換成 **GitHub App**：私鑰簽 JWT → `POST /app/installations/{id}/access_tokens` → **1 小時** token，可程式化重簽，零人工（GitHub 官方文件確認） |
+| `devops/ghcr` | **⚠️ 未查證** | 官方文件寫死：「GitHub Packages only supports authentication using a personal access token (classic)」。GITHUB_TOKEN 在 Actions 內可用（它本身就是 installation token），但**自架 App 的 token 能不能推 ghcr.io，文件沒寫** |
+
+**ghcr 那格不准假設。** 這個專案已經被同一種假設咬過一次——以為 fine-grained PAT
+勾對權限就能推 GitHub Packages，實際上官方文件說完全不支援（見 `Plan.md` Registry
+promotion 段）。要走 GitHub App 必須先實測，不能照推理。
+
+**同一把憑證住兩個地方**：Vault 一份、macOS keychain 一份，而 `git push` 讀 keychain
+不讀 Vault。真正的輪替是「在 GitHub 上撤銷舊的」——撤銷那一刻，沒同步更新的那一份就死。
+輪替腳本必須同時處理兩邊，否則會在最不該壞的時候壞。
+
+建議順序：Grafana（純本機、零外部依賴）→ GitHub App 換掉 `devops/github` →
+ghcr 先實測再決定。
 
 ---
 

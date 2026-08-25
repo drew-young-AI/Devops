@@ -811,6 +811,12 @@ def mermaid(board):
 
 STATE_LABEL = {OK: "正常", SUPERSEDED: "已被取代", WARN: "注意", FAIL: "失敗",
                UNKNOWN: "無法判定"}
+# Terminal marks, keyed off the same set as STATE_LABEL so a new state can
+# never be missing from one and present in the other.
+TERMINAL_MARK = {OK: "  ok  ", SUPERSEDED: " moved", WARN: " warn ",
+                 FAIL: " FAIL ", UNKNOWN: " ???  "}
+assert set(TERMINAL_MARK) == set(STATE_LABEL) == set(RANK), \
+    "a state exists in one map and not another -- add it everywhere"
 
 
 def render_html(board):
@@ -931,9 +937,61 @@ evidence 或即時探測，沒有任何一格是手動維護的——因此本�
 """
 
 
+# --------------------------------------------------------------------------
+# Prometheus text format.
+#
+# WHY: the HTML page is only true at the moment it is generated, and somebody
+# has to remember to generate it. A metric is scraped every 15s by the
+# Prometheus already running in this platform, which buys three things the page
+# cannot have at any price:
+#
+#   HISTORY   "when did this stage go red" is unanswerable from a page that
+#             only ever shows now. It is the first question asked in a review.
+#   ALERTING  Alertmanager already routes to a real human (A7). A red stage can
+#             page someone instead of waiting to be looked at.
+#   NO RUN    nobody has to remember anything.
+#
+# One gauge with a state label, rather than a number encoding state. A number
+# invites `> 1` comparisons that silently reorder when a state is added --
+# which just happened when SUPERSEDED was inserted between OK and WARN.
+# --------------------------------------------------------------------------
+
+def render_prometheus(board):
+    lines = [
+        "# HELP devops_node_state Platform DAG node state, 1 for the active state.",
+        "# TYPE devops_node_state gauge",
+    ]
+    states = (OK, SUPERSEDED, WARN, UNKNOWN, FAIL)
+    for n in board["nodes"]:
+        for state in states:
+            lines.append(
+                f'devops_node_state{{node="{n["id"]}",layer="{n["layer"]}",'
+                f'state="{state}"}} {1 if n["state"] == state else 0}')
+    lines += [
+        "# HELP devops_node_impacted Node is downstream of a failing node.",
+        "# TYPE devops_node_impacted gauge",
+    ]
+    for n in board["nodes"]:
+        lines.append(f'devops_node_impacted{{node="{n["id"]}"}} '
+                     f'{1 if n["impacted_by"] else 0}')
+    lines += [
+        "# HELP devops_board_generated_seconds Unix time this board was built.",
+        "# TYPE devops_board_generated_seconds gauge",
+        # Exported so a dashboard can show the board's OWN staleness. A scrape
+        # target that quietly stops updating otherwise looks exactly like a
+        # platform where nothing is changing.
+        f"devops_board_generated_seconds {int(datetime.now(timezone.utc).timestamp())}",
+    ]
+    return "\n".join(lines) + "\n"
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--json", action="store_true")
+    parser.add_argument("--prometheus", metavar="PATH", default=None,
+                        help="also write Prometheus text format to PATH "
+                             "(written atomically: a scraper must never read "
+                             "a half-written file and see a node vanish)")
     parser.add_argument("--out", default=os.path.join(
         REPO_ROOT, "docs", "Pipeline-Status.html"))
     args = parser.parse_args()
@@ -944,13 +1002,25 @@ def main():
         print(json.dumps(board, indent=2, ensure_ascii=False))
         return
 
+    if args.prometheus:
+        os.makedirs(os.path.dirname(args.prometheus), exist_ok=True)
+        tmp = args.prometheus + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as fh:
+            fh.write(render_prometheus(board))
+        os.replace(tmp, args.prometheus)     # atomic within one filesystem
+
     os.makedirs(os.path.dirname(args.out), exist_ok=True)
     with open(args.out, "w", encoding="utf-8") as fh:
         fh.write(render_html(board))
 
     print(f"verdict: {board['verdict']}")
     for n in board["nodes"]:
-        mark = {OK: "  ok  ", WARN: " warn ", FAIL: " FAIL ", UNKNOWN: " ???  "}[n["state"]]
+        # Derived from STATE_LABEL, not a second literal map. The first
+        # version WAS a second literal, and adding SUPERSEDED made this line
+        # raise KeyError after every probe had already run -- the job failed
+        # rc=1 having done all its work. Two maps of the same thing is one map
+        # too many; this one now cannot fall behind.
+        mark = TERMINAL_MARK.get(n["state"], f" {n['state'][:4]:^4} ")
         extra = f"   <- impacted by {', '.join(n['impacted_by'])}" if n["impacted_by"] else ""
         print(f"  [{mark}] {n['label']:<20} {n['detail'][:44]}{extra}")
     print(f"\nartifact={args.out}")
