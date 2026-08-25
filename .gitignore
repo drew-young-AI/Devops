@@ -206,6 +206,12 @@ evidence/scheduler/logs/
 # here: it is hand-curated.
 docs/Value-Stream-Board.html
 docs/Pipeline-Status.html
+# Same rule: stage_report.py regenerates it from live probes, and its header
+# carries the generation timestamp. Committing it would put a snapshot of
+# 'what is true right now' into a history that is about what happened --
+# and a stale committed copy is exactly the stale status document the
+# generator exists to replace.
+docs/Stage-Report.html
 
 # rclone config: the Google Drive OAuth token AND the crypt password. This
 # file is the ONLY way to read the offsite backups and is deliberately not

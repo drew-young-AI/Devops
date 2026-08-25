@@ -167,6 +167,36 @@ check "no OTHER feed has a numerator exceeding its denominator" "0" \
 check "geo_population covers county, township and village" "3" \
   "SELECT count(DISTINCT geo_level) FROM geo_population"
 
+# LEAVE PROOF IT RAN.
+#
+# Until 2026-08-25 this suite wrote nothing. Every other gate on this platform
+# drops an evidence file, and the status board reads those files -- so the
+# DataOps contract node could only ever show "???" no matter how many times the
+# suite passed. A check whose result nobody can see afterwards is a check that
+# is, from the board's point of view, not running.
+#
+# Written BEFORE the exit, so a failing run leaves evidence too. Evidence that
+# only appears on success is how a red gate becomes invisible.
+# This suite does not source lib.sh, so it has no REPO_ROOT. Derived here
+# rather than assumed from the caller's cwd -- run_all.sh and a bare
+# invocation start from different directories.
+EVIDENCE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)/evidence/data"
+mkdir -p "$EVIDENCE_DIR"
+STAMP="$(date -u '+%Y%m%dT%H%M%SZ')"
+python3 - "$EVIDENCE_DIR/contract_summary_${STAMP}.json" "$PASS" "$FAIL" "$STAMP" <<'PY'
+import json, pathlib, sys
+out, passed, failed, stamp = sys.argv[1:]
+pathlib.Path(out).write_text(json.dumps({
+    "suite": "data_contract_live",
+    "generated_at": stamp,
+    "assertions_passed": int(passed),
+    "assertions_failed": int(failed),
+    # The key the status board reads. PASS/FAIL rather than a count, because
+    # "27 passed" says nothing about whether any FAILED.
+    "gate_result": "PASS" if int(failed) == 0 else "FAIL",
+}, indent=2) + "\n")
+PY
+
 echo ""
 if [ "$FAIL" -gt 0 ]; then
   echo "  $PASS passed, $FAIL FAILED" >&2

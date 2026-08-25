@@ -47,7 +47,18 @@ REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 EVIDENCE = os.path.join(REPO_ROOT, "evidence")
 
 OK, WARN, FAIL, UNKNOWN = "ok", "warn", "fail", "unknown"
-RANK = {OK: 0, WARN: 1, UNKNOWN: 2, FAIL: 3}
+# SUPERSEDED: this stage was exercised end-to-end and then REPLACED by another
+# stage. Added 2026-08-25 because five DevOps stages were sitting amber for the
+# Compose-to-Kubernetes migration, which made the board read as "five things
+# need attention" when the honest reading is "five things moved". Amber that
+# never clears is amber nobody looks at, and it was crowding out the two rows
+# that genuinely need a decision.
+#
+# Ranked above OK and below WARN: a superseded node should not turn a stage
+# green (it really is not running), and should not outrank a node that is
+# actually degraded.
+SUPERSEDED = "superseded"
+RANK = {OK: 0, SUPERSEDED: 1, WARN: 2, UNKNOWN: 3, FAIL: 4}
 
 
 # --------------------------------------------------------------------------
@@ -180,7 +191,8 @@ def probe_scheduler():
     return OK, f"{len(data.get('jobs', []))} jobs fresh"
 
 
-def probe_gate(pattern, result_key="gate_result", stale_hours=48, stamp_key=None):
+def probe_gate(pattern, result_key="gate_result", stale_hours=48, stamp_key=None,
+               retired_note=None):
     """SAST / DAST / Trivy style summaries: verdict plus an age check.
 
     Age matters as much as verdict. A PASS from last week says nothing about
@@ -188,6 +200,11 @@ def probe_gate(pattern, result_key="gate_result", stale_hours=48, stamp_key=None
     path = newest(pattern)
     data = load(path)
     if not data:
+        # Same distinction retired_only() draws for the build path: a gate that
+        # ran to completion under a pilot since retired is not a gate that
+        # never ran, and only one of those needs somebody to go and look.
+        if retired_note and retired_only(pattern):
+            return SUPERSEDED, retired_note
         return UNKNOWN, "no evidence"
     verdict = data.get(result_key)
     stamp = data.get(stamp_key) if stamp_key else os.path.basename(path)
@@ -237,6 +254,12 @@ def probe_llm_review():
     path = newest("*/llm_review_*.json")
     data = load(path)
     if not data:
+        # review.sh reads build metadata, the Trivy gate, the SBOM and develop
+        # health -- all artefacts of the Compose path. With that path retired
+        # it has nothing to review, which is a consequence of the Kubernetes
+        # move rather than a review that failed to run.
+        if retired_only("*/llm_review_*.json"):
+            return SUPERSEDED, "輸入來自已退役的 Compose 路徑；待接上 Kubernetes 產物"
         return UNKNOWN, "no review"
     hours = age_hours(os.path.basename(path).replace(".json", "").split("_")[-1])
     age = f", {hours:.0f}h ago" if hours is not None else ""
@@ -281,6 +304,8 @@ def probe_deploy(env):
             EVIDENCE, "*/deploy_develop_*.json")))
         data = load(files[-1]) if files else None
         if not data:
+            if retired_only("*/deploy_develop_*.json"):
+                return SUPERSEDED, "已由 station1-hello 驗證後退役；改走 Kubernetes"
             return UNKNOWN, "no deploy evidence"
         if data.get("health_status") != "healthy":
             return FAIL, f"health={data.get('health_status')}"
@@ -294,14 +319,35 @@ def probe_deploy(env):
     files = sorted(glob.glob(os.path.join(EVIDENCE, "*/production_like_state.json")))
     state = load(files[-1]) if files else None
     if not state:
+        if retired_only("*/production_like_state.json"):
+            return SUPERSEDED, "已由 station1-hello 驗證後退役；藍綠改在 Kubernetes"
         return UNKNOWN, "never promoted"
     return OK, f"{state.get('active_color')} @ sha {state.get('promoted_sha', '?')}"
+
+
+def retired_only(pattern):
+    """True when a stage has evidence ONLY under evidence/_retired/.
+
+    Distinguishes two things a bare "no evidence" collapses into one:
+    a stage that never worked, and a stage that WAS exercised end-to-end by a
+    pilot that has since been retired. The Compose build -> push -> promote
+    path is the second: station1-hello ran it and left evidence; station2-twin
+    took the Kubernetes route instead, so nothing new lands here and nothing
+    ever will. Reporting that as "no evidence" reads as a broken pipeline and
+    sends the reader looking for a failure that is not there.
+    """
+    live = glob.glob(os.path.join(EVIDENCE, pattern))
+    live = [f for f in live if "_retired" not in f]
+    retired = glob.glob(os.path.join(EVIDENCE, "_retired", "*", os.path.basename(pattern)))
+    return not live and bool(retired)
 
 
 def probe_ci():
     files = sorted(glob.glob(os.path.join(EVIDENCE, "*/build_*.json")))
     data = load(files[-1]) if files else None
     if not data:
+        if retired_only("*/build_*.json"):
+            return SUPERSEDED, "已由 station1-hello 驗證後退役；改走 Kubernetes"
         return UNKNOWN, "no build evidence"
     return OK, f"sha {data.get('commit_sha', '?')[:7]}"
 
@@ -309,6 +355,8 @@ def probe_ci():
 def probe_registry():
     files = sorted(glob.glob(os.path.join(EVIDENCE, "*/push_*.json")))
     if not files:
+        if retired_only("*/push_*.json"):
+            return SUPERSEDED, "已由 station1-hello 驗證後退役；改走本機 registry"
         return UNKNOWN, "nothing pushed"
     data = load(files[-1]) or {}
     hours = age_hours(os.path.basename(files[-1]).split("_")[-1].replace(".json", ""))
@@ -341,6 +389,219 @@ def probe_human_gate():
 # The graph. Edges are real dependencies, not drawing conveniences.
 # --------------------------------------------------------------------------
 
+
+# --------------------------------------------------------------------------
+# DataOps / MLOps / Kubernetes probes.
+#
+# Added 2026-08-25. The board was DevOps-only, which made it structurally
+# unable to answer the question the stage review actually asks -- "where is
+# each of the three lines". Reporting the DevOps line alone and calling it the
+# platform's status was the same shape of error this project keeps finding:
+# a true statement that answers a narrower question than the one asked.
+#
+# Every probe below reads LIVE state (a query, an API round-trip), never a
+# document. A number in a report that came from a document is a number nobody
+# re-checked.
+# --------------------------------------------------------------------------
+
+def psql(sql, timeout=20):
+    """One value out of the pilot database, or None if it cannot be reached.
+    None is deliberately distinct from 0: 'no answer' and 'zero rows' are
+    different facts and the board colours them differently."""
+    rc, out = run(["docker", "exec", "station2-twin-db-1", "psql", "-U", "twin",
+                   "-d", "twin", "-qtAX", "-c", sql], timeout=timeout)
+    if rc != 0:
+        return None
+    return out.strip()
+
+
+def _n(value):
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def probe_sources():
+    n = _n(psql("SELECT count(*) FROM data_source;"))
+    if n is None:
+        return UNKNOWN, "資料庫無回應"
+    if n == 0:
+        return FAIL, "沒有任何登記來源"
+    return OK, f"{n} 個登記來源"
+
+
+def probe_facts():
+    sf = _n(psql("SELECT count(*) FROM surveillance_fact;"))
+    df = _n(psql("SELECT count(*) FROM demographic_fact;"))
+    if sf is None or df is None:
+        return UNKNOWN, "資料庫無回應"
+    if sf == 0:
+        return FAIL, "事實表為空"
+    return OK, f"監測 {sf:,} 列／人口 {df:,} 列"
+
+
+def probe_lineage():
+    """The arithmetic is a CHECK constraint, so a violating row cannot exist.
+    Probing it anyway is the point: a constraint that was dropped leaves no
+    trace, and 'the schema says so' is exactly the kind of claim this board
+    exists to stop taking on faith."""
+    # source_rows_accepted, NOT rows_accepted. The first version of this probe
+    # used rows_accepted and reported 8/39 batches "broken" -- the arithmetic
+    # was mine, not the schema's. rows_accepted counts OUTPUT rows and one
+    # source row fans out to many facts (one CSV line x 11 diseases); the
+    # constraint is over SOURCE rows. Reading the constraint instead of
+    # recalling it would have taken ten seconds.
+    bad = _n(psql("SELECT count(*) FROM ingest_runs WHERE rows_in_file <> "
+                  "source_rows_accepted + rows_rejected + duplicate_rows;"))
+    total = _n(psql("SELECT count(*) FROM ingest_runs;"))
+    # A CHECK cannot be violated while it is enforced, so the arithmetic above
+    # can only ever fail if the constraint was DROPPED -- which leaves no trace
+    # anywhere. That is exactly why both are probed.
+    enforced = _n(psql("SELECT count(*) FROM pg_constraint WHERE conrelid = "
+                       "'ingest_runs'::regclass AND contype = 'c' AND "
+                       "pg_get_constraintdef(oid) LIKE '%source_rows_accepted%';"))
+    if bad is None or total is None or enforced is None:
+        return UNKNOWN, "資料庫無回應"
+    if not enforced:
+        return FAIL, "血緣算術的 CHECK 約束已不存在"
+    if bad > 0:
+        return FAIL, f"{bad}/{total} 批次的血緣算術對不上"
+    return OK, f"{total} 批次全數收斂（CHECK 約束執行中）"
+
+
+def probe_geo():
+    n = _n(psql("SELECT count(*) FROM geo_area;"))
+    if n is None:
+        return UNKNOWN, "資料庫無回應"
+    if n == 0:
+        return FAIL, "沒有地理權威資料"
+    return OK, f"{n:,} 個行政區（縣市／鄉鎮／村里）"
+
+
+def probe_epiweek():
+    """B10, the blocked milestone, as a live number rather than a sentence in
+    a plan. Reported WARN, not FAIL: nothing is broken, a question is
+    unanswered -- and the two need to look different to a reader deciding
+    where to spend attention."""
+    null_dates = _n(psql("SELECT count(*) FROM time_period WHERE cal_date IS NULL;"))
+    total = _n(psql("SELECT count(*) FROM time_period;"))
+    if null_dates is None or total is None:
+        return UNKNOWN, "資料庫無回應"
+    if null_dates == 0:
+        return OK, f"{total} 個期間全數對到日曆日"
+    return WARN, f"{null_dates}/{total} 個期間無日曆日（待疾管署查證）"
+
+
+def probe_features():
+    n = _n(psql("SELECT count(*) FROM feature_set WHERE code_sha256 IS NOT NULL;"))
+    rows = _n(psql("SELECT count(*) FROM feature_row;"))
+    if n is None or rows is None:
+        return UNKNOWN, "資料庫無回應"
+    if n == 0:
+        return FAIL, "沒有綁定程式碼雜湊的特徵集"
+    return OK, f"{n} 個特徵集綁定 code_sha256／{rows:,} 特徵列"
+
+
+def probe_backtest():
+    n = _n(psql("SELECT count(*) FROM model_run "
+                "WHERE split_strategy = 'rolling_origin';"))
+    if n is None:
+        return UNKNOWN, "資料庫無回應"
+    if n == 0:
+        return FAIL, "沒有 rolling-origin 回測紀錄"
+    return OK, f"{n} 次 rolling-origin 回測"
+
+
+def probe_model_gate():
+    """Does the model actually beat its baselines? This is C8, and it is the
+    one node on the board that is allowed to be amber while everything around
+    it is green: the gate WORKS (it refuses), and the model LOSES. Collapsing
+    those two into one light would hide whichever half you did not pick."""
+    # Report the MARGIN, not just the count. The first version said
+    # "3/7 次回測通過閘門" and rendered green -- true, and it reads as good
+    # news. The three that pass do so by 0.32%, and every t+1 run LOSES by
+    # 12%. A green light on that is the sentence "the model beats baseline"
+    # doing work the numbers do not support.
+    #
+    # The amber condition is a FACT, not a threshold somebody chose: it turns
+    # amber when any horizon loses to persistence. No invented significance
+    # cutoff, nothing to argue about.
+    rows = psql("SELECT horizon_weeks, "
+                "round((((baseline_persistence_mae - mae) / "
+                "baseline_persistence_mae) * 100)::numeric, 2) "
+                "FROM model_run WHERE split_strategy = 'rolling_origin' "
+                "GROUP BY horizon_weeks, mae, baseline_persistence_mae "
+                "ORDER BY horizon_weeks;")
+    if rows is None:
+        return UNKNOWN, "資料庫無回應"
+    best = {}
+    for line in rows.splitlines():
+        parts = line.split("|")
+        if len(parts) != 2:
+            continue
+        try:
+            h, margin = int(parts[0]), float(parts[1])
+        except ValueError:
+            continue
+        best[h] = max(best.get(h, margin), margin)
+    if not best:
+        return WARN, "沒有 rolling-origin 回測可判定"
+    detail = "／".join(f"t+{h} {m:+.2f}%" for h, m in sorted(best.items()))
+    if any(m <= 0 for m in best.values()):
+        return WARN, f"閘門運作中（贏才准上線），但仍輸給持平基準：{detail}"
+    return OK, f"全數勝過持平基準：{detail}"
+
+
+def probe_forecast():
+    n = _n(psql("SELECT count(*) FROM forecast;"))
+    if n is None:
+        return UNKNOWN, "資料庫無回應"
+    if n == 0:
+        return WARN, "尚無已發布預測（閘門拒絕即為此結果）"
+    return OK, f"{n} 筆已發布預測"
+
+
+def probe_retrain():
+    data = load(os.path.join(EVIDENCE, "scheduler", "retrain_last.json"))
+    if not data:
+        return UNKNOWN, "從未執行"
+    if not data.get("last_scheduled_at"):
+        return WARN, "只手動跑過，排程從未觸發"
+    if data.get("status") != "ok":
+        return FAIL, f"上次 {data.get('status')}"
+    return OK, f"排程觸發成功（{data.get('duration_seconds')}s）"
+
+
+def probe_k8s():
+    rc, _ = run(["kubectl", "--context", "k3d-devops-lab",
+                 "get", "--raw", "/readyz"], timeout=15)
+    if rc is None:
+        return UNKNOWN, "kubectl 無法執行"
+    if rc != 0:
+        return WARN, "叢集未啟動（Compose 平台不依賴它）"
+    return OK, "k3d 叢集回應 /readyz"
+
+
+def probe_bluegreen():
+    """Which colour is live RIGHT NOW, read off the Service selector. Not
+    'blue/green is implemented' -- that is a claim about code. This is a claim
+    about the cluster, and it is the only one worth putting on a board."""
+    # Namespace `station2` and label `color` -- both READ off the cluster, not
+    # guessed. The first version guessed `station2-twin` / `colour` and
+    # reported "service not deployed" while it was serving traffic: a probe
+    # that is wrong about where to look reports an outage that is not there,
+    # which is worse than no probe.
+    rc, out = run(["kubectl", "--context", "k3d-devops-lab", "-n", "station2",
+                   "get", "svc", "station2-twin",
+                   "-o", "jsonpath={.spec.selector.color}"], timeout=15)
+    if rc is None:
+        return UNKNOWN, "kubectl 無法執行"
+    if rc != 0 or not out.strip():
+        return WARN, "叢集未啟動或服務未部署"
+    return OK, f"目前流量指向 {out.strip()}"
+
+
 NODES = [
     # id,          label,               layer,          probe
     ("vault",      "Vault 機密/身分",     "foundation",  probe_vault),
@@ -353,7 +614,8 @@ NODES = [
     ("secrets",    "Secret 歷史掃描",     "source",      probe_gitleaks),
 
     ("ci",         "CI 建置",             "build",       probe_ci),
-    ("trivy",      "映像漏洞掃描",         "build",       lambda: probe_gate("*/trivy_summary_*.json", stale_hours=24 * 30)),
+    ("trivy",      "映像漏洞掃描",         "build",       lambda: probe_gate("*/trivy_summary_*.json", stale_hours=24 * 30,
+                                                                      retired_note="已由 station1-hello 驗證後退役；k8s 映像走本機 registry")),
     ("registry",   "Registry 推送",       "build",       probe_registry),
 
     ("develop",    "develop 部署",        "deploy",      lambda: probe_deploy("develop")),
@@ -367,6 +629,25 @@ NODES = [
     ("loki",       "Loki 日誌",           "observe",     lambda: probe_docker("observability-loki-1")),
     ("alertmgr",   "Alertmanager 告警",   "observe",     probe_alertmanager),
     ("grafana",    "Grafana 檢視",        "observe",     lambda: probe_docker("observability-grafana-1")),
+
+    # --- DataOps（綠）---------------------------------------------------
+    ("sources",    "來源登記",            "dataops",     probe_sources),
+    ("geo",        "地理權威",            "dataops",     probe_geo),
+    ("facts",      "事實載入",            "dataops",     probe_facts),
+    ("lineage",    "血緣算術",            "dataops",     probe_lineage),
+    ("dcontract",  "資料契約",            "dataops",     lambda: probe_gate("data/contract_summary_*.json", stale_hours=24 * 8)),
+    ("epiweek",    "週↔日曆對照",         "dataops",     probe_epiweek),
+
+    # --- MLOps（棕）-----------------------------------------------------
+    ("features",   "特徵集",              "mlops",       probe_features),
+    ("backtest",   "回測（rolling-origin）", "mlops",     probe_backtest),
+    ("mgate",      "上線閘門",            "mlops",       probe_model_gate),
+    ("forecast",   "已發布預測",          "mlops",       probe_forecast),
+    ("retrain",    "排程重訓",            "mlops",       probe_retrain),
+
+    # --- Kubernetes（藍，A9/A10）-----------------------------------------
+    ("k8s",        "k3d 叢集",            "k8s",         probe_k8s),
+    ("bluegreen",  "藍綠切換",            "k8s",         probe_bluegreen),
 ]
 
 # (from, to) -- "to depends on from".
@@ -397,6 +678,27 @@ EDGES = [
     ("loki", "grafana"),
     ("prometheus", "grafana"),
     ("alertmgr", "grafana"),
+
+    # DataOps: 來源 -> 載入 -> 血緣 -> 契約。地理權威是載入的前提（沒有它就
+    # 沒有 geo_code 可解析），週↔日曆對照掛在載入之後，因為它是「已經載進來
+    # 的資料還缺什麼」，不是載入的阻擋條件。
+    ("sources", "facts"),
+    ("geo", "facts"),
+    ("facts", "lineage"),
+    ("lineage", "dcontract"),
+    ("facts", "epiweek"),
+
+    # MLOps 完全長在 DataOps 上：契約沒過，特徵就不該建。
+    ("dcontract", "features"),
+    ("features", "backtest"),
+    ("backtest", "mgate"),
+    ("mgate", "forecast"),
+    ("scheduler", "retrain"),
+    ("retrain", "backtest"),
+
+    # Kubernetes: 叢集是藍綠的底座；藍綠取代了 Compose 的 promote 路徑。
+    ("k8s", "bluegreen"),
+    ("registry", "bluegreen"),
 ]
 
 LAYERS = [
@@ -408,6 +710,9 @@ LAYERS = [
     ("gate", "人工關卡"),
     ("release", "上線"),
     ("observe", "觀測"),
+    ("k8s", "Kubernetes"),
+    ("dataops", "DataOps 資料"),
+    ("mlops", "MLOps 模型"),
 ]
 
 
@@ -444,7 +749,8 @@ def build():
             stack.extend(downstream.get(nxt, []))
 
     worst = max((RANK[n["state"]] for n in results.values()), default=0)
-    verdict = {0: "ALL_GREEN", 1: "DEGRADED", 2: "UNKNOWN", 3: "FAILED"}[worst]
+    verdict = {0: "ALL_GREEN", 1: "ALL_GREEN", 2: "DEGRADED",
+               3: "UNKNOWN", 4: "FAILED"}[worst]
 
     return {
         "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
@@ -503,7 +809,8 @@ def mermaid(board):
     return "\n".join(lines)
 
 
-STATE_LABEL = {OK: "正常", WARN: "注意", FAIL: "失敗", UNKNOWN: "無法判定"}
+STATE_LABEL = {OK: "正常", SUPERSEDED: "已被取代", WARN: "注意", FAIL: "失敗",
+               UNKNOWN: "無法判定"}
 
 
 def render_html(board):
