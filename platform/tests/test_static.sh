@@ -124,6 +124,31 @@ PY
 done < <(grep -rl "docker exec -i" "$REPO_ROOT/platform" --include='*.sh' \
            | grep -v '/tests/test_static.sh$' | sort)
 
+# Bash 4 builtins on a bash 3.2 host.
+#
+# macOS ships bash 3.2.57 and `#!/usr/bin/env bash` resolves to it. `bash -n`
+# above does NOT catch this: `mapfile` is a builtin lookup at RUN time, so a
+# script using it parses cleanly and then exits 127 the first time that line
+# runs. set_rotation_policy.sh did exactly that on 2026-08-25 -- found by a
+# self-test, not by the gate that exists to find this kind of thing.
+#
+# Checked by pattern rather than by running anything, because the failing line
+# may sit behind a condition no test reaches.
+while IFS= read -r script; do
+  rel="${script#$REPO_ROOT/}"
+  hits="$(grep -nE '(^|[^[:alnum:]_])(mapfile|readarray)[[:space:]]|declare[[:space:]]+-A[[:space:]]|\$\{[A-Za-z_][A-Za-z0-9_]*(,,|\^\^)\}' "$script" \
+            | grep -v 'has no `mapfile`' | cut -d: -f1 | paste -sd, - | tr -d ' ')"
+  if [ -z "$hits" ]; then
+    _pass "bash 3.2 compatible: $rel"
+  else
+    _fail "bash 3.2 compatible: $rel" \
+      "bash 4 builtin/expansion at line(s) $hits -- macOS bash is 3.2, this exits 127 at run time"
+  fi
+# Excluded for the same reason as the stdin check above: this file necessarily
+# contains the patterns it searches for.
+done < <(find "$REPO_ROOT/platform" -name '*.sh' -type f \
+           | grep -v '/tests/test_static.sh$' | sort)
+
 # Generated-from-template drift.
 #
 # deploy.sh renders _generated.*.conf from its .template ONLY during promote

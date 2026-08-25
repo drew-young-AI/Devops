@@ -110,19 +110,39 @@ if [ "${#SECRETS[@]}" -eq 0 ]; then
 fi
 
 NOW="$(date -u +%s)"
-LIMIT=$(( INTERVAL_DAYS * 86400 ))
-due=0; unrecorded=0; ok=0
+due=0; unrecorded=0; ok=0; exempt=0
 
 for path in "${SECRETS[@]}"; do
   meta="$(vt kv metadata get -format=json "secret/$path" 2>/dev/null)"
-  rotated="$(printf '%s' "$meta" | python3 -c "
+  # Two fields, read in one pass: when it was last rotated, and what interval
+  # THIS secret is held to. The interval is per-secret data (see
+  # set_rotation_policy.sh for why one global number was wrong), so the
+  # argument to this script is only the DEFAULT for secrets that have not
+  # been given one.
+  read -r rotated secret_interval exempt_reason <<<"$(printf '%s' "$meta" | python3 -c "
 import json,sys
 try:
     cm = json.load(sys.stdin)['data'].get('custom_metadata') or {}
-    print(cm.get('rotated_at',''))
 except Exception:
-    print('')
+    cm = {}
+print(cm.get('rotated_at','-'),
+      cm.get('rotation_interval_days','-'),
+      (cm.get('rotation_exempt_reason','-') or '-').replace(' ','_'))
 " 2>/dev/null)"
+  [ "$rotated" = "-" ] && rotated=""
+  # An exempt secret is a DECISION that was recorded, so it is reported as its
+  # own outcome rather than folded into the pass count -- "3 ok" must not mean
+  # "2 rotated and 1 we agreed to stop checking".
+  if [ "$secret_interval" = "0" ]; then
+    echo "  EXEMPT     secret/$path  (${exempt_reason//_/ })"
+    exempt=$(( exempt + 1 ))
+    continue
+  fi
+  case "$secret_interval" in
+    ''|*[!0-9]*) effective="$INTERVAL_DAYS"; source_note="default" ;;
+    *)           effective="$secret_interval"; source_note="per-secret" ;;
+  esac
+  LIMIT=$(( effective * 86400 ))
   if [ -z "$rotated" ]; then
     echo "  NO RECORD  secret/$path  (never rotated by this tooling)"
     unrecorded=$(( unrecorded + 1 ))
@@ -141,19 +161,21 @@ except Exception: print('')
   fi
   age_days=$(( (NOW - then_ts) / 86400 ))
   if [ "$(( NOW - then_ts ))" -ge "$LIMIT" ]; then
-    echo "  DUE        secret/$path  ${age_days}d old (limit ${INTERVAL_DAYS}d)"
+    echo "  DUE        secret/$path  ${age_days}d old (limit ${effective}d, $source_note)"
     due=$(( due + 1 ))
   else
-    echo "  ok         secret/$path  ${age_days}d old"
+    echo "  ok         secret/$path  ${age_days}d old (limit ${effective}d, $source_note)"
     ok=$(( ok + 1 ))
   fi
 done
 
 echo ""
-echo "  ${#SECRETS[@]} secret(s): $ok within interval, $due due, $unrecorded without a record"
+echo "  ${#SECRETS[@]} secret(s): $ok within interval, $due due, $unrecorded without a record, $exempt exempt"
 if [ "$due" -gt 0 ] || [ "$unrecorded" -gt 0 ]; then
-  echo "  Rotate with: platform/vault/scripts/rotate_secret.sh <path>" >&2
+  echo "  Rotate:  platform/vault/scripts/rotate_secret.sh <path> <field>" >&2
+  echo "  Or set this secret's own interval / record an exemption:" >&2
+  echo "           platform/vault/scripts/set_rotation_policy.sh <path> <days> [reason]" >&2
   exit 1
 fi
-echo "  ROTATION PASS -- every secret has a record and is within ${INTERVAL_DAYS}d"
+echo "  ROTATION PASS -- every non-exempt secret has a record and is within its own interval"
 exit 0

@@ -57,11 +57,39 @@ NEW_VERSION="$(get_current_version)"
 
 ROTATED_AT="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
 
+# MERGE, DO NOT REPLACE.
+#
+# `vault kv metadata put -custom-metadata=...` replaces the WHOLE map. The
+# first version passed only these two keys, so every rotation silently wiped
+# any other custom_metadata on the secret -- including the per-secret
+# rotation_interval_days that set_rotation_policy.sh writes. The exemption you
+# recorded would have survived until the first time you actually rotated, which
+# is the worst possible moment for it to vanish.
+#
+# So: read what is there, overwrite only the two keys this script owns, and
+# pass the rest back unchanged.
+EXISTING="$(docker exec -e VAULT_TOKEN="$VAULT_TOKEN" "$CONTAINER" \
+  vault kv metadata get -format=json "secret/$SECRET_PATH" 2>/dev/null || echo '{}')"
+# bash 3.2 (what macOS ships, and what `#!/usr/bin/env bash` resolves to here)
+# has no `mapfile`. The first version used it and the whole script exited 127 --
+# caught by the self-test, not by reading it.
+META_ARGS=()
+while IFS= read -r _arg; do
+  [ -n "$_arg" ] && META_ARGS+=("$_arg")
+done < <(printf '%s' "$EXISTING" | python3 -c "
+import json, sys
+try:
+    cm = json.load(sys.stdin)['data'].get('custom_metadata') or {}
+except Exception:
+    cm = {}
+cm['rotated_at'] = sys.argv[1]
+cm['previous_version'] = sys.argv[2]
+for k, v in cm.items():
+    print(f'-custom-metadata={k}={v}')
+" "$ROTATED_AT" "$OLD_VERSION")
+
 docker exec -e VAULT_TOKEN="$VAULT_TOKEN" "$CONTAINER" \
-  vault kv metadata put \
-  -custom-metadata="rotated_at=$ROTATED_AT" \
-  -custom-metadata="previous_version=$OLD_VERSION" \
-  "secret/$SECRET_PATH" >&2
+  vault kv metadata put "${META_ARGS[@]}" "secret/$SECRET_PATH" >&2
 
 echo "Rotated: version $OLD_VERSION -> $NEW_VERSION"
 echo "Old version ($OLD_VERSION) is still readable via:"
