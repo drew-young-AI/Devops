@@ -36,3 +36,8 @@
 {"at": "2026-08-22T22:09:25Z", "job": "rotation", "from": "ok", "to": "failed", "severity": "critical", "summary": "[FAIL] rotation: ok -> failed"}
 {"at": "2026-08-24T19:14:04Z", "job": "audit", "from": "failed", "to": "ok", "severity": "recovered", "summary": "[OK] audit: failed -> ok"}
 {"at": "2026-08-24T19:30:13Z", "job": "backup", "from": "ok", "to": "failed", "severity": "critical", "summary": "[FAIL] backup: ok -> failed"}
+{"at": "2026-08-25T01:11:09Z", "job": "rotation", "from": "failed", "to": "not-configured", "severity": "info", "summary": "[INFO] rotation: failed -> not-configured"}
+{"at": "2026-08-25T01:12:23Z", "job": "rotation", "from": "not-configured", "to": "failed", "severity": "critical", "summary": "[FAIL] rotation: not-configured -> failed"}
+{"at": "2026-08-25T01:16:10Z", "job": "restore", "from": "failed", "to": "ok", "severity": "recovered", "summary": "[OK] restore: failed -> ok"}
+{"at": "2026-08-25T01:18:27Z", "job": "dast", "from": "failed", "to": "ok", "severity": "recovered", "summary": "[OK] dast: failed -> ok"}
+{"at": "2026-08-25T01:19:21Z", "job": "backup", "from": "failed", "to": "ok", "severity": "recovered", "summary": "[OK] backup: failed -> ok"}

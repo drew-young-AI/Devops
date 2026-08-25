@@ -1,14 +1,20 @@
 {
   "job": "rotation",
-  "started_at": "2026-08-22T22:09:23Z",
+  "started_at": "2026-08-25T01:12:21Z",
   "status": "failed",
   "exit_code": 1,
   "duration_seconds": 2,
   "interval_seconds": 604800,
-  "command": "platform/vault/scripts/check_rotation_due.sh",
-  "trigger": "scheduled",
+  "command": "platform/vault/scripts/check_rotation_sweep.sh",
+  "trigger": "manual",
   "last_scheduled_at": "2026-08-22T22:09:23Z",
   "output_tail": [
-    "platform/vault/scripts/check_rotation_due.sh: line 19: 1: Usage: check_rotation_due.sh <path> [interval_days]"
+    "=== [rotation] sweep, interval 90d ===",
+    "  NO RECORD  secret/devops/ghcr  (never rotated by this tooling)",
+    "  NO RECORD  secret/devops/github  (never rotated by this tooling)",
+    "  NO RECORD  secret/devops/grafana-admin  (never rotated by this tooling)",
+    "",
+    "  3 secret(s): 0 within interval, 0 due, 3 without a record",
+    "  Rotate with: platform/vault/scripts/rotate_secret.sh <path>"
   ]
 }
