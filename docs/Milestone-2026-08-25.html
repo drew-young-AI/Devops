@@ -1,0 +1,706 @@
+<title>三線平台驗收</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Noto+Sans+TC:wght@400;500;700&family=Noto+Serif+TC:wght@500;700&display=swap">
+
+<style>
+  :root {
+    --ground:      #F6F7F9;
+    --surface:     #FFFFFF;
+    --surface-sub: #EDF0F4;
+    --ink:         #181D24;
+    --ink-soft:    #4C5765;
+    --ink-faint:   #78838F;
+    --rule:        #CBD3DC;
+    --rule-soft:   #E2E7EC;
+
+    --devops:      #2B5FA8;
+    --dataops:     #2E7A55;
+    --mlops:       #8A5A32;
+
+    --stop:        #AE3A32;
+    --hold:        #A8792A;
+    --go:          #2E7A55;
+
+    --devops-wash: #E8EEF7;
+    --dataops-wash:#E6F0EA;
+    --mlops-wash:  #F3EBE3;
+    --stop-wash:   #F7E9E7;
+
+    --measure: 70ch;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground:      #14181E;
+      --surface:     #1B212A;
+      --surface-sub: #222A34;
+      --ink:         #E2E7EE;
+      --ink-soft:    #A9B4C1;
+      --ink-faint:   #7C8896;
+      --rule:        #333D4A;
+      --rule-soft:   #262F3A;
+
+      --devops:      #7BA6E0;
+      --dataops:     #6DBF95;
+      --mlops:       #C99C6E;
+
+      --stop:        #E48078;
+      --hold:        #D9AE5C;
+      --go:          #6DBF95;
+
+      --devops-wash: #1D2937;
+      --dataops-wash:#1A2C24;
+      --mlops-wash:  #2C2419;
+      --stop-wash:   #33201E;
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --ground:      #14181E;
+    --surface:     #1B212A;
+    --surface-sub: #222A34;
+    --ink:         #E2E7EE;
+    --ink-soft:    #A9B4C1;
+    --ink-faint:   #7C8896;
+    --rule:        #333D4A;
+    --rule-soft:   #262F3A;
+
+    --devops:      #7BA6E0;
+    --dataops:     #6DBF95;
+    --mlops:       #C99C6E;
+
+    --stop:        #E48078;
+    --hold:        #D9AE5C;
+    --go:          #6DBF95;
+
+    --devops-wash: #1D2937;
+    --dataops-wash:#1A2C24;
+    --mlops-wash:  #2C2419;
+    --stop-wash:   #33201E;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: "Noto Sans TC", "PingFang TC", "Hiragino Sans TC", system-ui, sans-serif;
+    font-size: 16px;
+    line-height: 1.85;
+    margin: 0;
+    padding: 0 1.5rem 6rem;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .wrap {
+    max-width: 58rem;
+    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    gap: 3.5rem;
+  }
+
+  h1, h2, h3 {
+    font-family: "Noto Serif TC", "Songti TC", serif;
+    font-weight: 700;
+    text-wrap: balance;
+    margin: 0;
+    line-height: 1.4;
+  }
+
+  .eyebrow {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.75rem;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin: 0;
+  }
+
+  /* ---------- masthead ---------- */
+
+  .masthead {
+    padding-top: 4rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+  }
+
+  .masthead h1 {
+    font-size: clamp(2.1rem, 5vw, 3.1rem);
+    letter-spacing: -0.01em;
+  }
+
+  .verdict {
+    font-size: clamp(1.05rem, 2.2vw, 1.3rem);
+    line-height: 1.75;
+    color: var(--ink);
+    max-width: var(--measure);
+    border-left: 3px solid var(--ink);
+    padding-left: 1.25rem;
+    margin: 0;
+  }
+
+  .verdict strong { font-weight: 700; }
+
+  .tally {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 2.5rem;
+    padding: 1.5rem 0 0;
+    border-top: 1px solid var(--rule);
+    margin-top: 0.5rem;
+  }
+
+  .tally div { display: flex; flex-direction: column; gap: 0.15rem; }
+
+  .tally .n {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-variant-numeric: tabular-nums;
+    font-size: 2.1rem;
+    line-height: 1.1;
+    font-weight: 500;
+  }
+
+  .tally .k {
+    font-size: 0.8rem;
+    color: var(--ink-faint);
+    letter-spacing: 0.04em;
+  }
+
+  /* ---------- sections ---------- */
+
+  section { display: flex; flex-direction: column; gap: 1.25rem; }
+
+  section > h2 {
+    font-size: 1.5rem;
+    padding-bottom: 0.6rem;
+    border-bottom: 2px solid var(--rule);
+  }
+
+  p { margin: 0; max-width: var(--measure); }
+  p + p { margin-top: 0.9rem; }
+
+  .lede { color: var(--ink-soft); }
+
+  code {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.86em;
+    background: var(--surface-sub);
+    padding: 0.1em 0.4em;
+    border-radius: 3px;
+  }
+
+  /* ---------- line bands ---------- */
+
+  .band {
+    background: var(--surface);
+    border: 1px solid var(--rule-soft);
+    border-left: 4px solid var(--line);
+    border-radius: 2px;
+    padding: 1.5rem 1.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .band[data-line="devops"]  { --line: var(--devops);  --wash: var(--devops-wash); }
+  .band[data-line="dataops"] { --line: var(--dataops); --wash: var(--dataops-wash); }
+  .band[data-line="mlops"]   { --line: var(--mlops);   --wash: var(--mlops-wash); }
+
+  .band-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+  }
+
+  .band-head h3 { font-size: 1.2rem; color: var(--line); }
+
+  .band-score {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-variant-numeric: tabular-nums;
+    font-size: 1.5rem;
+    font-weight: 500;
+    color: var(--line);
+    background: var(--wash);
+    padding: 0.15rem 0.7rem;
+    border-radius: 2px;
+    white-space: nowrap;
+  }
+
+  .band ul { margin: 0; padding-left: 1.15rem; display: flex; flex-direction: column; gap: 0.6rem; }
+  .band li { max-width: var(--measure); }
+  .band li::marker { color: var(--line); }
+
+  /* ---------- evidence callout ---------- */
+
+  .evidence {
+    background: var(--surface);
+    border: 1px solid var(--rule);
+    border-radius: 2px;
+    padding: 1.5rem 1.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .evidence .quote {
+    font-family: "Noto Serif TC", serif;
+    font-size: 1.15rem;
+    line-height: 1.7;
+    font-weight: 500;
+    max-width: var(--measure);
+  }
+
+  /* ---------- red lights ---------- */
+
+  .stops { display: flex; flex-direction: column; gap: 1.25rem; }
+
+  .stop-card {
+    background: var(--surface);
+    border: 1px solid var(--rule-soft);
+    border-left: 4px solid var(--tone);
+    border-radius: 2px;
+    padding: 1.4rem 1.65rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    --tone: var(--stop);
+  }
+
+  .stop-card[data-tone="hold"] { --tone: var(--hold); }
+
+  .stop-head {
+    display: flex;
+    align-items: baseline;
+    gap: 0.85rem;
+    flex-wrap: wrap;
+  }
+
+  .stop-head h3 { font-size: 1.1rem; }
+
+  .chip {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--tone);
+    border: 1px solid var(--tone);
+    border-radius: 999px;
+    padding: 0.1rem 0.6rem;
+    white-space: nowrap;
+  }
+
+  .owner {
+    font-size: 0.9rem;
+    color: var(--ink-soft);
+    border-top: 1px dashed var(--rule);
+    padding-top: 0.7rem;
+  }
+
+  .owner b { color: var(--ink); font-weight: 700; }
+
+  /* ---------- tables ---------- */
+
+  .scroller { overflow-x: auto; border: 1px solid var(--rule-soft); border-radius: 2px; }
+
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    min-width: 34rem;
+    background: var(--surface);
+    font-size: 0.93rem;
+  }
+
+  th, td {
+    text-align: left;
+    padding: 0.7rem 1rem;
+    border-bottom: 1px solid var(--rule-soft);
+    vertical-align: top;
+  }
+
+  th {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.72rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    font-weight: 500;
+    background: var(--surface-sub);
+    white-space: nowrap;
+  }
+
+  tbody tr:last-child td { border-bottom: none; }
+
+  td.num {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-variant-numeric: tabular-nums;
+    white-space: nowrap;
+  }
+
+  .dot {
+    display: inline-block;
+    width: 0.55rem;
+    height: 0.55rem;
+    border-radius: 999px;
+    margin-right: 0.5rem;
+    vertical-align: baseline;
+  }
+
+  .dot.go   { background: var(--go); }
+  .dot.hold { background: var(--hold); }
+  .dot.stop { background: var(--stop); }
+
+  /* ---------- fixed items ---------- */
+
+  .fixes { display: flex; flex-direction: column; gap: 1.5rem; counter-reset: fix; }
+
+  .fix {
+    display: grid;
+    grid-template-columns: 2.5rem 1fr;
+    gap: 0 1rem;
+    align-items: start;
+  }
+
+  .fix::before {
+    counter-increment: fix;
+    content: counter(fix, decimal-leading-zero);
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-variant-numeric: tabular-nums;
+    font-size: 0.95rem;
+    color: var(--ink-faint);
+    padding-top: 0.35rem;
+  }
+
+  .fix h3 { font-size: 1.05rem; margin-bottom: 0.45rem; }
+  .fix > div { display: flex; flex-direction: column; gap: 0.6rem; }
+
+  pre {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 0.82rem;
+    line-height: 1.65;
+    background: var(--surface-sub);
+    border: 1px solid var(--rule-soft);
+    border-radius: 2px;
+    padding: 0.9rem 1.1rem;
+    overflow-x: auto;
+    margin: 0;
+    color: var(--ink-soft);
+  }
+
+  /* ---------- asks ---------- */
+
+  .asks { display: flex; flex-direction: column; gap: 0; }
+
+  .ask {
+    display: grid;
+    grid-template-columns: 2.5rem 1fr;
+    gap: 0 1rem;
+    padding: 1.1rem 0;
+    border-bottom: 1px solid var(--rule-soft);
+  }
+
+  .ask:last-child { border-bottom: none; }
+
+  .ask .idx {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-variant-numeric: tabular-nums;
+    color: var(--ink-faint);
+    font-size: 0.95rem;
+  }
+
+  .ask b { display: block; margin-bottom: 0.2rem; }
+  .ask span { color: var(--ink-soft); font-size: 0.95rem; }
+
+  footer {
+    border-top: 1px solid var(--rule);
+    padding-top: 1.5rem;
+    color: var(--ink-faint);
+    font-size: 0.85rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+  }
+
+  @media (max-width: 34rem) {
+    .fix, .ask { grid-template-columns: 1fr; }
+    .fix::before { padding-top: 0; }
+    .ask .idx { display: none; }
+  }
+</style>
+
+<div class="wrap">
+
+  <header class="masthead">
+    <p class="eyebrow">階段性成果 · 2026-08-25</p>
+    <h1>三線平台驗收</h1>
+    <p class="verdict">
+      <strong>DevOps、DataOps、MLOps 三條線全部打通，而且每一道閘門都被實際弄壞過一次，確認它真的會擋人。</strong>
+      資料從政府開放 API 一路走到模型預測，全程在一台 MacBook 上。
+    </p>
+    <div class="tally">
+      <div><span class="n">31</span><span class="k">里程碑</span></div>
+      <div><span class="n">28</span><span class="k">有可重跑證據</span></div>
+      <div><span class="n">2</span><span class="k">紅燈（誠實列出）</span></div>
+      <div><span class="n">6,503,799</span><span class="k">事實資料列</span></div>
+    </div>
+  </header>
+
+  <section>
+    <h2>為什麼這份報告可以信</h2>
+    <p class="lede">
+      這個專案一路上最常犯的錯，是<strong>「註解描述了一個機制，就當作那個機制存在」</strong>。已經抓到五次以上。
+      所以驗收方式從「讀程式碼確認」改成一句話：
+    </p>
+    <div class="evidence">
+      <p class="quote">每一道新加的檢查，都刻意弄壞一次，確認它真的會擋。</p>
+      <p class="lede">
+        本階段注入 <b>12 次</b>刻意破壞。<b>11 次當場被抓到；1 次沒有。</b>
+        而那沒抓到的一次，是這批裡最有價值的——它證明我寫的那條斷言<strong>根本沒有執行</strong>，
+        補強之後才真的會擋。被弄壞的檔案一律在 <code>finally</code> 還原，並以雜湊確認 byte-exact。
+      </p>
+    </div>
+    <p>兩個實際抓到的例子，都不是靠人工審查發現的：</p>
+    <div class="scroller">
+      <table>
+        <thead>
+          <tr><th>缺陷</th><th>後果</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>藍綠部署 template 的佔位符撞名，<code>sed</code> 連變數名稱內部一起替換掉</td>
+            <td>一個<b>刻意做壞的版本回報「就緒」並且被放行上線</b></td>
+          </tr>
+          <tr>
+            <td>Kubernetes 的 <code>readyReplicas</code> 會把上一代的 pod 也算進去</td>
+            <td>新版本永遠起不來，儀表板照樣顯示 2/2 健康</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>三條線的位置</h2>
+
+    <div class="band" data-line="devops">
+      <div class="band-head">
+        <h3>DevOps — 交付與維運</h3>
+        <span class="band-score">10 / 10</span>
+      </div>
+      <ul>
+        <li><b>Kubernetes 底座</b>：8 項端到端驗證，每一項都是「做一個動作」而不是「讀一個設定」——儲存卷真的綁定並寫入、映像檔真的推送並<b>由節點拉取</b>。</li>
+        <li><b>藍綠切換實測</b>：藍 → 綠 → 藍，服務版本實際改變，<b>回滾 0.72 秒</b>，兩個版本都還在（回滾不需要重新編譯）。</li>
+        <li><b>四道上線閘門</b>，前三道存在的理由都是「不要相信快取的狀態」：查現行版本的副本數、當下直接問每個 pod 是否就緒、pod 認定的資料庫版本必須與實際相符、切換後流量端點不得為空。</li>
+      </ul>
+    </div>
+
+    <div class="band" data-line="dataops">
+      <div class="band-head">
+        <h3>DataOps — 資料工程</h3>
+        <span class="band-score">10 / 11</span>
+      </div>
+      <ul>
+        <li><b>血緣算術是資料庫約束，不是報表</b>：<code>檔案列數 = 接受 + 拒絕 + 重複</code>，32 個來源檔全數成立。對不上就寫不進去。</li>
+        <li><b>分母到位</b>，所以鄉鎮層級的率算得出來：石岡區 43.2/10 萬 對 大安區 28.1/10 萬。</li>
+        <li><b>重複與衝突分開處理</b>：值相同算重複，值不同直接拒絕。實際抓到 1 筆真衝突。</li>
+        <li><b>缺席不等於零</b>：COVID-19 只有 2021 年起的資料，沒有補零把前面填滿。</li>
+      </ul>
+    </div>
+
+    <div class="band" data-line="mlops">
+      <div class="band-head">
+        <h3>MLOps — 模型維運</h3>
+        <span class="band-score">8 / 10</span>
+      </div>
+      <ul>
+        <li><b>「輸了不准上線」是資料庫觸發器，不是團隊慣例。</b> 就算日後有人寫了第二支發布程式、而且完全沒讀過原本那支，一樣塞不進去。實測兩次寫入被拒。</li>
+        <li><b>服務路徑不載入模型</b>：API 只做查詢，不反序列化任何東西——上線最外層的程序不執行任意程式碼。</li>
+        <li><b>無前瞻性測試</b>：把序列截短重建特徵，過去不得改變。注入兩種資料洩漏，兩種都被抓到。</li>
+      </ul>
+    </div>
+  </section>
+
+  <section>
+    <h2>本階段修掉的三件事</h2>
+    <p class="lede">共同點：三件都<strong>看起來在運作，其實沒有</strong>。這是這份報告最值得帶走的部分。</p>
+
+    <div class="fixes">
+
+      <div class="fix">
+        <div>
+          <h3>排程重訓從來沒有自己跑過</h3>
+          <p>
+            這一項原本記成完成，理由是「已進設定檔且實跑成功」。兩半分開看都是真的，<strong>合起來不成立</strong>：
+            設定檔有一筆，不等於作業系統有一個排程。實查是「從未觸發」——<b>每一次「成功的」重訓都是手動打的。</b>
+          </p>
+          <p>
+            補證方式刻意不是等到週日，也不是用系統指令直接叫起來充數（那只證明「叫得動」，不證明<b>日曆會觸發</b>）。
+            改成把日曆條目暫時移到三分鐘後，讓系統<b>自己</b>觸發，再還原：
+          </p>
+          <pre>trigger=scheduled   status=ok   251s   1 published
+plist 還原 byte-exact，日曆確認回到 週日 06:20</pre>
+        </div>
+      </div>
+
+      <div class="fix">
+        <div>
+          <h3>每天紅燈的安全掃描，掃的是已經退役的目標</h3>
+          <p>
+            掃描每天回報「服務沒開？」，指向一個<b>退役好幾天</b>的目標。而網路設定還在對外開放那個連接埠，
+            所以失敗長成最會誤導人的形狀：<strong>連得上，然後連線立刻被切斷。</strong>連接埠有回應，後面沒有東西。
+          </p>
+          <p>已改指向真實的服務介面。首次實掃：高風險 0、中風險 0、低風險 1，門檻設在中風險。</p>
+        </div>
+      </div>
+
+      <div class="fix">
+        <div>
+          <h3>還原演練把備份的錯怪錯了對象</h3>
+          <p>
+            演練回報「還原後讀不到密鑰」，紅了三天。實際上還原是成功的，是<b>對照組</b>那一側沒有回應。
+            一個專門回答「備份還原得回來嗎」的檢查，花三天回答「不行」，而理由在比較的另一邊。
+          </p>
+          <p>現在「無法比對」有自己的訊息，指向真正壞掉的那個元件。</p>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <section>
+    <h2>紅燈</h2>
+    <p class="lede">
+      這三項用和上面成果相同的篇幅列出，不是放在附註裡。每一項標明<strong>誰能解</strong>，因為那才是需要決定的資訊。
+    </p>
+
+    <div class="stops">
+
+      <div class="stop-card">
+        <div class="stop-head">
+          <span class="chip">阻斷中</span>
+          <h3>流行病學週與日曆日對不上</h3>
+        </div>
+        <p>
+          時間維度有 1,024 個週期間，日曆日期<b>全為空值</b>。所以週資料與日資料無法在時間軸上結合。
+          這不是寫不出來，是<strong>「週」的定義本身要向疾管署查證</strong>（該年是 52 週還是 53 週）。
+        </p>
+        <p class="owner">
+          <b>誰能解：</b>只有疾管署。這不是工程問題。
+          中醫大資料送來時會對不上，所以這是硬前提，不是待辦事項。
+        </p>
+      </div>
+
+      <div class="stop-card">
+        <div class="stop-head">
+          <span class="chip">未達成</span>
+          <h3>模型還沒有贏過天真基準</h3>
+        </div>
+        <p>
+          模型目前多數情況<b>輸給「假設下週跟這週一樣」</b>：一週後預測輸 12%，兩週後只贏 0.3%（雜訊等級）。
+          唯一有內容的數字是<b>方向準確率 63.8%</b>。
+        </p>
+        <p>
+          這不是待修的缺陷，是誠實的研究結果。週流感樣就診率高度自相關，「持平」本來就是很強的基準。
+          現有特徵<strong>全部是縣市層級的落後指標</strong>（開放資料落後約兩週），天花板就是生態層級推論——
+          說得出「台中市這週會怎樣」，說不出「哪一群人、哪一家醫院會先滿載」。
+        </p>
+        <p class="owner">
+          <b>突破口：</b>中醫大的個人級與醫院級資料。它改變的<b>是問題的種類，不是特徵的數量</b>——
+          醫院就診量是同期指標，個人層級讓模型從生態層級升到個體層級。但它有三個硬前提，其中一個就是上面那條。
+        </p>
+      </div>
+
+      <div class="stop-card" data-tone="hold">
+        <div class="stop-head">
+          <span class="chip">等決策</span>
+          <h3>三把密鑰沒有輪替紀錄</h3>
+        </div>
+        <p>
+          三把密鑰完全沒有輪替紀錄。沒有自行處理，因為那會動到<b>正在使用的憑證</b>——
+          其中一把是版本控制的存取權杖，換掉的瞬間推送就會停。
+        </p>
+        <p>
+          本階段把「90 天」這個寫死的數字改成<strong>每一把密鑰自己的資料</strong>：
+          一把權限很寬、隨處可用的權杖，和一把只在本機使用的管理密碼，不該被同一個數字管。
+          豁免也是<b>記錄下來的決策（必須寫理由）</b>，不是靜靜地從清單消失，也不是蓋一個假日期把燈弄綠。
+        </p>
+        <p class="owner">
+          <b>誰能解：</b>使用者。兩條路：逐一真的輪替，或明確記錄豁免理由。兩者都留下可稽核的紀錄。
+        </p>
+      </div>
+
+    </div>
+  </section>
+
+  <section>
+    <h2>現在的維運狀態</h2>
+    <p class="lede">十一個背景工作，由作業系統定期自己跑，跑完寫下證據檔。這是平台每天證明自己還活著的方式。</p>
+    <div class="scroller">
+      <table>
+        <thead>
+          <tr><th>工作</th><th>頻率</th><th>狀態</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>健康檢查 / 狀態板 / 血緣圖</td><td class="num">15 分鐘</td><td><span class="dot go"></span>正常</td></tr>
+          <tr><td>稽核日誌輪替</td><td class="num">每日</td><td><span class="dot go"></span>正常</td></tr>
+          <tr><td>備份覆蓋率</td><td class="num">每日</td><td><span class="dot go"></span>正常</td></tr>
+          <tr><td>動態安全掃描</td><td class="num">每日</td><td><span class="dot go"></span>正常</td></tr>
+          <tr><td>靜態安全掃描</td><td class="num">每週</td><td><span class="dot go"></span>正常</td></tr>
+          <tr><td>還原演練</td><td class="num">每週</td><td><span class="dot go"></span>正常</td></tr>
+          <tr><td><b>模型重訓</b></td><td class="num">每週</td><td><span class="dot go"></span><b>正常 — 日曆觸發已實證</b></td></tr>
+          <tr><td>異地備份</td><td class="num">每日</td><td><span class="dot hold"></span>未設定（待決定目的地）</td></tr>
+          <tr><td>密鑰輪替</td><td class="num">每週</td><td><span class="dot stop"></span><b>紅燈（真紅：見上）</b></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="lede">
+      <b>一件仍未證明的事，不在報告裡混過去：</b>日曆機制有效，不等於<strong>週日早上六點那台機器是醒的</strong>。
+      筆電睡著時排程不觸發，醒來後合併補跑一次，一夜就記到 15 次錯過。這是筆電的物理限制，不是程式缺陷——
+      但它是「這個平台要不要搬離筆電」這個決定的實際依據。
+    </p>
+  </section>
+
+  <section>
+    <h2>下一步</h2>
+    <div class="asks">
+      <div class="ask">
+        <span class="idx">1</span>
+        <div>
+          <b>決定三把密鑰：逐一輪替，或明確記錄豁免理由</b>
+          <span>兩者都用同一支工具，兩者都留下可稽核的紀錄。這是唯一需要您點頭的一項。</span>
+        </div>
+      </div>
+      <div class="ask">
+        <span class="idx">2</span>
+        <div>
+          <b>向疾管署查證「週」的定義</b>
+          <span>這一條卡住的不只是自己，還卡住中醫大資料的接入。建議優先處理。</span>
+        </div>
+      </div>
+      <div class="ask">
+        <span class="idx">3</span>
+        <div>
+          <b>測試資料管理與去識別化第二版</b>
+          <span>真實醫療資料進來之前的硬前提。目前的寫入時遮蔽是緩解措施，不是保證。</span>
+        </div>
+      </div>
+      <div class="ask">
+        <span class="idx">4</span>
+        <div>
+          <b>安全掃描補上表單感知設定</b>
+          <span>目前只掃讀取路徑，吃 JSON 的寫入端點等於還沒掃。</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <span>資料截至 2026-08-25。所有數字皆有對應的可重跑指令，證據存於 <code>evidence/</code>。</span>
+    <span>八張架構圖與流程圖（DevOps 藍、DataOps 綠、MLOps 棕，另加兩張三色大統整圖）存於 <code>docs/diagrams/</code>。</span>
+  </footer>
+
+</div>
