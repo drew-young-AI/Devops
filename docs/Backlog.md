@@ -24,7 +24,7 @@ timestamp: 2026-08-18T11:05:00+08:00
 | 1 | Vault 動態資料庫憑證 | ✅ 完全轉移 | **現在做** |
 | 2 | station2-twin 接進 blue/green | ⚠️ 判定 2026-08-21 改變 | ✅ **已完成 2026-08-25**（K8s Deployment + Service selector；已接進 run_all.sh 第 3 層） |
 | 3 | DAST form-aware profile | ✅ 完全轉移 | ⚠️ **目標已修好（2026-08-25），form-aware profile 仍待做** |
-| 4 | station2-twin 的 ingress ceiling | ⚠️ 政策轉移、實作不轉移 | 只寫政策 |
+| 4 | station2-twin 的 ingress ceiling | ⚠️ 政策轉移、實作不轉移 | ✅ **政策已在 K8s 強制執行（2026-08-26）** |
 | 5 | 異地備份（Google Drive） | ✅ 與底層無關 | 待使用者決定 |
 | 6 | 測試資料管理 + redaction v2 | ✅ 完全轉移 | 真實醫療資料前必須 |
 | 10 | 三把秘密沒有輪替紀錄 | ✅ 與底層無關 | **等使用者決定**（會動到活憑證） |
@@ -117,7 +117,33 @@ observation 寫進那個 650 萬列的資料庫。
 **為什麼現在做**：ZAP 掃的是 HTTP 端點，與跑在 Compose 還是 K8s 無關。
 掃描設定、規則集、掃描完整性檢查（`site` 條目而非 alert URL）全部帶得走。
 
-## 4. station2-twin 的 ingress ceiling — 只寫政策
+## 4. station2-twin 的 ingress ceiling — ✅ 政策已被強制執行（2026-08-26）
+
+當初的判定是「規則轉移、`tailscale serve` 的呼叫不轉移」。**那次轉移做完了。**
+
+`platform/k8s/station2-twin/networkpolicy.yaml`：namespace 預設拒絕進出，
+然後只開三條——DNS、`192.168.65.254/32:15432`（共用的那個 postgres）、
+8080 進入。`targets.conf` 裡的 ceiling 是一段沒人強制的散文；這裡是**網路真的
+拒絕做的事**。Compose 給不出等價物，同一個 network 上的容器永遠互相可達、
+也永遠連得到外網。
+
+**強制力是量出來的，不是假設的。** NetworkPolicy 跑在一個不理會它的 CNI 上，
+比沒有更糟：manifest 讀起來像控制、`kubectl get netpol` 列得出來、而沒有任何封包
+被擋。`verify_networkpolicy.sh` 每次都先在拋棄式 namespace 套一個 deny-all，
+確認 pod 真的失去網路（open → closed），**再**去驗 station2 的策略——
+否則底下每一條都可能在一個什麼都沒擋的叢集上通過。
+
+實測 5/5：CNI 確實強制、4 條策略在位、app 仍讀得到資料庫、Service 仍有 endpoint、
+**app 連不出公網**。最後一條是唯一有內容的：前面幾條在一個完全沒有策略的
+namespace 裡也一樣會過。
+
+順帶抓到一件事：策略套下去之後**要時間傳到每個節點的 iptables**。第一次探測回
+`UNREACHABLE`，幾秒後同一個探測就成功。等待從 5 秒改成 15 秒——把傳播延遲當成
+測試失敗，是教會所有人「紅了就再跑一次」最快的方法。
+
+以下為原判定，保留供對照：
+
+### 原判定
 
 **✅ 政策已寫入（2026-08-19）。** `targets.conf` 現有
 `station2-twin|18090|tailnet`。它**沒有**繼承 station1 的 `funnel` ceiling：

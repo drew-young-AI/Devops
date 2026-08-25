@@ -53,6 +53,11 @@ SUITES=(
 # platform does not, and because it is minutes rather than seconds.
 K8S_SUITES=(
   ../k8s/station2-twin/test_bluegreen.sh
+  # Runs AFTER blue/green, deliberately. It asserts the network policy is
+  # enforced, and blue/green is the thing most likely to be broken BY that
+  # policy -- so the ordering means a policy that breaks deployment shows up as
+  # a blue/green failure with its own message, not as a confusing netpol pass.
+  ../k8s/station2-twin/verify_networkpolicy.sh
 )
 K8S_CTX="${K8S_CTX:-k3d-devops-lab}"
 

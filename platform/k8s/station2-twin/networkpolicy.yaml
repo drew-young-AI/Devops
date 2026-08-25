@@ -1,0 +1,96 @@
+# Default-deny for the pilot's namespace, plus exactly what it needs.
+#
+# WHY THIS IS THE FIRST THING MOVED TO KUBERNETES ON PURPOSE.
+#
+# docs/Backlog.md 4 recorded the ingress ceiling as "policy transfers, the
+# `tailscale serve` implementation does not". This is that transfer. The
+# ceiling in platform/ingress/targets.conf is a rule written in prose that
+# nothing enforces; below, the same rule is a thing the network refuses to do.
+# Compose has no equivalent at any price -- containers on a shared network can
+# always reach each other and the internet.
+#
+# ENFORCEMENT WAS MEASURED, NOT ASSUMED.
+#
+# A NetworkPolicy on a cluster whose CNI ignores them is worse than none: the
+# manifest reads as a control, `kubectl get netpol` lists it, and nothing
+# stops any packet. Before writing this, a deny-all-egress was applied to a
+# throwaway namespace and a pod in it lost both DNS and outbound TCP
+# (gaierror / ConnectionRefused) -- so k3s's embedded kube-router really is
+# enforcing. verify_networkpolicy.sh re-checks that every run rather than
+# trusting this comment.
+#
+# THE ADDRESSES ARE READ FROM THE CLUSTER, NOT GUESSED.
+#   kube-dns          10.43.0.10   (kubectl -n kube-system get svc kube-dns)
+#   pods              10.42.0.0/16 (node .spec.podCIDR)
+#   nodes             172.24.0.0/16 (k3d docker network)
+#   host.k3d.internal 192.168.65.254 (getent hosts, from inside a pod)
+# The last one is the host postgres, which both colours share -- that sharing
+# is the whole reason expand/contract migration discipline exists here.
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: default-deny
+  namespace: station2
+spec:
+  podSelector: {}
+  policyTypes: [Ingress, Egress]
+---
+# DNS. Without this the pod cannot resolve anything, including the database
+# host, and every failure looks like a database outage instead of a policy.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-dns
+  namespace: station2
+spec:
+  podSelector: {}
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - {protocol: UDP, port: 53}
+        - {protocol: TCP, port: 53}
+---
+# The database, and ONLY the database. /32 and one port: the pilot has no
+# reason to reach any other host service, and "it might need it later" is how
+# a default-deny quietly becomes a default-allow.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-host-postgres
+  namespace: station2
+spec:
+  podSelector:
+    matchLabels:
+      app: station2-twin
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 192.168.65.254/32
+      ports:
+        - {protocol: TCP, port: 15432}
+---
+# Inbound HTTP. Sources are the node network (traffic arriving through the
+# load balancer is SNATed to a node) and the pod network (in-cluster callers,
+# including promote.sh's readiness checks).
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-http-in
+  namespace: station2
+spec:
+  podSelector:
+    matchLabels:
+      app: station2-twin
+  policyTypes: [Ingress]
+  ingress:
+    - from:
+        - ipBlock: {cidr: 172.24.0.0/16}
+        - ipBlock: {cidr: 10.42.0.0/16}
+      ports:
+        - {protocol: TCP, port: 8080}
