@@ -1,26 +1,26 @@
 {
   "job": "backup",
-  "started_at": "2026-08-25T01:18:54Z",
+  "started_at": "2026-08-26T05:03:21Z",
   "status": "ok",
   "exit_code": 0,
-  "duration_seconds": 27,
+  "duration_seconds": 26,
   "interval_seconds": 86400,
   "command": "platform/backup/backup.sh",
   "trigger": "manual",
-  "last_scheduled_at": "2026-08-24T19:29:47Z",
+  "last_scheduled_at": "2026-08-25T19:20:01Z",
   "output_tail": [
-    "=== [backup] 20260825T011855Z -> /Users/drew/ENV/Devops/platform/backup/archives/20260825T011855Z ===",
-    "  vault_vault-file -> vault_vault-file.tar.gz  65095 bytes",
-    "  vault_vault-logs -> vault_vault-logs.tar.gz  178746 bytes",
-    "  observability_grafana-data -> observability_grafana-data.tar.gz  22921746 bytes",
-    "  observability_alertmanager-data -> observability_alertmanager-data.tar.gz  141 bytes",
-    "  observability_alloy-data -> observability_alloy-data.tar.gz  12469 bytes",
-    "  station2-twin-db -> station2-twin-db.dump  52692797 bytes  [pg_dump, consistent snapshot]",
+    "=== [backup] 20260826T050321Z -> /Users/drew/ENV/Devops/platform/backup/archives/20260826T050321Z ===",
+    "  vault_vault-file -> vault_vault-file.tar.gz  53763 bytes",
+    "  vault_vault-logs -> vault_vault-logs.tar.gz  283351 bytes",
+    "  observability_grafana-data -> observability_grafana-data.tar.gz  22924088 bytes",
+    "  observability_alertmanager-data -> observability_alertmanager-data.tar.gz  143 bytes",
+    "  observability_alloy-data -> observability_alloy-data.tar.gz  13295 bytes",
+    "  station2-twin-db -> station2-twin-db.dump  52692825 bytes  [pg_dump, consistent snapshot]",
     "",
     "BACKUP PASS -- every named volume on this host is accounted for",
-    "artifact=/Users/drew/ENV/Devops/platform/backup/archives/20260825T011855Z/manifest.json",
+    "artifact=/Users/drew/ENV/Devops/platform/backup/archives/20260826T050321Z/manifest.json",
     "",
     "A backup that has never been restored is not a backup.",
-    "Verify it: platform/backup/restore_drill.sh /Users/drew/ENV/Devops/platform/backup/archives/20260825T011855Z"
+    "Verify it: platform/backup/restore_drill.sh /Users/drew/ENV/Devops/platform/backup/archives/20260826T050321Z"
   ]
 }

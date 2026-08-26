@@ -34,6 +34,9 @@ VAULT_DIR="$REPO_ROOT/platform/vault"
 SCRATCH_CONTAINER="vault-restore-drill"
 SCRATCH_VOLUME="vault-restore-drill-vol"
 SCRATCH_PORT=18299
+# The cluster the PVC restore check talks to. Overridable so the drill can be
+# pointed at a different cluster without editing it.
+K8S_CTX="${K8S_CTX:-k3d-devops-lab}"
 
 BACKUP_DIR="${1:-}"
 if [ -z "$BACKUP_DIR" ]; then
@@ -241,8 +244,87 @@ else
   fail "auth methods survived the restore" "approle missing"
 fi
 
+# --- 4. PVC archives ------------------------------------------------------
+#
+# "A backup that has never been restored is not a backup" applies to PVC
+# archives exactly as it applies to Vault's. And a PVC archive has a failure
+# mode of its own that integrity checks cannot see: a backup pod scheduled onto
+# the wrong node tars an EMPTY directory, and the resulting archive has a valid
+# digest, a valid manifest entry, and nothing in it. The only way to find that
+# is to put it back and look.
 echo ""
-echo "--- 4. teardown ---"
+echo "--- 4. PVC archives: restore one and read it back ---"
+
+PVC_ENTRIES="$(python3 -c "
+import json,sys
+m = json.load(open('$BACKUP_DIR/manifest.json'))
+for v in m.get('volumes', []):
+    if str(v.get('volume','')).startswith('pvc:'):
+        print(v['volume'], v['archive'])
+" 2>/dev/null)"
+
+if [ -z "$PVC_ENTRIES" ]; then
+  # Said out loud rather than skipped. "There were no PVC archives" and "the
+  # PVC restore was not exercised" are the same sentence, and a silent skip
+  # only reads as the first one.
+  echo "  no PVC archive in this backup -- the PVC restore path was NOT exercised."
+  echo "  (backup.sh's coverage gate is what guarantees a PVC cannot be missing;"
+  echo "   this line only reports that none was present to restore here.)"
+else
+  PVC_NS="restore-drill-$$"
+  PVC_LINE="$(printf '%s\n' "$PVC_ENTRIES" | head -1)"
+  SRC_NAME="${PVC_LINE%% *}"
+  SRC_ARCHIVE="${PVC_LINE##* }"
+  kubectl --context "$K8S_CTX" create ns "$PVC_NS" >/dev/null 2>&1
+  cat <<YAML | kubectl --context "$K8S_CTX" apply -f - >/dev/null 2>&1
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata: {name: restored, namespace: $PVC_NS}
+spec:
+  accessModes: [ReadWriteOnce]
+  resources: {requests: {storage: 128Mi}}
+---
+apiVersion: v1
+kind: Pod
+metadata: {name: restorer, namespace: $PVC_NS}
+spec:
+  restartPolicy: Never
+  containers:
+    - name: r
+      image: alpine:3.20
+      command: ["sh","-c","sleep 600"]
+      volumeMounts: [{name: d, mountPath: /data}]
+  volumes: [{name: d, persistentVolumeClaim: {claimName: restored}}]
+YAML
+  if kubectl --context "$K8S_CTX" -n "$PVC_NS" wait --for=condition=Ready pod/restorer \
+       --timeout=120s >/dev/null 2>&1; then
+    if kubectl --context "$K8S_CTX" -n "$PVC_NS" exec -i restorer -- \
+         tar xzf - -C /data < "$BACKUP_DIR/$SRC_ARCHIVE" >/dev/null 2>&1; then
+      RESTORED_FILES="$(kubectl --context "$K8S_CTX" -n "$PVC_NS" exec restorer -- \
+        sh -c 'find /data -type f | wc -l' 2>/dev/null | tr -d ' \r\n')"
+      RESTORED_BYTES="$(kubectl --context "$K8S_CTX" -n "$PVC_NS" exec restorer -- \
+        sh -c 'find /data -type f -exec cat {} + | wc -c' 2>/dev/null | tr -d ' \r\n')"
+      # Non-empty is the assertion that matters. An empty restore is exactly
+      # what a mis-scheduled backup pod produces, and every check before this
+      # one passes on it.
+      if [ "${RESTORED_FILES:-0}" -gt 0 ] && [ "${RESTORED_BYTES:-0}" -gt 0 ]; then
+        pass "$SRC_NAME restored into a scratch PVC ($RESTORED_FILES file(s), $RESTORED_BYTES bytes)"
+      else
+        fail "$SRC_NAME restored EMPTY" \
+             "files=$RESTORED_FILES bytes=$RESTORED_BYTES -- the archive has a valid digest and no content"
+      fi
+    else
+      fail "could not extract $SRC_ARCHIVE into the scratch PVC"
+    fi
+  else
+    fail "scratch restore pod never became Ready"
+  fi
+  kubectl --context "$K8S_CTX" delete ns "$PVC_NS" --wait=false >/dev/null 2>&1
+  echo "  scratch namespace removed; no live PVC was touched"
+fi
+
+echo ""
+echo "--- 5. teardown ---"
 cleanup
 echo "  scratch container and volume removed; live Vault never touched"
 

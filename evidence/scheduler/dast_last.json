@@ -1,20 +1,20 @@
 {
   "job": "dast",
-  "started_at": "2026-08-25T01:17:55Z",
+  "started_at": "2026-08-25T20:00:02Z",
   "status": "ok",
   "exit_code": 0,
-  "duration_seconds": 32,
+  "duration_seconds": 33,
   "interval_seconds": 86400,
   "command": "platform/security/scan_dast.sh",
-  "trigger": "manual",
-  "last_scheduled_at": "2026-08-24T20:08:41Z",
+  "trigger": "scheduled",
+  "last_scheduled_at": "2026-08-25T20:00:01Z",
   "output_tail": [
     "=== [dast] OWASP ZAP baseline against http://host.docker.internal:18090 ===",
     "    gate: fail at MEDIUM and above",
-    "  sites scanned: http://host.docker.internal:18090   (urls in alerts: 1)",
+    "  sites scanned: http://host.docker.internal:18090   (urls in alerts: 3)",
     "  HIGH=0  MEDIUM=0  LOW=1  INFO=0",
-    "    [LOW] Server Leaks Version Information via \"Server\" HTTP Response Header Field  (x1)",
+    "    [LOW] Server Leaks Version Information via \"Server\" HTTP Response Header Field  (x3)",
     "DAST PASS",
-    "artifact=/Users/drew/ENV/Devops/evidence/security/dast_summary_20260825T011755Z.json"
+    "artifact=/Users/drew/ENV/Devops/evidence/security/dast_summary_20260825T200002Z.json"
   ]
 }

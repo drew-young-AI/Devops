@@ -1,16 +1,16 @@
 {
   "job": "audit",
-  "started_at": "2026-08-24T19:14:02Z",
+  "started_at": "2026-08-25T19:00:02Z",
   "status": "ok",
   "exit_code": 0,
   "duration_seconds": 2,
   "interval_seconds": 86400,
   "command": "platform/vault/scripts/rotate_audit_log.sh",
   "trigger": "scheduled",
-  "last_scheduled_at": "2026-08-24T19:14:02Z",
+  "last_scheduled_at": "2026-08-25T19:00:02Z",
   "output_tail": [
-    "=== [audit-rotate] current: 1842 KB, threshold: 50 MB ===",
+    "=== [audit-rotate] current: 4106 KB, threshold: 50 MB ===",
     "Below threshold -- no rotation needed.",
-    "  audit dir total: 1 MB"
+    "  audit dir total: 4 MB"
   ]
 }

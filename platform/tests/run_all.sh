@@ -58,6 +58,10 @@ K8S_SUITES=(
   # policy -- so the ordering means a policy that breaks deployment shows up as
   # a blue/green failure with its own message, not as a confusing netpol pass.
   ../k8s/station2-twin/verify_networkpolicy.sh
+  # Needs the cluster, because three of its four states are about what the
+  # gate does when PVCs exist -- and a suite that can only test the empty case
+  # is testing the one case that was never broken.
+  test_backup_coverage.sh
 )
 K8S_CTX="${K8S_CTX:-k3d-devops-lab}"
 

@@ -200,6 +200,9 @@ evidence/**/metadata.json
 # distinction: what happened is worth keeping, what is true right now is not.
 evidence/scheduler/*_last.json
 evidence/scheduler/logs/
+# Same distinction: this is what the cluster held at the last successful
+# check -- current state, per-machine, and meaningless in another checkout.
+evidence/backup/last_known_pvcs.txt
 
 # Generated views. Regenerated on a 15-minute schedule from evidence, so they
 # are build output, not source. docs/System-State.html is deliberately NOT
