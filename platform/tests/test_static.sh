@@ -256,6 +256,41 @@ done
 assert_equals "" "$UNDEFINED_CALLS" \
   "every assertion helper called by a test suite is defined in lib.sh"
 
+# ---- GitHub Actions: no third-party action on a mutable ref ---------------
+#
+# `.github/workflows/iac-validate.yml` argues at length that pinning to a
+# mutable ref means the bytes executed can change between runs -- and then used
+# `bridgecrewio/checkov-action@master` two steps later. A rule stated in a
+# comment and contradicted by the line below it is worse than no rule: it reads
+# as settled.
+#
+# The same file also carried `aquasecurity/trivy-action@0.28.0`, a version that
+# HAS NEVER EXISTED. It failed every run for 17 days. `continue-on-error: true`
+# did not cover it, because action resolution happens BEFORE the step runs --
+# so the flag read as "this scan may fail" while the whole job died at setup.
+#
+# This check is hermetic and therefore cannot tell a nonexistent tag from a
+# real one; it enforces the part that CAN be decided offline. `actions/*` is
+# exempt: those are GitHub's own, and their major tags are the documented
+# interface rather than a moving branch.
+MUTABLE=""
+for wf in "$REPO_ROOT"/.github/workflows/*.yml; do
+  while read -r ref; do
+    [ -n "$ref" ] || continue
+    case "$ref" in actions/*) continue ;; esac
+    r="${ref#*@}"
+    # 40 hex characters is a commit. Anything shorter that is not a version
+    # tag is a branch, and a branch is a promise nobody made.
+    case "$r" in
+      v[0-9]*|[0-9]*.[0-9]*) continue ;;
+    esac
+    printf '%s' "$r" | grep -qE '^[0-9a-f]{40}$' && continue
+    MUTABLE="$MUTABLE $(basename "$wf"):$ref"
+  done < <(grep -ohE 'uses: [A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+@[A-Za-z0-9_.-]+' "$wf" | sed 's/uses: //')
+done
+assert_equals "" "$MUTABLE" \
+  "no third-party GitHub Action is pinned to a mutable ref"
+
 find "$REPO_ROOT/platform" -name '__pycache__' -type d -exec rm -rf {} + 2>/dev/null || true
 
 suite_summary
