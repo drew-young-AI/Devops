@@ -214,3 +214,7 @@
 {"job": "gha", "gap_seconds": 3740, "gap_minutes": 62.3, "expected_interval_seconds": 1800, "missed_runs": 1, "from": "2026-09-01T05:21:32Z", "to": "2026-09-01T06:23:52Z"}
 {"job": "board", "gap_seconds": 2812, "gap_minutes": 46.9, "expected_interval_seconds": 900, "missed_runs": 2, "from": "2026-09-01T05:40:29Z", "to": "2026-09-01T06:27:21Z"}
 {"job": "health", "gap_seconds": 2811, "gap_minutes": 46.9, "expected_interval_seconds": 900, "missed_runs": 2, "from": "2026-09-01T05:40:30Z", "to": "2026-09-01T06:27:21Z"}
+{"job": "board", "gap_seconds": 2003, "gap_minutes": 33.4, "expected_interval_seconds": 900, "missed_runs": 1, "from": "2026-09-01T07:42:34Z", "to": "2026-09-01T08:15:57Z"}
+{"job": "health", "gap_seconds": 2003, "gap_minutes": 33.4, "expected_interval_seconds": 900, "missed_runs": 1, "from": "2026-09-01T07:42:34Z", "to": "2026-09-01T08:15:57Z"}
+{"job": "stagereport", "gap_seconds": 2005, "gap_minutes": 33.4, "expected_interval_seconds": 900, "missed_runs": 1, "from": "2026-09-01T07:50:45Z", "to": "2026-09-01T08:24:10Z"}
+{"job": "dag", "gap_seconds": 2006, "gap_minutes": 33.4, "expected_interval_seconds": 900, "missed_runs": 1, "from": "2026-09-01T07:51:35Z", "to": "2026-09-01T08:25:01Z"}

@@ -40,11 +40,11 @@ devops_node_state{node="ci",layer="build",state="superseded"} 1
 devops_node_state{node="ci",layer="build",state="warn"} 0
 devops_node_state{node="ci",layer="build",state="unknown"} 0
 devops_node_state{node="ci",layer="build",state="fail"} 0
-devops_node_state{node="gha",layer="build",state="ok"} 0
+devops_node_state{node="gha",layer="build",state="ok"} 1
 devops_node_state{node="gha",layer="build",state="superseded"} 0
 devops_node_state{node="gha",layer="build",state="warn"} 0
 devops_node_state{node="gha",layer="build",state="unknown"} 0
-devops_node_state{node="gha",layer="build",state="fail"} 1
+devops_node_state{node="gha",layer="build",state="fail"} 0
 devops_node_state{node="trivy",layer="build",state="ok"} 0
 devops_node_state{node="trivy",layer="build",state="superseded"} 1
 devops_node_state{node="trivy",layer="build",state="warn"} 0
@@ -180,7 +180,7 @@ devops_node_state_code{node="restore",layer="foundation"} 0
 devops_node_state_code{node="sast",layer="source"} 0
 devops_node_state_code{node="secrets",layer="source"} 0
 devops_node_state_code{node="ci",layer="build"} 1
-devops_node_state_code{node="gha",layer="build"} 4
+devops_node_state_code{node="gha",layer="build"} 0
 devops_node_state_code{node="trivy",layer="build"} 1
 devops_node_state_code{node="registry",layer="build"} 1
 devops_node_state_code{node="develop",layer="deploy"} 1
@@ -244,4 +244,4 @@ devops_node_impacted{node="k8s"} 0
 devops_node_impacted{node="bluegreen"} 0
 # HELP devops_board_generated_seconds Unix time this board was built.
 # TYPE devops_board_generated_seconds gauge
-devops_board_generated_seconds 1788247290
+devops_board_generated_seconds 1788251350
