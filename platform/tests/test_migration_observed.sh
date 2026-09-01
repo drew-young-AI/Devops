@@ -122,6 +122,51 @@ for t in ts:
     _fail "the metrics Service follows the serving colour" \
           "traffic goes to '$LIVE' while Prometheus watches '$METRICS'"
   fi
+
+  # The two copies must not diverge on IDENTITY.
+  #
+  # WHY (2026-09-01). They did, for two weeks. The Compose copy has reported
+  # `credentials.mode = vault` since 2026-08-19 -- a dynamic user with a lease
+  # that expires. The K8s copy, the one intended to become production, reported
+  # `mode = static` and ran on `PGPASSWORD: twin-bootstrap` baked into its
+  # Deployment. Nothing compared them, so nothing said the copy being promoted
+  # had the weaker credential model.
+  #
+  # Comparing MODE rather than username is the point: the usernames are
+  # supposed to differ (separate leases), the mode is not. Asserting equality
+  # on the thing that must match, while the things that must differ are free to
+  # differ, is what makes this a real check instead of a tautology.
+  #
+  # Both are read from the running services, not from manifests -- a manifest
+  # says what was requested, `/health/ready` says what the process actually got.
+  DEV_MODE="$(curl -s -m 5 http://127.0.0.1:18090/health/ready 2>/dev/null \
+    | python3 -c 'import json,sys
+try: print(json.load(sys.stdin)["credentials"]["mode"])
+except Exception: pass' 2>/dev/null)"
+  K8S_MODE="$(curl -s -m 5 http://127.0.0.1:18091/health/ready 2>/dev/null \
+    | python3 -c 'import json,sys
+try: print(json.load(sys.stdin)["credentials"]["mode"])
+except Exception: pass' 2>/dev/null)"
+  if [ -z "$DEV_MODE" ] || [ -z "$K8S_MODE" ]; then
+    echo "  SKIP  one copy did not answer /health/ready -- credential parity UNVERIFIED"
+  elif [ "$DEV_MODE" = "$K8S_MODE" ]; then
+    _pass "both copies use the same credential model (both '$DEV_MODE')"
+  else
+    _fail "both copies use the same credential model" \
+          "develop='$DEV_MODE' but k8s='$K8S_MODE' -- the copy heading for production is the weaker one"
+  fi
+
+  # And it must be the STRONG model, not merely the same one. Two copies that
+  # both fell back to a static password would satisfy the check above while
+  # being exactly the state it exists to prevent.
+  if [ -n "$K8S_MODE" ]; then
+    if [ "$K8S_MODE" = "vault" ]; then
+      _pass "the k8s copy holds a dynamic, revocable credential"
+    else
+      _fail "the k8s copy holds a dynamic, revocable credential" \
+            "mode='$K8S_MODE' -- a shared password with no expiry and no revocation path"
+    fi
+  fi
 fi
 
 suite_summary

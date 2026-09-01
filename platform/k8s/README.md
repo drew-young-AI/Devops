@@ -121,3 +121,71 @@ and workload makes a failure ambiguous between the two.
    timed out while its NIC still answered ARP — consistent with suspend).
    A host that suspends is not yet a production host; that must be settled
    before the `prod` label means anything.
+
+---
+
+## 憑證：K8s 那份副本不再帶密碼（2026-09-01）
+
+在此之前 `deployment-template.yaml` 帶著這一行：
+
+```yaml
+- { name: PGPASSWORD, value: "twin-bootstrap" }
+```
+
+而**同一個 pilot 的 Compose 副本自 2026-08-19 起就是動態 Vault 憑證**。
+要被推上生產的，是憑證模型比較弱的那一份。
+
+現在兩份都回報 `credentials.mode = vault`，各自持有獨立、會過期、可撤銷的 lease。
+
+| 元件 | 角色 |
+|---|---|
+| `sync_vault_secret.sh` | 把 AppRole 寫進 Secret `station2-twin-vault`（`role_id` / `secret_id`） |
+| `deploy.sh` | 每次部署自動呼叫上者——讓部署自己擁有它的前置條件 |
+| `deployment-template.yaml` | `VAULT_ROLE_ID` / `VAULT_SECRET_ID` 走 `secretKeyRef`；**沒有 PGPASSWORD** |
+| `networkpolicy.yaml` | 新增 `allow-host-vault`（/32＋單一 port 18200） |
+
+### 三個刻意的決定
+
+**一、不保留 static fallback。** Vault 連不上時 Pod readiness 失敗、被移出 Service
+endpoints，藍綠因此無法把一份拿不到憑證的副本推上線。悄悄退回共用密碼的 Pod
+和拿到 lease 的 Pod，從外面看完全一樣——失敗閉合才是重點。
+
+**二、Secret 由 `deploy.sh` 同步，不是獨立的手動步驟。** Secret 缺席時 Pod 會以
+`no AppRole configured` 失敗，那讀起來像應用程式的 bug，實際是缺前置條件。
+讓部署擁有自己的前置條件，整類誤判就消失了。
+
+**三、`allow-host-vault` 是獨立政策，不是在 postgres 那條上加一個 port。**
+既有註解寫得很清楚：「『說不定之後會用到』就是預設拒絕悄悄變成預設允許的方式」。
+一個目的地一條政策，`kubectl get netpol` 才讀得出一份「有正當理由的例外清單」。
+把 18200 加進 postgres 那條，會產生一條**名字不再描述它准了什麼**的政策——
+而沒人讀得懂的規則就沒人稽核。
+
+### default-deny 在這裡證明了自己
+
+移除靜態密碼之後 Pod 起不來，錯誤是 `Vault unreachable ... Connection refused`。
+這正是預設拒絕遇到新相依時該有的樣子：**在邊界上被擋下，而且說得出名字**。
+排查過程中順帶確認了：同樣發佈在 `127.0.0.1` 的 15432 通、18200 不通，
+從一個全新的 docker 容器兩個都通——所以那不是 Docker Desktop 的路由問題，
+是政策在生效。
+
+### 還沒解決：secret zero
+
+`secret_id` 現在在 k8s Secret 裡，那是 base64、不是加密。這是把
+**共用、永不過期的資料庫密碼**，換成**範圍受限、可撤銷、可輪替、且只能用來換取
+短期資料庫憑證的啟動憑證**——爆炸半徑變小，不是歸零。
+
+終局是 Vault 的 `kubernetes` auth method（Pod 的 ServiceAccount token 就是身分，
+不必配發任何 secret）。需要動到 pilot 應用與叢集的 token reviewer 綁定，
+列為下一步，見 `docs/Backlog.md` §1。
+
+### 守衛
+
+| 層 | 檢查 |
+|---|---|
+| 1 | 任何 k8s manifest 都不得指派字面憑證值（突變驗證過：把密碼放回去 → 轉紅） |
+| 3 | 兩份副本 `credentials.mode` 必須相同，且 K8s 那份必須是 `vault` |
+| 3 | `test_bluegreen.sh` 8/8，含 green——證明兩個顏色都拿得到 Secret |
+
+只比對 `mode` 不比對使用者名稱是刻意的：**使用者名稱本來就該不同**（各自的 lease），
+mode 不該。對「必須相同的東西」斷言相同、同時讓「必須不同的東西」自由不同，
+才是真的檢查，不是套套邏輯。

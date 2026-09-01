@@ -17,6 +17,15 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 case "$COLOR" in blue|green) ;; *) echo "colour must be blue or green" >&2; exit 2 ;; esac
 
 kubectl --context "$CTX" apply -f "$HERE/base.yaml" >/dev/null
+
+# The Deployment mounts VAULT_ROLE_ID / VAULT_SECRET_ID from a Secret and
+# carries no database password. Syncing it here rather than as a separate
+# manual step is deliberate: a pod whose Secret is missing fails readiness with
+# "no AppRole configured", which reads like an application bug and is actually
+# a missing prerequisite. Making the deploy own its prerequisite removes that
+# whole category of misdiagnosis.
+"$HERE/sync_vault_secret.sh" --context "$CTX"
+
 sed -e "s/__COLOR__/$COLOR/g" -e "s/__IMAGE_TAG__/$TAG/g" -e "s/__SCHEMA__/$SCHEMA/g" \
     "$HERE/deployment-template.yaml" | kubectl --context "$CTX" apply -f - >/dev/null
 

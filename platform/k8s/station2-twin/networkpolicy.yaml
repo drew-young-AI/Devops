@@ -75,6 +75,44 @@ spec:
       ports:
         - {protocol: TCP, port: 15432}
 ---
+# Vault, and ONLY Vault. A SECOND policy rather than a second port on
+# allow-host-postgres, deliberately.
+#
+# WHY IT EXISTS (2026-09-01). The K8s copy of the pilot carried
+# `PGPASSWORD: twin-bootstrap` in its Deployment while the Compose copy had
+# held dynamic Vault credentials since 2026-08-19. Removing the static password
+# means the pod must reach Vault at startup -- a genuinely new egress need,
+# and the first one since this default-deny was written.
+#
+# The default-deny found it. The pod came up, failed readiness, and said
+# `Vault unreachable ... Connection refused` -- which is what a default-deny is
+# supposed to feel like when a new dependency appears: a refusal at the edge
+# with a name on it, not a service that quietly works and is quietly wider than
+# anyone believes.
+#
+# Kept separate because the neighbouring comment states the rule this must not
+# break: "'it might need it later' is how a default-deny quietly becomes a
+# default-allow". One destination per policy means `kubectl get netpol` reads
+# as a list of justified exceptions. Adding 18200 to the postgres rule would
+# have produced a policy whose NAME no longer described what it permits, and a
+# rule nobody can read is a rule nobody audits.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: allow-host-vault
+  namespace: station2
+spec:
+  podSelector:
+    matchLabels:
+      app: station2-twin
+  policyTypes: [Egress]
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 192.168.65.254/32
+      ports:
+        - {protocol: TCP, port: 18200}
+---
 # Inbound HTTP. Sources are the node network (traffic arriving through the
 # load balancer is SNATed to a node) and the pod network (in-cluster callers,
 # including promote.sh's readiness checks).

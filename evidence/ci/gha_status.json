@@ -1,9 +1,17 @@
 {
   "schema": "gha-status/1",
-  "fetched_at": "2026-09-01T16:29:02+08:00",
+  "fetched_at": "2026-09-01T16:43:43+08:00",
   "fetch_state": "ok",
   "detail": "fetched main",
   "runs": [
+    {
+      "conclusion": "success",
+      "createdAt": "2026-09-01T08:30:45Z",
+      "displayTitle": "chore(evidence): 記下 main 轉綠的那一刻",
+      "status": "completed",
+      "url": "https://github.com/drew-young-AI/Devops/actions/runs/33487407228",
+      "workflowName": "Platform Tests"
+    },
     {
       "conclusion": "success",
       "createdAt": "2026-09-01T08:27:09Z",
@@ -74,14 +82,6 @@
       "displayTitle": "feat(vault): rotation interval is per-secret data, not one hardcoded 90",
       "status": "completed",
       "url": "https://github.com/drew-young-AI/Devops/actions/runs/32815595494",
-      "workflowName": "Platform Tests"
-    },
-    {
-      "conclusion": "failure",
-      "createdAt": "2026-08-25T01:32:12Z",
-      "displayTitle": "chore(evidence): health artifacts",
-      "status": "completed",
-      "url": "https://github.com/drew-young-AI/Devops/actions/runs/32797928356",
       "workflowName": "Platform Tests"
     }
   ]

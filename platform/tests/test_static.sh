@@ -291,6 +291,33 @@ done
 assert_equals "" "$MUTABLE" \
   "no third-party GitHub Action is pinned to a mutable ref"
 
+# ---- no Kubernetes manifest may carry a literal credential -----------------
+#
+# WHY (2026-09-01). `deployment-template.yaml` carried
+# `PGPASSWORD: "twin-bootstrap"` in plain text -- a shared password, never
+# expiring, with no revocation path -- for as long as the K8s copy existed,
+# while the Compose copy of the SAME pilot had held dynamic Vault credentials
+# since 2026-08-19. The copy being promoted toward production had the weaker
+# credential model of the two, and nothing said so.
+#
+# The manifests are now credential-free: the AppRole arrives through a
+# secretKeyRef and the database user is issued by Vault at startup. This check
+# exists so a future edit cannot quietly put a password back -- which is
+# exactly how the first one got there, since a literal value in YAML is the
+# path of least resistance every single time.
+#
+# It matches assignment of a value, not the mere mention of a variable name,
+# so `secretKeyRef: {key: PGPASSWORD}` and comments about PGPASSWORD stay legal.
+LITERAL_CREDS=""
+for mf in "$REPO_ROOT"/platform/k8s/**/*.yaml "$REPO_ROOT"/platform/k8s/*.yaml; do
+  [ -f "$mf" ] || continue
+  hits="$(grep -nE '(name: *)?(PGPASSWORD|VAULT_TOKEN|VAULT_SECRET_ID|POSTGRES_PASSWORD)[",]? *,? *value: *"[^"]+"' "$mf" 2>/dev/null | head -3)"
+  [ -n "$hits" ] && LITERAL_CREDS="$LITERAL_CREDS $(basename "$mf")"
+done
+LITERAL_CREDS="$(printf '%s' "$LITERAL_CREDS" | sed 's/^ *//')"
+assert_equals "" "$LITERAL_CREDS" \
+  "no Kubernetes manifest assigns a literal credential value"
+
 # ---- .gitignore rules must actually apply to what is tracked ---------------
 #
 # WHY (2026-09-01). `.gitignore` line 207 excludes `evidence/scheduler/*_last.json`

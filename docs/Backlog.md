@@ -21,7 +21,7 @@ timestamp: 2026-08-18T11:05:00+08:00
 
 | # | 項目 | 轉移到 K8s | 現在做？ |
 |---|---|---|---|
-| 1 | Vault 動態資料庫憑證 | ✅ 完全轉移 | **現在做** |
+| 1 | Vault 動態資料庫憑證 | ✅ 完全轉移 | ✅ **已完成 2026-09-01**（K8s 那份副本也轉成 vault；剩 secret zero，見下） |
 | 2 | station2-twin 接進 blue/green | ⚠️ 判定 2026-08-21 改變 | ✅ **已完成 2026-08-25**（K8s Deployment + Service selector；已接進 run_all.sh 第 3 層） |
 | 3 | DAST form-aware profile | ✅ 完全轉移 | ⚠️ **目標已修好（2026-08-25），form-aware profile 仍待做** |
 | 4 | station2-twin 的 ingress ceiling | ⚠️ 政策轉移、實作不轉移 | ✅ **政策已在 K8s 強制執行（2026-08-26）** |
@@ -50,6 +50,53 @@ postgres 拒絕**——不是「Vault 說它撤銷了」。station2-twin 目前
 TTL、revocation）與底層無關。K8s 上改變的只有「憑證怎麼送進 Pod」
 （Vault Agent Injector / External Secrets Operator / CSI driver），
 **Vault 這一側一行都不用改**。這是少數現在做、之後原封不動帶走的工作。
+
+### 2026-09-01 補記：K8s 那份副本也轉過去了
+
+上面那段寫於 2026-08-19，講的是 **Compose 那份**。K8s 那份直到 2026-09-01
+都還帶著這行：
+
+```yaml
+- { name: PGPASSWORD, value: "twin-bootstrap" }
+```
+
+明文、共用、不過期、沒有撤銷路徑——而**要被推上生產的，正是憑證模型比較弱的那一份**。
+兩份副本貼上不同 `environment` 標籤，本來就是為了讓分歧看得見；看見了卻不收斂，
+只是把同一個失效往後推一步。
+
+現在的狀態：
+
+| | Compose（develop） | K8s |
+|---|---|---|
+| `credentials.mode` | `vault` | `vault` |
+| 使用者 | `v-approle-station2-ESr7...` | `v-approle-station2-VfIa...` |
+| lease | 各自獨立，TTL 1200s | 各自獨立，TTL 1200s |
+
+做法：AppRole 以 k8s Secret 送進 Pod（`sync_vault_secret.sh`，由 `deploy.sh` 自動呼叫），
+manifest 不再有任何密碼。**刻意不保留 static fallback**：Vault 連不上時 Pod
+readiness 失敗、被移出 Service endpoints，藍綠因此無法把一份「拿不到憑證」的副本推上線。
+悄悄退回共用密碼的 Pod，和拿到 lease 的 Pod，外觀完全相同——那才是要避免的。
+
+**default-deny egress 抓到了這件事。** 移除靜態密碼後 Pod 起不來，錯誤是
+`Vault unreachable ... Connection refused`——這正是預設拒絕遇到新相依時該有的樣子：
+在邊界上被擋下並且說得出名字，而不是一個安靜地能動、也安靜地比任何人以為的更寬的服務。
+授權方式是新增一條獨立的 `allow-host-vault`（/32＋單一 port），不是在
+`allow-host-postgres` 上加一個 port——政策的名字必須還能描述它准了什麼。
+
+**還沒解決的：secret zero。** AppRole 的 `secret_id` 現在放在 k8s Secret 裡，
+那是 base64、不是加密，namespace 內有 `get secrets` 權限的人都讀得到。
+這件事的性質是：把「共用、永不過期的資料庫密碼」換成「範圍受限、可撤銷、可輪替的
+啟動憑證，且它只能用來換取短期資料庫憑證」——是**爆炸半徑變小，不是歸零**。
+
+終局是 Vault 的 `kubernetes` auth method：Pod 的 ServiceAccount token 本身就是身分，
+完全不必配發任何 secret。它需要動到 pilot 應用（在 AppRole 之外多一條登入路徑）
+與叢集的 token reviewer 綁定，所以列為下一步而不是在這裡做一半。
+
+守衛：
+- tier 1 `test_static.sh` — 任何 k8s manifest 都不得指派字面憑證值（突變驗證過）
+- tier 3 `test_migration_observed.sh` — 兩份副本的 `credentials.mode` 必須相同，
+  且 K8s 那份必須是 `vault`（只比對 mode 不比對使用者名稱：使用者名稱本來就該不同）
+- tier 3 `test_bluegreen.sh` — 8/8 仍通過，含 green，證明兩個顏色都拿得到 Secret
 
 ## 2. station2-twin 接進 blue/green — ✅ 已完成 2026-08-25
 

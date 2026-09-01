@@ -20,8 +20,27 @@ spec:
             - { name: PGHOST, value: "host.k3d.internal" }
             - { name: PGPORT, value: "15432" }
             - { name: PGDATABASE, value: "twin" }
-            - { name: PGUSER, value: "twin" }
-            - { name: PGPASSWORD, value: "twin-bootstrap" }
+            # No PGUSER/PGPASSWORD. Until 2026-09-01 this manifest carried
+            # `PGPASSWORD: twin-bootstrap` in plain text -- a shared password,
+            # never expiring, with no revocation path -- while the Compose copy
+            # of the SAME pilot had held dynamic Vault credentials since
+            # 2026-08-19. The copy being promoted toward production had the
+            # weaker credential model of the two.
+            #
+            # The app asks Vault for a database user at startup and renews it.
+            # Removing the static fallback is deliberate: if Vault is
+            # unreachable the pod fails readiness and is removed from the
+            # Service endpoints, so blue/green cannot promote a copy that could
+            # not authenticate. Failing closed is the point -- a pod that
+            # silently fell back to a shared password would look identical to
+            # one that got its lease.
+            - { name: VAULT_ADDR, value: "http://host.k3d.internal:18200" }
+            - name: VAULT_ROLE_ID
+              valueFrom:
+                secretKeyRef: { name: station2-twin-vault, key: role_id }
+            - name: VAULT_SECRET_ID
+              valueFrom:
+                secretKeyRef: { name: station2-twin-vault, key: secret_id }
             # Placeholders are __DOUBLE_UNDERSCORED__ because the first version
             # used bare SCHEMA_VERSION, which sed also matched INSIDE the
             # variable name EXPECTED_SCHEMA_VERSION -- producing a container
