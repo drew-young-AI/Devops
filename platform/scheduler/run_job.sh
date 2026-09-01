@@ -187,6 +187,13 @@ case "$JOB:$RC" in
   # was never configured. Neither a failure (daily noise people mute)
   # nor ok (which would claim work happened). A visible third state.
   *:78)     STATUS="not-configured" ;;
+  # 2 from the rotation sweep = VACUOUS: it ran, reached Vault, and found that
+  # every secret is exempt, so it held nothing to any interval. Same argument
+  # as 78 one step along -- not `ok`, because nothing was checked; not
+  # `failed`, because nothing is overdue and paging nightly for a state
+  # somebody deliberately chose is how alerts get muted. A visible state that
+  # says "this gate is currently not gating".
+  rotation:2) STATUS="vacuous" ;;
   *)        STATUS="failed" ;;
 esac
 

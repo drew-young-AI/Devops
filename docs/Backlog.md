@@ -27,7 +27,7 @@ timestamp: 2026-08-18T11:05:00+08:00
 | 4 | station2-twin 的 ingress ceiling | ⚠️ 政策轉移、實作不轉移 | ✅ **政策已在 K8s 強制執行（2026-08-26）** |
 | 5 | 異地備份（Google Drive） | ✅ 與底層無關 | 待使用者決定 |
 | 6 | 測試資料管理 + redaction v2 | ✅ 完全轉移 | 真實醫療資料前必須 |
-| 10 | 三把秘密沒有輪替紀錄 | ✅ 與底層無關 | **等使用者決定**（會動到活憑證） |
+| 10 | 三把秘密沒有輪替紀錄 | ✅ 與底層無關 | **等使用者決定**（會動到活憑證）；閘門的空集合通過已於 2026-09-01 修掉 |
 | 11 | 憑證輪替自動化 | ✅ 與底層無關 | 分層：Grafana 先做，ghcr 要先實測 |
 | 12 | Docker → k3d 搬遷準則 | — | ✅ **前提已解除（2026-08-26）**：備份鏈已吃 PVC |
 
@@ -380,6 +380,30 @@ Artifact 原生就會渲染 Mermaid，所以八張圖直接寫成 Mermaid 即可
 1. `platform/vault/scripts/rotate_secret.sh <path>` 逐一真的轉（會需要同步更新
    GitHub / GHCR / Grafana 那一側）。
 2. 明確決定某幾把不納入 90 天政策，並把理由寫進 policy，而不是讓它一直紅。
+
+### 2026-09-01：那個閘門本來根本沒在把關
+
+在決定「要不要開始輪替」之前，先發現閘門自己是空的：
+
+```
+3 secret(s): 0 within interval, 0 due, 0 without a record, 3 exempt
+ROTATION PASS -- every non-exempt secret has a record and is within its own interval
+```
+
+三把全部豁免，所以那句話是在**空集合**上量化，恆真。
+`ROTATION PASS` 讀起來像政策被滿足，實際是政策什麼都沒檢查。
+
+`check_rotation_sweep.sh` 現在對「全部豁免」回報 **rc 2 / `ROTATION VACUOUS`**，
+`run_job.sh` 把它映射成新的 `vacuous` 狀態（不是 ok、也不是 failed——
+沒有東西逾期，為一個有人刻意選擇的狀態每天叫人，是告警被靜音的方式），
+板面顯示為「檢查了零個項目: rotation」。
+
+**這支腳本原本就有一段空集合守衛**，註解寫著「An empty tree is not a pass」，
+擋的是「`secret/` 底下沒有秘密」。平台漂移進了另一種空，直接繞過去。
+一道空集合守衛是針對你當時想像得到的那種空寫的。
+
+**這不改變 §10 的結論**：真正開始輪替仍然會動到活憑證，仍然要使用者決定。
+改變的是「在你決定之前，板面不會謊稱這件事已經在管控中」。
 
 ## 11. 憑證輪替自動化 — 分層，不是一句「能不能自動」
 

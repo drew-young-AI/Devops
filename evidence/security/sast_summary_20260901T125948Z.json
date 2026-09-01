@@ -1,0 +1,218 @@
+{
+  "tool": "semgrep",
+  "scanned_at": "20260901T125948Z",
+  "target": "/Users/drew/ENV/Devops",
+  "rulesets": [
+    "p/security-audit",
+    "p/secrets",
+    "p/dockerfile",
+    "p/owasp-top-ten",
+    "p/python",
+    "p/ci"
+  ],
+  "gate_policy": "fail on ERROR severity; WARNING/INFO reported, not blocking",
+  "gate_result": "PASS",
+  "files_scanned": 1879,
+  "counts_by_severity": {
+    "ERROR": 0,
+    "WARNING": 27,
+    "INFO": 0
+  },
+  "error_findings": [],
+  "non_blocking_findings": [
+    {
+      "severity": "WARNING",
+      "rule": "yaml.github-actions.security.github-actions-mutable-action-tag.github-actions-mutable-action-tag",
+      "path": "/Users/drew/ENV/Devops/.github/workflows/iac-validate.yml",
+      "line": 30,
+      "message": "GitHub Actions step uses a mutable tag or branch reference. Tags and branch names can be silently repointed by the action owner, enabling supply-chain attacks \u2014 as seen in the trivy-action and kics-github-action compromises. Pin the reference to a full 40-character commit SHA instead, e.g. `uses: ac"
+    },
+    {
+      "severity": "WARNING",
+      "rule": "yaml.github-actions.security.github-actions-mutable-action-tag.github-actions-mutable-action-tag",
+      "path": "/Users/drew/ENV/Devops/.github/workflows/iac-validate.yml",
+      "line": 40,
+      "message": "GitHub Actions step uses a mutable tag or branch reference. Tags and branch names can be silently repointed by the action owner, enabling supply-chain attacks \u2014 as seen in the trivy-action and kics-github-action compromises. Pin the reference to a full 40-character commit SHA instead, e.g. `uses: ac"
+    },
+    {
+      "severity": "WARNING",
+      "rule": "yaml.github-actions.security.github-actions-mutable-action-tag.github-actions-mutable-action-tag",
+      "path": "/Users/drew/ENV/Devops/.github/workflows/iac-validate.yml",
+      "line": 90,
+      "message": "GitHub Actions step uses a mutable tag or branch reference. Tags and branch names can be silently repointed by the action owner, enabling supply-chain attacks \u2014 as seen in the trivy-action and kics-github-action compromises. Pin the reference to a full 40-character commit SHA instead, e.g. `uses: ac"
+    },
+    {
+      "severity": "WARNING",
+      "rule": "yaml.github-actions.security.github-actions-mutable-action-tag.github-actions-mutable-action-tag",
+      "path": "/Users/drew/ENV/Devops/.github/workflows/iac-validate.yml",
+      "line": 115,
+      "message": "GitHub Actions step uses a mutable tag or branch reference. Tags and branch names can be silently repointed by the action owner, enabling supply-chain attacks \u2014 as seen in the trivy-action and kics-github-action compromises. Pin the reference to a full 40-character commit SHA instead, e.g. `uses: ac"
+    },
+    {
+      "severity": "WARNING",
+      "rule": "yaml.github-actions.security.github-actions-mutable-action-tag.github-actions-mutable-action-tag",
+      "path": "/Users/drew/ENV/Devops/.github/workflows/iac-validate.yml",
+      "line": 174,
+      "message": "GitHub Actions step uses a mutable tag or branch reference. Tags and branch names can be silently repointed by the action owner, enabling supply-chain attacks \u2014 as seen in the trivy-action and kics-github-action compromises. Pin the reference to a full 40-character commit SHA instead, e.g. `uses: ac"
+    },
+    {
+      "severity": "WARNING",
+      "rule": "yaml.github-actions.security.github-actions-mutable-action-tag.github-actions-mutable-action-tag",
+      "path": "/Users/drew/ENV/Devops/.github/workflows/iac-validate.yml",
+      "line": 204,
+      "message": "GitHub Actions step uses a mutable tag or branch reference. Tags and branch names can be silently repointed by the action owner, enabling supply-chain attacks \u2014 as seen in the trivy-action and kics-github-action compromises. Pin the reference to a full 40-character commit SHA instead, e.g. `uses: ac"
+    },
+    {
+      "severity": "WARNING",
+      "rule": "yaml.github-actions.security.github-actions-mutable-action-tag.github-actions-mutable-action-tag",
+      "path": "/Users/drew/ENV/Devops/.github/workflows/iac-validate.yml",
+      "line": 247,
+      "message": "GitHub Actions step uses a mutable tag or branch reference. Tags and branch names can be silently repointed by the action owner, enabling supply-chain attacks \u2014 as seen in the trivy-action and kics-github-action compromises. Pin the reference to a full 40-character commit SHA instead, e.g. `uses: ac"
+    },
+    {
+      "severity": "WARNING",
+      "rule": "yaml.github-actions.security.github-actions-mutable-action-tag.github-actions-mutable-action-tag",
+      "path": "/Users/drew/ENV/Devops/.github/workflows/platform-tests.yml",
+      "line": 29,
+      "message": "GitHub Actions step uses a mutable tag or branch reference. Tags and branch names can be silently repointed by the action owner, enabling supply-chain attacks \u2014 as seen in the trivy-action and kics-github-action compromises. Pin the reference to a full 40-character commit SHA instead, e.g. `uses: ac"
+    },
+    {
+      "severity": "WARNING",
+      "rule": "python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected",
+      "path": "/Users/drew/ENV/Devops/pilots/station2-twin/app/vault_creds.py",
+      "line": 89,
+      "message": "Detected a dynamic value being used with urllib. urllib supports 'file://' schemes, so a dynamic value controlled by a malicious actor may allow them to read arbitrary files. Audit uses of urllib calls to ensure user data cannot control the URLs, or consider using the 'requests' library instead."
+    },
+    {
+      "severity": "WARNING",
+      "rule": "python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected",
+      "path": "/Users/drew/ENV/Devops/pilots/station2-twin/app/vault_creds.py",
+      "line": 96,
+      "message": "Detected a dynamic value being used with urllib. urllib supports 'file://' schemes, so a dynamic value controlled by a malicious actor may allow them to read arbitrary files. Audit uses of urllib calls to ensure user data cannot control the URLs, or consider using the 'requests' library instead."
+    },
+    {
+      "severity": "WARNING",
+      "rule": "python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected",
+      "path": "/Users/drew/ENV/Devops/pilots/station2-twin/ingest/discover_sources.py",
+      "line": 56,
+      "message": "Detected a dynamic value being used with urllib. urllib supports 'file://' schemes, so a dynamic value controlled by a malicious actor may allow them to read arbitrary files. Audit uses of urllib calls to ensure user data cannot control the URLs, or consider using the 'requests' library instead."
+    },
+    {
+      "severity": "WARNING",
+      "rule": "python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected",
+      "path": "/Users/drew/ENV/Devops/pilots/station2-twin/ingest/load_dimensional.py",
+      "line": 279,
+      "message": "Detected a dynamic value being used with urllib. urllib supports 'file://' schemes, so a dynamic value controlled by a malicious actor may allow them to read arbitrary files. Audit uses of urllib calls to ensure user data cannot control the URLs, or consider using the 'requests' library instead."
+    },
+    {
+      "severity": "WARNING",
+      "rule": "python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected",
+      "path": "/Users/drew/ENV/Devops/pilots/station2-twin/ingest/load_geography.py",
+      "line": 98,
+      "message": "Detected a dynamic value being used with urllib. urllib supports 'file://' schemes, so a dynamic value controlled by a malicious actor may allow them to read arbitrary files. Audit uses of urllib calls to ensure user data cannot control the URLs, or consider using the 'requests' library instead."
+    },
+    {
+      "severity": "WARNING",
+      "rule": "python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected",
+      "path": "/Users/drew/ENV/Devops/pilots/station2-twin/ingest/load_registry.py",
+      "line": 131,
+      "message": "Detected a dynamic value being used with urllib. urllib supports 'file://' schemes, so a dynamic value controlled by a malicious actor may allow them to read arbitrary files. Audit uses of urllib calls to ensure user data cannot control the URLs, or consider using the 'requests' library instead."
+    },
+    {
+      "severity": "WARNING",
+      "rule": "python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected",
+      "path": "/Users/drew/ENV/Devops/pilots/station2-twin/ingest/probe_feed.py",
+      "line": 43,
+      "message": "Detected a dynamic value being used with urllib. urllib supports 'file://' schemes, so a dynamic value controlled by a malicious actor may allow them to read arbitrary files. Audit uses of urllib calls to ensure user data cannot control the URLs, or consider using the 'requests' library instead."
+    },
+    {
+      "severity": "WARNING",
+      "rule": "yaml.kubernetes.security.allow-privilege-escalation-no-securitycontext.allow-privilege-escalation-no-securitycontext",
+      "path": "/Users/drew/ENV/Devops/platform/k8s/station2-twin/deployment-template.yaml",
+      "line": 16,
+      "message": "In Kubernetes, each pod runs in its own isolated environment with its own set of security policies. However, certain container images may contain `setuid` or `setgid` binaries that could allow an attacker to perform privilege escalation and gain access to sensitive resources. To mitigate this risk, "
+    },
+    {
+      "severity": "WARNING",
+      "rule": "python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected",
+      "path": "/Users/drew/ENV/Devops/platform/llm-review/review.py",
+      "line": 148,
+      "message": "Detected a dynamic value being used with urllib. urllib supports 'file://' schemes, so a dynamic value controlled by a malicious actor may allow them to read arbitrary files. Audit uses of urllib calls to ensure user data cannot control the URLs, or consider using the 'requests' library instead."
+    },
+    {
+      "severity": "WARNING",
+      "rule": "generic.nginx.security.header-redefinition.header-redefinition",
+      "path": "/Users/drew/ENV/Devops/platform/nginx/conf.d/status.conf",
+      "line": 54,
+      "message": "The 'add_header' directive is called in a 'location' block after headers have been set at the server block. Calling 'add_header' in the location block will actually overwrite the headers defined in the server block, no matter which headers are set. To fix this, explicitly set all headers or set all "
+    },
+    {
+      "severity": "WARNING",
+      "rule": "generic.nginx.security.header-redefinition.header-redefinition",
+      "path": "/Users/drew/ENV/Devops/platform/nginx/conf.d/status.conf",
+      "line": 55,
+      "message": "The 'add_header' directive is called in a 'location' block after headers have been set at the server block. Calling 'add_header' in the location block will actually overwrite the headers defined in the server block, no matter which headers are set. To fix this, explicitly set all headers or set all "
+    },
+    {
+      "severity": "WARNING",
+      "rule": "generic.nginx.security.header-redefinition.header-redefinition",
+      "path": "/Users/drew/ENV/Devops/platform/nginx/conf.d/status.conf",
+      "line": 66,
+      "message": "The 'add_header' directive is called in a 'location' block after headers have been set at the server block. Calling 'add_header' in the location block will actually overwrite the headers defined in the server block, no matter which headers are set. To fix this, explicitly set all headers or set all "
+    },
+    {
+      "severity": "WARNING",
+      "rule": "generic.nginx.security.header-redefinition.header-redefinition",
+      "path": "/Users/drew/ENV/Devops/platform/nginx/conf.d/status.conf",
+      "line": 67,
+      "message": "The 'add_header' directive is called in a 'location' block after headers have been set at the server block. Calling 'add_header' in the location block will actually overwrite the headers defined in the server block, no matter which headers are set. To fix this, explicitly set all headers or set all "
+    },
+    {
+      "severity": "WARNING",
+      "rule": "generic.nginx.security.request-host-used.request-host-used",
+      "path": "/Users/drew/ENV/Devops/platform/nginx/nginx.conf",
+      "line": 47,
+      "message": "'$http_host' and '$host' variables may contain a malicious value from attacker controlled 'Host' request header. Use an explicitly configured host value or a allow list for validation."
+    },
+    {
+      "severity": "WARNING",
+      "rule": "python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected",
+      "path": "/Users/drew/ENV/Devops/platform/observability/check_health.py",
+      "line": 26,
+      "message": "Detected a dynamic value being used with urllib. urllib supports 'file://' schemes, so a dynamic value controlled by a malicious actor may allow them to read arbitrary files. Audit uses of urllib calls to ensure user data cannot control the URLs, or consider using the 'requests' library instead."
+    },
+    {
+      "severity": "WARNING",
+      "rule": "python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected",
+      "path": "/Users/drew/ENV/Devops/platform/statusdag/dag.py",
+      "line": 100,
+      "message": "Detected a dynamic value being used with urllib. urllib supports 'file://' schemes, so a dynamic value controlled by a malicious actor may allow them to read arbitrary files. Audit uses of urllib calls to ensure user data cannot control the URLs, or consider using the 'requests' library instead."
+    },
+    {
+      "severity": "WARNING",
+      "rule": "python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected",
+      "path": "/Users/drew/ENV/Devops/platform/statusdag/dag.py",
+      "line": 444,
+      "message": "Detected a dynamic value being used with urllib. urllib supports 'file://' schemes, so a dynamic value controlled by a malicious actor may allow them to read arbitrary files. Audit uses of urllib calls to ensure user data cannot control the URLs, or consider using the 'requests' library instead."
+    },
+    {
+      "severity": "WARNING",
+      "rule": "python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected",
+      "path": "/Users/drew/ENV/Devops/platform/statusdag/dag.py",
+      "line": 476,
+      "message": "Detected a dynamic value being used with urllib. urllib supports 'file://' schemes, so a dynamic value controlled by a malicious actor may allow them to read arbitrary files. Audit uses of urllib calls to ensure user data cannot control the URLs, or consider using the 'requests' library instead."
+    },
+    {
+      "severity": "WARNING",
+      "rule": "python.lang.security.audit.dynamic-urllib-use-detected.dynamic-urllib-use-detected",
+      "path": "/Users/drew/ENV/Devops/platform/valuestream/board.py",
+      "line": 139,
+      "message": "Detected a dynamic value being used with urllib. urllib supports 'file://' schemes, so a dynamic value controlled by a malicious actor may allow them to read arbitrary files. Audit uses of urllib calls to ensure user data cannot control the URLs, or consider using the 'requests' library instead."
+    }
+  ],
+  "scan_integrity": {
+    "ok": true,
+    "config_errors": [],
+    "note": "A mistyped ruleset makes semgrep scan nothing and still report zero findings. files_scanned==0 is treated as a gate failure, not as a clean result."
+  }
+}

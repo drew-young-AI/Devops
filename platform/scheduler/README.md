@@ -181,3 +181,64 @@ which is the entire argument for the suite existing.
 - **Archives and evidence still grow unbounded.** Audit archives are
   compressed and never deleted (retention undecided), and
   `evidence/scheduler/` accumulates one state file per job plus a capped log.
+
+---
+
+## 三種「不是 ok，也不是失敗」的狀態（2026-09-01 新增第三種）
+
+`run_job.sh` 不把 `rc != 0` 一律當成壞掉。有三種狀態刻意被分開，
+因為它們要人做的事完全不同：
+
+| 狀態 | 來源 | 意思 | 為什麼不併進 ok 或 failed |
+|---|---|---|---|
+| `not-configured` | rc 78 (EX_CONFIG) | 工作跑了，但它要的東西從來沒設定過 | 不是失敗（沒有東西壞），也不是 ok（沒有工作發生） |
+| `degraded` / `critical` / `unknown` | `check_health.sh` rc 1/2/3 | 分級的健康判定 | 一律當 failed 會把它存在的理由丟掉 |
+| **`vacuous`** | 輪替稽核 rc 2 | 工作跑了、連得上 Vault、**檢查了零個項目** | **這一種最危險：它長得像通過** |
+
+### `vacuous` 是怎麼被發現的
+
+`check_rotation_sweep.sh` 一直回報：
+
+```
+3 secret(s): 0 within interval, 0 due, 0 without a record, 3 exempt
+ROTATION PASS -- every non-exempt secret has a record and is within its own interval
+```
+
+三個秘密**全部豁免**，所以「每個非豁免的秘密都在期限內」是在空集合上量化，
+恆真。那行字讀起來像輪替政策被滿足了，實際是輪替政策什麼都沒檢查。
+
+而這支腳本的作者**早就想過空集合的問題**——它有一段守衛，註解寫著
+「An empty tree is not a pass」，處理的是「`secret/` 底下一個秘密都沒有」。
+然後平台漂移進了**另一種空**，直接繞過那道守衛。
+
+> 一道空集合守衛，是針對你當時想像得到的那種空寫的。
+> 集合可以用別的方式變空。
+
+### 板面上會列出全部原因，不是第一個
+
+`probe_scheduler` 原本命中第一個 warn 就回傳。2026-09-01 這正好藏起一個新問題：
+`offsite` 是 not-configured（已知且接受的狀態），所以節點顯示
+「not configured: offsite」，而同一時間 `rotation` 剛開始回報 `vacuous`。
+
+**節點顏色是對的，理由是錯的——而理由才是唯一有人會據以行動的部分。**
+現在會全部列出：
+
+```
+[ warn ] 排程器   檢查了零個項目: rotation；not configured: offsite
+```
+
+### 一個自己造成的教訓：解除追蹤 live state 會讓切分支變成破壞性操作
+
+同一天把 `evidence/scheduler/*_last.json` 從 git 解除追蹤（規則本來就寫著要，
+見該次 commit）之後，一次分支切換把其中五個檔案從工作目錄弄丟了，
+板面立刻報 `audit / backup / dast / sast / restore 都 never-run`。
+
+**這些檔案解除追蹤之後，工作目錄就是它們唯一的副本。**
+從 git 歷史還原會拿到 2026-08-26 的版本——那會謊報「上次執行是一週前」，
+比沒有紀錄更糟。正確的處置是**重跑那五個工作**，讓紀錄是真的：
+
+```bash
+for j in audit backup dast sast restore; do platform/scheduler/run_job.sh "$j"; done
+```
+
+五個全部 ok（2s / 26s / 33s / 10s / 36s）。規則沒有錯，代價要知道。

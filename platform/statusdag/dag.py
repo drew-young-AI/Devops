@@ -174,21 +174,43 @@ def probe_scheduler():
     stale = [j["job"] for j in data.get("jobs", []) if not j.get("fresh")]
     if stale:
         return FAIL, f"not running: {', '.join(stale)}"
-    unconfigured = [j["job"] for j in data.get("jobs", [])
-                    if j.get("status") == "not-configured"]
-    if unconfigured:
-        return WARN, f"not configured: {', '.join(unconfigured)}"
-    bad = [j["job"] for j in data.get("jobs", [])
-           if j.get("status") in ("failed", "critical", "timeout")]
+    # EVERY warn-level reason, not the first one found.
+    #
+    # This used to return on the first match, and on 2026-09-01 that hid a new
+    # one: `offsite` is not-configured (a known, accepted state), so the node
+    # read "not configured: offsite" while `rotation` had just started
+    # reporting `vacuous` -- a gate that ran and checked nothing. The node was
+    # the right colour for the wrong reason, and the reason is the only part
+    # anyone acts on. A board that shows one problem while holding two is a
+    # board that will be trusted right up until the second one matters.
+    jobs = data.get("jobs", [])
+
+    def named(pred):
+        return [j["job"] for j in jobs if pred(j)]
+
+    reasons = []
+    # Vacuous first: a failing job is visibly broken and somebody will look at
+    # it. A vacuous one looks like a pass, which is the entire reason this
+    # state exists.
+    vacuous = named(lambda j: j.get("status") == "vacuous")
+    if vacuous:
+        reasons.append(f"檢查了零個項目: {', '.join(vacuous)}")
+    bad = named(lambda j: j.get("status") in ("failed", "critical", "timeout"))
     if bad:
-        return WARN, f"failing: {', '.join(bad)}"
+        reasons.append(f"failing: {', '.join(bad)}")
     # `late` must surface here too, or the DAG shows a green light while
     # status.sh exits 1 -- two views of one system disagreeing is exactly the
     # drift both are supposed to prevent.
-    late = [j["job"] for j in data.get("jobs", []) if j.get("late")]
+    late = named(lambda j: j.get("late"))
     if late:
-        return WARN, f"late: {', '.join(late)}"
-    return OK, f"{len(data.get('jobs', []))} jobs fresh"
+        reasons.append(f"late: {', '.join(late)}")
+    unconfigured = named(lambda j: j.get("status") == "not-configured")
+    if unconfigured:
+        reasons.append(f"not configured: {', '.join(unconfigured)}")
+
+    if reasons:
+        return WARN, "；".join(reasons)
+    return OK, f"{len(jobs)} jobs fresh"
 
 
 def probe_gate(pattern, result_key="gate_result", stale_hours=48, stamp_key=None,

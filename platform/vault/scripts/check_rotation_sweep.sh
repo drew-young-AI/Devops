@@ -19,7 +19,28 @@
 #
 #   0   every secret has a rotated_at, all within the interval
 #   1   at least one secret is due/overdue, or has NO rotation record
+#   2   VACUOUS: every secret is exempt, so the sweep checked nothing
 #   78  not-configured: no AppRole credentials on disk (EX_CONFIG)
+#
+# WHY 2 EXISTS (2026-09-01).
+#
+# This script already guarded one shape of emptiness -- zero secrets under
+# secret/ -- with the comment "An empty tree is not a pass". Then the platform
+# drifted into the OTHER shape and walked straight past the guard:
+#
+#   3 secret(s): 0 within interval, 0 due, 0 without a record, 3 exempt
+#   ROTATION PASS -- every non-exempt secret has a record and is within its
+#                    own interval
+#
+# Every one of the three was exempt, so "every non-exempt secret is within its
+# interval" was quantifying over the empty set and is trivially true. The line
+# read as a rotation policy being met. It was a rotation policy that had
+# checked nothing, reported by a script whose author had already thought about
+# vacuous passes and guarded the case that did not happen.
+#
+# That is worth stating plainly because it is the general lesson: a vacuity
+# guard is written against the emptiness you imagined. The set can go empty
+# some other way.
 #
 # 78 is the platform's existing convention for "this check is not running and
 # is not pretending to" -- run_job.sh:180 maps it to `not-configured`, which
@@ -182,5 +203,19 @@ if [ "$due" -gt 0 ] || [ "$unrecorded" -gt 0 ]; then
   echo "           platform/vault/scripts/set_rotation_policy.sh <path> <days> [reason]" >&2
   exit 1
 fi
+if [ "$exempt" -eq "${#SECRETS[@]}" ]; then
+  # Not a pass, and deliberately not a failure either. Nothing is overdue --
+  # there is simply no secret this sweep is holding to any interval, and that
+  # is a state somebody chose and can un-choose. Paging for it would be wrong;
+  # printing PASS would be a lie.
+  echo "  ROTATION VACUOUS -- all ${#SECRETS[@]} secret(s) are exempt, so this sweep verified nothing." >&2
+  echo "  'Every non-exempt secret is within its interval' is true over an empty set." >&2
+  echo "  Give at least one secret a real interval to make this check mean something:" >&2
+  echo "           platform/vault/scripts/set_rotation_policy.sh <path> <days>" >&2
+  echo "  The mechanism itself is proven separately and is not what is missing here:" >&2
+  echo "           platform/vault/scripts/rotation_drill.sh" >&2
+  exit 2
+fi
 echo "  ROTATION PASS -- every non-exempt secret has a record and is within its own interval"
+echo "  (checked $(( ${#SECRETS[@]} - exempt )) of ${#SECRETS[@]} secret(s); $exempt exempt)"
 exit 0
