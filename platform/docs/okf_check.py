@@ -49,7 +49,14 @@ REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", ".."))
 RESERVED = {"index.md", "log.md"}
 
 # Directories that are not part of the knowledge bundle.
-SKIP_DIRS = {".git", "node_modules", "archives", "__pycache__", ".venv"}
+# `venv` as well as `.venv`, and site-packages explicitly: a dependency that
+# vendors a LICENSE.md is not part of this repo's knowledge bundle, and treating
+# it as one turns the conformance gate into a report about other people's
+# packaging. Found the day platform/analytics/venv/ appeared -- two vendored
+# idna licence files failed the gate while every document we actually wrote
+# passed.
+SKIP_DIRS = {".git", "node_modules", "archives", "__pycache__",
+             ".venv", "venv", "site-packages"}
 
 # House conventions, NOT spec requirements. The spec requires only `type`.
 # These are recommended fields the spec lists as prioritized, and this repo

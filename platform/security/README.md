@@ -9,6 +9,7 @@ tags:
   - supply-chain
 timestamp: 2026-08-15T19:57:20+08:00
 ---
+
 # Security Scanning — Container Vulnerabilities, SBOM, Signing, Secret History
 
 Closes items from `Plan.md`'s "尚未完成的主要交付鏈": the container scan
@@ -22,6 +23,7 @@ scan" (rotation itself remains a separate, not-yet-built item).
 scan_image.sh    <image:tag> <evidence_dir>   -- Trivy vulnerability gate + SBOM
 sign_artifact.sh <file> <evidence_dir>        -- Cosign sign + verify (opt-in, see below)
 scan_secrets.sh  [repo_dir] [evidence_dir]    -- Gitleaks full-history scan
+
 ```
 
 `scan_image.sh` is wired into `platform/compose/deploy.sh`'s `build`
@@ -45,6 +47,7 @@ permanent, unfixable block for no actionable reason. So the gate is:
 
 ```bash
 trivy image <image> --ignore-unfixed --severity CRITICAL,HIGH --exit-code 1
+
 ```
 
 This drops the CRITICAL count to 0 for the current image (verified: 5
@@ -82,6 +85,7 @@ summary already captures. So:
   "fixable_critical_high_ids": [],
   "full_scan_by_severity": { "LOW": 67, "HIGH": 19, "MEDIUM": 60, "UNKNOWN": 28, "CRITICAL": 4 }
 }
+
 ```
 
 `scan_secrets.sh`'s Gitleaks report is small regardless of outcome (a
@@ -194,6 +198,7 @@ incorrectly — when the last-matching pattern is itself a negation).
 ```bash
 platform/security/scan_sast.sh              # source  -> evidence/security/sast_summary_*.json
 platform/security/scan_dast.sh              # runtime -> evidence/security/dast_summary_*.json
+
 ```
 
 ### The hole these fill

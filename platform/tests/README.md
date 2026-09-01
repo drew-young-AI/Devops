@@ -8,6 +8,7 @@ tags:
   - quality
 timestamp: 2026-08-15T19:58:12+08:00
 ---
+
 # Platform Test Suite
 
 The platform's own tests. `pilots/station1-hello/tests/` tests the *pilot*;
@@ -17,6 +18,7 @@ reaches production-like.
 
 ```bash
 platform/tests/run_all.sh          # ~7s, exit 0 only if every suite passes
+
 ```
 
 Runs on push/PR touching `platform/**` via
@@ -100,3 +102,46 @@ not fail a build:
   Their real behaviour needs Docker and Trivy.
 - **Vault scripts are only syntax-checked.** Testing them needs a live
   Vault; the boundary tests in `platform/vault/README.md` were run by hand.
+
+## 新增的守衛（2026-08-31 / 09-01）
+
+| 套件 | 層 | 守的是什麼 | 親手弄紅過 |
+|---|---|---|---|
+| `test_image_arch.sh` | 1 | 送到叢集的自建映像檔必須帶有該叢集架構的 manifest | ✅ 合成平台清單的三個控制項 |
+| `test_migration_observed.sh` | 3 | 「部署了什麼」與「監控了什麼」必須對得起來 | ✅ 顏色錯置、無人監控的工作負載，還原都經驗證 |
+| `test_health_rollup.sh` | 1 | 健康快照的彙總必須找得到中斷與空窗，且拒絕在空目錄上報平安 | ✅ 四個合成控制項＋四個突變全部被抓 |
+
+### `PLATFORM_TIERS`：層級由呼叫端明示
+
+```bash
+platform/tests/run_all.sh                   # 預設 1,2,3，最嚴格
+PLATFORM_TIERS=1 platform/tests/run_all.sh  # 只跑不需要環境的契約層
+```
+
+| 層 | 需要 | 缺席時 |
+|---|---|---|
+| 1 | 無 | — |
+| 2 | Docker + 活的 Postgres | **硬失敗**，不是 skip |
+| 3 | k3d 叢集 + Prometheus | 大聲 skip，計入標題 |
+
+**永遠不自動偵測。** 自動把「沒有資料庫」降級成 skip，和 2026-08-19 那次 3h55m
+憑證中斷長得一模一樣——那正是這條規則要抓的東西。被關掉的層會在結論**之前**印出來，
+所以雲端的綠燈不可能被引用成「平台通過」。
+
+### VACUOUS 不是 PASS
+
+空集合會讓「每一個都符合」自動成立。`test_image_arch.sh` 與
+`test_migration_observed.sh` 對「沒有東西可檢查」的情況印 `VACUOUS`，不印 PASS——
+一行意思是「什麼都沒檢查」的綠燈，正是這些守衛存在的理由。
+
+同一條規則也寫進了被測的腳本本身，不只寫在測試裡：
+`rollup_health.py` 對空的快照目錄**直接拒絕並且不寫任何 metrics**（exit 1）。
+在零個樣本上「每項檢查都通過」是成立的，而那份綠色的 `.prom` 會被 Prometheus
+一路帶下去。守衛能抓到的前提是被守衛的東西自己不會說謊。
+
+### macOS↔Linux 可攜性
+
+四個缺陷在 2026-08-31 修掉，全部在真的 GNU coreutils 容器裡驗證，不是推論的：
+`stat -f %m`、`mktemp -t name.XXXXXX.ext`、`scutil --get LocalHostName`、
+以及 `ingress.sh` 把能力檢查排在參數檢查之前。細節見
+[`platform/ci/README.md`](../ci/README.md)。

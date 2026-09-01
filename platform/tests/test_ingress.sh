@@ -73,13 +73,20 @@ done
 
 # --- refusals, against a fixture that cannot expose anything real --------
 
-FIXTURE="$(mktemp -t ingress_targets)"
+# Portable temp file. `mktemp -t name.XXXXXX.ext` works on macOS and is
+# rejected by GNU coreutils ("Invalid argument"), which requires the X's to end
+# the template -- and macOS does not even substitute them, leaving a literal
+# "XXXXXX" in the name. A temp DIRECTORY with a fixed filename inside is the one
+# form that behaves identically on both, keeps the extension the tool needs, and
+# has no create-then-rename race.
+FIXTURE_DIR="$(mktemp -d)"
+FIXTURE="$FIXTURE_DIR/ingress_targets"
 cat > "$FIXTURE" <<'FIX'
 fixture-open|19990|funnel|Scratch target on a closed port; nothing listens here.
 fixture-capped|19991|tailnet|Scratch target whose ceiling forbids public exposure.
 fixture-forbidden|19992|never|Scratch target that must be refused at every level.
 FIX
-trap 'rm -f "$FIXTURE"' EXIT
+trap 'rm -rf "$FIXTURE_DIR"' EXIT
 
 run_cmd env INGRESS_TARGETS="$FIXTURE" "$INGRESS" --serve fixture-forbidden
 assert_rc 1 "a 'never' target is refused at --serve"

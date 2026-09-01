@@ -352,6 +352,74 @@ def probe_ci():
     return OK, f"sha {data.get('commit_sha', '?')[:7]}"
 
 
+def probe_github_actions():
+    """Remote CI state, read from evidence rather than fetched here.
+
+    WHY THIS NODE EXISTS (2026-08-31).
+
+    GitHub Actions was red on 13 of the last 20 runs and had been failing for at
+    least six days with nobody notified. Every layer of the platform's own
+    notification chain works -- Alertmanager groups, Telegram delivers, the
+    board renders -- but remote CI state reached none of them, so the one signal
+    saying "the contracts no longer hold" had no way to arrive.
+
+    A red CI nobody is told about is the same failure as an alert routed to a
+    null receiver: indistinguishable from no failure at all.
+
+    WHY IT READS A FILE.
+
+    The first version called `gh run list` here. It took 30s and then failed --
+    GitHub was unreachable while 1.1.1.1 and 8.8.8.8 were both fine. A board
+    that renders in 30s does not get looked at, and a board whose own health
+    depends on a third party's uptime is reporting the wrong thing.
+    platform/ci/fetch_gha_status.sh does the fetching on a schedule.
+
+    THREE DISTINCT UNHAPPY STATES, kept distinct on purpose:
+      - the fetch never ran            -> UNKNOWN, "no evidence"
+      - the fetch ran and GitHub was   -> UNKNOWN, and the age is shown
+        unreachable
+      - the fetch ran and CI is red    -> FAIL
+    Collapsing the first two into FAIL would make the board red for someone
+    else's outage; collapsing any of them into OK is how six days went unread.
+    """
+    path = os.path.join(EVIDENCE, "ci", "gha_status.json")
+    data = load(path)
+    if not data:
+        return UNKNOWN, "尚未抓取（platform/ci/fetch_gha_status.sh）"
+
+    fetched = data.get("fetched_at", "")
+    hours = age_hours(fetched)
+    # Staleness is judged before content. Green CI information from three days
+    # ago is not evidence that CI is green now, and presenting it as such is
+    # exactly the "wrong copy is monitored" defect in a new place.
+    stale = hours is not None and hours > 6
+
+    state = data.get("fetch_state")
+    if state != "ok":
+        note = data.get("detail", state or "?")[:40]
+        return UNKNOWN, f"抓取失敗：{note}"
+
+    runs = data.get("runs") or []
+    if not runs:
+        return UNKNOWN, "main 上沒有執行紀錄"
+
+    r = runs[0]
+    title = (r.get("displayTitle") or "")[:30]
+    age = f"（{hours:.0f}h 前抓取）" if stale else ""
+    if r.get("status") != "completed":
+        return WARN, f"執行中：{title}{age}"
+    concl = r.get("conclusion")
+    if concl == "success":
+        if stale:
+            return WARN, f"main 綠燈但資訊過期{age}"
+        return OK, f"main 綠燈：{title}"
+
+    # How many of the recent runs failed, because one red run is a bad commit
+    # and ten red runs is a channel nobody reads.
+    bad = sum(1 for x in runs if x.get("conclusion") not in (None, "success"))
+    return FAIL, f"main {concl}：最近 {len(runs)} 次有 {bad} 次紅{age}"
+
+
 def probe_registry():
     files = sorted(glob.glob(os.path.join(EVIDENCE, "*/push_*.json")))
     if not files:
@@ -376,6 +444,42 @@ def probe_alertmanager():
     if alerts:
         return WARN, f"{len(alerts)} alert(s) firing"
     return OK, "no active alerts"
+
+
+def probe_prometheus():
+    """Container up is NECESSARY AND NOT SUFFICIENT, which this probe learned
+    the hard way.
+
+    On 2026-08-28 a new alert rule shipped whose vector match was ambiguous.
+    It parsed; `promtool check rules` reported SUCCESS; Prometheus loaded it
+    and then failed to evaluate it on every single cycle. For 11 hours this
+    node read `ok  running (none)` and `alertmgr` read `no active alerts` --
+    and "no active alerts" is EXACTLY what a rule that cannot evaluate
+    produces. Two green nodes agreeing, describing a blind spot.
+
+    check_health.py did detect it and wrote UNKNOWN into evidence every 15
+    minutes. Nobody read it, because the board is what people read. So the
+    finding belongs here, on the node whose greenness was the lie.
+    """
+    state, detail = probe_docker("observability-prometheus-1")
+    if state != OK:
+        return state, detail
+    try:
+        with urllib.request.urlopen(
+                "http://127.0.0.1:19090/api/v1/rules", timeout=6) as r:
+            groups = json.load(r)["data"]["groups"]
+    except Exception as e:  # noqa: BLE001
+        return WARN, f"running, rules unreadable: {str(e)[:40]}"
+    rules = [rule for g in groups for rule in g["rules"]]
+    if not rules:
+        # Zero rules is not "nothing wrong". It is an alerting layer that
+        # cannot report anything, and it looks identical to a quiet system.
+        return WARN, "running, but NO alert rules are loaded"
+    broken = [rule["name"] for rule in rules if rule.get("health") != "ok"]
+    if broken:
+        return WARN, (f"{len(broken)} rule(s) cannot evaluate: "
+                      + ", ".join(sorted(broken)[:3]))
+    return OK, f"running, {len(rules)} rules evaluating"
 
 
 def probe_human_gate():
@@ -614,6 +718,9 @@ NODES = [
     ("secrets",    "Secret 歷史掃描",     "source",      probe_gitleaks),
 
     ("ci",         "CI 建置",             "build",       probe_ci),
+    # Remote CI, distinct from the local build evidence above. Added 2026-08-31
+    # because GitHub Actions had been red for at least six days unnoticed.
+    ("gha",        "GitHub Actions",      "build",       probe_github_actions),
     ("trivy",      "映像漏洞掃描",         "build",       lambda: probe_gate("*/trivy_summary_*.json", stale_hours=24 * 30,
                                                                       retired_note="已由 station1-hello 驗證後退役；k8s 映像走本機 registry")),
     ("registry",   "Registry 推送",       "build",       probe_registry),
@@ -625,7 +732,7 @@ NODES = [
     ("prodlike",   "production-like",     "release",     lambda: probe_deploy("production-like")),
     ("nginx",      "NGINX 入口",          "release",     lambda: probe_docker("nginx-nginx-1")),
 
-    ("prometheus", "Prometheus 指標",     "observe",     lambda: probe_docker("observability-prometheus-1")),
+    ("prometheus", "Prometheus 指標",     "observe",     probe_prometheus),
     ("loki",       "Loki 日誌",           "observe",     lambda: probe_docker("observability-loki-1")),
     ("alertmgr",   "Alertmanager 告警",   "observe",     probe_alertmanager),
     ("grafana",    "Grafana 檢視",        "observe",     lambda: probe_docker("observability-grafana-1")),
@@ -967,6 +1074,22 @@ def render_prometheus(board):
             lines.append(
                 f'devops_node_state{{node="{n["id"]}",layer="{n["layer"]}",'
                 f'state="{state}"}} {1 if n["state"] == state else 0}')
+    lines += [
+        "# HELP devops_node_state_code DISPLAY ONLY: RANK of the node's state.",
+        "# TYPE devops_node_state_code gauge",
+    ]
+    # A numeric companion, and its only job is drawing. Grafana's state-timeline
+    # needs one numeric series per node to colour a band; the labelled gauge
+    # above gives five series per node, which draws nothing useful.
+    #
+    # ALERT ON THE LABELLED GAUGE, NEVER ON THIS. The value is RANK, and RANK
+    # reorders whenever a state is inserted -- SUPERSEDED went in between OK and
+    # WARN and silently shifted every code above it. A rule written as `> 1`
+    # would have quietly changed meaning that day. Sourced from RANK rather than
+    # a second literal so the codes and the ordering cannot disagree.
+    for n in board["nodes"]:
+        lines.append(f'devops_node_state_code{{node="{n["id"]}",'
+                     f'layer="{n["layer"]}"}} {RANK[n["state"]]}')
     lines += [
         "# HELP devops_node_impacted Node is downstream of a failing node.",
         "# TYPE devops_node_impacted gauge",

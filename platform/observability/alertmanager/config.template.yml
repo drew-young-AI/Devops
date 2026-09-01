@@ -54,6 +54,14 @@ inhibit_rules:
     equal: ["service"]
 
 receivers:
+  # Two receivers for one alert, not two routes. Telegram arrives in seconds and
+  # is where an outage should be noticed; mail is where it can be found again a
+  # week later, and is the channel a reviewer actually reads. Neither is a
+  # fallback for the other -- a "fallback" that only sends when the first fails
+  # is a channel nobody ever confirms is working.
+  #
+  # send_resolved is on for both: silence after a failure is indistinguishable
+  # from the failure continuing.
   - name: telegram
     telegram_configs:
       - bot_token_file: /etc/alertmanager/telegram-token
@@ -73,6 +81,27 @@ receivers:
           {{ .Annotations.description }}
           {{ if .Annotations.runbook }}<b>Runbook:</b> <code>{{ .Annotations.runbook }}</code>{{ end }}
           {{ end }}
+
+    email_configs:
+      - to: __MAIL_TO__
+        from: __MAIL_FROM__
+        smarthost: __MAIL_SMARTHOST__:587
+        auth_username: __MAIL_FROM__
+        auth_password_file: /etc/alertmanager/smtp-password
+        require_tls: true
+        send_resolved: true
+        headers:
+          Subject: '[DevOps {{ .Status | toUpper }}] {{ .CommonLabels.alertname }}'
+        text: |
+          {{ range .Alerts }}{{ .Status | toUpper }}  {{ .Labels.alertname }}
+          {{ .Annotations.summary }}
+          {{ .Annotations.description }}
+          service: {{ .Labels.service }}   severity: {{ .Labels.severity }}
+          since:   {{ .StartsAt }}
+          {{ end }}
+          --
+          Board: http://__LAN_HOST__:18085/Stage-Report.html
+          Grafana: http://__LAN_HOST__:13000/
 
   # Kept for the deliberate-silence case: routing something here is an explicit
   # decision to not be told, which reads differently from a route that was never

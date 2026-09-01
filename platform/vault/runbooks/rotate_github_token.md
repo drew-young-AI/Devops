@@ -8,6 +8,7 @@ tags:
   - rotation
 timestamp: 2026-08-09T22:29:55+08:00
 ---
+
 # Runbook: Rotate the GitHub PAT in Vault
 
 **When**: every 90 days (`rotation_policy_days` custom_metadata on
@@ -21,6 +22,7 @@ have been exposed.
 export VAULT_ADDR=http://127.0.0.1:18200
 export VAULT_TOKEN=<root token, from platform/vault/.init-output.json>
 platform/vault/scripts/check_rotation_due.sh devops/github
+
 ```
 
 ## Why this is a runbook, not a script
@@ -50,6 +52,7 @@ value into Vault safely, with rollback capability via KV v2 versioning).
    read -rs NEW_PAT   # paste, does not echo to terminal
    echo -n "$NEW_PAT" | platform/vault/scripts/rotate_secret.sh devops/github token
    unset NEW_PAT
+
    ```
 
    This creates a new KV v2 version, records `rotated_at` in
@@ -68,6 +71,7 @@ value into Vault safely, with rollback capability via KV v2 versioning).
 
    ```bash
    GITHUB_TOKEN=<new value> gh auth status
+
    ```
 
 5. **Revoke the old PAT** on GitHub (Settings → Developer settings →

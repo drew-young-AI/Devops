@@ -9,6 +9,7 @@ tags:
   - audit
 timestamp: 2026-08-15T19:56:31+08:00
 ---
+
 # Vault Adapter — Secret Management
 
 Implements the "已鎖定決策" in `Plan.md`/`docs/IaC.md`: **HashiCorp Vault
@@ -32,6 +33,7 @@ here).
 ```bash
 cd platform/vault && docker compose up -d && cd -
 platform/vault/scripts/init_and_unseal.sh
+
 ```
 
 The second command is your **one-time** setup: it runs `vault operator
@@ -310,6 +312,7 @@ is a dial.**
 ```bash
 platform/vault/scripts/setup_audit.sh          # idempotent, self-verifying
 platform/vault/scripts/audit_query.sh --help   # auditor-facing view
+
 ```
 
 Until this existed, the platform could **enforce** access control but could
@@ -370,6 +373,7 @@ Three identities, one secret, one query:
 userpass-platform-operator  read  allowed  secret/data/devops/github
 userpass-platform-viewer    read  DENIED   secret/data/devops/github
 userpass-platform-viewer    read  allowed  secret/metadata/devops/github
+
 ```
 
 The audit trail independently confirms the RBAC boundary that
@@ -417,11 +421,18 @@ privilege than seeing that a secret exists.**
   A real deployment would use a cloud KMS auto-unseal — deferred along
   with the rest of the cloud adapter work (`docs/Network.md`'s "Public URL
   experiment", not yet built).
-- ~~No secret rotation~~ **Done** — see "Secret Rotation" above and
+- **No secret rotation~~ **Done** — see "Secret Rotation" above and
   `runbooks/rotate_github_token.md`. The mechanism (rotate + check-due) is
   built and tested; the real GitHub PAT itself hasn't actually been
   rotated yet (no need to — it isn't due, and doing so would have broken
   this session's own `git push` commands mid-session).
+- **Credential Location Reference:** For operational troubleshooting, note that:
+  - Vault Root Token and human role passwords (platform-admin, platform-operator, platform-viewer) are stored in:
+    - `/Users/drew/ENV/Devops/platform/vault/.init-output.json` (root token)
+    - `/Users/drew/ENV/Devops/platform/vault/.identity-output.json` (human role passwords)
+  - Grafana admin credential (username: admin) is synchronized from Vault secret `secret/devops/grafana-admin` to:
+    - `/Users/drew/ENV/Devops/platform/observability/.grafana.env` (gitignored, disposable)
+  - These files are intentionally gitignored and should be managed via a password manager. Never commit them.
 - ~~No Gitleaks history scan~~ **Done** — see `platform/security/README.md`
   (`scan_secrets.sh`), which scanned this repo's full commit history:
   no leaks found.
@@ -440,6 +451,7 @@ station2-twin 改變了這一點。
 ```bash
 platform/vault/scripts/setup_database_secrets.sh station2-twin
 platform/vault/scripts/verify_database_secrets.sh station2-twin
+
 ```
 
 **身分模型完全沒有改變。** 同一套 AppRole、同樣的認證、同樣的管理方式。
@@ -483,6 +495,7 @@ platform/vault/scripts/verify_database_secrets.sh station2-twin
 ```
 permission denied to reassign objects (SQLSTATE 42501)
 Only roles with privileges of role "v-..." may drop objects owned by it
+
 ```
 
 PostgreSQL 16 要求「繼承的」成員資格才算擁有該 role 的權限，而 `vault_admin`

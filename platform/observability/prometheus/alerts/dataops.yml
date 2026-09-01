@@ -1,0 +1,130 @@
+# Thresholds for the three things write-time constraints cannot see.
+#
+# The exporter (platform/dataops/pipeline_metrics.py) deliberately emits no
+# verdicts -- only ages and ratios. Every judgement lives here, so that "what
+# counts as too old" is one reviewable list rather than a number buried in a
+# Python file that nobody thinks to open.
+#
+# WHY THE FRESHNESS THRESHOLDS ARE PER-CADENCE AND NOT UNIFORM.
+# A weekly source that is three days late is fine; a daily one that is three
+# days late is broken. A single global threshold would either miss the second
+# or cry wolf about the first, and an alert that cries wolf on schedule gets
+# closed on schedule.
+#
+# WHY NOTHING HERE ALERTS ON `dataops_yoy_ratio` DIRECTLY.
+# A ratio moving is not by itself a fault -- an outbreak is a real signal, and
+# paging someone because dengue rose is confusing surveillance with monitoring.
+# What IS a pipeline fault is a source going quiet, or MANY geographies moving
+# at once in the same direction, which looks like an ingestion change rather
+# than an epidemiological one.
+
+groups:
+  # RECORDING RULE FIRST, because the alert and the dashboard must not each
+  # hold their own copy of this expression.
+  #
+  # The drift share is a join with a non-obvious `group_left`. Written twice --
+  # once in the alert, once in a Grafana panel -- it is two things that are in
+  # step today and unguarded tomorrow, which is the single most repeated defect
+  # on this platform (a threshold in install.sh and again in its test; LINES in
+  # stage_report.py and again as a regex in a dashboard). One definition, two
+  # readers.
+  - name: dataops-derived
+    rules:
+      - record: dataops:yoy_geo_drift_share
+        expr: >-
+          dataops_yoy_geo_drift_count / ignoring(direction) group_left
+          dataops_yoy_geo_comparable_count
+
+  - name: dataops-freshness
+    rules:
+      # 14 days: the surveillance feeds are weekly and land with a lag. Two
+      # missed cycles is the first point at which "late" and "stopped" become
+      # distinguishable.
+      - alert: DataSourceStale
+        expr: dataops_source_age_seconds > 14 * 86400
+        for: 1h
+        labels:
+          severity: warning
+          service: dataops
+        annotations:
+          summary: "資料來源 {{ $labels.source }} 已 {{ $value | humanizeDuration }} 未更新"
+          description: >-
+            約束擋得住壞資料，看不見「沒發生的事」。這個來源超過兩個週期沒有新批次，
+            可能是上游停更、URL 改變，或抓取靜默失敗。
+          runbook: "platform/dataops/run.sh 後查 ingest_runs 最後一筆的 status 與 note"
+
+      - alert: DataSourceVeryStale
+        expr: dataops_source_age_seconds > 45 * 86400
+        for: 1h
+        labels:
+          severity: critical
+          service: dataops
+        annotations:
+          summary: "資料來源 {{ $labels.source }} 超過 45 天未更新"
+          description: >-
+            這已經不是延遲。任何以這個來源為基礎的預測與儀表板都在用陳舊資料回答問題。
+
+  - name: dataops-execution
+    rules:
+      - alert: IngestRejectRatioHigh
+        expr: dataops_ingest_reject_ratio > 0.05
+        for: 30m
+        labels:
+          severity: warning
+          service: dataops
+        annotations:
+          summary: "{{ $labels.source }} 拒絕率 {{ $value | humanizePercentage }}"
+          description: >-
+            拒絕本身是正常的——那是約束在工作。持續偏高代表上游格式變了，
+            而不是偶發髒資料。
+
+      - alert: IngestRunsFailing
+        expr: increase(dataops_ingest_runs_failed_total[24h]) > 0
+        for: 10m
+        labels:
+          severity: warning
+          service: dataops
+        annotations:
+          summary: "{{ $labels.source }} 過去 24 小時有失敗的載入批次"
+
+  - name: dataops-drift
+    rules:
+      # A single geography moving is epidemiology. A quarter of them moving the
+      # same way in one week looks like the pipeline, not the disease.
+      - alert: WidespreadGeoDrift
+        # Reads the recorded series above rather than restating the join. The
+        # join itself needs an explicit group_left: the left side has two
+        # series per disease (up/down), the right has one, and after
+        # ignoring(direction) both left series carry identical labels.
+        # Without it the rule PARSES, `promtool check rules` reports SUCCESS,
+        # and evaluation fails every single cycle -- so the rule reads as
+        # "configured" and can never fire. That shipped here on 2026-08-28 and
+        # stood for 11 hours; see the note in test_dataops_metrics.sh.
+        expr: dataops:yoy_geo_drift_share > 0.25
+        for: 2h
+        labels:
+          severity: warning
+          service: dataops
+        annotations:
+          summary: >-
+            {{ $labels.disease }}：超過 1/4 的地區年對年{{ $labels.direction }}
+            超出 0.5–2 倍區間
+          description: >-
+            單一地區變動是流行病學，四分之一的地區同向變動比較像管線問題
+            （來源改口徑、地理對照改變、單位變更）。先查該疾病最近的 ingest_runs。
+
+      # The drift numbers come from the analytical mirror. If the mirror is
+      # stale they are not computed at all -- and a silently missing metric
+      # reads as "nothing wrong", which is the failure this rule exists for.
+      - alert: DriftNotComputed
+        expr: dataops_mirror_stale == 1
+        for: 6h
+        labels:
+          severity: warning
+          service: dataops
+        annotations:
+          summary: "分析鏡像過期，漂移偵測未計算"
+          description: >-
+            鏡像拒絕以過期資料回答（設計如此），但代價是漂移指標整個消失。
+            消失的指標讀起來像「沒問題」。
+          runbook: "platform/analytics/run.sh refresh"

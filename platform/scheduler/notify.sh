@@ -67,7 +67,26 @@ if command -v osascript >/dev/null 2>&1; then
     >/dev/null 2>&1 || true
 fi
 
-# --- sink 3: external, opt-in only --------------------------------------
+# --- sink 3: mail, when it has been proven to work -----------------------
+# A job crossing from ok to failed is a TRANSITION, so it is sent once, on the
+# crossing -- not repeated while the job stays broken. Alertmanager owns the
+# repeating kind; see platform/notify/emit_event.sh for why the two are kept
+# apart. Recovery is mailed too: silence after a failure is indistinguishable
+# from the failure continuing.
+#
+# Delivery is best effort and never changes the job's own outcome. rc 78 means
+# mail was never configured, which is a visible state rather than a failure.
+if [ "$SEVERITY" != "info" ]; then
+  MAILER="$REPO_ROOT/platform/notify/send_mail.sh"
+  if [ -x "$MAILER" ]; then
+    printf '%s\n\n%s\n' "$SUMMARY" \
+      "排程工作 $JOB 由 $OLD 轉為 $NEW（$AT）。這是一次狀態轉換，不會重送。" \
+      | "$MAILER" "[DevOps] $JOB: $OLD -> $NEW" >/dev/null 2>&1 \
+      || true
+  fi
+fi
+
+# --- sink 4: external webhook, opt-in only ------------------------------
 if [ -n "${NOTIFY_WEBHOOK:-}" ]; then
   curl -sS -m 10 -X POST "$NOTIFY_WEBHOOK" \
     -H 'Content-Type: application/json' \

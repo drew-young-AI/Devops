@@ -18,6 +18,7 @@ platform/ingress/ingress.sh --serve  station1-hello-develop   # tailnet only
 platform/ingress/ingress.sh --funnel station1-hello-develop   # public internet
 platform/ingress/ingress.sh --off    station1-hello-develop
 platform/ingress/ingress.sh --reset
+
 ```
 
 ## What this closed

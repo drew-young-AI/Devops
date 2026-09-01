@@ -7,6 +7,7 @@ tags:
   - monitoring
 timestamp: 2026-08-15T20:00:54+08:00
 ---
+
 # Observability
 
 實作與驗證細節見 `platform/observability/README.md`。

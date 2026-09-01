@@ -183,10 +183,25 @@ assert_equals "1" "$RELOAD_LOGIC" \
 # not be -- a 15-minute calendar entry is not expressible.
 if [ -d "$HOME/Library/LaunchAgents" ]; then
   WRONG_SCHED=""
+  # Read the boundary from install.sh instead of restating it. The previous
+  # version hardcoded 3600 here, so raising the threshold in install.sh turned
+  # this assertion red while the installer was behaving exactly as intended --
+  # a test that fails when the thing it tests is corrected is a test measuring
+  # its own stale copy of a constant.
+  CAL_THRESHOLD="$(grep -oE '^CALENDAR_THRESHOLD_SECONDS=[0-9]+' \
+      "$REPO_ROOT/platform/scheduler/install.sh" | cut -d= -f2)"
+  if [ -z "$CAL_THRESHOLD" ]; then
+    _fail "install.sh declares CALENDAR_THRESHOLD_SECONDS" \
+          "not found -- this assertion cannot be evaluated without it"
+    CAL_THRESHOLD=86400
+  else
+    _pass "install.sh declares the calendar threshold as one named constant (${CAL_THRESHOLD}s)"
+  fi
+
   while IFS='|' read -r name interval _ _; do
     p="$HOME/Library/LaunchAgents/devops.platform.${name}.plist"
     [ -f "$p" ] || continue
-    if [ "$interval" -ge 3600 ]; then
+    if [ "$interval" -ge "$CAL_THRESHOLD" ]; then
       grep -q 'StartCalendarInterval' "$p" \
         || WRONG_SCHED="$WRONG_SCHED $name(interval=${interval}s uses StartInterval)"
     else

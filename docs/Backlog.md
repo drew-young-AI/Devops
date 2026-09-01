@@ -231,6 +231,7 @@ skill 只帶 drawio_extract、mermaid_extract、self_check 三支解析器，無
 ```
 /plugin marketplace add cathrynlavery/diagram-design
 /plugin install diagram-design@diagram-design
+
 ```
 
 它能重畫 draw.io 與 Mermaid，所以 `docs/Spark-Design.md` 的 flowchart 與
@@ -340,9 +341,13 @@ k3d 的 PVC 由 local-path-provisioner 寫在節點的 `/var/lib/rancher/k3s/sto
 `platform/backup/backup.sh` 對這種名字有一條明確規則：
 
 ```bash
+
 # Anonymous volumes are docker's own scratch (64-hex names), not state
+
 # anybody chose to keep.
+
 case "$vol" in [0-9a-f]*) [ "${#vol}" -ge 64 ] && covered=1 ;; esac
+
 ```
 
 也就是說，**今天把 postgres 搬進 k3d，資料會落在一個備份腳本明文歸類為
@@ -363,6 +368,76 @@ A8（備份覆蓋率不得有漏）與還原演練會同時失效，而且是**�
 **第 3 項要講清楚**：k3d 跑在同一台筆電的 Docker 裡，筆電睡著時 CronJob 一樣不觸發。
 它換到的是排程語意與可觀測性，不是修好那一夜 15 次錯過。把它當成「搬過去就不會漏跑」
 會是下一個「註解描述了一個機制」。
+
+---
+
+## 13. Ubuntu 生產節點 — 進行中，暫停於機器休眠（2026-08-31）
+
+叢集已建好並從 Mac 驗證可達，隨即失聯（SSH 與 6443 逾時，網卡仍回應 ARP＝休眠）。
+完整狀態與接手順序見 [`Ubu-Prod-Bringup.md`](Ubu-Prod-Bringup.md)。
+
+| 項目 | 狀態 |
+|---|---|
+| k3s 單節點 + kubeconfig context `ubu` | ✅ 已完成，`platform/k8s/bootstrap_k3s.sh` 可重跑 |
+| 停用休眠、固定 IP | ⬜ **必須先做**，否則 `prod` 只是名字 |
+| amd64 建置鏈 | ⬜ 待 GitHub/GitLab CI 方案定案（見 [ADR-0008](decisions/0008-two-machines-two-architectures.md)） |
+| Vault（兩台都放，使用者決定） | ⬜ ubu 上尚未安裝 |
+| pilot 上 prod | ⬜ 需同時修 Vault 憑證與 Prometheus scrape 兩個缺口 |
+
+---
+
+## 14. CI 紅了六天沒人知道 — ✅ 機制已補（2026-08-31）
+
+GitHub Actions 最近 20 次有 13 次紅，最近一次成功在數週前，**沒有任何人被通知**。
+成因不是通知鏈壞掉——Alertmanager、Telegram、板面全都正常——而是**遠端 CI 的狀態
+從來沒有進入任何一條通知路徑**。
+
+已做：
+
+- 4 個 macOS↔Linux 可攜性缺陷修掉（`stat -f`、`mktemp -t`、`scutil`、
+  `ingress.sh` 的檢查順序），全部在真的 GNU coreutils 容器裡驗證過
+- `run_all.sh` 加入呼叫端明示的分層（`PLATFORM_TIERS`），雲端只跑 tier 1
+- 燈號板新增 `gha` 節點；`platform/ci/fetch_gha_status.sh` 排程抓取寫成證據
+
+通道也補了（2026-09-01）：
+
+- `platform/observability/prometheus/alerts/platform-nodes.yml` —— `dag.py` 匯出
+  `devops_node_state` 已數週，**沒有任何規則消費它**。節點紅了只有打開網頁的人看得到。
+  現在 `PlatformNodeFailed` 會在紅超過兩個評估週期後發 Telegram。
+- `PlatformBoardStale` 守著上面那條：node-exporter 會繼續提供最後讀到的 textfile，
+  所以 `dag.py` 停掉之後每個節點指標會**凍結在最後一個值**——凍結的綠燈和健康的綠燈
+  長得一模一樣。
+- 兩條規則都以**評估**驗收（`/api/v1/rules` health=ok），不是以 `promtool` 通過驗收
+  （[ADR-0007](decisions/0007-verify-by-evaluation.md)）。`PlatformNodeFailed` 目前
+  pending，帶著 1 個 alert：`gha`。
+
+板面現在說的是：**`GitHub Actions: main failure，最近 10 次有 10 次紅`。**
+
+仍待做：**尚未推送，所以 GitHub 上的 CI 仍是紅的。** 修正只在本機與 Linux 容器裡
+驗證過（tier 1 全綠、本機全三層 ALL SUITES PASSED）。推送之後才會知道雲端是否轉綠。
+
+---
+
+## 15. K8s 那份 pilot 沒被監控 — ✅ 已修（2026-09-01）
+
+不是漏設 scrape config，是**通路根本不存在**：K8s 副本掛在 ClusterIP，而 k3d 只對外
+開 6443，所以 Prometheus 在原理上就抓不到它。Prometheus 有兩個 target，遷移過去的
+副本兩個都不是。
+
+`pilots/README.md` 記過同一個缺陷（station1-hello 退役時，監控留在已退役的那份）。
+**這次是角色對調的同一個缺陷。**
+
+| 動作 | 檔案 |
+|---|---|
+| NodePort 30890 → 主機 18091，帶與流量 Service 相同的 `color` selector | `platform/k8s/station2-twin/metrics-service.yaml` |
+| `promote.sh` 同一步搬動 metrics Service 並回讀驗證 | `platform/k8s/station2-twin/promote.sh` |
+| scrape job `station2-twin-k8s`，`environment=k8s` | `platform/observability/prometheus/prometheus.yml` |
+| 守衛：部署的東西與被監控的東西必須對得起來 | `platform/tests/test_migration_observed.sh` |
+
+兩個斷言都親手弄紅過再還原（顏色錯置、無人監控的工作負載），還原都經過驗證。
+
+**仍看不到的**：閒置顏色。綠色部署在 promote 之前壞掉，從叢集外看不出來。
+正解是 Prometheus 進叢集用 `kubernetes_sd_configs`——那是 amd64 生產叢集該有的東西。
 
 ---
 

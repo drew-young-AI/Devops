@@ -73,7 +73,11 @@ jobs:
       # platform/iac/checkov.yaml — do not duplicate them here or the CLI
       # flags can conflict.
       - name: "Step [3/6] Checkov Security Scan"
-        uses: bridgecrewio/checkov-action@master
+        # Pinned to a commit for the same reason as the Trivy step below: this
+        # file already argues that a MUTABLE ref means the bytes executed can
+        # change between runs, and then used `@master` two steps later. The
+        # rule and the code disagreeing is the defect, not either one alone.
+        uses: bridgecrewio/checkov-action@f967808197a8d784d3e72919f38c3ff0cda7884e  # master as of 2026-09-01
         with:
           directory: platform/iac
           output_format: json
@@ -218,7 +222,20 @@ jobs:
       # version-pinned official action.
       - name: Run Trivy IaC misconfiguration scan
         continue-on-error: true
-        uses: aquasecurity/trivy-action@0.28.0
+        # Pinned to a COMMIT, not a tag, for the reason stated three comments
+        # up: a tag is mutable and the bytes that run can change between runs.
+        #
+        # The previous value was `@0.28.0`, a version that HAS NEVER EXISTED --
+        # the API returns 404 for that tag. It was introduced 2026-08-15 and
+        # failed every run for 17 days with:
+        #     Unable to resolve action `aquasecurity/trivy-action@0.28.0`
+        #
+        # `continue-on-error: true` above did NOT cover it, and that is the part
+        # worth remembering: action resolution happens BEFORE the step runs, so
+        # continue-on-error cannot catch it. The flag read as "this scan is
+        # allowed to fail" while what actually happened was the whole job
+        # failing at setup -- a tolerance that tolerated nothing.
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25  # v0.36.0
         with:
           scan-type: config
           scan-ref: platform/iac

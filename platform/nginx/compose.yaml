@@ -11,6 +11,9 @@ services:
       - ./nginx.conf:/etc/nginx/nginx.conf:ro
       - ./conf.d:/etc/nginx/conf.d:ro
       - ./certs:/etc/nginx/certs:ro
+      # Read-only, and the vhost routes an allowlist rather than the directory:
+      # docs/ also holds internal design documents (conf.d/status.conf).
+      - ../../docs:/srv/status:ro
     # mode=1777 (world read/write/execute + sticky bit) is required: Docker's
     # tmpfs default mode is root-owned 0755, which the non-root nginx user
     # (uid 101) cannot write into — verified locally (mkdir fails without it).
@@ -20,6 +23,10 @@ services:
     ports:
       - "127.0.0.1:18443:8443" # develop vhost (conf.d/station1-hello.conf)
       - "127.0.0.1:19443:8444" # production-like vhost (conf.d/_generated.station1-hello.production-like.conf)
+      # The reviewer's status page, LAN-published on purpose (conf.d/status.conf).
+      # Plain HTTP: mkcert certs are trusted only on this machine, and training a
+      # reviewer to click through a certificate warning is the worse outcome.
+      - "0.0.0.0:18085:8085" # status vhost
     # No host port for the internal health listener (conf.d/_platform-health.conf,
     # 127.0.0.1:8080 inside the container) — intentionally unpublished.
     extra_hosts:

@@ -8,6 +8,7 @@ tags:
   - policy
 timestamp: 2026-08-09T01:15:06+08:00
 ---
+
 # Infrastructure as Code (IaC) — DevOps Platform
 
 This directory contains the **provider-neutral infrastructure contract** for the DevOps platform. It defines the logical structure of the platform without committing to a specific cloud vendor (AWS, GCP, Azure).
@@ -32,6 +33,7 @@ platform/iac/
 ├── conftest/
 │   └── policy.rego                    # OPA/Conftest governance rules
 └── (no .tfstate files — see .gitignore)
+
 ```
 
 ## 🚀 Quick Start
@@ -42,29 +44,39 @@ platform/iac/
 cd platform/iac
 
 # Initialize OpenTofu backend (local state)
+
 tofu init
 
 # Check format
+
 tofu fmt -check -recursive .
 
 # Validate syntax
+
 tofu validate
+
 ```
 
 ### 2. Run Security Scans
 
 ```bash
+
 # Checkov: Terraform security scanning
+
 checkov --directory . --framework terraform --config-file checkov.yaml
 
 # Conftest: Custom OPA policies
+
 conftest test -p conftest/ -d . *.tf
+
 ```
 
 ### 3. Generate Plan (Preview)
 
 ```bash
+
 # Create a plan using example variables
+
 tofu plan \
   -var-file="terraform.tfvars.example" \
   -var="git_commit_sha=$(git rev-parse HEAD)" \
@@ -72,10 +84,13 @@ tofu plan \
   -out=tfplan
 
 # View plan in human-readable format
+
 tofu show tfplan
 
 # View plan in JSON format (for CI/CD processing)
+
 tofu show -json tfplan > plan.json
+
 ```
 
 ### 4. Apply (Manual, Requires Approval)
@@ -83,8 +98,11 @@ tofu show -json tfplan > plan.json
 **⚠️ IMPORTANT**: Apply requires explicit approval. This is not automated.
 
 ```bash
+
 # Only after approval and security review
+
 tofu apply tfplan
+
 ```
 
 ## 📊 Variables & Mapping
@@ -114,6 +132,7 @@ secret_backend                 = "vault"
 enable_monitoring              = true
 deployment_strategy            = "rolling"
 enable_public_access           = false
+
 ```
 
 ## 🔒 Security Policies
@@ -143,29 +162,37 @@ Custom policies enforce:
 ### Local State (Phase 1)
 
 ```bash
+
 # State stored locally
+
 ls terraform.tfstate           # ⚠️ Never commit this to Git
 ls terraform.tfstate.backup
+
 ```
 
 **Ensure `.gitignore` includes**:
+
 ```
 *.tfstate
 *.tfstate.*
 .terraform/
 .terraform.lock.hcl
+
 ```
 
 ### Future: Remote State (Phase 2+)
 
 ```hcl
+
 # Uncomment in providers.tf for cloud deployment
+
 backend "s3" {
   bucket         = "devops-state"
   key            = "platform/iac/terraform.tfstate"
   encrypt        = true
   dynamodb_table = "terraform_locks"
 }
+
 ```
 
 ## 🔄 GitHub Actions Workflow
@@ -214,6 +241,7 @@ resource "aws_ec2_instance" "app" {
     { Name = "devops-app" }
   )
 }
+
 ```
 
 ### Kubernetes Adapter (Future)
@@ -227,8 +255,11 @@ resource "kubernetes_deployment" "app" {
   metadata {
     name = var.project_name
   }
+
   # ... spec ...
+
 }
+
 ```
 
 ## 🧪 Testing the Contract
@@ -236,20 +267,27 @@ resource "kubernetes_deployment" "app" {
 ### Validation Checklist
 
 ```bash
+
 # 1. Format
+
 tofu fmt -check -recursive .
 
 # 2. Validate
+
 tofu init && tofu validate
 
 # 3. Checkov
+
 checkov -d . --framework terraform
 
 # 4. Plan
+
 tofu plan -var-file="terraform.tfvars.example"
 
 # 5. Verify outputs
+
 tofu show tfplan | grep "infrastructure_contract_summary"
+
 ```
 
 ### Integration Test (with Docker Compose)
@@ -257,11 +295,15 @@ tofu show tfplan | grep "infrastructure_contract_summary"
 The platform should be able to use outputs from `tofu show` to configure Compose deployments:
 
 ```bash
+
 # Generate outputs as JSON
+
 tofu show -json tfplan > /tmp/iac_outputs.json
 
 # Use in Compose adapter (future)
+
 # python3 platform/compose/generate_compose.py /tmp/iac_outputs.json
+
 ```
 
 ## 📚 Documentation
@@ -277,11 +319,15 @@ tofu show -json tfplan > /tmp/iac_outputs.json
 ### Error: `Could not load plugin`
 
 ```bash
+
 # Ensure OpenTofu is installed
+
 tofu version
 
 # Reinstall if needed
+
 brew reinstall opentofu
+
 ```
 
 ### Error: `Invalid or unsupported provider configuration`
@@ -291,21 +337,29 @@ The provider blocks are commented out. Uncomment and configure only one for your
 ### Error: `Checkov not found`
 
 ```bash
+
 # Install Checkov
+
 pip install checkov
 
 # Or via Homebrew
+
 brew install checkov
+
 ```
 
 ### Error: `Conftest not found`
 
 ```bash
+
 # Install Conftest
+
 brew install conftest
 
 # Or via binary
+
 curl -LO https://github.com/open-policy-agent/conftest/releases/download/v0.50.0/conftest_linux_amd64.tar.gz
+
 ```
 
 ## 📋 Checklist for Deployment
@@ -354,6 +408,6 @@ Before applying any changes:
 
 ---
 
-**Last Updated**: 2026-08-09  
-**Maintained by**: Platform Team  
+**Last Updated**: 2026-08-09
+**Maintained by**: Platform Team
 **License**: Internal Use Only

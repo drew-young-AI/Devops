@@ -572,6 +572,14 @@ PY
   local promote_record="$REPO_ROOT/evidence/$pilot_name/promote_${sha}_$(date -u '+%Y%m%dT%H%M%SZ').json"
   cp "$sfile" "$promote_record"
 
+  # A promote is an EVENT: it happened, it is over, there is nothing to repeat
+  # and nothing to resolve. It is also the one thing here that is NEVER
+  # scheduled (it waits for a human to type PROMOTE), so the scheduler's own
+  # ok->failed notifications can never cover it. Without this line, the single
+  # most consequential action on the platform is the one nobody is told about.
+  "$REPO_ROOT/platform/notify/emit_event.sh" promote ok \
+    "$pilot_name $current_color -> $new_color (sha $sha)" >/dev/null 2>&1 || true
+
   echo "PROMOTE PASS"
   echo "  active color: $new_color (was: $current_color, still running for rollback)"
   echo "  artifact=$sfile"

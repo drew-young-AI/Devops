@@ -1,0 +1,66 @@
+{
+  "verdict": "DEGRADED",
+  "exit_code": 1,
+  "checked_at": "2026-08-30T03:45:49Z",
+  "monitoring_integrity": [
+    {
+      "check": "prometheus_reachable",
+      "ok": true,
+      "detail": "api/v1/rules responded"
+    },
+    {
+      "check": "alert_rules_loaded",
+      "ok": true,
+      "detail": "12 rules"
+    },
+    {
+      "check": "alert_rules_evaluating",
+      "ok": true,
+      "detail": "all ok"
+    },
+    {
+      "check": "alertmanager_wired",
+      "ok": true,
+      "detail": "1 active"
+    },
+    {
+      "check": "alertmanager_reachable",
+      "ok": true,
+      "detail": "api/v2/alerts responded"
+    },
+    {
+      "check": "scrape_targets_visible",
+      "ok": true,
+      "detail": "2 targets"
+    }
+  ],
+  "integrity_blockers": [],
+  "active_alerts": [
+    {
+      "alertname": "WidespreadGeoDrift",
+      "severity": "warning",
+      "environment": null,
+      "service": "dataops",
+      "summary": "猩紅熱：超過 1/4 的地區年對年down 超出 0.5–2 倍區間",
+      "runbook": null,
+      "started_at": "2026-08-29T08:33:28.198Z"
+    },
+    {
+      "alertname": "WidespreadGeoDrift",
+      "severity": "warning",
+      "environment": null,
+      "service": "dataops",
+      "summary": "COVID-19：超過 1/4 的地區年對年up 超出 0.5–2 倍區間",
+      "runbook": null,
+      "started_at": "2026-08-29T08:33:28.198Z"
+    }
+  ],
+  "scrape_targets": {
+    "platform-dag/-": "up",
+    "station2-twin/develop": "up"
+  },
+  "sources": {
+    "prometheus": "http://127.0.0.1:19090",
+    "alertmanager": "http://127.0.0.1:19093"
+  }
+}

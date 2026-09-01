@@ -8,6 +8,7 @@ tags:
   - detail
 timestamp: 2026-08-15T20:00:54+08:00
 ---
+
 # Enterprise Application and LLM Delivery Platform Plan
 
 > 目標：建立一套可套用於 Python、Node.js、Java、Go、.NET 等技術棧的企業級容器開發、交付、部署與資安標準。
@@ -41,6 +42,7 @@ timestamp: 2026-08-15T20:00:54+08:00
 
 ```text
 可建置 -> 可掃描 -> 可部署 -> 可驗證 -> 可監控 -> 可回滾
+
 ```
 
 產品需求、實際體驗與業務結果留到後續產品開發階段，由人類負責 PRD 與最終驗收。
@@ -74,6 +76,7 @@ P0  CI/CD、artifact、security、observability、approval
 P1  Develop / production-like deployment 與 rollback
 P2  Cloud provider adapter、F5/WAF/CDN 實際整合
 P3  MLOps / LLMOps 擴充
+
 ```
 
 MLOps 與 LLMOps 保留接口與未來擴充位置，但目前不應主導平台設計，也不應為了它們提前導入 Kubeflow、Airflow 或 Kubernetes。
@@ -210,6 +213,7 @@ GitLab CI/CD UI -> pipeline、job、artifact、approval
 Grafana         -> 統一 dashboard 與告警入口
 Prometheus      -> numeric metrics、time series、alert rules
 Loki            -> container logs
+
 ```
 
 - [x] Prometheus、Grafana、Loki、Grafana Alloy 的 Compose 定義位於 `platform/observability/`。
@@ -262,6 +266,7 @@ Docker Compose platform contract
   -> Kubernetes deployment validation
   -> Argo CD GitOps
   -> Argo Rollouts progressive delivery
+
 ```
 
 ## 0F. Docker 到 Kubernetes 的可搬遷契約
@@ -357,6 +362,7 @@ Develop auto-deploy         NOT_COMPLETED
 Production-like deployment  NOT_COMPLETED
 Blue/Green rollback         NOT_COMPLETED
 Pilot effect validation     NOT_COMPLETED
+
 ```
 
 ## 0H. Pilot 實際落地與效果驗收
@@ -407,6 +413,7 @@ CREATED
   -> APPROVED_PILOT
   -> PRODUCTION_LIKE
   -> ROLLED_BACK / RETIRED
+
 ```
 
 ## 0I. Platform Engineering 與 Infrastructure as Code
@@ -444,6 +451,7 @@ Organization / Account
   -> Compute / Container Platform
   -> Database / Cache / Queue / Object Storage
   -> Monitoring / SIEM / Backup
+
 ```
 
 每個資源必須定義：
@@ -467,6 +475,7 @@ User / Client
   -> NGINX / Ingress
   -> Application service
   -> Data / Queue / External API
+
 ```
 
 ### 工具與責任
@@ -516,6 +525,7 @@ MLX / local experiment
   -> Human approval
   -> Model alias: champion
   -> Inference deployment
+
 ```
 
 - [ ] 每次 run 記錄 code SHA、dataset version、model base、parameters、metrics、hardware 與 output artifact。
@@ -545,6 +555,7 @@ Prompt / Tool / Model Definition
   -> Trace / metrics / logs / feedback
   -> Human approval
   -> Production-like promotion
+
 ```
 
 ### 必須版本化的對象
@@ -595,6 +606,7 @@ Prompt / Tool / Model Definition
   -> Human approval and model alias promotion
   -> 需要時再導入 Airflow
   -> Kubernetes 成立後才評估 Kubeflow
+
 ```
 
 每個站別的完成格式：
@@ -608,6 +620,7 @@ Evidence
 Failure Path
 Rollback / Cleanup
 Decision: PASS | FAIL | BLOCKED
+
 ```
 
 ## 1. 目標與成功條件
@@ -714,6 +727,7 @@ GitLab
 ├─ Cosign：image signing
 ├─ Docker Compose：初期部署
 └─ NGINX + F5：入口與流量切換
+
 ```
 
 這是「套裝平台加專用工具」的組合。GitLab 負責流程編排，Trivy 等工具負責特定安全檢查，Docker Compose 或 Kubernetes 負責執行環境。
@@ -732,6 +746,7 @@ Merge Request
   -> SBOM
   -> Sign Image
   -> Push Immutable Image
+
 ```
 
 品質門檻：
@@ -754,6 +769,7 @@ Approved Image
   -> F5/NGINX Traffic Switch
   -> Observe
   -> Retain Blue for Rollback
+
 ```
 
 ### 藍綠部署要求
@@ -771,6 +787,7 @@ Approved Image
 
 ```text
 新增結構 -> 部署相容程式 -> 回填資料 -> 切換讀寫 -> 移除舊結構
+
 ```
 
 禁止在藍綠切換前直接刪除舊欄位或改變既有欄位語意。
@@ -807,6 +824,7 @@ Internet
   -> DMZ / NGINX
   -> Application Subnet
   -> Database / Cache / Queue Subnet
+
 ```
 
 - [ ] Public IP 只配置於必要入口。
@@ -904,6 +922,7 @@ GitLab CI/CD
 + 現有 F5/WAF
 + Trivy / Gitleaks / Syft / Cosign
 + Vault 或雲端 Secret Manager
+
 ```
 
 待服務數量與部署治理需求明確後，再升級為：
@@ -916,6 +935,7 @@ Kubernetes
 + Ingress
 + NetworkPolicy
 + Centralized Observability
+
 ```
 
 這樣可以先完成可運作的企業交付鏈，再以實際需求決定是否導入 Kubernetes，避免平台複雜度先於業務需求成長。
@@ -940,6 +960,7 @@ MLX LLM User Endpoint
   -> 127.0.0.1:9000
   -> Application / DevOps Service
   -> Database / External Service
+
 ```
 
 `127.0.0.1:9000` 是 intentional local-only boundary，不應被轉成 Public URL，也不應預設接入 F5、WAF 或 production ingress。若 Dockerized application 需要呼叫它，才另外建立受控 adapter 或 host bridge；不能反過來要求 LLM endpoint 遵守一般 production application 的部署模型。
@@ -1045,6 +1066,7 @@ LLM 的成功只代表「自動化檢查完成並產生證據」，不代表產�
 LLM：Technical Verification Passed
   -> Human：PRD / Product / UX Acceptance
   -> Human：Production Release Approval
+
 ```
 
 ## 12B. 服務標準契約
@@ -1072,6 +1094,7 @@ feature/*
 
 hotfix/*
   -> emergency production fix, followed by back-merge to develop
+
 ```
 
 - [ ] 使用 Conventional Commits。
@@ -1223,6 +1246,7 @@ Client
   -> NGINX
   -> Container / Service
   -> Database / Queue / External API
+
 ```
 
 - [ ] DNS、TLS SNI、Host header 與 certificate chain 一致。

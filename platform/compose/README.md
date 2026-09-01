@@ -8,6 +8,7 @@ tags:
   - release
 timestamp: 2026-08-10T13:05:31+08:00
 ---
+
 # Compose Deployment Adapter — Develop + Production-like (Blue/Green)
 
 Implements `Plan.md` §4 "兩環境最小隔離" and roadmap items 6-7 ("建立
@@ -33,6 +34,7 @@ promote  -> gate on a healthy develop deployment for the current commit,
             then flip NGINX traffic and reload
 rollback -> flip NGINX traffic back to the previous color (only if it's
             still running)
+
 ```
 
 Per `Plan.md` §4:
@@ -58,7 +60,9 @@ Per `Plan.md` §4:
 ## Usage
 
 ```bash
+
 # Develop
+
 platform/compose/deploy.sh build    pilots/station1-hello
 export VAULT_TOKEN=<token with read access to secret/data/devops/*>
 platform/compose/deploy.sh push     pilots/station1-hello           # push only
@@ -68,10 +72,12 @@ platform/compose/deploy.sh status   develop pilots/station1-hello
 platform/compose/deploy.sh teardown develop pilots/station1-hello
 
 # Production-like (blue/green)
+
 platform/compose/deploy.sh promote  pilots/station1-hello   # interactive: type PROMOTE
 platform/compose/deploy.sh rollback pilots/station1-hello   # interactive: type ROLLBACK
 platform/compose/deploy.sh status   production-like pilots/station1-hello blue
 platform/compose/deploy.sh teardown production-like pilots/station1-hello green
+
 ```
 
 `build` reuses `platform/ci/run_local_ci.sh` (lint → unit/contract test →
@@ -106,6 +112,7 @@ PAT with full repository permissions. Pushing with it failed:
 
 ```text
 error from registry: permission_denied: The token provided does not match expected scopes.
+
 ```
 
 The instinctive fix — go find a "Packages" checkbox in the fine-grained
@@ -211,6 +218,7 @@ production-like state, overwritten on every promote/rollback:
   "image_id": "sha256:...",
   "promoted_at": "2026-08-08T22:33:18Z"
 }
+
 ```
 
 `evidence/<pilot>/promote_<sha>_<timestamp>.json` — one immutable snapshot

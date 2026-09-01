@@ -97,15 +97,33 @@ usage() {
   exit 2
 }
 
-command -v tailscale >/dev/null 2>&1 || die "tailscale is not on PATH."
+# The targets file is a hard prerequisite for even PARSING the request: every
+# action names a target, and without the file no name can be validated.
 [ -f "$TARGETS" ] || die "Missing $TARGETS"
 
 ACTION="${1:-}"
 NAME="${2:-}"
 
+# WHY THE tailscale CHECK IS NOT HERE ANY MORE (2026-08-31).
+#
+# It used to be the first line of the script, so `ingress.sh --serve
+# a-name-that-does-not-exist` on a machine without tailscale exited 1 with
+# "tailscale is not on PATH" instead of 2 with "Unknown target". A caller
+# checking the exit code could not tell "you asked for something that does not
+# exist" from "this machine cannot do ingress at all" -- and those want
+# opposite responses: fix your command, versus install a tool.
+#
+# Whether the ARGUMENTS are valid does not depend on which tools are
+# installed, so it is decided first. The capability check moved to the point
+# where the capability is actually used.
+require_tailscale() {
+  command -v tailscale >/dev/null 2>&1 || die "tailscale is not on PATH."
+}
+
 # --- status --------------------------------------------------------------
 
 if [ "$ACTION" = "--status" ]; then
+  require_tailscale
   echo "=== tailscale ==="
   BACKEND="$(ts status --json 2>/dev/null | python3 -c "
 import json,sys
@@ -134,6 +152,7 @@ except Exception as e:
 fi
 
 if [ "$ACTION" = "--reset" ]; then
+  require_tailscale
   ts serve reset 2>&1 | sed 's/^/  /'
   echo "All proxies removed. Nothing on this machine is reachable off it."
   exit 0
@@ -147,6 +166,8 @@ if [ -z "$ROW" ]; then
   usage
 fi
 IFS='|' read -r PORT CEILING REASON <<< "$ROW"
+# Arguments are valid; from here on the script actually drives tailscale.
+require_tailscale
 SERVE_PORT="$(serve_port_for "$NAME")"
 
 # NEVER call `tailscale funnel ... off` speculatively.

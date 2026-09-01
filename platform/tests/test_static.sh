@@ -12,6 +12,13 @@ CURRENT_SUITE="static"
 # shellcheck source=lib.sh
 source "$SUITE_DIR/lib.sh"
 
+# Third-party code is not our code. platform/analytics/venv/ holds thousands of
+# vendored .py and .sh files, and running our style gates over them turns a
+# report about this repo into a report about other people's packaging -- the
+# assertion count jumped from 226 to 830 the moment the venv appeared. Same
+# defect okf_check.py had on the same day, for the same reason.
+PRUNE_VENV="-not -path */venv/* -not -path */site-packages/* -not -path */node_modules/*"
+
 echo "== static analysis =="
 
 while IFS= read -r script; do
@@ -26,7 +33,7 @@ while IFS= read -r script; do
   else
     _fail "executable bit: $rel" "script is not executable; callers will need an explicit interpreter"
   fi
-done < <(find "$REPO_ROOT/platform" -name '*.sh' -type f | sort)
+done < <(find "$REPO_ROOT/platform" -name '*.sh' -type f $PRUNE_VENV | sort)
 
 while IFS= read -r module; do
   rel="${module#"$REPO_ROOT/"}"
@@ -35,7 +42,7 @@ while IFS= read -r module; do
   else
     _fail "python syntax: $rel" "$(python3 -m py_compile "$module" 2>&1 | tail -2)"
   fi
-done < <(find "$REPO_ROOT/platform" -name '*.py' -type f -not -path '*__pycache__*' | sort)
+done < <(find "$REPO_ROOT/platform" -name '*.py' -type f -not -path '*__pycache__*' $PRUNE_VENV | sort)
 
 # YAML that only fails at container start is YAML that fails in production.
 while IFS= read -r doc; do
@@ -45,7 +52,7 @@ while IFS= read -r doc; do
   else
     _fail "yaml parses: $rel" "$(python3 -c "import yaml; list(yaml.safe_load_all(open('$doc')))" 2>&1 | tail -2)"
   fi
-done < <(find "$REPO_ROOT/platform" \( -name '*.yml' -o -name '*.yaml' \) -type f | sort)
+done < <(find "$REPO_ROOT/platform" \( -name '*.yml' -o -name '*.yaml' \) -type f $PRUNE_VENV | sort)
 
 # Prometheus rule files have a schema beyond "valid YAML": a rule with a
 # typo'd key parses fine and then never fires.
@@ -60,8 +67,17 @@ for g in groups:
     if not g.get('name'):
         problems.append('group without name')
     for r in g.get('rules') or []:
+        # Two kinds of rule live in these files. A RECORDING rule has no
+        # severity and no summary and should not be asked for them; an ALERT
+        # rule without them fires into a message nobody can act on. Treating
+        # them alike would either reject every recording rule or stop checking
+        # alerts, and the second failure is silent.
+        if r.get('record'):
+            if not r.get('expr'):
+                problems.append(f\"record {r['record']}: no expr\")
+            continue
         if not r.get('alert'):
-            problems.append('rule without alert name')
+            problems.append('rule with neither alert: nor record:')
         if not r.get('expr'):
             problems.append(f\"{r.get('alert')}: no expr\")
         if not (r.get('labels') or {}).get('severity'):
@@ -146,7 +162,7 @@ while IFS= read -r script; do
   fi
 # Excluded for the same reason as the stdin check above: this file necessarily
 # contains the patterns it searches for.
-done < <(find "$REPO_ROOT/platform" -name '*.sh' -type f \
+done < <(find "$REPO_ROOT/platform" -name '*.sh' -type f $PRUNE_VENV \
            | grep -v '/tests/test_static.sh$' | sort)
 
 # Generated-from-template drift.
@@ -239,6 +255,67 @@ for tf in "$REPO_ROOT"/platform/tests/test_*.sh; do
 done
 assert_equals "" "$UNDEFINED_CALLS" \
   "every assertion helper called by a test suite is defined in lib.sh"
+
+# ---- GitHub Actions: no third-party action on a mutable ref ---------------
+#
+# `.github/workflows/iac-validate.yml` argues at length that pinning to a
+# mutable ref means the bytes executed can change between runs -- and then used
+# `bridgecrewio/checkov-action@master` two steps later. A rule stated in a
+# comment and contradicted by the line below it is worse than no rule: it reads
+# as settled.
+#
+# The same file also carried `aquasecurity/trivy-action@0.28.0`, a version that
+# HAS NEVER EXISTED. It failed every run for 17 days. `continue-on-error: true`
+# did not cover it, because action resolution happens BEFORE the step runs --
+# so the flag read as "this scan may fail" while the whole job died at setup.
+#
+# This check is hermetic and therefore cannot tell a nonexistent tag from a
+# real one; it enforces the part that CAN be decided offline. `actions/*` is
+# exempt: those are GitHub's own, and their major tags are the documented
+# interface rather than a moving branch.
+MUTABLE=""
+for wf in "$REPO_ROOT"/.github/workflows/*.yml; do
+  while read -r ref; do
+    [ -n "$ref" ] || continue
+    case "$ref" in actions/*) continue ;; esac
+    r="${ref#*@}"
+    # 40 hex characters is a commit. Anything shorter that is not a version
+    # tag is a branch, and a branch is a promise nobody made.
+    case "$r" in
+      v[0-9]*|[0-9]*.[0-9]*) continue ;;
+    esac
+    printf '%s' "$r" | grep -qE '^[0-9a-f]{40}$' && continue
+    MUTABLE="$MUTABLE $(basename "$wf"):$ref"
+  done < <(grep -ohE 'uses: [A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+@[A-Za-z0-9_.-]+' "$wf" | sed 's/uses: //')
+done
+assert_equals "" "$MUTABLE" \
+  "no third-party GitHub Action is pinned to a mutable ref"
+
+# ---- .gitignore rules must actually apply to what is tracked ---------------
+#
+# WHY (2026-09-01). `.gitignore` line 207 excludes `evidence/scheduler/*_last.json`
+# and explains itself at length: they rewrite every 15 minutes, so tracking them
+# "means permanent churn and a conflict on every branch switch". All nine of
+# them were tracked anyway, and had been since before the rule was written.
+#
+# .gitignore only governs UNTRACKED files. A rule added after a file is already
+# in the index is inert -- it reads as enforcement, produces no error, and the
+# churn it forbids continues indefinitely. That is this repository's signature
+# defect: a thing that REGISTERS as present but does not EXECUTE. Same shape as
+# `promtool check rules` reporting SUCCESS on a rule that fails every evaluation
+# (ADR-0007), and as `continue-on-error` not covering action resolution.
+#
+# --no-index is the whole point: without it, git check-ignore stays silent about
+# tracked files, which is exactly the set being audited here.
+#
+# Negation rules (`!path`) are filtered out. `git check-ignore -v` reports them
+# as matches too, but a `!` line means "keep this one", so a file matching it is
+# correctly tracked -- counting those would make this check permanently red.
+IGNORED_BUT_TRACKED="$(cd "$REPO_ROOT" && git ls-files \
+  | git check-ignore --stdin --no-index -v 2>/dev/null \
+  | grep -v ':[0-9]*:!' | awk '{print $2}' | tr '\n' ' ' | sed 's/ *$//')"
+assert_equals "" "$IGNORED_BUT_TRACKED" \
+  "no tracked file matches a .gitignore rule that claims to exclude it"
 
 find "$REPO_ROOT/platform" -name '__pycache__' -type d -exec rm -rf {} + 2>/dev/null || true
 

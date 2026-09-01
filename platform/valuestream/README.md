@@ -8,11 +8,13 @@ tags:
   - visualisation
 timestamp: 2026-08-15T19:57:49+08:00
 ---
+
 # Value Stream Board
 
 ```bash
 python3 platform/valuestream/board.py            # -> docs/Value-Stream-Board.html
 python3 platform/valuestream/board.py --json     # machine-readable
+
 ```
 
 ## Why this is not part of observability

@@ -38,10 +38,71 @@ SUITES=(
   test_ingress.sh
   test_llm_review.sh
   test_evidence_contract.sh
+  # The reviewer-facing report. Its coverage guard is the reason this is
+  # here: a node added to dag.py and not to LINES disappears from the
+  # report, and a missing stage reads exactly like a healthy one.
+  test_stage_report.sh
+  # Decision records. The rule under test is that every measured claim carries
+  # a rerun command pointing at a file that still exists -- the same anti-zombie
+  # rule the AIS capability registry uses for `verify`.
+  test_decisions.sh
   # Data contracts against the LIVE database. Deliberately last, and deliberately
   # a hard failure rather than a skip when postgres is absent: a data-contract
   # suite that passes with no data would have reported success throughout the
   # 3h55m credential outage on 2026-08-19.
+  # Which listeners the LAN can reach. Tier 2 because it needs the containers
+  # actually running -- a compose file that SAYS 127.0.0.1 proves nothing about
+  # what is bound right now.
+  test_network_exposure.sh
+  # The analytical mirror is 400x faster than the database it copies, which is
+  # exactly why a stale one is dangerous: speed buys trust. Every assertion in
+  # that suite is about it refusing to answer when it is not current.
+  test_analytics_mirror.sh
+  # An alert rule against a metric nobody produces parses fine, passes promtool,
+  # and can never fire -- so the thing it claims to watch reads as permanently
+  # healthy. That suite joins the rules against the exporter's actual output.
+  test_dataops_metrics.sh
+  # The dashboards themselves. Until 2026-08-29 nothing read them, and every
+  # panel of the reviewer-facing board was querying a datasource uid that does
+  # not exist -- valid JSON, valid PromQL, existing metrics, empty panels.
+  test_dashboards.sh
+  # The README is the central index, which makes its rot invisible: a dead link
+  # in an index reads exactly like a link to something that is fine.
+  test_readme_index.sh
+  # Images must carry a build for the architecture of the cluster they are sent
+  # to. Added 2026-08-31, after an arm64-only image imported cleanly onto the
+  # amd64 box and only failed at the kubelet.
+  test_image_arch.sh
+  # The health probe writes one snapshot every 15 minutes and nobody reads
+  # them. ADR-0006 measured that pile and prescribed aggregation rather than a
+  # retention policy; this suite guards the aggregation, including its refusal
+  # to summarise an empty directory into a clean bill of health.
+  test_health_rollup.sh
+)
+
+# TIER 2. Needs Docker AND a live postgres holding the pilot's data. Separated
+# from tier 1 on 2026-08-31 for a reason worth stating precisely, because the
+# obvious reading of this change is that a rule was weakened.
+#
+# The rule "absence of the database is a FAILURE, not a skip" is correct on a
+# machine that is SUPPOSED to have the database. It is what would have caught
+# the 3h55m credential outage of 2026-08-19. It is meaningless on a cloud
+# runner that has never had a database and never will: there the assertion
+# cannot fail for a real reason, only for a structural one.
+#
+# And an assertion that is structurally guaranteed to be red does not stay a
+# useful assertion -- it trains people to ignore the channel it reports on.
+# That is not hypothetical here: 13 of the last 20 GitHub Actions runs were
+# red, the most recent green one was weeks back, and nobody noticed for at
+# least six days, because "CI is red" had stopped carrying information.
+#
+# So the tier is chosen BY THE CALLER and never auto-detected. A runner that
+# has the platform runs tier 2 and a missing database is still a hard failure.
+# A hermetic runner declares PLATFORM_TIERS=1 and the summary says loudly which
+# tiers did not run. What is forbidden is the middle option -- silently
+# downgrading a missing database to a skip -- because that is indistinguishable
+# from the outage it exists to catch.
+DB_SUITES=(
   test_data_contract_live.sh
   # The MLOps half of the same idea: a leak does not fail, it flatters. This
   # rebuilds the feature set over a truncated series and requires the past not
@@ -62,10 +123,21 @@ K8S_SUITES=(
   # gate does when PVCs exist -- and a suite that can only test the empty case
   # is testing the one case that was never broken.
   test_backup_coverage.sh
+  # The join between "what is deployed" and "what is watched". Needs both the
+  # cluster and Prometheus, because neither side alone can show the failure:
+  # a workload nobody scrapes looks healthy from the cluster and absent from
+  # the metrics, and both readings are individually unalarming.
+  test_migration_observed.sh
 )
 K8S_CTX="${K8S_CTX:-k3d-devops-lab}"
 
+# Default is every tier, so a developer who types run_all.sh with no arguments
+# gets the strictest run. Weakening it takes a deliberate, visible declaration.
+PLATFORM_TIERS="${PLATFORM_TIERS:-1,2,3}"
+tier_enabled() { case ",$PLATFORM_TIERS," in *",$1,"*) return 0 ;; *) return 1 ;; esac; }
+
 FAILED_SUITES=()
+NOT_RUN_TIERS=()
 START="$(date +%s)"
 
 for suite in "${SUITES[@]}"; do
@@ -75,10 +147,25 @@ for suite in "${SUITES[@]}"; do
   fi
 done
 
+if tier_enabled 2; then
+  for suite in "${DB_SUITES[@]}"; do
+    echo ""
+    if ! bash "$SUITE_DIR/$suite"; then
+      FAILED_SUITES+=("$suite")
+    fi
+  done
+else
+  NOT_RUN_TIERS+=("tier 2 (live database): ${DB_SUITES[*]}")
+fi
+
 # TIER 3: run only when the cluster answers. `kubectl get --raw /readyz` is a
 # real API round-trip, not a config read -- the deleted cluster of 2026-08-19
 # had a perfectly valid kubeconfig pointing at a dead port.
 SKIPPED_SUITES=()
+if ! tier_enabled 3; then
+  NOT_RUN_TIERS+=("tier 3 (kubernetes): ${K8S_SUITES[*]##*/}")
+  K8S_SUITES=()
+fi
 for suite in "${K8S_SUITES[@]}"; do
   echo ""
   if kubectl --context "$K8S_CTX" get --raw /readyz >/dev/null 2>&1; then
@@ -96,14 +183,22 @@ done
 
 echo ""
 echo "========================================"
+# Tiers the CALLER switched off are named before any verdict, so a green run on
+# a hermetic runner can never be quoted as "the platform passed".
+if [ "${#NOT_RUN_TIERS[@]}" -gt 0 ]; then
+  echo "TIERS NOT RUN (PLATFORM_TIERS=$PLATFORM_TIERS):"
+  for t in "${NOT_RUN_TIERS[@]}"; do echo "  ! $t"; done
+  echo "  -> this run says nothing about them."
+  echo "----------------------------------------"
+fi
 if [ "${#FAILED_SUITES[@]}" -eq 0 ]; then
-  if [ "${#SKIPPED_SUITES[@]}" -eq 0 ]; then
+  if [ "${#SKIPPED_SUITES[@]}" -eq 0 ] && [ "${#NOT_RUN_TIERS[@]}" -eq 0 ]; then
     echo "ALL SUITES PASSED  ($(( $(date +%s) - START ))s)"
   else
     # The skip count is in the HEADLINE, not a footnote. A summary that reads
     # "ALL SUITES PASSED" while a suite never ran is the failure this whole
     # platform keeps rediscovering.
-    echo "PASSED, ${#SKIPPED_SUITES[@]} SKIPPED  ($(( $(date +%s) - START ))s)"
+    echo "PASSED tiers [$PLATFORM_TIERS], ${#SKIPPED_SUITES[@]} skipped, ${#NOT_RUN_TIERS[@]} tier(s) not run  ($(( $(date +%s) - START ))s)"
     for suite in "${SKIPPED_SUITES[@]}"; do echo "  ~ $suite (not run)"; done
   fi
   exit 0

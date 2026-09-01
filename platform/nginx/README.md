@@ -8,6 +8,7 @@ tags:
   - tls
 timestamp: 2026-08-09T06:20:34+08:00
 ---
+
 # NGINX Adapter — Local HTTPS
 
 Implements the contract in `docs/Network.md` ("Local implementation"):
@@ -17,6 +18,7 @@ devops.local / localhost
   -> local HTTPS (TLS 1.2+, mkcert-issued cert)
   -> NGINX adapter
   -> Compose service (station1-hello, or future pilots)
+
 ```
 
 This validates routing, TLS, headers, health checks, timeout and rate limit
@@ -37,6 +39,7 @@ platform/nginx/
 ├── scripts/
 │   └── generate_local_certs.sh
 └── compose.yaml
+
 ```
 
 Per `platform/README.md`'s boundary rule ("platform/ 不得依賴特定 Pilot 的業務程式"),
@@ -47,19 +50,25 @@ reference a specific upstream, one file per pilot (same pattern as
 ## Quick Start
 
 ```bash
+
 # 1. Generate a locally-trusted TLS certificate (idempotent)
+
 platform/nginx/scripts/generate_local_certs.sh
 
 # 2. Start the pilot this adapter routes to
+
 cd pilots/station1-hello && docker compose up -d --build && cd -
 
 # 3. Start the NGINX adapter
+
 cd platform/nginx && docker compose up -d && cd -
 
 # 4. Verify
+
 curl --cacert platform/nginx/certs/devops.local.crt \
   --resolve devops.local:18443:127.0.0.1 \
   https://devops.local:18443/health/ready
+
 ```
 
 ## Design Decisions (with rationale — read before modifying)

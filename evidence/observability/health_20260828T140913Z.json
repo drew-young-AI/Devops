@@ -1,0 +1,47 @@
+{
+  "verdict": "HEALTHY",
+  "exit_code": 0,
+  "checked_at": "2026-08-28T14:09:13Z",
+  "monitoring_integrity": [
+    {
+      "check": "prometheus_reachable",
+      "ok": true,
+      "detail": "api/v1/rules responded"
+    },
+    {
+      "check": "alert_rules_loaded",
+      "ok": true,
+      "detail": "5 rules"
+    },
+    {
+      "check": "alert_rules_evaluating",
+      "ok": true,
+      "detail": "all ok"
+    },
+    {
+      "check": "alertmanager_wired",
+      "ok": true,
+      "detail": "1 active"
+    },
+    {
+      "check": "alertmanager_reachable",
+      "ok": true,
+      "detail": "api/v2/alerts responded"
+    },
+    {
+      "check": "scrape_targets_visible",
+      "ok": true,
+      "detail": "2 targets"
+    }
+  ],
+  "integrity_blockers": [],
+  "active_alerts": [],
+  "scrape_targets": {
+    "platform-dag/-": "up",
+    "station2-twin/develop": "up"
+  },
+  "sources": {
+    "prometheus": "http://127.0.0.1:19090",
+    "alertmanager": "http://127.0.0.1:19093"
+  }
+}

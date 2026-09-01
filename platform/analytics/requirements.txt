@@ -1,0 +1,7 @@
+# Pinned. An analytics layer whose engine version floats is an analytics layer
+# whose numbers can change without anyone editing a query.
+duckdb==1.4.5
+# 2.9.12, not 2.9.10: 2.9.10 has no arm64 wheel for the Python 3.9 on this
+# machine and falls back to building from source, which fails. Pinned to the
+# version that actually installs here, verified rather than assumed.
+psycopg2-binary==2.9.12

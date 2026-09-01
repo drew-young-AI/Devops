@@ -9,14 +9,14 @@
   ],
   "timezone": "browser",
   "schemaVersion": 39,
-  "version": 1,
+  "version": 2,
   "refresh": "30s",
   "time": {
     "from": "now-7d",
     "to": "now"
   },
   "editable": true,
-  "description": "三條線的節點狀態與歷程。資料來自 dag.py 的現場探測，經 node-exporter textfile 由 Prometheus 每 15s 抓取。",
+  "description": "三條線的節點狀態與歷程。資料來自 dag.py 的現場探測，經 node-exporter textfile 由 Prometheus 每 15s 抓取。線別以 layer 標籤區分，不以節點名單——名單是會過期的第二份副本。",
   "panels": [
     {
       "type": "stat",
@@ -25,20 +25,20 @@
       "gridPos": {
         "x": 0,
         "y": 0,
-        "w": 5,
+        "w": 4,
         "h": 4
       },
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "PBFA97CFB590B2093"
       },
       "targets": [
         {
           "refId": "A",
-          "expr": "count(devops_node_state_code{node=~\"vault|audit|scheduler|sast|secrets|ci|trivy|registry|k8s|bluegreen|develop|dast|llmreview|gate|prodlike|nginx|prometheus|loki|alertmgr|grafana|backup|restore\"} == 0) or vector(0)",
+          "expr": "count(devops_node_state{layer!~\"dataops|mlops\",state=\"ok\"} == 1) or vector(0)",
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "PBFA97CFB590B2093"
           }
         }
       ],
@@ -71,22 +71,22 @@
       "title": "DataOps 節點正常",
       "id": 2,
       "gridPos": {
-        "x": 5,
+        "x": 4,
         "y": 0,
-        "w": 5,
+        "w": 4,
         "h": 4
       },
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "PBFA97CFB590B2093"
       },
       "targets": [
         {
           "refId": "A",
-          "expr": "count(devops_node_state_code{node=~\"sources|geo|facts|lineage|dcontract|epiweek\"} == 0) or vector(0)",
+          "expr": "count(devops_node_state{layer=\"dataops\",state=\"ok\"} == 1) or vector(0)",
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "PBFA97CFB590B2093"
           }
         }
       ],
@@ -119,22 +119,22 @@
       "title": "MLOps 節點正常",
       "id": 3,
       "gridPos": {
-        "x": 10,
+        "x": 8,
         "y": 0,
-        "w": 5,
+        "w": 4,
         "h": 4
       },
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "PBFA97CFB590B2093"
       },
       "targets": [
         {
           "refId": "A",
-          "expr": "count(devops_node_state_code{node=~\"features|backtest|mgate|forecast|retrain\"} == 0) or vector(0)",
+          "expr": "count(devops_node_state{layer=\"mlops\",state=\"ok\"} == 1) or vector(0)",
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "PBFA97CFB590B2093"
           }
         }
       ],
@@ -167,14 +167,14 @@
       "title": "探測資料年齡",
       "id": 4,
       "gridPos": {
-        "x": 15,
+        "x": 12,
         "y": 0,
         "w": 4,
         "h": 4
       },
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "PBFA97CFB590B2093"
       },
       "targets": [
         {
@@ -182,7 +182,7 @@
           "expr": "time() - devops_board_generated_seconds",
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "PBFA97CFB590B2093"
           }
         }
       ],
@@ -232,22 +232,22 @@
       "title": "失敗節點",
       "id": 5,
       "gridPos": {
-        "x": 19,
+        "x": 16,
         "y": 0,
-        "w": 5,
+        "w": 4,
         "h": 4
       },
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "PBFA97CFB590B2093"
       },
       "targets": [
         {
           "refId": "A",
-          "expr": "count(devops_node_state_code == 4) or vector(0)",
+          "expr": "count(devops_node_state{state=\"fail\"} == 1) or vector(0)",
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "PBFA97CFB590B2093"
           }
         }
       ],
@@ -289,6 +289,94 @@
       }
     },
     {
+      "id": 90,
+      "type": "stat",
+      "title": "GitHub Actions（main）",
+      "description": "遠端 CI。2026-08-31 之前它的狀態不在任何板面、也不在任何告警上——最近 20 次有 13 次紅、至少六天沒人知道。紅了不被告知，和沒紅是一樣的。",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PBFA97CFB590B2093"
+      },
+      "gridPos": {
+        "x": 20,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "expr": "devops_node_state_code{node=\"gha\"}",
+          "legendFormat": "gha",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "正常",
+                  "color": "green",
+                  "index": 0
+                },
+                "1": {
+                  "text": "已被取代",
+                  "color": "text",
+                  "index": 1
+                },
+                "2": {
+                  "text": "注意",
+                  "color": "orange",
+                  "index": 2
+                },
+                "3": {
+                  "text": "無法判定",
+                  "color": "purple",
+                  "index": 3
+                },
+                "4": {
+                  "text": "失敗",
+                  "color": "red",
+                  "index": 4
+                }
+              }
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "auto"
+      }
+    },
+    {
       "type": "state-timeline",
       "title": "DevOps — 節點狀態歷程",
       "id": 6,
@@ -300,17 +388,17 @@
       },
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "PBFA97CFB590B2093"
       },
       "targets": [
         {
           "refId": "A",
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "PBFA97CFB590B2093"
           },
           "legendFormat": "{{node}}",
-          "expr": "devops_node_state_code{node=~\"vault|audit|scheduler|sast|secrets|ci|trivy|registry|k8s|bluegreen|develop|dast|llmreview|gate|prodlike|nginx|prometheus|loki|alertmgr|grafana|backup|restore\"}"
+          "expr": "devops_node_state_code{layer!~\"dataops|mlops\"}"
         }
       ],
       "options": {
@@ -392,17 +480,17 @@
       },
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "PBFA97CFB590B2093"
       },
       "targets": [
         {
           "refId": "A",
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "PBFA97CFB590B2093"
           },
           "legendFormat": "{{node}}",
-          "expr": "devops_node_state_code{node=~\"sources|geo|facts|lineage|dcontract|epiweek\"}"
+          "expr": "devops_node_state_code{layer=\"dataops\"}"
         }
       ],
       "options": {
@@ -484,17 +572,17 @@
       },
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "PBFA97CFB590B2093"
       },
       "targets": [
         {
           "refId": "A",
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "PBFA97CFB590B2093"
           },
           "legendFormat": "{{node}}",
-          "expr": "devops_node_state_code{node=~\"features|backtest|mgate|forecast|retrain\"}"
+          "expr": "devops_node_state_code{layer=\"mlops\"}"
         }
       ],
       "options": {
@@ -562,6 +650,333 @@
           }
         },
         "overrides": []
+      }
+    },
+    {
+      "id": 100,
+      "type": "stat",
+      "title": "監測涵蓋率（全期）",
+      "description": "有寫下快照的比例，分母是「照 15 分鐘排程應該要有幾份」。低於 100% 的部分不是「那時候是好的」，是「那時候沒有人在看」——而沒人在看和一切正常，在任何圖表上長得一模一樣。目前 83.6%，缺口主要來自筆記型電腦休眠。",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PBFA97CFB590B2093"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 28,
+        "w": 5,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "expr": "devops_health_rollup_coverage_ratio",
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "red",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 0.8
+              },
+              {
+                "color": "green",
+                "value": 0.95
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          },
+          "decimals": 1
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "auto"
+      }
+    },
+    {
+      "id": 101,
+      "type": "stat",
+      "title": "最長連續中斷",
+      "description": "同一項檢查連續失敗最久的一段，取最大值。用「最長一段」而不是「總失敗次數」：四次分散的十五分鐘和一段連續三天，次數相同，意義完全不同。目前的最大值是 2026-08-21 至 08-24 的 73.7 小時，Prometheus 與 Alertmanager 同時拒絕連線。",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PBFA97CFB590B2093"
+      },
+      "gridPos": {
+        "x": 5,
+        "y": 28,
+        "w": 5,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "expr": "max(devops_health_longest_episode_seconds)",
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 3600
+              },
+              {
+                "color": "red",
+                "value": 86400
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "auto"
+      }
+    },
+    {
+      "id": 102,
+      "type": "stat",
+      "title": "無紀錄空窗次數",
+      "description": "完全沒有寫下任何快照的時段數（間隔超過排程的 2.5 倍）。這一格刻意與失敗次數分開計算：「看了，是壞的」是證據，「根本沒看」不是，兩者相加會得到一個沒有意義的數字。",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PBFA97CFB590B2093"
+      },
+      "gridPos": {
+        "x": 10,
+        "y": 28,
+        "w": 5,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "expr": "devops_health_coverage_gaps_total",
+          "legendFormat": "",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 20
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "auto"
+      }
+    },
+    {
+      "id": 103,
+      "type": "bargauge",
+      "title": "各項完整性檢查的失敗快照數（全期累計）",
+      "description": "把 1,520 份結構相同的快照收斂成一個可讀的答案。ADR-0006 的結論是「沒有任何 agent 會讀 1,215 個檔，它會讀一兩個然後外推」——這一格就是那份彙總，而不是保留策略：一份快照都沒有被刪除。重跑：python3 platform/observability/rollup_health.py",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PBFA97CFB590B2093"
+      },
+      "gridPos": {
+        "x": 15,
+        "y": 28,
+        "w": 9,
+        "h": 8
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "expr": "devops_health_check_failed_total",
+          "legendFormat": "{{check}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              },
+              {
+                "color": "red",
+                "value": 100
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "displayMode": "gradient",
+        "orientation": "horizontal",
+        "showUnfilled": true
+      }
+    },
+    {
+      "id": 104,
+      "type": "timeseries",
+      "title": "健康判定的累計分布",
+      "description": "全期每種判定各累積了幾份快照。UNKNOWN 是最重要的一條：它代表監測本身壞了，此時「沒有告警」與「一切正常」在位元上完全相同，所以它不能被併進 HEALTHY。",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PBFA97CFB590B2093"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 32,
+        "w": 15,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "expr": "devops_health_verdict_samples_total",
+          "legendFormat": "{{verdict}}",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "custom": {
+            "drawStyle": "line",
+            "lineWidth": 2,
+            "fillOpacity": 10
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          },
+          "color": {
+            "mode": "palette-classic"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
       }
     }
   ]

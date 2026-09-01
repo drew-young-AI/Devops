@@ -1,0 +1,88 @@
+{
+  "schema": "gha-status/1",
+  "fetched_at": "2026-09-01T14:54:42+08:00",
+  "fetch_state": "ok",
+  "detail": "fetched main",
+  "runs": [
+    {
+      "conclusion": "failure",
+      "createdAt": "2026-08-26T05:04:28Z",
+      "displayTitle": "feat(backup): the coverage gate now understands PVCs, and refuses wit…",
+      "status": "completed",
+      "url": "https://github.com/drew-young-AI/Devops/actions/runs/32932624155",
+      "workflowName": "Platform Tests"
+    },
+    {
+      "conclusion": "failure",
+      "createdAt": "2026-08-25T17:03:28Z",
+      "displayTitle": "feat(k8s): default-deny networking for the pilot, with the enforcemen…",
+      "status": "completed",
+      "url": "https://github.com/drew-young-AI/Devops/actions/runs/32875625643",
+      "workflowName": "Platform Tests"
+    },
+    {
+      "conclusion": "failure",
+      "createdAt": "2026-08-25T15:51:22Z",
+      "displayTitle": "feat(vault): rotation drill -- prove a credential can actually be rep…",
+      "status": "completed",
+      "url": "https://github.com/drew-young-AI/Devops/actions/runs/32868373019",
+      "workflowName": "Platform Tests"
+    },
+    {
+      "conclusion": "failure",
+      "createdAt": "2026-08-25T11:18:44Z",
+      "displayTitle": "feat(statusdag): export node state as Prometheus metrics, and stop ke…",
+      "status": "completed",
+      "url": "https://github.com/drew-young-AI/Devops/actions/runs/32841655410",
+      "workflowName": "Platform Tests"
+    },
+    {
+      "conclusion": "failure",
+      "createdAt": "2026-08-25T10:56:47Z",
+      "displayTitle": "feat(statusdag): probe all three lines, and report by stage rather th…",
+      "status": "completed",
+      "url": "https://github.com/drew-young-AI/Devops/actions/runs/32839770199",
+      "workflowName": "Platform Tests"
+    },
+    {
+      "conclusion": "failure",
+      "createdAt": "2026-08-25T06:07:55Z",
+      "displayTitle": "docs: C9 verified -- launchd's calendar fired retrain on its own",
+      "status": "completed",
+      "url": "https://github.com/drew-young-AI/Devops/actions/runs/32815634318",
+      "workflowName": "Platform Tests"
+    },
+    {
+      "conclusion": "failure",
+      "createdAt": "2026-08-25T06:07:24Z",
+      "displayTitle": "feat(vault): rotation interval is per-secret data, not one hardcoded 90",
+      "status": "completed",
+      "url": "https://github.com/drew-young-AI/Devops/actions/runs/32815595494",
+      "workflowName": "Platform Tests"
+    },
+    {
+      "conclusion": "failure",
+      "createdAt": "2026-08-25T01:32:12Z",
+      "displayTitle": "chore(evidence): health artifacts",
+      "status": "completed",
+      "url": "https://github.com/drew-young-AI/Devops/actions/runs/32797928356",
+      "workflowName": "Platform Tests"
+    },
+    {
+      "conclusion": "failure",
+      "createdAt": "2026-08-24T16:21:04Z",
+      "displayTitle": "feat(k8s): blue/green with a gate that refuses, proved by three negat…",
+      "status": "completed",
+      "url": "https://github.com/drew-young-AI/Devops/actions/runs/32750315728",
+      "workflowName": "Platform Tests"
+    },
+    {
+      "conclusion": "failure",
+      "createdAt": "2026-08-24T15:42:48Z",
+      "displayTitle": "feat: RODS family, weekly retrain job, and the eight diagrams",
+      "status": "completed",
+      "url": "https://github.com/drew-young-AI/Devops/actions/runs/32746518924",
+      "workflowName": "Platform Tests"
+    }
+  ]
+}

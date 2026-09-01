@@ -8,6 +8,7 @@ tags:
   - evidence
 timestamp: 2026-08-15T19:57:48+08:00
 ---
+
 # LLM Review Adapter — Station 5 (MLX automation integration)
 
 Implements `docs/Plan-detail.md` Station 5. The local MLX endpoint
@@ -17,6 +18,7 @@ produces for a commit and writes back a structured review as
 
 ```bash
 platform/llm-review/review.sh pilots/station1-hello 6a54ff3
+
 ```
 
 ## The one rule this adapter exists to respect
@@ -30,6 +32,7 @@ These are not in tension — they operate at different layers:
 ```text
 build -> CI -> develop deploy -> smoke test -> LLM review  -> human types PROMOTE
                                                (evidence)     (acceptance)
+
 ```
 
 The LLM makes the human's decision better-informed. It does not make the

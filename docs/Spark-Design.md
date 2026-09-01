@@ -87,6 +87,7 @@ timestamp: 2026-08-18T17:30:00+08:00
 2026-W30   13,031 / 740,477 = 1.76%
 2026-W31   13,564 / 722,443 = 1.88%
 2026-W32   13,996 / 741,507 = 1.89%
+
 ```
 
 **分子與分母的相關係數 = 0.671。** 就診總量本身就在波動（連假、疫情期間
@@ -103,6 +104,7 @@ timestamp: 2026-08-18T17:30:00+08:00
 
 ```
 目標  y(t+1), y(t+2)  =  類流感健保就診人次 / 健保就診總人次   （台中市，門診）
+
 ```
 
 ### 為什麼是這個
@@ -135,6 +137,7 @@ denominator_lag_1     前一週就診總量（就醫行為的代理變數）
 covid_lag_1           同期 COVID 佔比（跨疾病干擾／競爭）
 entero_lag_1          同期腸病毒佔比
 age_share_0_6_lag_1   幼童就診佔比（學校群聚的早期訊號）
+
 ```
 
 ⚠️ `seasonal_index` **只能用訓練期資料計算**。用全期資料算再回頭當特徵，
@@ -172,23 +175,28 @@ events = (spark.readStream
     .withWatermark("event_time", "2 weeks"))
 
 # 1) 事件 → 週彙總。這是 Spark 真正在做事的地方：
+
 #    12.9M 筆事件收斂成 (縣市 × 週) 的計數。
+
 weekly = (events
     .groupBy(window(col("event_time"), "7 days"), col("county_code"))
     .agg(count("*").alias("visits"),
          sum(when(col("is_ili"), 1).otherwise(0)).alias("ili_visits")))
 
 # 2) stream-static join：基線是批次算好的 static DataFrame
+
 baseline = spark.read.jdbc(PG_URL, "surveillance_baseline")
 scored = weekly.join(broadcast(baseline), ["county_code", "epi_week"]) \
                .withColumn("z", (col("ili_rate") - col("mean")) / col("sd"))
 
 # 3) 冪等 sink
+
 scored.writeStream \
       .foreachBatch(upsert_to_postgres) \
       .option("checkpointLocation", CHECKPOINT) \
       .trigger(processingTime="5 seconds") \
       .start()
+
 ```
 
 用到的 Spark 能力：**watermark、event-time window、stream-static join
@@ -207,6 +215,7 @@ feat = (obs
     .withColumn("delta_1", col("lag_1") - col("lag_2"))
     .withColumn("same_week_last_year", lag("ili_rate", 52).over(w))
     .withColumn("y_next", lead("ili_rate", 1).over(w)))    # 標籤
+
 ```
 
 `lag` / `lead` / `Window` 是 Spark SQL 的核心，也是這套語法**原封不動**
@@ -226,11 +235,13 @@ pipeline = Pipeline(stages=[
 ])
 
 # Rolling-origin backtest：一定要按時間切
+
 for cutoff in backtest_weeks:
     train = feat.filter(col("week_index") <= cutoff)
     test  = feat.filter(col("week_index") == cutoff + 1)
     model = pipeline.fit(train)
     preds = model.transform(test)
+
 ```
 
 ⚠️ **會刻意寫錯一次再修正**：先用 `randomSplit` 跑一遍，記錄那個
@@ -258,6 +269,7 @@ flowchart LR
   P --> API
   P --> BT["批次特徵 + MLlib<br/>rolling backtest"]
   BT --> P
+
 ```
 
 ### Kafka：`ed-visits` topic
