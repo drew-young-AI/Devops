@@ -87,8 +87,13 @@ if [ ! -d "$DEST" ]; then
   exit 1
 fi
 
-SRC_DEV="$(stat -f %d "$LOCAL_DIR" 2>/dev/null)"
-DST_DEV="$(stat -f %d "$DEST" 2>/dev/null)"
+# GNU form first, BSD as the fallback. `stat -f %d` is macOS; on GNU coreutils
+# `-f` means "filesystem status" and SUCCEEDS with unrelated output, so on Linux
+# both variables would be non-empty and neither would be a device id -- the
+# same-disk guard below would then be comparing two filesystem descriptions.
+# This matters now rather than theoretically: the production node is Linux.
+SRC_DEV="$(stat -c %d "$LOCAL_DIR" 2>/dev/null || stat -f %d "$LOCAL_DIR" 2>/dev/null)"
+DST_DEV="$(stat -c %d "$DEST" 2>/dev/null || stat -f %d "$DEST" 2>/dev/null)"
 
 echo "=== [offsite] $LOCAL_DIR -> $DEST ==="
 if [ -z "$SRC_DEV" ] || [ -z "$DST_DEV" ]; then

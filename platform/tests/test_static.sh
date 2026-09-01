@@ -318,6 +318,59 @@ LITERAL_CREDS="$(printf '%s' "$LITERAL_CREDS" | sed 's/^ *//')"
 assert_equals "" "$LITERAL_CREDS" \
   "no Kubernetes manifest assigns a literal credential value"
 
+# ---- stat: GNU form first, BSD as the fallback -----------------------------
+#
+# WHY (2026-09-01). This is the FIFTH instance of one defect in this repo.
+#
+# `stat -f` on BSD/macOS means "format". On GNU coreutils it means "filesystem
+# status" -- and it SUCCEEDS, printing `File: ...`. So a BSD-first chain
+#
+#     stat -f '%Lp' "$f" 2>/dev/null || stat -c '%a' "$f" 2>/dev/null
+#
+# never reaches its fallback on Linux: it captures a filesystem description and
+# compares that against the expected value. The `||` reads as portability and
+# provides none.
+#
+# The first four instances kept CI red from 2026-08-08 to 2026-08-31 -- 13 of
+# 20 runs -- while every local run stayed green, because the only machine
+# anyone watched was the one BSD stat works on. The fifth was written on the
+# day the fourth was documented, in a suite whose entire subject is a mode bit,
+# and again only cloud CI caught it.
+#
+# Four fixes and a comment did not stop it. A guard might.
+BAD_STAT=""
+while IFS= read -r hit; do
+  [ -n "$hit" ] || continue
+  file="${hit%%:*}"
+  rest="${hit#*:}"
+  line="${rest#*:}"
+  # Legal only when the GNU form appears earlier on the same line.
+  case "$line" in
+    *"stat -c"*)
+      gnu_at="${line%%stat -c*}"
+      bsd_at="${line%%stat -f*}"
+      [ "${#gnu_at}" -lt "${#bsd_at}" ] || BAD_STAT="$BAD_STAT $(basename "$file")"
+      ;;
+    *) BAD_STAT="$BAD_STAT $(basename "$file")" ;;
+  esac
+# Comments are stripped first, and `%%stat`/`##stat` are excluded: those are
+# shell parameter expansions (this guard's own implementation uses one), not
+# invocations of stat. Matching text rather than calls is how the previous two
+# guards in this file were wrong; see their notes.
+done < <(grep -rnE 'stat +-f' "$REPO_ROOT/platform" --include='*.sh' 2>/dev/null \
+           | sed 's/[[:space:]]*#.*$//' \
+           | grep -vE '[%#]{2}stat' \
+           | grep -E 'stat +-f')
+BAD_STAT="$(printf '%s' "$BAD_STAT" | tr ' ' '\n' | sort -u | tr '\n' ' ' | sed 's/^ *//; s/ *$//')"
+# The message deliberately spells neither flag literally. The FIRST version read
+# "every 'stat -f' is preceded by the GNU 'stat -c' form", and this guard
+# flagged its own assertion message -- the third time in one session that a
+# grep-based check in this file matched prose instead of a call. A guard whose
+# own description is a false positive is telling you something about the method,
+# not about the code.
+assert_equals "" "$BAD_STAT" \
+  "BSD-format stat is never invoked ahead of the GNU form on the same line"
+
 # ---- the pilot's AppRole must be delivered by the start path, not the shell -
 #
 # WHY (2026-09-01). `compose.yaml` reads ${VAULT_ROLE_ID:-} from the ambient

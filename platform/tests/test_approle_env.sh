@@ -74,7 +74,14 @@ assert_equals "SYNTHETIC-SECRET-ID-FOR-TESTS-ONLY" "$VALUE" \
 # Created under a umask rather than chmod'ed afterwards: a chmod leaves a window
 # in which the file exists and anyone can read it. Checked because that window
 # is invisible in review and obvious in a mode bit.
-MODE="$(stat -f '%Lp' "$ENV_FILE" 2>/dev/null || stat -c '%a' "$ENV_FILE" 2>/dev/null)"
+# GNU form FIRST, BSD as the fallback -- see run_job.sh:60 for why the other
+# order is not merely a style choice. On GNU coreutils `stat -f` means
+# "filesystem status" and SUCCEEDS, so a BSD-first `||` chain never reaches its
+# fallback and silently compares a filesystem description against "600".
+# Written the wrong way round here on 2026-09-01 and caught by cloud CI, not
+# locally -- the fifth instance of this exact defect in this repo, and the
+# reason there is now a static guard against it.
+MODE="$(stat -c '%a' "$ENV_FILE" 2>/dev/null || stat -f '%Lp' "$ENV_FILE" 2>/dev/null)"
 assert_equals "600" "$MODE" "the env file is owner-only (600)"
 
 # --- the secret must never appear in the script's own output ----------------
