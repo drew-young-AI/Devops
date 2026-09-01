@@ -8,6 +8,7 @@ tags:
   - data-governance
 timestamp: 2026-08-15T19:56:49+08:00
 ---
+
 # Observability Adapter — Metrics, Logs, Alerting
 
 Grafana + Prometheus + Loki + Alloy + Alertmanager, all bound to
@@ -16,6 +17,7 @@ Grafana + Prometheus + Loki + Alloy + Alertmanager, all bound to
 ```bash
 cd platform/observability && docker compose up -d && cd -
 platform/observability/check_health.sh          # deterministic verdict
+
 ```
 
 | Service | Local port | Purpose |
@@ -158,6 +160,7 @@ A service declares its own class with a Docker label:
 ```yaml
 labels:
   platform.data_class: "restricted"
+
 ```
 
 Declarative and owned by the service, not a hardcoded list in Alloy that
@@ -244,6 +247,18 @@ Anonymous access is **off**. It had been on with `Viewer` for everyone,
 which made every human RBAC control elsewhere in the platform moot at the
 one place people actually look at data.
 
+### Grafana 登入帳號與密碼管理 (Access Credentials)
+
+- **帳號 (Username)**: `admin` （注意：不是 `platform-admin`，那是 Vault 的人類 RBAC 帳號）
+- **密碼來源 (Source of Truth)**: 統一儲存於 Vault 的 `secret/devops/grafana-admin` 路徑中。
+- **本機臨時傳遞檔 (Disposable Env)**: `/Users/drew/ENV/Devops/platform/observability/.grafana.env`（gitignored，由腳本自動帶入）。
+- **重設與同步指令**: 若需重新產生或同步 live 密碼，請直接執行：
+
+  ```bash
+  platform/observability/scripts/setup_grafana_identity.sh
+
+  ```
+
 ### The trap this script exists to close
 
 `GF_SECURITY_ADMIN_PASSWORD` is only honoured when Grafana initialises its
@@ -296,3 +311,29 @@ from the `.env`-as-secret-store pattern this platform moved away from.
 - **Loki and Prometheus data are not backed up** — see
   `platform/backup/README.md` for why, and for the condition that would
   change it.
+
+## 兩個新增的告警群組（2026-09-01）
+
+### `platform-nodes.yml` — 讓狀態板真的會響
+
+`dag.py` 匯出 `devops_node_state` 已經數週，**沒有任何規則消費它**。一個節點可以變紅、
+板面可以把它畫成紅色，然後沒有人被告知——那只有在有人剛好打開網頁時才算通知。
+
+| 規則 | 條件 | 為什麼是這個門檻 |
+|---|---|---|
+| `PlatformNodeFailed` | `devops_node_state{state="fail"} == 1`，持續 30m | `dag.py` 每 15 分鐘跑一次，所以節點必須連紅兩個評估週期。一個週期會對「正在重啟中的探針」誤報 |
+| `PlatformBoardStale` | `dag.prom` 超過 45 分鐘沒更新 | **這條守著上面那條**：node-exporter 會繼續提供最後讀到的 textfile，所以 `dag.py` 停掉之後每個節點指標會凍結在最後一個值，而凍結的綠燈和健康的綠燈長得一模一樣 |
+
+驗收方式是**評估**不是解析（[ADR-0007](../../docs/decisions/0007-verify-by-evaluation.md)）：
+`/api/v1/rules` 的 `health` 必須是 `ok`，由 `test_dataops_metrics.sh` 對所有規則檢查。
+
+### scrape job `station2-twin-k8s` — 監控遷移過去的那份
+
+pilot 有兩份副本。在此之前 Prometheus 只抓 Compose 那份；K8s 那份掛在 ClusterIP，
+而 k3d 只對外開 6443，所以**在原理上就抓不到**。
+
+`environment=k8s`（不是 `develop`），因為兩份副本是真的不同的部署——不同的憑證路徑
+（vault vs static）、不同的底座——把它們貼上同一個 environment 標籤，等於把「觀察它們
+何時分歧」這件唯一有價值的事合併掉。
+
+守衛：`platform/tests/test_migration_observed.sh`。

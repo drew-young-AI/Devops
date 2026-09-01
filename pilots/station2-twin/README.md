@@ -19,6 +19,7 @@ ingests asset observations and serves current state and history.
 docker compose -f pilots/station2-twin/compose.yaml up -d
 PGPASSWORD=twin-bootstrap platform/db/migrate.sh station2-twin
 curl -s localhost:18090/health/ready
+
 ```
 
 | endpoint | |
@@ -130,19 +131,64 @@ Restore-drilled, not assumed: the dump was restored into a scratch container
 and asserted on — 2 migration rows, schema v2, 2 observations, the `quality`
 column from migration 002, the index, and the actual stored value `5.02`.
 
+## Where this pilot actually runs (measured 2026-09-01)
+
+It exists in **two copies**. Each line below was read from the running system.
+
+| | Compose (`:18090`) | Kubernetes (`station2/station2-twin-blue`) |
+|---|---|---|
+| `/health/ready` | `ready`, schema 15 | `ready`, schema 15 |
+| Credentials | **`mode: vault`** — dynamic, `ttl_seconds: 1200`, username `v-approle-station2-…` | **`mode: static`** — username `twin`, no `VAULT_*` in the environment |
+| Scraped by Prometheus | yes — job `station2-twin`, `environment=develop` | **yes, since 2026-09-01** — job `station2-twin-k8s`, `environment=k8s` |
+| Architecture | `linux/arm64` | `linux/arm64` — cannot run on the amd64 prod cluster |
+
+### The observability gap that was closed today, and why it existed
+
+Until 2026-09-01 nothing scraped the Kubernetes copy — and it was not a missing
+scrape entry. The copy sat on a ClusterIP while k3d published nothing but the
+API port, so **Prometheus could not reach it even in principle**. Two active
+targets; the migrated copy was neither of them.
+
+`pilots/README.md` records the same defect from the station1-hello retirement,
+with the roles reversed: monitoring left pointing at the copy that no longer
+mattered, "儀表板對著錯的服務顯示「一切正常」，比沒有儀表板更糟".
+
+What was added:
+
+- `metrics-service.yaml` — a NodePort (30890) carrying the **same `color`
+  selector** as the traffic Service, so metrics describe the copy that is
+  actually serving. k3d maps it to host `18091`.
+- `promote.sh` now moves that Service in the same step as the traffic Service,
+  and reads the selector back — a lagging metrics Service would point Prometheus
+  at the idle colour precisely when someone is watching a promote.
+- `platform/tests/test_migration_observed.sh` — asserts the join between what is
+  deployed and what is watched. Both of its assertions were verified by breaking
+  them by hand and restoring.
+
+**Still not visible:** the idle colour. A green deployment that is broken before
+promotion cannot be seen from outside the cluster. The real fix is Prometheus
+inside the cluster with `kubernetes_sd_configs`, which is what the amd64
+production cluster should get.
+
 ## Known gaps
 
-- **Still using a static password.** The Vault dynamic-credentials seam
-  (`database/creds/station2-twin`) is reserved but not wired; `PGPASSWORD` is
-  a bootstrap credential. This pilot exists partly to make that work
-  concrete — the pool already sets `max_lifetime` so credentials with a TTL
-  recycle rather than being held forever.
-- **Not in the blue/green deploy adapter.** Runs from its own compose file;
-  it has not been onboarded to `platform/compose/deploy.sh`, so the
-  schema-mismatch protection has not yet been exercised through a real
-  colour switch.
-- **No DAST run yet.** The write endpoint with a JSON body is the first thing
-  on this platform worth scanning with a form-aware profile.
-- **Not exposed through ingress.** Ceiling not yet set in
-  `platform/ingress/targets.conf`; it holds data, so it should not inherit
-  station1's `funnel` ceiling by default.
+1. **Vault is wired in Compose only.** The dynamic-credential path
+   (`database/creds/station2-twin`, AppRole, TTL 1200s) is live and verifiable
+   on the Compose copy. The Kubernetes Deployment has no `VAULT_*` environment
+   at all and uses the bootstrap password. Any claim that credentials were
+   "fully migrated" is true of one copy and false of the other.
+2. **The idle blue/green colour is unscraped.** The serving colour is watched;
+   the standby one is not, so a green deployment that is broken before
+   promotion is invisible until it takes traffic.
+3. **arm64 only.** The image cannot run on the amd64 production cluster.
+   See [ADR-0008](../../docs/decisions/0008-two-machines-two-architectures.md).
+4. **No DAST run yet.** The write endpoint with a JSON body is the first thing
+   on this platform worth scanning with a form-aware profile.
+5. **Not exposed through ingress.** Ceiling not yet set in
+   `platform/ingress/targets.conf`; it holds data, so it must not inherit
+   station1's `funnel` ceiling by default.
+
+Blue/green **is** done and exercised on Kubernetes (2026-08-25), and the
+schema-mismatch protection has been verified: readiness returns 503
+`schema_mismatch` when the running code expects a version the database
+does not have.
