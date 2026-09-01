@@ -1,9 +1,17 @@
 {
   "schema": "gha-status/1",
-  "fetched_at": "2026-09-01T21:50:06+08:00",
+  "fetched_at": "2026-09-01T22:20:09+08:00",
   "fetch_state": "ok",
   "detail": "fetched main",
   "runs": [
+    {
+      "conclusion": "success",
+      "createdAt": "2026-09-01T13:55:31Z",
+      "displayTitle": "chore(evidence): 排程產生的證據異動",
+      "status": "completed",
+      "url": "https://github.com/drew-young-AI/Devops/actions/runs/33516337800",
+      "workflowName": "Platform Tests"
+    },
     {
       "conclusion": "success",
       "createdAt": "2026-09-01T13:08:56Z",
@@ -74,14 +82,6 @@
       "displayTitle": "feat(vault): rotation drill -- prove a credential can actually be rep…",
       "status": "completed",
       "url": "https://github.com/drew-young-AI/Devops/actions/runs/32868373019",
-      "workflowName": "Platform Tests"
-    },
-    {
-      "conclusion": "failure",
-      "createdAt": "2026-08-25T11:18:44Z",
-      "displayTitle": "feat(statusdag): export node state as Prometheus metrics, and stop ke…",
-      "status": "completed",
-      "url": "https://github.com/drew-young-AI/Devops/actions/runs/32841655410",
       "workflowName": "Platform Tests"
     }
   ]

@@ -105,7 +105,32 @@ fi
 # pretending to be a safety mechanism. It returns with the tier split.
 echo ""
 echo "=== [recover] pilot ==="
+
+# The AppRole FIRST, and via --env-file rather than the ambient environment.
+#
+# compose.yaml reads ${VAULT_ROLE_ID:-} / ${VAULT_SECRET_ID:-}, and the app
+# falls back to the static database password when they are empty. That fallback
+# is deliberate -- the pilot must still run without Vault -- but it used to be
+# reachable BY ACCIDENT: this script ran `docker compose up` from whatever shell
+# recovery happened in, and if that shell had no AppRole exported, the develop
+# copy came back on `mode: static` with nothing saying so.
+#
+# It happened on 2026-09-01. The container set stopped (laptop sleep), recovery
+# brought it back, and the develop copy silently downgraded while the Kubernetes
+# copy -- whose deploy script syncs its own Secret -- came back on Vault. The
+# two copies had swapped credential models compared with the same morning.
+#
+# Running on the static password stays supported. Arriving there without
+# noticing does not.
+ENV_FILE_ARG=()
+if "$REPO_ROOT/platform/vault/scripts/write_pilot_approle_env.sh" station2-twin; then
+  ENV_FILE_ARG=(--env-file "$REPO_ROOT/pilots/station2-twin/.env.vault")
+else
+  echo "  station2-twin will start WITHOUT Vault credentials (static password)" >&2
+fi
+
 (cd "$REPO_ROOT" && docker compose -p station2-twin \
+  "${ENV_FILE_ARG[@]}" \
   -f pilots/station2-twin/compose.yaml up -d --no-build >/dev/null 2>&1) \
   && echo "  station2-twin up (db + app)" \
   || echo "  WARNING: station2-twin did not start" >&2

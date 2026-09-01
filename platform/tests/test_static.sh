@@ -318,6 +318,43 @@ LITERAL_CREDS="$(printf '%s' "$LITERAL_CREDS" | sed 's/^ *//')"
 assert_equals "" "$LITERAL_CREDS" \
   "no Kubernetes manifest assigns a literal credential value"
 
+# ---- the pilot's AppRole must be delivered by the start path, not the shell -
+#
+# WHY (2026-09-01). `compose.yaml` reads ${VAULT_ROLE_ID:-} from the ambient
+# environment and the app falls back to the static database password when it is
+# empty. `recover.sh` used to run `docker compose up` from whatever shell
+# recovery happened in, so a restart without those variables exported silently
+# downgraded the credential model -- which is exactly what happened after the
+# host slept: the develop copy came back on `mode: static` while the Kubernetes
+# copy came back on `mode: vault`.
+#
+# This asserts only the wiring, which is the part that is decidable offline:
+# recovery must pass --env-file. Whether the writer actually produces a usable
+# file is behaviour, and is tested in test_redaction.sh's neighbour
+# test_approle_env.sh; whether the RUNNING copies ended up agreeing is tier 3,
+# in test_migration_observed.sh. Three checks because they can each fail
+# without the others noticing.
+#
+# NOTE ON THE FIRST VERSION OF THIS CHECK. It grepped the repo for the string
+# `pilots/station2-twin/.env.vault` and passed if anything mentioned it. A
+# mutation that pointed the WRITER at a different filename left it green,
+# because recover.sh still mentioned the path as a READER. It verified that
+# somebody talked about the file, not that anybody wrote it -- a guard whose
+# subject was the wrong noun.
+# Comment lines are stripped first. The FIRST version of this check grepped the
+# whole file, and a mutation that deleted the actual --env-file argument left it
+# green -- because the explanatory comment a few lines above still contained the
+# string. Twice in one session, in this same file, a guard matched a MENTION of
+# the mechanism rather than the mechanism. Worth leaving on the record: a
+# grep-based check must be told which lines are code.
+if sed 's/[[:space:]]*#.*$//' "$REPO_ROOT/platform/recover.sh" 2>/dev/null \
+     | grep -q -- '--env-file'; then
+  _pass "recovery hands the pilot an --env-file instead of trusting the shell"
+else
+  _fail "recovery hands the pilot an --env-file instead of trusting the shell" \
+        "recover.sh runs docker compose without --env-file: a restart from a shell with no AppRole exported downgrades to the static password silently"
+fi
+
 # ---- .gitignore rules must actually apply to what is tracked ---------------
 #
 # WHY (2026-09-01). `.gitignore` line 207 excludes `evidence/scheduler/*_last.json`

@@ -423,3 +423,74 @@ python3 platform/observability/rollup_health.py --no-write --json   # 唯讀
 | `find_gaps()` 永遠回傳 `[]` | CAUGHT |
 | 空目錄回傳 0（那個 vacuous pass） | CAUGHT |
 | 中斷時長寫死為 0 | CAUGHT |
+
+---
+
+## 遮蔽到底遮到多少（2026-09-01 量化）
+
+上面「Verified end-to-end, by generating real PII」是 **2026-08-14 的一次手動驗證**。
+一次性的手動驗證，正是這個 repo 在自己的 CI 裡批評過的形狀
+（「previously only verified manually, once, ad hoc」）——在此之前，
+**沒有任何測試斷言遮蔽有遮到任何東西**，任何一條 regex 今天壞掉都不會有人知道。
+
+```bash
+python3 platform/security/redaction_check.py
+```
+
+實測（全部使用合成值，本檔案不含任何真實識別碼）：
+
+| 類別 | v1 | 說明 |
+|---|---|---|
+| 台灣身分證字號 | **OK** | |
+| email | **OK** | |
+| GitHub PAT | **OK** | |
+| Vault service token | **OK** | |
+| 健保卡號 | — | 12 位純數字、無字首，和任何長數字無法區分 |
+| 病歷號 | — | 院內格式，需要 CYCH schema 才可能有 pattern |
+| 手機號碼 | — | 與日期、port、列數衝突，除非錨定上下文 |
+| 出生日期 | — | 形狀與這些日誌裡每一個時間戳完全相同 |
+| 姓名（自由文字） | — | 沒有詞彙訊號，需要名單或 NER，不是 regex |
+| 地址 | — | 自由文字，設定檔的註解本來就說了 |
+
+**10 個類別中有 6 個「沒有被找過」。** 沒有被找過**不等於**不存在——
+`config.alloy` 的註解本來就誠實地寫了「a mechanism with a starter ruleset」，
+這裡只是把那句話變成一份**具名清單**，好讓 v2 有東西可以對照著界定範圍
+（見 `docs/Backlog.md` §6）。
+
+### 這次真正抓到的風險：同一組規則寫了兩遍
+
+`config.alloy` 把三條規則各宣告兩次——`redact_internal` 一份、
+`redact_restricted` 一份。**兩份副本就是它們分歧的方式**，而分歧時繼續洩漏的
+會是 `restricted`——**比較敏感的那一條串流**。
+
+這個平台在同一天已經被同一個形狀咬過一次：K8s 那份 pilot 副本的憑證模型是兩份
+裡比較弱的，而沒有任何東西在比對它們。所以這裡直接加上斷言：
+**兩個 block 的規則集必須完全相同。**
+
+### RE2 相容性檢查，以及它為什麼不是多餘的
+
+Alloy 用 Go 的 RE2 執行這些 regex，這支檢查用 Python 的 `re`。兩者在這裡用到的
+子集上一致（字元類別、`\b`、`{n,}`、交替），所以比對結果是有意義的——
+但它不是正式環境的引擎，而兩者可能**災難性地**不一致的方式只有一種：
+
+**lookahead 或 backreference 在 Python 編得過，會被 RE2 拒絕。**
+那會讓 Alloy 帶著一個「安靜地不存在」的 stage 繼續執行，而設定檔讀起來
+仍然像是有在遮蔽。所以這一項是明確檢查的。
+
+### 守衛
+
+`platform/tests/test_redaction.sh`（tier 1，10 項，完全 hermetic——
+不需要容器，規則從 `config.alloy` 讀出來套用在合成字串上）。
+
+負向控制和正向控制一樣重要：**一般日誌行必須原封不動通過**。
+一個把所有東西都遮掉的遮蔽器會通過每一項正向控制，然後把日誌毀掉——
+這條斷言就是讓「多遮一點比較安全」永遠不能成為預設。
+
+突變測試（四個突變，全部被抓，`config.alloy` 還原後逐位元相同）：
+
+| 突變 | 結果 |
+|---|---|
+| **只有 restricted** 這一份掉了身分證規則 | CAUGHT |
+| email 規則安靜地什麼都不匹配 | CAUGHT |
+| 加一條 catch-all 把整行日誌吃掉 | CAUGHT |
+| 加一個 RE2 會拒絕的 lookahead | CAUGHT |

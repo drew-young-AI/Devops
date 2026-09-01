@@ -84,6 +84,18 @@ SUITES=(
   # that makes that number visible, including its refusal to report coverage
   # for a dispatcher it can no longer parse.
   test_dast_coverage.sh
+  # Write-time log redaction. Backlog §6 calls it "a mitigation, not a
+  # guarantee" and makes finishing it a hard prerequisite before real CYCH
+  # data arrives -- but nothing asserted it redacted anything at all, and the
+  # same three rules are declared twice, once per log stream. Hermetic: the
+  # rules are read out of config.alloy and applied to synthetic values only.
+  test_redaction.sh
+  # The pilot's AppRole must be DELIVERED, not assumed to be in the operator's
+  # shell. `.gitignore` reserved the drop-off file weeks ago and nothing wrote
+  # it, so a restart without the variables exported silently downgraded the
+  # develop copy to the static database password. Hermetic: synthetic AppRole
+  # material in a sandbox, no real secret read or written.
+  test_approle_env.sh
 )
 
 # TIER 2. Needs Docker AND a live postgres holding the pilot's data. Separated

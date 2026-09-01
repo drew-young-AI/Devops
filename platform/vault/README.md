@@ -514,3 +514,89 @@ schema owner」。為了讓 `DROP OWNED` 能跑而放寬這一點，是拿真實
   察覺的出錯點，而這個 pilot 的目的是證明機制，不是實作 Vault client。
 - **`secret_id` 目前沒有 TTL**（`secret_id_ttl=0`）。正式環境應設定期限並
   搭配 response-wrapping 交付。
+
+---
+
+## AppRole 必須被「送達」，不能假設它在操作者的 shell 裡（2026-09-01）
+
+`pilots/station2-twin/compose.yaml` 從環境變數取 AppRole：
+
+```yaml
+VAULT_ROLE_ID: ${VAULT_ROLE_ID:-}
+VAULT_SECRET_ID: ${VAULT_SECRET_ID:-}
+```
+
+空的時候應用會退回靜態資料庫密碼。**那個 fallback 是刻意的**——
+pilot 必須在沒有 Vault 的情況下也跑得起來，而 `/health/ready` 會回報
+實際生效的是哪一種模式。設計是對的。
+
+**出問題的是它有多容易「不小心」發生。**
+
+### 實際發生的事
+
+宿主休眠，所有容器一起停。`recover.sh` 從當下那個 shell 執行
+`docker compose up`——而那個 shell 沒有 export AppRole。於是：
+
+| 副本 | 恢復後 |
+|---|---|
+| Compose（develop） | `mode: static` ← **悄悄降級** |
+| K8s | `mode: vault` |
+
+**兩份副本的憑證模型和當天早上完全對調了。** 早上是 K8s 那份比較弱，
+修好之後換成 Compose 那份比較弱，而中間沒有任何人做過任何決定。
+
+唯一發現它的，是幾小時前才寫下的
+`test_migration_observed.sh`「兩份副本的 `credentials.mode` 必須相同」。
+
+### `.gitignore` 早就為它留了位置，然後沒有人接上
+
+```
+# AppRole secret_id delivered to the pilot container. Regenerable from
+# Vault; never committed.
+pilots/station2-twin/.env.vault
+```
+
+這段存在數週。**沒有東西寫它，也沒有東西讀它。** 慣例被宣告、被寫進註解、
+從未接上——又一個「登記為存在，但不會執行」。
+
+### 修法：與 K8s 那邊同一個原則
+
+讓啟動路徑**擁有自己的前置條件**：
+
+```
+platform/vault/scripts/write_pilot_approle_env.sh
+  .station2-twin-approle.json  →  pilots/station2-twin/.env.vault (mode 600)
+
+platform/recover.sh
+  先呼叫上者，然後 docker compose --env-file ...
+  沒有 AppRole 時：大聲說出後果，並回傳非零
+```
+
+`secret_id` 全程不進 argv（`ps` 在這台機器上是全域可讀），
+檔案以 **umask 建立而非事後 chmod**——chmod 會留下一個檔案已存在、
+且任何人都讀得到的時間窗。
+
+**靜態密碼模式仍然受支援。不知不覺走到那裡則不受支援。**
+
+### 守衛（三層，因為它們可以各自壞掉而不被彼此發現）
+
+| 檢查 | 位置 | 驗證什麼 |
+|---|---|---|
+| 接線 | `test_static.sh` tier 1 | 恢復流程有傳 `--env-file` |
+| 行為 | `test_approle_env.sh` tier 1 | 寫入器真的產出檔案、模式 600、不印出 secret、缺欄位就拒絕 |
+| 結果 | `test_migration_observed.sh` tier 3 | 兩份**執行中**的副本 mode 相同 |
+
+突變測試（四個，全部被抓，兩個檔案還原後皆逐位元相同）：
+缺 AppRole 改成 exit 0、umask 改成 000、確認訊息印出 secret_id、
+恢復流程拿掉 `--env-file`。
+
+### 一個關於守衛本身的教訓
+
+「恢復流程有傳 `--env-file`」這條檢查，**第一版是錯的**：它 grep 整個
+`recover.sh` 找 `--env-file` 字串，而我寫在上面幾行的說明註解裡就有這個字串。
+突變把真正的參數刪掉，檢查依然是綠的。
+
+同一個 session、同一個檔案，這是**第二次**——前一次是
+「有東西提到 `.env.vault`」被當成「有東西寫 `.env.vault`」。
+
+> 基於 grep 的檢查，必須先被告知哪些行才是程式碼。

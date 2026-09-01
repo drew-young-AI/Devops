@@ -232,3 +232,4 @@
 {"job": "health", "gap_seconds": 2692, "gap_minutes": 44.9, "expected_interval_seconds": 900, "missed_runs": 1, "from": "2026-09-01T12:04:21Z", "to": "2026-09-01T12:49:13Z"}
 {"job": "stagereport", "gap_seconds": 2150, "gap_minutes": 35.8, "expected_interval_seconds": 900, "missed_runs": 1, "from": "2026-09-01T12:21:56Z", "to": "2026-09-01T12:57:46Z"}
 {"job": "rollup", "gap_seconds": 7625, "gap_minutes": 127.1, "expected_interval_seconds": 3600, "missed_runs": 1, "from": "2026-09-01T10:53:40Z", "to": "2026-09-01T13:00:45Z"}
+{"job": "dataops", "gap_seconds": 7434, "gap_minutes": 123.9, "expected_interval_seconds": 3600, "missed_runs": 1, "from": "2026-09-01T12:16:10Z", "to": "2026-09-01T14:20:04Z"}
