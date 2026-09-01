@@ -291,6 +291,32 @@ done
 assert_equals "" "$MUTABLE" \
   "no third-party GitHub Action is pinned to a mutable ref"
 
+# ---- .gitignore rules must actually apply to what is tracked ---------------
+#
+# WHY (2026-09-01). `.gitignore` line 207 excludes `evidence/scheduler/*_last.json`
+# and explains itself at length: they rewrite every 15 minutes, so tracking them
+# "means permanent churn and a conflict on every branch switch". All nine of
+# them were tracked anyway, and had been since before the rule was written.
+#
+# .gitignore only governs UNTRACKED files. A rule added after a file is already
+# in the index is inert -- it reads as enforcement, produces no error, and the
+# churn it forbids continues indefinitely. That is this repository's signature
+# defect: a thing that REGISTERS as present but does not EXECUTE. Same shape as
+# `promtool check rules` reporting SUCCESS on a rule that fails every evaluation
+# (ADR-0007), and as `continue-on-error` not covering action resolution.
+#
+# --no-index is the whole point: without it, git check-ignore stays silent about
+# tracked files, which is exactly the set being audited here.
+#
+# Negation rules (`!path`) are filtered out. `git check-ignore -v` reports them
+# as matches too, but a `!` line means "keep this one", so a file matching it is
+# correctly tracked -- counting those would make this check permanently red.
+IGNORED_BUT_TRACKED="$(cd "$REPO_ROOT" && git ls-files \
+  | git check-ignore --stdin --no-index -v 2>/dev/null \
+  | grep -v ':[0-9]*:!' | awk '{print $2}' | tr '\n' ' ' | sed 's/ *$//')"
+assert_equals "" "$IGNORED_BUT_TRACKED" \
+  "no tracked file matches a .gitignore rule that claims to exclude it"
+
 find "$REPO_ROOT/platform" -name '__pycache__' -type d -exec rm -rf {} + 2>/dev/null || true
 
 suite_summary
