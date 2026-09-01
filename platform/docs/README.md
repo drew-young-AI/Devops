@@ -8,11 +8,13 @@ tags:
   - knowledge
   - interoperability
 ---
+
 # Documentation Standard — OKF v0.1
 
 ```bash
 platform/docs/okf_check.py            # conformance report
 platform/docs/okf_check.py --strict   # also fail on house conventions
+
 ```
 
 Enforced by `platform/tests/test_static.sh`, so it fails the build rather

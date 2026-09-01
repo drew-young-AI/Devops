@@ -8,11 +8,13 @@ tags:
   - disaster-recovery
 timestamp: 2026-08-15T19:57:20+08:00
 ---
+
 # Backup Adapter
 
 ```bash
 platform/backup/backup.sh          # take a backup
 platform/backup/restore_drill.sh   # prove the newest one is restorable
+
 ```
 
 ## The distinction this adapter is built around
@@ -102,6 +104,7 @@ keys into an array first.
 ```bash
 BACKUP_OFFSITE_DEST=/Volumes/Backup/devops platform/backup/sync_offsite.sh
 BACKUP_OFFSITE_DEST=... platform/backup/sync_offsite.sh --prune-local 7
+
 ```
 
 **It refuses to run unless the destination is on a different device.**
@@ -162,6 +165,7 @@ rclone `crypt` remote, and a plain one is declined.
 ```bash
 platform/backup/setup_rclone.sh                      # one-time, opens a browser
 RCLONE_REMOTE=gdrive-crypt: platform/backup/sync_remote.sh
+
 ```
 
 **Credentials never reach the platform.** `rclone authorize` starts a local

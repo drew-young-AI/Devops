@@ -44,7 +44,20 @@ step() {
 step "1/4 build features" "$MLOPS/run.sh" build_features.py || exit 1
 step "2/4 backtest t+1"   "$MLOPS/run.sh" backtest.py --horizon 1 --predict-delta || exit 1
 step "3/4 backtest t+2"   "$MLOPS/run.sh" backtest.py --horizon 2 --predict-delta || exit 1
-step "4/4 publish"        "$MLOPS/run.sh" publish_forecast.py || exit 1
+# The gate refusing is NOT a job failure -- retrain did everything right and the
+# model simply lost to its baseline. So the job exits 0, the scheduler stays
+# green, and nobody is told. That silence is the problem: a release that quietly
+# did not happen is indistinguishable from one nobody attempted. `blocked` is a
+# third outcome for exactly this, reported without pretending it is a fault.
+if step "4/4 publish"     "$MLOPS/run.sh" publish_forecast.py; then
+  :
+else
+  rc=$?
+  "$ROOT/platform/notify/emit_event.sh" model-gate blocked \
+    "publish_forecast 拒絕發布（rc=$rc）：模型未勝過天真基準，閘門依設計擋下" \
+    >/dev/null 2>&1 || true
+  exit $rc
+fi
 
 echo ""
 echo "=== published forecasts ==="

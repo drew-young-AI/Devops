@@ -26,6 +26,7 @@ timestamp: 2026-08-18T11:20:00+08:00
 ```
 /health/live   →  livenessProbe    失敗 = kubelet 重啟這個容器
 /health/ready  →  readinessProbe   失敗 = 從 Service endpoints 移除
+
 ```
 
 這不是巧合帶來的小便利，而是最容易做錯、也最貴的一件事。K8s 上最常見的

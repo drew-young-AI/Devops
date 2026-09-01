@@ -7,6 +7,7 @@ tags:
   - usability
 timestamp: 2026-08-11T20:05:56+08:00
 ---
+
 # Human Platform Usability Review — 走查清單
 
 依 `docs/Pilot-Validation.md` 的定義，這項檢查「operator 能否理解 CI、
@@ -51,6 +52,7 @@ run_local_ci.sh`），不會出現在 GitHub Actions 裡——這是設計上刻
 ```bash
 cd /Users/drew/ENV/Devops
 platform/compose/deploy.sh build pilots/station1-hello
+
 ```
 
 **你應該看到**：依序印出 `[1/4] lint / compile`、`[2/4] unit / contract
@@ -112,6 +114,7 @@ ls evidence/station1-hello/
 cat evidence/station1-hello/build_07c23ea.json
 cat evidence/station1-hello/deploy_develop_6d37623.json
 cat evidence/station1-hello/production_like_state.json
+
 ```
 
 **你應該看到**：每個檔案都是一個小的、格式一致的 JSON，記錄了「什麼時候
@@ -139,11 +142,14 @@ rollback 會被系統正確拒絕**，因為沒有 green 可以切回去——�
 ```bash
 cd /Users/drew/ENV/Devops
 platform/compose/deploy.sh rollback pilots/station1-hello
+
 ```
 
 **你應該看到**：
+
 ```
 Previous color 'green' (project station1-hello-productionlike-green) is not running -- cannot roll back to it.
+
 ```
 指令會直接失敗（exit 1），不會詢問你要不要繼續，因為根本沒有東西可以
 切換。
@@ -166,6 +172,7 @@ Previous color 'green' (project station1-hello-productionlike-green) is not runn
 cd /Users/drew/ENV/Devops
 cat evidence/station1-hello/trivy_summary_station1-hello_07c23ea.json
 cat evidence/security/gitleaks_20260808T225110Z.json
+
 ```
 
 **你應該看到**：Trivy 摘要裡 `gate_result` 是 `"PASS"`，

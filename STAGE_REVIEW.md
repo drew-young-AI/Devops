@@ -7,6 +7,7 @@ tags:
   - review
 timestamp: 2026-08-19T12:00:00+08:00
 ---
+
 # DevOps 平台階段性 Review
 
 - **第三次 review：2026-08-19**（見文末 §10，涵蓋資料層、四個公衛 feed、
@@ -77,6 +78,7 @@ flowchart TB
     DEV -.日誌/指標.-> OBS
     BLUE -.日誌/指標.-> OBS
     GREEN -.日誌/指標.-> OBS
+
 ```
 
 **邊界規則**（未變）：`platform/` 不依賴特定 Pilot 業務邏輯；`pilots/` 可使用
@@ -106,6 +108,7 @@ flowchart LR
     K --> L["翻轉 NGINX 流量"]
     L --> M["production-like 服務中"]
     M -.需要時.-> N["rollback<br/>(需輸入 ROLLBACK 確認)<br/>翻回舊顏色"]
+
 ```
 
 **關鍵設計**：
@@ -124,6 +127,7 @@ flowchart LR
     ROTATE["rotate_secret.sh"] -->|寫入新版本| VAULT
     CHECK["check_rotation_due.sh<br/>90天 policy"] -.查詢.-> VAULT
     CHECK -.逾期.-> ALERT["需要外部排程觸發提醒"]
+
 ```
 
 `secret/devops/github`（fine-grained，git push 用）與 `secret/devops/ghcr`
@@ -250,6 +254,7 @@ flowchart TB
     S4["Stage 4　第一個真實 ETL<br/>只有具體資料來源才啟動<br/>此時才決定 Dagster 等工具"]
 
     S0 --> S1 --> S2 --> S3 --> S4
+
 ```
 
 **每個 Stage 都只做上一個 Stage 驗證過的東西 + 一小步**，不預先蓋大架構。
@@ -265,6 +270,7 @@ flowchart LR
     VAULT["platform/vault/<br/>（既有）"] -->|提案：新路徑 secret/devops/databricks| DBTF
     DBTF -->|Stage 1 apply| WH["Databricks SQL Warehouse<br/>+ 1 catalog + 1 schema + 1 table"]
     WH -.底層即是.-> DELTA["Delta Lake<br/>Lakehouse 儲存層，非另立專案"]
+
 ```
 
 沿用既有的 provider-neutral IaC skeleton（`platform/iac/providers.tf` 本來就
@@ -451,6 +457,7 @@ z=1.07 未告警。**它不亂叫**，這是偵測器最重要的性質。
 005  修第一次真實載入暴露的兩個鍵缺陷
 006  改用官方地理代碼 + 加入 metric 維度
 007  CONTRACT：舊表退場                 確認無人再讀之後
+
 ```
 
 004 到 007 之間那段時間差就是紀律的全部意義。blue 與 green 共用一個資料庫；

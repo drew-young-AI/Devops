@@ -8,6 +8,7 @@ tags:
   - interfaces
 timestamp: 2026-08-15T20:00:54+08:00
 ---
+
 # Future DataOps — Medical & Multi-Modal Data
 
 This is deferred, same as `Future-ML-LLMOps.md`. Keep the architecture able
@@ -103,6 +104,7 @@ flowchart TB
     ONLINE -.預測紀錄.-> DRIFT
     DRIFT --> FAIR
     FAIR --> PERF
+
 ```
 
 **跟 DevOps 平台複用度最高的是第 5 層**——線上推論服務本質上是「容器化的

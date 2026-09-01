@@ -12,6 +12,13 @@ CURRENT_SUITE="static"
 # shellcheck source=lib.sh
 source "$SUITE_DIR/lib.sh"
 
+# Third-party code is not our code. platform/analytics/venv/ holds thousands of
+# vendored .py and .sh files, and running our style gates over them turns a
+# report about this repo into a report about other people's packaging -- the
+# assertion count jumped from 226 to 830 the moment the venv appeared. Same
+# defect okf_check.py had on the same day, for the same reason.
+PRUNE_VENV="-not -path */venv/* -not -path */site-packages/* -not -path */node_modules/*"
+
 echo "== static analysis =="
 
 while IFS= read -r script; do
@@ -26,7 +33,7 @@ while IFS= read -r script; do
   else
     _fail "executable bit: $rel" "script is not executable; callers will need an explicit interpreter"
   fi
-done < <(find "$REPO_ROOT/platform" -name '*.sh' -type f | sort)
+done < <(find "$REPO_ROOT/platform" -name '*.sh' -type f $PRUNE_VENV | sort)
 
 while IFS= read -r module; do
   rel="${module#"$REPO_ROOT/"}"
@@ -35,7 +42,7 @@ while IFS= read -r module; do
   else
     _fail "python syntax: $rel" "$(python3 -m py_compile "$module" 2>&1 | tail -2)"
   fi
-done < <(find "$REPO_ROOT/platform" -name '*.py' -type f -not -path '*__pycache__*' | sort)
+done < <(find "$REPO_ROOT/platform" -name '*.py' -type f -not -path '*__pycache__*' $PRUNE_VENV | sort)
 
 # YAML that only fails at container start is YAML that fails in production.
 while IFS= read -r doc; do
@@ -45,7 +52,7 @@ while IFS= read -r doc; do
   else
     _fail "yaml parses: $rel" "$(python3 -c "import yaml; list(yaml.safe_load_all(open('$doc')))" 2>&1 | tail -2)"
   fi
-done < <(find "$REPO_ROOT/platform" \( -name '*.yml' -o -name '*.yaml' \) -type f | sort)
+done < <(find "$REPO_ROOT/platform" \( -name '*.yml' -o -name '*.yaml' \) -type f $PRUNE_VENV | sort)
 
 # Prometheus rule files have a schema beyond "valid YAML": a rule with a
 # typo'd key parses fine and then never fires.
@@ -60,8 +67,17 @@ for g in groups:
     if not g.get('name'):
         problems.append('group without name')
     for r in g.get('rules') or []:
+        # Two kinds of rule live in these files. A RECORDING rule has no
+        # severity and no summary and should not be asked for them; an ALERT
+        # rule without them fires into a message nobody can act on. Treating
+        # them alike would either reject every recording rule or stop checking
+        # alerts, and the second failure is silent.
+        if r.get('record'):
+            if not r.get('expr'):
+                problems.append(f\"record {r['record']}: no expr\")
+            continue
         if not r.get('alert'):
-            problems.append('rule without alert name')
+            problems.append('rule with neither alert: nor record:')
         if not r.get('expr'):
             problems.append(f\"{r.get('alert')}: no expr\")
         if not (r.get('labels') or {}).get('severity'):
@@ -146,7 +162,7 @@ while IFS= read -r script; do
   fi
 # Excluded for the same reason as the stdin check above: this file necessarily
 # contains the patterns it searches for.
-done < <(find "$REPO_ROOT/platform" -name '*.sh' -type f \
+done < <(find "$REPO_ROOT/platform" -name '*.sh' -type f $PRUNE_VENV \
            | grep -v '/tests/test_static.sh$' | sort)
 
 # Generated-from-template drift.

@@ -28,8 +28,20 @@ services:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - ./prometheus/alerts:/etc/prometheus/alerts:ro
       - prometheus-data:/prometheus
+    # LAN-published on the platform owner's decision (2026-08-26), after
+    # confirming this listener is READ-ONLY: neither --web.enable-lifecycle nor
+    # --web.enable-admin-api is set, and it was measured rather than assumed --
+    # POST /-/reload and /-/quit both answer 403 and the admin delete-series
+    # endpoint refuses without touching the data.
+    #
+    # It still has NO AUTHENTICATION. Anyone on this LAN can read every metric
+    # the platform holds. That is the accepted trade; it is written down here so
+    # it stays a decision rather than becoming an accident nobody remembers
+    # making. Alertmanager is deliberately NOT published the same way -- its API
+    # can silence alerts, which is a write, and test_network_exposure.sh asserts
+    # it stays on loopback.
     ports:
-      - "127.0.0.1:19090:9090"
+      - "0.0.0.0:19090:9090"
     depends_on:
       - alertmanager
     mem_limit: 256m
@@ -144,6 +156,7 @@ services:
       # datasource, including logs. Off now -- Grafana is the read surface
       # for the whole platform, so it needs the same identity discipline
       # Vault has.
+      GF_SERVER_ROOT_URL: "http://${PLATFORM_LAN_HOST:-localhost}:13000/"
       GF_AUTH_ANONYMOUS_ENABLED: "false"
       GF_AUTH_DISABLE_LOGIN_FORM: "false"
       # Users cannot create their own orgs: org membership is how log access
@@ -166,8 +179,17 @@ services:
       - grafana-data:/var/lib/grafana
       - ./grafana/provisioning:/etc/grafana/provisioning:ro
       - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    # LAN-published: Grafana is the ONE service here that authenticates, so it
+    # is the one that can be. Anonymous access is off and the admin password is
+    # sourced from Vault, both asserted by setup_grafana_identity.sh.
+    #
+    # PLATFORM_LAN_HOST exists because Grafana builds absolute URLs (share
+    # links, alert links) from root_url, and the default is `localhost` -- which
+    # on a LAN produces links that silently point the reader back at their own
+    # machine. A DHCP address would go stale the day the lease changes, so the
+    # value should be an mDNS name, not 192.168.x.y.
     ports:
-      - "127.0.0.1:13000:3000"
+      - "0.0.0.0:13000:3000"
     depends_on:
       - prometheus
       - loki

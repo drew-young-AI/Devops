@@ -8,6 +8,7 @@ tags:
   - ingress
 timestamp: 2026-08-09T01:15:06+08:00
 ---
+
 # Network Architecture
 
 ## Provider-neutral target
@@ -20,6 +21,7 @@ Client
   -> NGINX / Ingress
   -> Application
   -> Data / Queue / External API
+
 ```
 
 ## Local implementation
@@ -29,6 +31,7 @@ localhost / app.local
   -> local HTTPS
   -> NGINX adapter
   -> Compose service
+
 ```
 
 The local adapter validates routing, TLS, headers, health checks, timeout, rate limit and rollback semantics. It does not claim to provide real F5, CDN, DDoS or VPC isolation.
@@ -41,6 +44,7 @@ The local adapter validates routing, TLS, headers, health checks, timeout, rate 
 Cloudflare Quick Tunnel
   -> local NGINX
   -> Pilot
+
 ```
 
 適合 webhook、短時間 demo 與快速確認外部 HTTP 交握。它依賴 Cloudflare hosted service，不是完整開源控制面；Quick Tunnel 也有測試用途限制，因此不能作為 production-like 結論。[Cloudflare Tunnel](https://developers.cloudflare.com/tunnel/)
@@ -60,6 +64,7 @@ Tailscale 跑在同一台主機上、直接可達 loopback。因此不必開 rou
 Tailscale tailnet
   -> tailscale serve（tailnet only）／ funnel（公開網際網路）
   -> 127.0.0.1 上的本機服務
+
 ```
 
 實作與暴露天花板見 [platform/ingress/README.md](../platform/ingress/README.md)。

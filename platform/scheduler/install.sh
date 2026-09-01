@@ -114,6 +114,13 @@ LOADED_NOW="$(launchctl list 2>/dev/null || true)"
 # DAST scan and a restore drill firing together on a laptop is bad enough,
 # and the restore drill starts a container while the backup is reading the
 # volume it is about to archive.
+# The boundary between "StartInterval" and "StartCalendarInterval", as ONE named
+# constant. test_scheduler.sh reads this line rather than restating the number:
+# it previously hardcoded its own 3600 and went red the moment this file changed
+# -- the same constant living in two places, which is the drift this platform
+# keeps being bitten by.
+CALENDAR_THRESHOLD_SECONDS=86400
+
 DAILY_BASE_HOUR=3
 WEEKLY_BASE_HOUR=4
 WEEKLY_WEEKDAY=0        # Sunday
@@ -124,9 +131,23 @@ while IFS='|' read -r name interval timeout command; do
   label="${LABEL_PREFIX}.${name}"
   plist="$AGENT_DIR/${label}.plist"
 
-  if [ "$interval" -lt 3600 ]; then
+  # The boundary is a DAY, not an hour. The hazard the comment above describes
+  # -- a reload resetting the countdown before it ever expires -- needs the
+  # interval to be longer than the gap between config changes. During active
+  # development that gap is hours, so a daily or weekly StartInterval job can
+  # genuinely never run; an hourly one fires many times a day regardless.
+  #
+  # It was `-lt 3600`, which put an interval of exactly 3600 into the calendar
+  # branch: the dataops exporter was declared hourly and installed as DAILY,
+  # sharing a slot with the backup. Off-by-one at a boundary nobody had crossed
+  # until the first job landed on it.
+  if [ "$interval" -lt "$CALENDAR_THRESHOLD_SECONDS" ]; then
     schedule_xml="  <key>StartInterval</key><integer>${interval}</integer>"
-    schedule_desc="every $((interval / 60))m"
+    if [ "$interval" -ge 3600 ]; then
+      schedule_desc="every $((interval / 3600))h"
+    else
+      schedule_desc="every $((interval / 60))m"
+    fi
   else
     shift_min=$(( long_idx * STAGGER_MINUTES ))
     fire_min=$(( shift_min % 60 ))

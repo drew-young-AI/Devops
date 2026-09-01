@@ -8,6 +8,7 @@ tags:
   - handover
 timestamp: 2026-08-15T20:00:54+08:00
 ---
+
 # Enterprise DevOps Miniature Plan
 
 ## 0.1 Handoff / Current Status
@@ -54,6 +55,7 @@ timestamp: 2026-08-15T20:00:54+08:00
 - [x] Log 資料治理（分級 → 遮罩 → 分流）：`platform/observability/`。**分級**：服務以 Docker label `platform.data_class` 自我宣告，宣告式且由服務擁有，而不是 Alloy 裡一份新增服務就過期的硬編碼清單；未宣告者一律 `internal`（安全的預設是**不**給予較廣受眾存取權）。**遮罩**：`loki.process` 在**寫入時**遮蔽，兩條管線都套用（PII 會漏進開發者當下在寫的那條 log，很少剛好是有人分類為敏感的那條）。寫入時而非查詢時是重點：查詢時過濾是一個「所有查詢的人都會記得套用」的承諾，而未遮蔽的識別碼一旦進入儲存，唯一真正的補救是重建整個 store——這是全平台唯一「晚做比做得不完美更貴」的機制，所以先出 v1 而不是之後出完整版。**v1 範圍誠實揭露**：3 種高信心樣式（台灣身分證、email、憑證型 token），**不會**抓到自由文字姓名、地址或非預期格式。**分流**：不同 Loki **租戶**而非只是不同 label——label 可被查詢者選擇不寫而繞過，租戶由 Loki 在每個請求上強制執行，指向 `platform` 的資料源在結構上不可能回傳 restricted 資料。保存期 platform 168h／restricted **72h**（敏感資料保存**更短**不是更長，敏感材料存在多久本身就是一種控制）。**端到端驗證方式是產生真實格式的 PII**：儲存內容為 `patient [REDACTED_TWID] contacted [REDACTED_EMAIL] token [REDACTED_TOKEN]`；同一容器從 platform 租戶查詢 0 筆；原始 PII 在兩個租戶皆 0 筆；無 `X-Scope-OrgID` header 一律 401。**磁碟防護兩層**：Loki limits 保護 Loki，Docker `json-file` 輪替才真正保護 host disk（Loki 的限制對容器寫爆 daemon 自己的 log 檔完全無能為力，而那會塞爆磁碟並拖垮包含監控在內的每個服務）。
 - [x] Grafana 人員存取控制（補完 A 類）：`platform/observability/scripts/setup_grafana_identity.sh`。匿名存取已關閉——先前是全員 Viewer，這讓平台其他地方所有人員 RBAC 控制在「人們真正看資料的那個地方」完全失效。**這支腳本存在的理由是一個陷阱**：`GF_SECURITY_ADMIN_PASSWORD` 只在 Grafana **首次**初始化資料庫時生效，既有 `grafana-data` volume 會靜默忽略它、管理員帳密維持原樣。只設這個環境變數就收工**比什麼都不做更糟**：它把「所有人都是 Viewer」變成「任何人試一下全世界最好猜的憑證就是 Admin」，而設定檔讀起來像是已經鎖好了。實測確認 `curl -u admin:admin` 在設了變數之後仍然成功。腳本現在會用 `grafana cli admin reset-admin-password --password-from-stdin` 重設實際密碼，並**雙向驗證**：Vault 憑證可用、且 `admin:admin` 已失效。Vault 是真實來源，`.grafana.env` 只是可拋棄的遞送細節。
 - [x] 價值流看板（H 類）：`platform/valuestream/board.py` → `docs/Value-Stream-Board.html`。**衍生式，絕不手動維護**：六欄全部由平台已產出的 evidence 推導，沒有卡片可拖。這是其他所有設計的出發點——需要有人記得更新的看板一週內就會悄悄失準，而失準的看板比沒有看板更糟，因為人們會相信它；在這裡「develop 已部署」就**等於** `deploy_develop_<sha>.json` 存在且健康，看板沒有辦法與現實不一致。**「待人工核可」是刻意獨立的一欄**：證據齊備、等待真人的工作與單純已部署是**不同狀態**，混為一談會藏住人工核可造成的佇列，而那正是 DORA「streamlining change approval」在講的瓶頸。WIP 限制超限即標示（DORA：用途是讓問題浮現，不是要求做更快）。Alertmanager 無法連線時「線上異常」欄回報**未知**而非零，並附橫幅說明空欄不代表沒有異常——與 `check_health.sh` exit 3 同一原則。詳見 `platform/valuestream/README.md`。
+- [x] 階段燈號（給檢視者，非給值班者）：`platform/statusdag/stage_report.py` → `docs/Stage-Report.{html,json,md}`。`dag.py` 畫的是值班者的板子：一個節點一列，問的是「哪些容器活著」。**那個形狀對值班者是對的，對階段檢視是錯的**——「Grafana 檢視 — running」對檢視者沒有任何可行動的意義，那是工具狀態不是階段狀態。這支把**同一批現場探測**重組成檢視者真正在想的單位（階段），並把該線的架構圖與流程圖並排。階段只有在底下每個節點都綠時才綠，不綠就寫出是哪個節點造成的。**一份模型三種輸出，因為一個產物服務三種讀者等於三種都沒服務到**：`html` 給人與長官（燈號、圖、以及**依「下一步在誰手上」分組的待決清單**——扁平的一串黃燈會逼檢視者讀完十九列才找到那一列是等他的）；`json` 給程式（schema 版本化，可斷言）；`md` 給 AI（4KB，非綠階段展開、綠的收成一列，並帶 OKF frontmatter 併入同一個知識束——90KB 內嵌六張 SVG 的 HTML 不是輸入，是對 context window 的阻斷）。**兩個會靜默失效的地方各有守衛，且都以刻意注入驗證過**：(1) `dag.py` 新增節點而沒加進 `LINES`，該節點就從報告消失，而**消失的階段讀起來和健康的階段一模一樣**——現在直接拒絕產生報告並指名缺哪個；(2) 待決事項是全檔唯一手寫的判斷，所以它**綁在「節點 id + 該節點當下 detail 的子字串」**上，條件消失就渲染不出來，`--selfcheck` 另外把不再對應現況的條目列為待刪。**綁定寫錯當場被自己的 selfcheck 抓到兩筆**（週定義綁 `epiweek` 對但字串猜錯、模型輸給基準綁成 `backtest` 而實際在 `mgate`）——這正是「註解描述的機制不等於機制存在」在這支檔案上的具體形態。16/16 通過（`test_stage_report.sh`，含 8 項刻意破壞）。已排進排程器每 15 分鐘重跑，跟著 `dag` 走：比它所摘要的板子還舊的階段頁會與板子矛盾，而檢視者無從分辨哪一個在說謊。
 
 - [x] SAST + DAST（補上掃描的兩個空層）：`platform/security/scan_sast.sh`（Semgrep OSS，接進 `run_local_ci.sh` 第 2/6 階段）+ `scan_dast.sh`（OWASP ZAP baseline，部署後、promote 前）。**填補的洞**：此前所有掃描器都只看**產物**（Trivy／SBOM／簽章）、**基礎設施**（Checkov／OPA）或**歷史**（Gitleaks），沒有任何一個看應用原始碼，也沒有任何一個看執行中的系統。這讓兩整類問題隱形：今天寫下的 SQL injection 會通過所有既有 gate（映像沒 CVE、IaC 沒問題、沒提交 secret）；而缺失的安全標頭、外洩的版本橫幅、可達的除錯端點**不存在於任何檔案中**，是部署後系統的性質，再多原始碼分析也永遠找不到。**兩個 gate 都拒絕把空掃描當成乾淨**：Semgrep 的 `p/shell`／`p/bash` 根本不存在（皆 404），打錯字會導致掃 0 個檔案卻仍回報 0 findings——開發過程實際觀察到；ZAP 對無法連線的目標同樣產出無告警的報告。兩者現在都把「掃描量為零」判為 gate 失敗，`test_evidence_contract.sh` 另外斷言任何 PASS 紀錄都必須真的檢查過東西。**ruleset 釘選不用 `--config=auto`**（auto 在執行時上網解析規則，同一個 commit 今天過明天不過，破壞這些 gate 存在的意義：確定性回饋）。**DAST 門檻經實測校準為 MEDIUM 而非 HIGH**：被動掃描幾乎不會產生 HIGH（那需要主動攻擊流量），實測一個刻意缺標頭的頁面產生 3 個 MEDIUM 卻仍被 HIGH-only 判為 PASS——會放行那種目標的 gate 不是 gate。**雙向驗收**：SAST 對故意寫的注入漏洞 7 個 ERROR 擋下（exit 1）、ruleset 打錯字判為 FAIL；DAST 對缺標頭頁面 3 個 MEDIUM 擋下、對正式端點放行。**首次執行即驅動 3 項真實修正**：(1) GitHub Actions 把 `${{ }}` 直接插進 `run:` 腳本本體（GitHub 在 shell 看到之前就完成替換，含 shell 元字元的值會變成程式碼），同一步驟還只用 sed 跳脫雙引號來組 JSON，攻擊者可控的 commit message 含反斜線就會產生無效 JSON；(2) `curl | bash` 從**可變的 master 分支**安裝 tfsec——未驗證的遠端程式碼執行、可變來源、而且 tfsec 已被 Aqua 廢棄並併入平台本來就在用的 Trivy，三個問題疊在一個步驟；(3) NGINX 洩漏版本號且缺 CORP 標頭，兩者都不存在於任何原始碼（版本橫幅只是 nginx 預設值），ZAP 還拒絕 `same-site` 作為 CORP 的合格值，把我們推向 `same-origin`——對一個從不被跨來源嵌入的服務而言，那才是正確值。安裝走隔離路徑：Semgrep 用 `uv tool install`（非 `pip install`），ZAP 用 Docker，兩者皆 ARM 原生無 x86 模擬。詳見 `platform/security/README.md`。
 
@@ -111,6 +113,7 @@ Secret：HashiCorp Vault Community；.env 只作 migration source
 MLX：127.0.0.1:9000，LLM automation actor，不是 deployment target
 Kubernetes：未來 adapter，目前不導入
 MLOps/LLMOps：保留接口，延後擴充
+
 ```
 
 ### 目前不應做的事
@@ -144,6 +147,7 @@ MLOps/LLMOps：保留接口，延後擴充
 17. [ ] Spark 回放 pipeline（CYCH 急診即時 feed 的架構預演）
 18. [ ] k3d 叢集重建（真 StorageClass + registry）→ pilot 上 K8s
 19. [ ] Kubeflow Pipelines standalone
+
 ```
 
 ### 2026-08-16 ~ 08-18 新增（第二輪）
@@ -473,6 +477,7 @@ Code
   -> Deployment
   -> Observability
   -> Human Approval
+
 ```
 
 Pilot 只用來驗證平台，不代表產品需求或產品效果已完成。
@@ -571,12 +576,14 @@ P1  Pilot technical validation + usability review
 P2  Cloud adapter / F5 / WAF / CDN implementation
 P3  Kubernetes adapter
 P4  MLOps / LLMOps expansion
+
 ```
 
 ## 7. 完成定義
 
 ```text
 可建置 -> 可掃描 -> 可部署 -> 可驗證 -> 可監控 -> 可回滾
+
 ```
 
 細節與歷史決策見：

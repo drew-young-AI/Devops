@@ -34,6 +34,7 @@ dataset），再對每一個呼叫 `package_show`，把所有 resource 的名稱
 ```bash
 curl -s https://data.cdc.gov.tw/api/3/action/package_list
 curl -s "https://data.cdc.gov.tw/api/3/action/package_show?id=<name>"
+
 ```
 
 這個做法找到了 `tbdata001`，而先前逐一猜測 URL 的做法沒有。**先列舉再過濾，
@@ -74,6 +75,7 @@ curl -s "https://data.cdc.gov.tw/api/3/action/package_show?id=<name>"
 ListCounty              → 22 筆，countycode01 = 63000 這種 5 碼
 ListTown/<county>       → 365 筆
 ListVillage/<c>/<t>     → 7,871 筆，villageId 11 碼
+
 ```
 
 **鄉鎮代碼是推導出來的，而且推導有被驗證。** NLSC 沒有直接發布鄉鎮代碼；
@@ -147,6 +149,7 @@ sha256 `c696a731dd045013ec7ab7aded394f50f759171f1b318511c3ffd428772d1c6e`
 
 ```
 CONFLICT 6600009 2021-08-23: [1, 1, 0] vs [24, 24, 0] (來源 台中市豐原區)
+
 ```
 
 為什麼不加總成 25？因為資料沒有告訴我們這兩列是「互斥的兩群人」還是
@@ -160,6 +163,7 @@ CONFLICT 6600009 2021-08-23: [1, 1, 0] vs [24, 24, 0] (來源 台中市豐原區
 ```csv
 source_code,raw_county,raw_town,official_county,official_town,rule,evidence
 cdc-tb-caremag,彰化縣,員林鎮,彰化縣,員林市,renamed,2015-08-08 彰化縣員林鎮改制為縣轄市員林市；內政部現登錄為員林市
+
 ```
 
 載入器只做**精確查表**。查不到 → 拒絕該列，不猜。
@@ -214,6 +218,7 @@ surveillance_fact 4,390,947
     cdc-tb-town      flow        7,360
     cdc-tb-caremag   stock   4,085,772
 資料庫大小        1,797 MB
+
 ```
 
 驗算：`(1,549,649 − 187,724 重複 − 1 衝突) × 3 metrics = 4,085,772` ✓
@@ -224,6 +229,7 @@ surveillance_fact 4,390,947
 cd pilots/station2-twin/ingest
 PGPASSWORD=... ./run.sh load_geography.py       # 維度，讀 repo 內快照
 PGPASSWORD=... ./run.sh load_dimensional.py     # 事實，四個 feed
+
 ```
 
 `run.sh` 在**釘死版本的容器**裡執行（`Dockerfile`：python 3.12 +

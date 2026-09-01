@@ -107,6 +107,7 @@ C9 原本記成完成，理由是「已進設定檔且實跑成功」。兩半�
 ```
 trigger=scheduled  status=ok  251s  1 published, 1 refused
 plist 還原 byte-exact，日曆確認回到 週日 06:20
+
 ```
 
 ### 2. 每天紅燈的安全掃描，掃的是已經退役的目標

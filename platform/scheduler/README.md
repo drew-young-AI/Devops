@@ -8,6 +8,7 @@ tags:
   - launchd
 timestamp: 2026-08-15T19:57:49+08:00
 ---
+
 # Scheduler
 
 ```bash
@@ -15,6 +16,7 @@ platform/scheduler/install.sh            # load the launchd agents
 platform/scheduler/status.sh             # is every job actually running?
 platform/scheduler/run_job.sh health     # run one job by hand
 platform/scheduler/install.sh --uninstall
+
 ```
 
 ## Two tiers, and why they must not be merged

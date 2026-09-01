@@ -7,6 +7,7 @@ tags:
   - decisions
 timestamp: 2026-08-09T01:15:06+08:00
 ---
+
 # Architecture
 
 ## Control plane
@@ -20,6 +21,7 @@ External GitHub Free / GitLab Free
   -> Production-like Compose
   -> NGINX local HTTPS
   -> Grafana / Prometheus / Loki
+
 ```
 
 ## Execution boundary

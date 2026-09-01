@@ -8,6 +8,7 @@ tags:
   - contract
 timestamp: 2026-08-15T20:00:54+08:00
 ---
+
 # 新服務接入 DevOps 指引
 
 本文件用於下次建立新的 Python、Node.js、Java、Go、.NET 或其他 HTTP 服務時，將服務接入現有 DevOps 平台。
@@ -28,6 +29,7 @@ timestamp: 2026-08-15T20:00:54+08:00
 
 ```text
 pilots/<service-name>/
+
 ```
 
 不要直接放入 `platform/`。
@@ -41,6 +43,7 @@ GET /health/live
 GET /health/ready
 GET /metrics
 GET /version
+
 ```
 
 並遵守：
@@ -64,6 +67,7 @@ pilots/<service-name>/
 ├── src/ 或 app/
 ├── tests/
 └── config.example.env
+
 ```
 
 不要提交：
@@ -114,6 +118,7 @@ pilots/<service-name>/
 ```sh
 /Users/drew/ENV/Devops/platform/ci/run_local_ci.sh \
   /Users/drew/ENV/Devops/pilots/<service-name>
+
 ```
 
 CI 預期流程：
@@ -123,6 +128,7 @@ compile / lint
   -> unit / contract test
   -> container build
   -> image metadata
+
 ```
 
 失敗時不得產生可 promotion 的 artifact。
@@ -150,6 +156,7 @@ Build once
   -> Blue/Green production-like
   -> Smoke test
   -> Human release decision
+
 ```
 
 LLM 可以執行測試、diff review、scan、報告與低風險診斷，但不能代替人類進行 PRD、產品體驗或 production release approval。
@@ -183,6 +190,7 @@ Dashboard / Log Links
 Failure Path
 Rollback / Cleanup
 Decision: PASS | FAIL | BLOCKED
+
 ```
 
 ## 11. 請 LLM 協助時的輸入格式
@@ -198,6 +206,7 @@ Decision: PASS | FAIL | BLOCKED
 是否需要 Secret：<yes/no>
 是否需要 GPU 或特殊硬體：<yes/no>
 是否對外提供 URL：<yes/no>
+
 ```
 
 LLM 應先檢查範圍、資料與權限，再建立 Pilot，不應直接修改 platform contract。

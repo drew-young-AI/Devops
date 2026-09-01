@@ -8,6 +8,7 @@ tags:
   - decisions
 timestamp: 2026-08-09T01:15:06+08:00
 ---
+
 # IaC and Resource Planning
 
 ## Tool baseline
@@ -31,6 +32,7 @@ MinIO is object storage. It does not replace PostgreSQL or another structured da
 
 ```text
 fmt -> validate -> checkov -> plan -> review -> apply
+
 ```
 
 Every apply records commit, actor, variables, plan, approval and result.

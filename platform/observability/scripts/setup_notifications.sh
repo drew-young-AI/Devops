@@ -60,16 +60,70 @@ umask 077
 printf '%s' "$TOKEN" > "$TOKEN_FILE"
 chmod 600 "$TOKEN_FILE"
 
-python3 - "$TEMPLATE" "$CONFIG" "$CHAT" <<'PY'
-import pathlib, sys
-tpl, out, chat = sys.argv[1:]
+# Mail is OPTIONAL and its config is written by platform/notify/setup_mail.sh,
+# which refuses to write it until it has actually delivered a message. If that
+# file is absent, the email_configs block is REMOVED rather than left holding
+# placeholders -- a receiver addressed to the literal string __MAIL_TO__ is the
+# `local-null` failure wearing a different name.
+MAIL_CONF="$HERE/../../notify/mail.conf"
+MAIL_HOST=""; MAIL_FROM=""; MAIL_TO=""
+if [ -f "$MAIL_CONF" ]; then
+  # shellcheck source=/dev/null
+  . "$MAIL_CONF"
+  MAIL_HOST="$HOST"; MAIL_FROM="$FROM"; MAIL_TO="$TO"
+fi
+LAN_HOST="${PLATFORM_LAN_HOST:-$(scutil --get LocalHostName 2>/dev/null).local}"
+
+python3 - "$TEMPLATE" "$CONFIG" "$CHAT" "$MAIL_HOST" "$MAIL_FROM" "$MAIL_TO" "$LAN_HOST" <<'PY'
+import pathlib, re, sys
+tpl, out, chat, mhost, mfrom, mto, lanhost = sys.argv[1:8]
 text = pathlib.Path(tpl).read_text()
 if "__TELEGRAM_CHAT_ID__" not in text:
     sys.exit("template has no __TELEGRAM_CHAT_ID__ placeholder -- refusing to "
              "write a config that would silently keep an old value")
-pathlib.Path(out).write_text(text.replace("__TELEGRAM_CHAT_ID__", chat))
+text = text.replace("__TELEGRAM_CHAT_ID__", chat)
+
+if mhost and mfrom and mto:
+    text = (text.replace("__MAIL_SMARTHOST__", mhost)
+                .replace("__MAIL_FROM__", mfrom)
+                .replace("__MAIL_TO__", mto)
+                .replace("__LAN_HOST__", lanhost))
+else:
+    # Drop the whole email_configs block, from its key to the next key at the
+    # same indent. Leaving it in with placeholders would either refuse to parse
+    # or, worse, parse fine and mail into nowhere.
+    text = re.sub(r"\n    email_configs:\n(?:(?:      |\n).*\n)*", "\n", text)
+
+leftovers = [m for m in re.findall(r"__[A-Z_]+__", text)]
+if leftovers:
+    sys.exit("unsubstituted placeholders remain: %s" % ", ".join(sorted(set(leftovers))))
+pathlib.Path(out).write_text(text)
+print("  mail receiver: %s" % ("to " + mto if mto else "not configured (telegram only)"))
 PY
 chmod 600 "$CONFIG"
+
+# Validate with Alertmanager's OWN parser before claiming success.
+#
+# Not paranoia -- this caught a real defect the day it was added. An
+# email_configs block was inserted one indent level inside telegram_configs,
+# which is valid YAML and complete nonsense to Alertmanager: the telegram
+# entry's api_url, parse_mode and message ended up as email fields. Nothing
+# earlier in this script could have noticed, because every check up to here is
+# about text substitution. The failure would have surfaced as Alertmanager
+# refusing to start AFTER someone configured mail -- that is, at the exact
+# moment they were expecting notifications to start working.
+if command -v docker >/dev/null 2>&1; then
+  AM_CHECK="$(docker run --rm -v "$AM_DIR:/cfg:ro" \
+      --entrypoint amtool prom/alertmanager:v0.28.1 \
+      check-config /cfg/config.yml 2>&1)" || {
+    echo "REFUSING: Alertmanager rejects the generated config." >&2
+    echo "$AM_CHECK" | sed 's/^/    /' >&2
+    exit 1
+  }
+  echo "  amtool: config accepted ($(echo "$AM_CHECK" | grep -c receiver) receiver line(s))"
+else
+  echo "  amtool: SKIPPED (no docker) -- the generated config is UNVERIFIED" >&2
+fi
 
 echo "  wrote $(basename "$CONFIG") and $(basename "$TOKEN_FILE") (chmod 600, gitignored)"
 
