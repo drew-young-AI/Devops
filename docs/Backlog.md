@@ -144,7 +144,7 @@ schema 不符時拒絕 readiness，實測 503 `schema_mismatch`。那個保護�
 endpoints）。所以「還沒經過真實顏色切換」這個缺口，等 K8s 上用 Deployment
 驗證即可，不必為 Compose 再補一次。
 
-## 3. DAST form-aware profile — 目標已修好，profile 仍待做
+## 3. DAST form-aware profile — ⚠️ 盲區已量化並上板（2026-09-01），實掃仍待拋棄式副本
 
 **2026-08-25 修好的是「掃描目標」，不是 profile。** DAST job 之前每天紅，
 訊息是「Is the develop deployment up?」——指向一個**已經退役好幾天**的部署
@@ -161,6 +161,41 @@ x2），閘門設在 MEDIUM。
 這個端點**，所以目前那條寫入路徑等於沒掃。要掃它需要 form-aware / API profile
 （餵 OpenAPI 或 context file）。順帶一提，掃寫入端點前要先想清楚它會不會把垃圾
 observation 寫進那個 650 萬列的資料庫。
+
+### 2026-09-01：先把「沒掃到」變成看得見的數字
+
+原本的順序是錯的。要掃寫入端點，得先有一個安全的掃描目標；而在那之前，
+**更嚴重的問題是沒有任何地方說明 DAST PASS 到底涵蓋了多少**。
+
+實測：`4 of 10 routes reachable (40%)`。
+
+所以那條 `DAST 執行中系統 PASS` 的真正意思是「spider 撞到的那 4 條是乾淨的」，
+不是「這個服務是乾淨的」。**一條綠燈，實際內容是「幾乎什麼都沒檢查」**——
+這是這個平台最老的缺陷形狀穿上資安的衣服。
+
+`platform/security/dast_coverage.py` 把它量化，並分成三個**處置不同**的原因：
+
+| 原因 | 數量 | 該做什麼 |
+|---|---:|---|
+| `write` | 1 | GET spider 永遠碰不到。需要 API profile ＋ 拋棄式副本 |
+| `parameterised` | 3 | 要餵範例 id / 縣市名 |
+| `unlinked` | 2 | JSON API 沒有連結可循 |
+
+上板：三線階段燈號面板 105–107。**刻意不設告警**——這個值只在有人新增端點時
+才變，對單調值設告警只會永遠響或永遠不響。
+
+### 實掃寫入端點：設計已定案，尚未實作
+
+**絕對不對現行實例掃。** 這件事在上面那段就寫過風險（會把垃圾 observation
+寫進 650 萬列的資料表），現在把它變成硬規則：
+
+- 拋棄式副本（一次性 postgres ＋ app ＋ migrations，掃完即銷毀，`trap` 保證清理）
+- 腳本**拒絕**對任何不是它自己啟動的目標執行
+- 需要一份 OpenAPI spec 給 `zap-api-scan.py`
+
+這也正是 `scan_dast.sh` 開頭早就寫下的規則：主動掃描
+「needs an explicit decision about what may be attacked and when」。
+上面三條就是那個決定，只是還沒寫成程式。
 
 **為什麼現在做**：ZAP 掃的是 HTTP 端點，與跑在 Compose 還是 K8s 無關。
 掃描設定、規則集、掃描完整性檢查（`site` 條目而非 alert URL）全部帶得走。

@@ -1,0 +1,78 @@
+{
+  "schema": "dast-coverage/1",
+  "generated_at": "2026-09-01T09:08:46Z",
+  "source": "pilots/station2-twin/app/app.py",
+  "scan_profile": "zap-baseline (passive rules + spider, GET only)",
+  "routes_total": 10,
+  "routes_reachable": 4,
+  "routes_unreachable": 6,
+  "coverage_ratio": 0.4,
+  "unreachable_by_reason": {
+    "unlinked": 2,
+    "parameterised": 3,
+    "write": 1
+  },
+  "routes": [
+    {
+      "method": "GET",
+      "path": "/health/live",
+      "reason": "reachable",
+      "reachable_by_baseline": true
+    },
+    {
+      "method": "GET",
+      "path": "/health/ready",
+      "reason": "reachable",
+      "reachable_by_baseline": true
+    },
+    {
+      "method": "GET",
+      "path": "/version",
+      "reason": "reachable",
+      "reachable_by_baseline": true
+    },
+    {
+      "method": "GET",
+      "path": "/metrics",
+      "reason": "reachable",
+      "reachable_by_baseline": true
+    },
+    {
+      "method": "GET",
+      "path": "/forecast",
+      "reason": "unlinked",
+      "reachable_by_baseline": false
+    },
+    {
+      "method": "GET",
+      "path": "/surveillance/scan",
+      "reason": "unlinked",
+      "reachable_by_baseline": false
+    },
+    {
+      "method": "GET",
+      "path": "/twin/{p1}",
+      "reason": "parameterised",
+      "reachable_by_baseline": false
+    },
+    {
+      "method": "GET",
+      "path": "/twin/{p1}/history",
+      "reason": "parameterised",
+      "reachable_by_baseline": false
+    },
+    {
+      "method": "GET",
+      "path": "/surveillance/{p1}",
+      "reason": "parameterised",
+      "reachable_by_baseline": false
+    },
+    {
+      "method": "POST",
+      "path": "/twin/{p1}/observation",
+      "reason": "write",
+      "reachable_by_baseline": false
+    }
+  ],
+  "note": "reachable_by_baseline describes what the CONFIGURED scan can touch, not whether a route is safe. An unreachable route has not been found clean -- it has not been looked at."
+}

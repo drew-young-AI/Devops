@@ -1,9 +1,17 @@
 {
   "schema": "gha-status/1",
-  "fetched_at": "2026-09-01T16:43:43+08:00",
+  "fetched_at": "2026-09-01T20:47:07+08:00",
   "fetch_state": "ok",
   "detail": "fetched main",
   "runs": [
+    {
+      "conclusion": "success",
+      "createdAt": "2026-09-01T09:03:07Z",
+      "displayTitle": "docs: 簡報用的八張圖，以及那個「前置條件」其實不是前置條件",
+      "status": "completed",
+      "url": "https://github.com/drew-young-AI/Devops/actions/runs/33490192649",
+      "workflowName": "Platform Tests"
+    },
     {
       "conclusion": "success",
       "createdAt": "2026-09-01T08:30:45Z",
@@ -74,14 +82,6 @@
       "displayTitle": "docs: C9 verified -- launchd's calendar fired retrain on its own",
       "status": "completed",
       "url": "https://github.com/drew-young-AI/Devops/actions/runs/32815634318",
-      "workflowName": "Platform Tests"
-    },
-    {
-      "conclusion": "failure",
-      "createdAt": "2026-08-25T06:07:24Z",
-      "displayTitle": "feat(vault): rotation interval is per-secret data, not one hardcoded 90",
-      "status": "completed",
-      "url": "https://github.com/drew-young-AI/Devops/actions/runs/32815595494",
       "workflowName": "Platform Tests"
     }
   ]

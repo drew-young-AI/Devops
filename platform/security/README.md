@@ -349,3 +349,88 @@ Adding these gates immediately produced fixes, which is the point:
 - **Secret rotation is still not built.** Vault (`platform/vault/`) holds
   a static copy of `GITHUB_TOKEN`; nothing rotates the underlying PAT or
   updates Vault automatically when it's rotated.
+
+---
+
+## DAST 的盲區，變成一個看得見的數字（2026-09-01）
+
+`scan_dast.sh` 回報 `gate_result: PASS`、HIGH=0 MEDIUM=0。那句話是真的，
+也非常誤導——因為它沒說它看了多少。
+
+ZAP baseline ＝ **被動規則 ＋ GET spider**，而 station2-twin 提供的是
+**沒有任何連結的 JSON API**。spider 找得到的只有 health 與 metrics 那幾條，
+而 `POST /twin/<asset>/observation`——這個系統唯一的寫入路徑——
+**GET spider 在原理上就碰不到**。
+
+實測：
+
+```
+python3 platform/security/dast_coverage.py
+  4 of 10 routes reachable (40%)
+```
+
+所以「DAST PASS」目前的真正意思是**「spider 撞到的那 4 條是乾淨的」**，
+不是「這個服務是乾淨的」，而在此之前沒有任何地方說明它是哪一個意思。
+這是這個平台最老的缺陷形狀穿上資安的衣服：**一條綠燈，實際內容是
+「幾乎什麼都沒檢查」**。VACUOUS 不是 PASS。
+
+### 三個原因分開算，因為處置不同
+
+| 原因 | 數量 | 該做什麼 |
+|---|---:|---|
+| `write` | 1 | ZAP baseline 是 GET，永遠碰不到。需要 API profile，**且必須對拋棄式副本掃** |
+| `parameterised` | 3 | 路徑有 spider 猜不到的參數（asset id、縣市名），要餵範例值 |
+| `unlinked` | 2 | 原則上掃得到，但 JSON API 沒有連結可循 |
+
+合併成一個「6 條沒掃到」會把最重要的那一條埋掉。
+
+### 路由是從原始碼解析出來的，不是手維護的清單
+
+手維護的清單在第一次有人新增端點時就過期，而**建立在過期清單上的覆蓋率報告
+會回報「完整覆蓋」一個已經長大的表面**。從 dispatcher 解析，新端點下一次執行
+就會自己變成一條沒掃到的路由，不需要任何人記得更新。
+
+解析器對這個 pilot 的 dispatcher 是特化的，這是明示接受的取捨：
+**對存在的程式碼精確，勝過對不存在的程式碼近似**。
+防止它悄悄腐爛的是 `MIN_EXPECTED_ROUTES` ——樣式一旦不再匹配，
+它會**非零退出**，而不是回報一個從 0 條路由算出來的舒服的「0 個缺口」。
+
+### 為什麼不設告警
+
+覆蓋率只在有人新增端點時才變。對一個單調的值設告警，結果只會是
+**永遠響或永遠不響**——與健康彙總涵蓋率同一個理由。它的位置在板面上
+（三線階段燈號，面板 105–107），不在 Alertmanager。
+
+### 還沒做：實際去掃那條寫入路徑
+
+需要 API profile（餵 OpenAPI 或 context file）。**設計上已經定案的一點：
+絕對不對現行實例掃。** 那個端點吃 JSON body 並寫進 650 萬列的資料表，
+對它送攻擊流量會污染這個平台存在的全部意義——可信任的資料。
+做法必須是拋棄式副本（一次性 postgres ＋ app ＋ migrations，掃完即銷毀），
+並且腳本要**拒絕**對任何不是它自己啟動的目標執行。
+
+這也是 `scan_dast.sh` 開頭早就寫下的規則：主動掃描「needs an explicit
+decision about what may be attacked and when」。上面那段就是那個決定。
+
+### 守衛
+
+`platform/tests/test_dast_coverage.sh`（tier 1，17 項）。控制組全部合成：
+偽造一個 dispatcher、給它長一條新路由、餵一個解析不了的 dispatcher。
+
+最重要的一條控制是**「新增路由必須讓覆蓋率下降」**（0.4444 → 0.4）——
+一個不會下降的覆蓋率數字是裝飾品。
+
+突變測試（四個突變，全部被抓，還原後逐位元相同）：
+
+| 突變 | 結果 |
+|---|---|
+| 寫入端點不再有自己的原因分類 | CAUGHT |
+| 拿掉 `MIN_EXPECTED_ROUTES` 下限 | CAUGHT |
+| 參數化路由被當成可達 | CAUGHT（第一輪 **MISSED**，見下） |
+| 參數化路由根本不解析 | CAUGHT |
+
+第三個突變第一輪**沒被抓到**：拿掉參數化分支之後，那些路由會落到
+`unlinked`，仍然是不可達，所以覆蓋率數字一模一樣、只有診斷是錯的。
+**一份數字在自己的推理被拿掉之後依然不變的報告，是沒有人能據以行動的報告**
+——`unlinked` 是「加個連結」，`parameterised` 是「餵個範例 id」，
+不是同一個指令。補上原因分佈的斷言之後才抓到。

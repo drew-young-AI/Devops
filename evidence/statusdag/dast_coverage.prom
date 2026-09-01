@@ -1,0 +1,17 @@
+# Which of the application's routes the configured DAST scan can reach.
+# Written by platform/security/dast_coverage.py. A DAST PASS covers
+# only the reachable set -- see that file for why this is separate.
+# HELP devops_dast_routes_total Routes served by the application.
+# TYPE devops_dast_routes_total gauge
+devops_dast_routes_total 10
+# HELP devops_dast_routes_unscanned Routes the configured scan cannot reach.
+# TYPE devops_dast_routes_unscanned gauge
+devops_dast_routes_unscanned 6
+# HELP devops_dast_coverage_ratio Reachable routes divided by total routes.
+# TYPE devops_dast_coverage_ratio gauge
+devops_dast_coverage_ratio 0.4
+# HELP devops_dast_unscanned_by_reason Unreachable routes, by why the scan cannot reach them.
+# TYPE devops_dast_unscanned_by_reason gauge
+devops_dast_unscanned_by_reason{reason="parameterised"} 3
+devops_dast_unscanned_by_reason{reason="unlinked"} 2
+devops_dast_unscanned_by_reason{reason="write"} 1

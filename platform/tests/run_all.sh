@@ -78,6 +78,12 @@ SUITES=(
   # retention policy; this suite guards the aggregation, including its refusal
   # to summarise an empty directory into a clean bill of health.
   test_health_rollup.sh
+  # A DAST PASS covers only what the configured profile can reach. The ZAP
+  # baseline is a GET spider, so it never touches the pilot's one write
+  # endpoint -- 4 of 10 routes when measured. This suite guards the reporter
+  # that makes that number visible, including its refusal to report coverage
+  # for a dispatcher it can no longer parse.
+  test_dast_coverage.sh
 )
 
 # TIER 2. Needs Docker AND a live postgres holding the pilot's data. Separated
