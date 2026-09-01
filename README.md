@@ -57,6 +57,12 @@ Alertmanager、Loki、node-exporter **刻意留在 loopback**，由
 
 機器讀的入口：[`docs/Stage-Report.json`](docs/Stage-Report.json)（schema `stage-report/1`）。
 
+「三線階段燈號」最下面一列（2026-09-01 新增）回答的不是「現在健不健康」，
+而是**「壞了多久，以及那段時間我們到底有沒有在看」**：涵蓋率、最長連續中斷、
+無紀錄空窗次數。第一次計算就找到一段 **73.7 小時的監測中斷**——證據每 15 分鐘
+寫了三天、約 200 份，沒有人打開過。
+見 [ADR-0009](docs/decisions/0009-health-rollup-not-retention.md)。
+
 ---
 
 ## 二、紀錄放在哪裡

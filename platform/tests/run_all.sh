@@ -73,6 +73,11 @@ SUITES=(
   # to. Added 2026-08-31, after an arm64-only image imported cleanly onto the
   # amd64 box and only failed at the kubelet.
   test_image_arch.sh
+  # The health probe writes one snapshot every 15 minutes and nobody reads
+  # them. ADR-0006 measured that pile and prescribed aggregation rather than a
+  # retention policy; this suite guards the aggregation, including its refusal
+  # to summarise an empty directory into a clean bill of health.
+  test_health_rollup.sh
 )
 
 # TIER 2. Needs Docker AND a live postgres holding the pilot's data. Separated

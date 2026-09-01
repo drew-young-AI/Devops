@@ -337,3 +337,89 @@ pilot 有兩份副本。在此之前 Prometheus 只抓 Compose 那份；K8s 那�
 何時分歧」這件唯一有價值的事合併掉。
 
 守衛：`platform/tests/test_migration_observed.sh`。
+
+---
+
+## `rollup_health.py` — 把 1,520 份快照收斂成一個答案（2026-09-01）
+
+`check_health.sh` 每 15 分鐘寫一份 `health_<ts>.json`。三週後那是 1,520 份
+結構完全相同的檔案。[ADR-0006](../../docs/decisions/0006-context-compaction.md)
+量過這堆東西，結論是：
+
+> 沒有任何 agent 會讀 1,215 個檔。它會讀一兩個然後外推——
+> 而「讀了兩個就結論全體健康」正是 grounding gap 的定義，只是穿著證據的外衣。
+
+並且指定了處方：**「收斂要用彙總，不是用 `find -mtime -delete`。」**
+`rollup_health.py` 就是那份彙總。**它一份快照都不刪。**
+
+```bash
+python3 platform/observability/rollup_health.py          # 寫入彙總＋metrics
+python3 platform/observability/rollup_health.py --json   # 完整結果到 stdout
+python3 platform/observability/rollup_health.py --no-write --json   # 唯讀
+```
+
+耗時 0.12 秒／1,520 檔（純標準函式庫，無外部相依）。
+
+### 它回答的三個問題
+
+| 問題 | 為什麼單看一份快照答不出來 |
+|---|---|
+| 每項完整性檢查總共失敗幾次？ | 快照只講它被寫下的那一刻 |
+| 是零星雜訊，還是**一段連續**的中斷？ | 24 次分散的失敗和一段連續六小時，次數相同、意義完全不同 |
+| **有沒有時段根本沒寫下任何快照？** | 空窗在任何單一快照裡都不存在——它是檔案之間的東西 |
+
+第三個是最重要的。**「看了，是壞的」是證據；「根本沒看」不是。**
+兩者分開計算、從不相加，因為相加會得到一個沒有意義的數字。
+
+### 第一次執行找到什麼
+
+| 指標 | 值 |
+|---|---:|
+| 監測涵蓋率 | **83.6%**（實際 1,520 ／應有 1,818） |
+| 最長連續中斷 | **73.7 小時**（2026-08-21 → 08-24，Prometheus 與 Alertmanager 同時 Errno 61） |
+| 無紀錄空窗 | 54 次，最長 25.9 小時 |
+| UNKNOWN 判定 | 259 份 |
+
+那 73.7 小時裡，探針每 15 分鐘忠實地把「連線被拒」寫進證據，約 200 份。
+**沒有人打開過任何一份。** 這就是 ADR-0006 說的事，只是規模比它記載的
+11 小時版本大了近七倍。完整分析見
+[ADR-0009](../../docs/decisions/0009-health-rollup-not-retention.md)。
+
+### 它拒絕做的事
+
+**空目錄一律拒絕，而且不寫任何 metrics。** 在零個樣本上，「每項檢查都通過」
+是真的——而那份綠色的 `.prom` 會被 Prometheus 一路帶下去，板面顯示一切平靜。
+`VACUOUS` 不是 `PASS`，這是整個平台的組織原則。
+
+輸出：
+
+- `evidence/observability/health_rollup.json` — schema `health-rollup/1`
+- `evidence/statusdag/health_rollup.prom` — 直接落在 node-exporter 已經唯讀掛載的
+  目錄（見 `compose.yaml`），所以不需要新的 scrape target
+
+### 板面與告警
+
+- **Grafana**「三線階段燈號」面板 100–104：涵蓋率、最長連續中斷、空窗次數、
+  各檢查失敗數、判定分布
+- **`PlatformHealthRollupStale`**（severity `info`）：彙總本身停掉時，涵蓋率會
+  凍結在最後一個數字，看起來像「沒有新問題」，實際是「沒有再統計過」。
+  與 `PlatformBoardStale` 同一個理由，只是換一個檔案
+
+**不對涵蓋率設告警**：它是全期累計值，只會單調變化，設了會永遠響或永遠不響。
+當下的健康由 `PlatformNodeFailed` 與 `check_health.sh` 負責。
+
+### 守衛
+
+`platform/tests/test_health_rollup.sh`（tier 1，16 項）。控制組全部是**合成的**：
+偽造一段六小時中斷、偽造一個四小時空窗、餵一個空目錄，然後要求偵測器把它報出來。
+拿真實目錄測幾乎證明不了什麼——那段歷史大部分是乾淨的，一個寫死回傳「沒有異常」
+的偵測器每天都會通過。
+
+突變測試（2026-09-01，四個突變全部被抓，還原後與基準逐位元相同）：
+
+| 突變 | 結果 |
+|---|---|
+| `find_episodes()` 永遠回傳 `[]` | CAUGHT |
+| `find_gaps()` 永遠回傳 `[]` | CAUGHT |
+| 空目錄回傳 0（那個 vacuous pass） | CAUGHT |
+| 中斷時長寫死為 0 | CAUGHT |

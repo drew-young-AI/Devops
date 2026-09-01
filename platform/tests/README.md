@@ -109,6 +109,7 @@ not fail a build:
 |---|---|---|---|
 | `test_image_arch.sh` | 1 | 送到叢集的自建映像檔必須帶有該叢集架構的 manifest | ✅ 合成平台清單的三個控制項 |
 | `test_migration_observed.sh` | 3 | 「部署了什麼」與「監控了什麼」必須對得起來 | ✅ 顏色錯置、無人監控的工作負載，還原都經驗證 |
+| `test_health_rollup.sh` | 1 | 健康快照的彙總必須找得到中斷與空窗，且拒絕在空目錄上報平安 | ✅ 四個合成控制項＋四個突變全部被抓 |
 
 ### `PLATFORM_TIERS`：層級由呼叫端明示
 
@@ -132,6 +133,11 @@ PLATFORM_TIERS=1 platform/tests/run_all.sh  # 只跑不需要環境的契約層
 空集合會讓「每一個都符合」自動成立。`test_image_arch.sh` 與
 `test_migration_observed.sh` 對「沒有東西可檢查」的情況印 `VACUOUS`，不印 PASS——
 一行意思是「什麼都沒檢查」的綠燈，正是這些守衛存在的理由。
+
+同一條規則也寫進了被測的腳本本身，不只寫在測試裡：
+`rollup_health.py` 對空的快照目錄**直接拒絕並且不寫任何 metrics**（exit 1）。
+在零個樣本上「每項檢查都通過」是成立的，而那份綠色的 `.prom` 會被 Prometheus
+一路帶下去。守衛能抓到的前提是被守衛的東西自己不會說謊。
 
 ### macOS↔Linux 可攜性
 

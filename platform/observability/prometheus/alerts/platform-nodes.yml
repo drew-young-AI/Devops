@@ -53,3 +53,30 @@ groups:
             node-exporter 會繼續提供最後讀到的 textfile，所以 dag.py 停掉之後
             每個節點指標都會凍結在最後一個值。凍結的綠燈和健康的綠燈長得一模一樣。
           runbook: "platform/scheduler/status.sh 查 dag 這個工作"
+
+      # The same argument, one file over.
+      #
+      # `health_rollup.prom` is written by rollup_health.py hourly and shares
+      # the textfile directory with dag.prom, so it inherits the identical
+      # freeze-at-last-value behaviour: if the rollup job dies, the historical
+      # coverage figure stops moving and keeps reporting whatever it last said.
+      # A separate rule rather than a wider matcher on the one above, because
+      # the two files have different cadences (900s vs 3600s) and a single
+      # threshold would either miss a dead dag.py or page on a healthy rollup.
+      #
+      # 3 hours: three missed hourly runs, matching the "three cycles" rule
+      # used for the board.
+      - alert: PlatformHealthRollupStale
+        expr: time() - node_textfile_mtime_seconds{file="/textfile/health_rollup.prom"} > 10800
+        for: 15m
+        labels:
+          severity: info
+          service: platform
+        annotations:
+          summary: "健康彙總已 {{ $value | humanizeDuration }} 未更新"
+          description: >-
+            彙總停掉之後，涵蓋率與最長故障時間會凍結在最後一次的數字，
+            看起來像「沒有新問題」，實際是「沒有再統計過」。
+            severity 是 info 而非 warning：這條看的是歷史視圖，
+            當下的健康由 PlatformNodeFailed 與 check_health.sh 負責。
+          runbook: "python3 platform/observability/rollup_health.py"

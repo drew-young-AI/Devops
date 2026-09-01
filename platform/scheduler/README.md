@@ -51,16 +51,29 @@ written to `/Library` or `/usr/local`, and `--uninstall` removes everything.
 Cadence comes from how fast the watched thing can change, not from a uniform
 "hourly because that felt right".
 
+`jobs.conf` is the source of truth and carries the full reasoning per job as
+comments; this table is the summary. It was out of date until 2026-09-01 (it
+listed 8 of the 16 jobs), which is the ordinary way an index rots: nothing
+breaks, it just quietly stops describing the system.
+
 | Job | Every | Reason |
 |---|---|---|
 | `health` | 15m | the core up/down signal, and cheap (~2s) |
 | `board` | 15m | derived from evidence; a stale board misleads |
+| `dag` | 15m | the traffic-light view; a stale green light is worse than no light |
+| `stagereport` | 15m | the reviewer's view of the same probes; a stage page older than the board it summarises would disagree with it |
+| `gha` | 30m | remote CI status, fetched into evidence. Polling GitHub from inside `dag.py` took 30s and failed; a scheduled fetch keeps the board fast and makes "never fetched" a visible state |
+| `rollup` | 1h | the **historical** health view (`rollup_health.py`). Hourly rather than daily because "how long has this been broken" is asked *during* an incident, and a day-old answer omits the incident |
+| `dataops` | 1h | freshness / drift / execution health. Hourly because the freshness alert answers "did the upstream stop", and a daily metric makes that question up to a day stale itself |
+| `mirror` | 24h | the analytical Parquet mirror; a stale mirror **refuses to answer** rather than answering wrongly, so cadence is convenience here, not safety |
 | `audit` | 24h | fail-closed risk, but slow-moving |
 | `backup` | 24h | platform state changes on the order of days |
+| `offsite` | 24h | follows `backup`; reports not-configured until a destination exists — a visible state rather than the silent absence of any offsite copy |
 | `dast` | 24h | the deployed surface changes only on promote |
 | `sast` | 7d | code is gated in CI already — this catches **upstream rule updates** finding old code, which is the only reason re-scanning unchanged source is worth anything |
 | `restore` | 7d | expensive (spins a container), and the claim it proves degrades slowly |
 | `rotation` | 7d | 90-day secret policy; daily would be noise |
+| `retrain` | 7d | the source is weekly and lags ~2 weeks; daily would rebuild an identical feature set six days in seven |
 
 **Deliberately never scheduled**: anything that waits for a human.
 `deploy.sh promote` blocks for someone to type `PROMOTE`; scheduling it

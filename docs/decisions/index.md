@@ -16,5 +16,6 @@
 | 0006 | [不採用 headroom，也不自建等價壓縮](0006-context-compaction.md) | 已採用 | 2026-08-29 | `platform/docs/context_cost.sh` |
 | 0007 | [規則與圖表以「能不能評估」驗收，不以「能不能解析」](0007-verify-by-evaluation.md) | 已採用 | 2026-08-29 | `platform/tests/test_dashboards.sh` |
 | 0008 | [兩台機器兩種指令集：Mac 是 dev/SIT/UAT，Ubuntu 是 prod，映像檔在目標架構上建置](0008-two-machines-two-architectures.md) | 已採用 | 2026-08-31 | `platform/tests/test_image_arch.sh` |
+| 0009 | [健康快照用彙總收斂，不用保留策略刪除](0009-health-rollup-not-retention.md) | 已採用 | 2026-09-01 | `platform/observability/rollup_health.py` |
 
-共 8 筆。
+共 9 筆。
