@@ -16,7 +16,7 @@
     "to": "now"
   },
   "editable": true,
-  "description": "三條線的節點狀態與歷程。資料來自 dag.py 的現場探測，經 node-exporter textfile 由 Prometheus 每 15s 抓取。",
+  "description": "三條線的節點狀態與歷程。資料來自 dag.py 的現場探測，經 node-exporter textfile 由 Prometheus 每 15s 抓取。線別以 layer 標籤區分，不以節點名單——名單是會過期的第二份副本。",
   "panels": [
     {
       "type": "stat",
@@ -25,20 +25,20 @@
       "gridPos": {
         "x": 0,
         "y": 0,
-        "w": 5,
+        "w": 4,
         "h": 4
       },
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "PBFA97CFB590B2093"
       },
       "targets": [
         {
           "refId": "A",
-          "expr": "count(devops_node_state_code{node=~\"vault|audit|scheduler|sast|secrets|ci|trivy|registry|k8s|bluegreen|develop|dast|llmreview|gate|prodlike|nginx|prometheus|loki|alertmgr|grafana|backup|restore\"} == 0) or vector(0)",
+          "expr": "count(devops_node_state{layer!~\"dataops|mlops\",state=\"ok\"} == 1) or vector(0)",
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "PBFA97CFB590B2093"
           }
         }
       ],
@@ -71,22 +71,22 @@
       "title": "DataOps 節點正常",
       "id": 2,
       "gridPos": {
-        "x": 5,
+        "x": 4,
         "y": 0,
-        "w": 5,
+        "w": 4,
         "h": 4
       },
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "PBFA97CFB590B2093"
       },
       "targets": [
         {
           "refId": "A",
-          "expr": "count(devops_node_state_code{node=~\"sources|geo|facts|lineage|dcontract|epiweek\"} == 0) or vector(0)",
+          "expr": "count(devops_node_state{layer=\"dataops\",state=\"ok\"} == 1) or vector(0)",
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "PBFA97CFB590B2093"
           }
         }
       ],
@@ -119,22 +119,22 @@
       "title": "MLOps 節點正常",
       "id": 3,
       "gridPos": {
-        "x": 10,
+        "x": 8,
         "y": 0,
-        "w": 5,
+        "w": 4,
         "h": 4
       },
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "PBFA97CFB590B2093"
       },
       "targets": [
         {
           "refId": "A",
-          "expr": "count(devops_node_state_code{node=~\"features|backtest|mgate|forecast|retrain\"} == 0) or vector(0)",
+          "expr": "count(devops_node_state{layer=\"mlops\",state=\"ok\"} == 1) or vector(0)",
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "PBFA97CFB590B2093"
           }
         }
       ],
@@ -167,14 +167,14 @@
       "title": "探測資料年齡",
       "id": 4,
       "gridPos": {
-        "x": 15,
+        "x": 12,
         "y": 0,
         "w": 4,
         "h": 4
       },
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "PBFA97CFB590B2093"
       },
       "targets": [
         {
@@ -182,7 +182,7 @@
           "expr": "time() - devops_board_generated_seconds",
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "PBFA97CFB590B2093"
           }
         }
       ],
@@ -232,22 +232,22 @@
       "title": "失敗節點",
       "id": 5,
       "gridPos": {
-        "x": 19,
+        "x": 16,
         "y": 0,
-        "w": 5,
+        "w": 4,
         "h": 4
       },
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "PBFA97CFB590B2093"
       },
       "targets": [
         {
           "refId": "A",
-          "expr": "count(devops_node_state_code == 4) or vector(0)",
+          "expr": "count(devops_node_state{state=\"fail\"} == 1) or vector(0)",
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "PBFA97CFB590B2093"
           }
         }
       ],
@@ -289,6 +289,94 @@
       }
     },
     {
+      "id": 90,
+      "type": "stat",
+      "title": "GitHub Actions（main）",
+      "description": "遠端 CI。2026-08-31 之前它的狀態不在任何板面、也不在任何告警上——最近 20 次有 13 次紅、至少六天沒人知道。紅了不被告知，和沒紅是一樣的。",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PBFA97CFB590B2093"
+      },
+      "gridPos": {
+        "x": 20,
+        "y": 0,
+        "w": 4,
+        "h": 4
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "expr": "devops_node_state_code{node=\"gha\"}",
+          "legendFormat": "gha",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            {
+              "type": "value",
+              "options": {
+                "0": {
+                  "text": "正常",
+                  "color": "green",
+                  "index": 0
+                },
+                "1": {
+                  "text": "已被取代",
+                  "color": "text",
+                  "index": 1
+                },
+                "2": {
+                  "text": "注意",
+                  "color": "orange",
+                  "index": 2
+                },
+                "3": {
+                  "text": "無法判定",
+                  "color": "purple",
+                  "index": 3
+                },
+                "4": {
+                  "text": "失敗",
+                  "color": "red",
+                  "index": 4
+                }
+              }
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          },
+          "color": {
+            "mode": "thresholds"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "background",
+        "graphMode": "none",
+        "textMode": "auto"
+      }
+    },
+    {
       "type": "state-timeline",
       "title": "DevOps — 節點狀態歷程",
       "id": 6,
@@ -300,17 +388,17 @@
       },
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "PBFA97CFB590B2093"
       },
       "targets": [
         {
           "refId": "A",
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "PBFA97CFB590B2093"
           },
           "legendFormat": "{{node}}",
-          "expr": "devops_node_state_code{node=~\"vault|audit|scheduler|sast|secrets|ci|trivy|registry|k8s|bluegreen|develop|dast|llmreview|gate|prodlike|nginx|prometheus|loki|alertmgr|grafana|backup|restore\"}"
+          "expr": "devops_node_state_code{layer!~\"dataops|mlops\"}"
         }
       ],
       "options": {
@@ -392,17 +480,17 @@
       },
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "PBFA97CFB590B2093"
       },
       "targets": [
         {
           "refId": "A",
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "PBFA97CFB590B2093"
           },
           "legendFormat": "{{node}}",
-          "expr": "devops_node_state_code{node=~\"sources|geo|facts|lineage|dcontract|epiweek\"}"
+          "expr": "devops_node_state_code{layer=\"dataops\"}"
         }
       ],
       "options": {
@@ -484,17 +572,17 @@
       },
       "datasource": {
         "type": "prometheus",
-        "uid": "prometheus"
+        "uid": "PBFA97CFB590B2093"
       },
       "targets": [
         {
           "refId": "A",
           "datasource": {
             "type": "prometheus",
-            "uid": "prometheus"
+            "uid": "PBFA97CFB590B2093"
           },
           "legendFormat": "{{node}}",
-          "expr": "devops_node_state_code{node=~\"features|backtest|mgate|forecast|retrain\"}"
+          "expr": "devops_node_state_code{layer=\"mlops\"}"
         }
       ],
       "options": {

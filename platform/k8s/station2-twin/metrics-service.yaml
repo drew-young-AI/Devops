@@ -1,0 +1,46 @@
+# A NodePort whose only job is to make the Kubernetes copy of the pilot
+# SCRAPEABLE from the Prometheus that runs outside the cluster.
+#
+# WHY THIS EXISTS (2026-09-01).
+#
+# The board said the pilot had migrated to Kubernetes. The Kubernetes copy was
+# reachable only on a ClusterIP, and k3d publishes nothing but the API port, so
+# Prometheus could not reach it *even in principle*. It was not a missing scrape
+# config; there was no route at all. Prometheus had two active targets and the
+# migrated copy was neither of them.
+#
+# pilots/README.md already records this exact defect from the station1-hello
+# retirement -- monitoring left pointing at the copy that no longer mattered,
+# "儀表板對著錯的服務顯示「一切正常」，比沒有儀表板更糟". It recurred here with
+# the roles swapped.
+#
+# WHY IT REUSES THE SAME SELECTOR AS THE MAIN SERVICE.
+#
+# Including `color` means this follows whichever colour promote.sh has made
+# live, so the metrics describe THE COPY THAT IS SERVING TRAFFIC. A selector
+# without `color` would load-balance scrapes across blue and green and produce
+# a series that silently alternates between two different builds -- most
+# misleading exactly during a promote, which is when it is most needed.
+#
+# WHAT THIS STILL DOES NOT GIVE YOU: the idle colour is invisible. A green
+# deployment that is broken before promotion cannot be seen here. The real fix
+# is Prometheus inside the cluster with kubernetes_sd_configs, which is what the
+# amd64 production cluster should get; this is the honest minimum for k3d.
+apiVersion: v1
+kind: Service
+metadata:
+  name: station2-twin-metrics
+  namespace: station2
+  labels:
+    app: station2-twin
+    purpose: metrics
+spec:
+  type: NodePort
+  selector:
+    app: station2-twin
+    color: blue          # promote.sh patches this in lockstep with the main Service
+  ports:
+    - name: metrics
+      port: 8080
+      targetPort: 8080
+      nodePort: 30890

@@ -87,6 +87,26 @@ NOW=$(k get svc station2-twin -o jsonpath='{.spec.selector.color}')
 [ "$NOW" = "$COLOR" ] || fail "patch applied but selector is '$NOW'"
 echo "  [4/4] Service selector is now color=$COLOR"
 
+# The metrics NodePort must move WITH the traffic Service, in the same step.
+#
+# Leaving it behind would point Prometheus at the colour that is no longer
+# serving -- monitoring the wrong copy, which is precisely the defect this
+# platform has now hit twice (station1-hello's retirement, and the Kubernetes
+# copy going unscraped for days). It would also be the worst possible moment
+# for it: right after a promote is when someone looks at the graph.
+#
+# Verified, not assumed: the selector is read back, and a mismatch is fatal.
+if k get svc station2-twin-metrics >/dev/null 2>&1; then
+  k patch svc station2-twin-metrics -p "{\"spec\":{\"selector\":{\"app\":\"station2-twin\",\"color\":\"$COLOR\"}}}" >/dev/null
+  MNOW=$(k get svc station2-twin-metrics -o jsonpath='{.spec.selector.color}')
+  [ "$MNOW" = "$COLOR" ] || fail "metrics service still points at '$MNOW' -- Prometheus would watch the idle colour"
+  echo "        metrics Service moved with it (Prometheus now watches color=$COLOR)"
+else
+  # Not silent. A missing metrics service means the migrated copy is unscraped,
+  # and that has to be said out loud rather than discovered weeks later.
+  echo "  WARN  station2-twin-metrics does not exist -- the K8s copy is UNSCRAPED"
+fi
+
 # Endpoints are the proof. A selector that matches nothing yields an empty
 # endpoint list and a Service that blackholes every request while looking
 # correctly configured.

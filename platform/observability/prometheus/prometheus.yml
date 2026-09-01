@@ -30,6 +30,32 @@ scrape_configs:
           environment: develop
           service: station2-twin
 
+  # THE KUBERNETES COPY. Added 2026-09-01, and the reason is the paragraph above
+  # happening a second time with the roles reversed.
+  #
+  # The pilot runs in two places. The board said it had "migrated to
+  # Kubernetes"; Prometheus had two targets and the Kubernetes copy was neither
+  # of them. It was not a missing entry here -- there was NO ROUTE: the copy sat
+  # on a ClusterIP and k3d published nothing but the API port, so this scrape
+  # was impossible even in principle. `station2-twin-metrics` (NodePort 30890,
+  # mapped to host 18091) is what makes it reachable.
+  #
+  # `environment: k8s` rather than develop, because the two copies are genuinely
+  # different deployments -- different credential paths (vault vs static),
+  # different substrates -- and giving them the same environment label would
+  # merge two things whose divergence is the whole point of watching them.
+  #
+  # It follows the ACTIVE colour only: the metrics service carries the same
+  # `color` selector that promote.sh patches. The idle colour is not visible
+  # here; that needs in-cluster service discovery.
+  - job_name: station2-twin-k8s
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["host.docker.internal:18091"]
+        labels:
+          environment: k8s
+          service: station2-twin
+
   # NO production-like job yet, on purpose.
   #
   # Blue/green for station2-twin is not wired: its compose bundles the database
