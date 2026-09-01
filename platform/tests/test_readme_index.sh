@@ -21,18 +21,48 @@ echo "== README: the index must point at things that exist =="
 README="$REPO_ROOT/README.md"
 assert_file_exists "$README" "README.md exists"
 
+# Defined before the host-only section, because check_catches below reads it on
+# every path. Guarding the section that SETS it without guarding the code that
+# READS it produced `PUBLISHED: unbound variable` on the CI runner -- a defect
+# introduced by the fix for the previous defect, and caught only because the
+# runner is the machine where the skip path is the one that runs.
+PUBLISHED=""
+
 # ---- 1. every relative link resolves --------------------------------------
+# A link can point at two kinds of thing, and only one of them is checkable
+# everywhere.
+#
+#   TRACKED     a file in the repository. Missing means a broken index.
+#   GENERATED   docs/Stage-Report.json and friends -- gitignored on purpose,
+#               rebuilt every 15 minutes from evidence. Absent on a fresh
+#               checkout BY DESIGN.
+#
+# Treating the second kind as a broken link made this suite structurally red on
+# every CI runner: it could not fail for a real reason, only for the fact that
+# CI is not the machine that generates the artefact. That is the same shape as
+# the tier-2 database suites, and the same answer applies -- verify it where it
+# should exist, say UNVERIFIED where it should not, and never quietly accept it.
 MISSING=""
+UNVERIFIABLE=""
 while read -r target; do
   [ -n "$target" ] || continue
-  [ -e "$REPO_ROOT/$target" ] || MISSING="$MISSING $target"
+  if [ -e "$REPO_ROOT/$target" ]; then
+    continue
+  elif git -C "$REPO_ROOT" check-ignore -q "$target" 2>/dev/null; then
+    UNVERIFIABLE="$UNVERIFIABLE $target"
+  else
+    MISSING="$MISSING $target"
+  fi
 done < <(grep -oE '\]\([^)#]+\)' "$README" | sed 's/^](//; s/)$//' \
          | grep -v '^https\?://' | sed 's/#.*//' | sort -u)
 if [ -z "$MISSING" ]; then
-  _pass "every relative link in the README resolves to a real path"
+  _pass "every relative link in the README resolves to a tracked path"
 else
-  _fail "every relative link in the README resolves to a real path" \
+  _fail "every relative link in the README resolves to a tracked path" \
         "missing:$MISSING"
+fi
+if [ -n "$UNVERIFIABLE" ]; then
+  echo "  SKIP  generated artefacts not present in this checkout -- UNVERIFIED:$UNVERIFIABLE"
 fi
 
 # ---- 2. the hostname is this machine's, not a leftover ---------------------
@@ -160,7 +190,11 @@ fi
 cp "$README" "$FIX/README.md"
 CLEAN="$(cd "$FIX" && grep -oE '\]\([^)#]+\)' README.md | sed 's/^](//; s/)$//' \
          | grep -v '^https\?://' | sed 's/#.*//' | sort -u \
-         | while read -r x; do [ -e "$REPO_ROOT/$x" ] || echo "MISSING $x"; done)"
+         | while read -r x; do
+             [ -e "$REPO_ROOT/$x" ] && continue
+             git -C "$REPO_ROOT" check-ignore -q "$x" 2>/dev/null && continue
+             echo "MISSING $x"
+           done)"
 if [ -z "$CLEAN" ]; then
   _pass "an unmodified README reports nothing (the checks are not always red)"
 else
