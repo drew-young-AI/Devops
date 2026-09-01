@@ -42,6 +42,20 @@ jobs:
           command -v nc >/dev/null || sudo apt-get install -y netcat-openbsd
 
       - name: Run platform test suite
+        # TIER 1 ONLY, declared explicitly rather than detected.
+        #
+        # This runner has no Postgres holding the pilot's 6.5M rows and no k3d
+        # cluster, and it never will. Before 2026-08-31 the suite ran all tiers
+        # here and went red on every push for that structural reason -- 13 of
+        # the last 20 runs -- until "CI is red" stopped meaning anything and
+        # six days of genuine failures went unread.
+        #
+        # A green result here means the CONTRACTS hold. It does not mean the
+        # platform works; tiers 2 and 3 run where the platform actually is, and
+        # run_all.sh prints which tiers it skipped above its verdict so this
+        # cannot be quoted as more than it is.
+        env:
+          PLATFORM_TIERS: "1"
         run: platform/tests/run_all.sh
 
       # Deliberately NOT run here: anything needing a Docker daemon, a live

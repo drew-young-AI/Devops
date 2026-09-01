@@ -57,8 +57,17 @@ IFS='|' read -r _ INTERVAL TIMEOUT COMMAND <<< "$JOB_LINE"
 
 # mkdir is atomic, which is what makes it a correct lock. A lock FILE tested
 # with -e and then created is a race with a window between the two.
+# Modification time, portably. `stat -f %m` is BSD/macOS; on GNU coreutils
+# `-f` means "filesystem status" and prints `File: ...`, which then lands
+# inside $(( )) and dies as `File: unbound variable` under `set -u`. That is
+# not a cosmetic difference: it broke every CI run from 2026-08-08 to
+# 2026-08-31 -- 13 of the last 20 runs red -- while every local run stayed
+# green, because the only machine anyone watched was the one BSD stat works on.
+# GNU form first, BSD as the fallback: both are tried, neither is assumed.
+_mtime() { stat -c %Y "$1" 2>/dev/null || stat -f %m "$1" 2>/dev/null; }
+
 if ! mkdir "$LOCK_DIR" 2>/dev/null; then
-  LOCK_AGE=$(( $(date +%s) - $(stat -f %m "$LOCK_DIR" 2>/dev/null || date +%s) ))
+  LOCK_AGE=$(( $(date +%s) - $(_mtime "$LOCK_DIR" || date +%s) ))
   # A lock older than twice the job's own timeout cannot belong to a live
   # run -- it is a leftover from a killed process. Left alone it silently
   # disables the job forever.
