@@ -1,9 +1,25 @@
 {
   "schema": "gha-status/1",
-  "fetched_at": "2026-09-01T20:47:07+08:00",
+  "fetched_at": "2026-09-01T21:50:06+08:00",
   "fetch_state": "ok",
   "detail": "fetched main",
   "runs": [
+    {
+      "conclusion": "success",
+      "createdAt": "2026-09-01T13:08:56Z",
+      "displayTitle": "fix(vault): ROTATION PASS 是在空集合上量化出來的",
+      "status": "completed",
+      "url": "https://github.com/drew-young-AI/Devops/actions/runs/33511655459",
+      "workflowName": "Platform Tests"
+    },
+    {
+      "conclusion": "success",
+      "createdAt": "2026-09-01T12:54:48Z",
+      "displayTitle": "feat(security): DAST 回報 PASS，而它涵蓋的是十條路由中的四條",
+      "status": "completed",
+      "url": "https://github.com/drew-young-AI/Devops/actions/runs/33510302712",
+      "workflowName": "Platform Tests"
+    },
     {
       "conclusion": "success",
       "createdAt": "2026-09-01T09:03:07Z",
@@ -66,22 +82,6 @@
       "displayTitle": "feat(statusdag): export node state as Prometheus metrics, and stop ke…",
       "status": "completed",
       "url": "https://github.com/drew-young-AI/Devops/actions/runs/32841655410",
-      "workflowName": "Platform Tests"
-    },
-    {
-      "conclusion": "failure",
-      "createdAt": "2026-08-25T10:56:47Z",
-      "displayTitle": "feat(statusdag): probe all three lines, and report by stage rather th…",
-      "status": "completed",
-      "url": "https://github.com/drew-young-AI/Devops/actions/runs/32839770199",
-      "workflowName": "Platform Tests"
-    },
-    {
-      "conclusion": "failure",
-      "createdAt": "2026-08-25T06:07:55Z",
-      "displayTitle": "docs: C9 verified -- launchd's calendar fired retrain on its own",
-      "status": "completed",
-      "url": "https://github.com/drew-young-AI/Devops/actions/runs/32815634318",
       "workflowName": "Platform Tests"
     }
   ]

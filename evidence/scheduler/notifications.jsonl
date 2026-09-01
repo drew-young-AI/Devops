@@ -63,3 +63,4 @@
 {"at": "2026-09-01T07:42:36Z", "job": "health", "from": "degraded", "to": "ok", "severity": "recovered", "summary": "[OK] health: degraded -> ok"}
 {"at": "2026-09-01T08:16:00Z", "job": "health", "from": "ok", "to": "degraded", "severity": "warning", "summary": "[WARN] health: ok -> degraded"}
 {"at": "2026-09-01T12:04:24Z", "job": "health", "from": "degraded", "to": "ok", "severity": "recovered", "summary": "[OK] health: degraded -> ok"}
+{"at": "2026-09-01T13:35:07Z", "job": "health", "from": "ok", "to": "unknown", "severity": "warning", "summary": "[WARN] health: ok -> unknown"}
