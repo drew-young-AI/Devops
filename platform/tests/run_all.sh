@@ -101,6 +101,10 @@ SUITES=(
   # references and that the generated page still carries the source's diagrams;
   # it cannot prove they RENDER, and says so.
   test_offline_report.sh
+  # README.md is declared to be the single index; nothing checked it. An audit
+  # on 2026-09-02 found five documents nothing linked to, one of which was a
+  # second, stale copy of the capability index. Walks the real link graph.
+  test_doc_graph.sh
 )
 
 # TIER 2. Needs Docker AND a live postgres holding the pilot's data. Separated

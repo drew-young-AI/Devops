@@ -38,7 +38,7 @@ decision:
 event-time window + watermark + 冪等 sink 這一組，是分散式串流二十年累積下來的答案。
 單機引擎不解這個問題——不是做得差，是根本不在它的問題範圍內。
 
-`Spark-Design.md` 另外指出一件更具體的：Kafka consumer group 正是
+[`Spark-Design.md`](../Spark-Design.md) 另外指出一件更具體的：Kafka consumer group 正是
 **「blue/green 對串流任務語意錯誤」**的根源——兩個顏色同時消費會分走 partition。
 **而那個問題會在 K8s 上再次出現。** 這是唯一能真正練到它的方式。
 

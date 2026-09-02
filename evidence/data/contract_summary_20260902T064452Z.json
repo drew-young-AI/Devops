@@ -1,0 +1,7 @@
+{
+  "suite": "data_contract_live",
+  "generated_at": "20260902T064452Z",
+  "assertions_passed": 14,
+  "assertions_failed": 0,
+  "gate_result": "PASS"
+}

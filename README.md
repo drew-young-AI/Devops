@@ -80,7 +80,7 @@ Alertmanager、Loki、node-exporter **刻意留在 loopback**，由
 | 紀錄種類 | 位置 | 規則 |
 |---|---|---|
 | **量測與取捨** | [`docs/decisions/`](docs/decisions/index.md) | 帶量測的必須有 `rerun:` 指令，且指向存在的檔案。`platform/docs/decisions.py` 會擋 |
-| 計畫與現況 | [`Plan.md`](Plan.md) | 權威現況；衝突時以它為準 |
+| 計畫與交接 | [`Plan.md`](Plan.md) | **計畫與當時的判斷，不是現況。**現況看第一節的看板；衝突時以板面為準，因為板面是探測出來的、Plan.md 是寫下來的 |
 | 階段 review | [`STAGE_REVIEW.md`](STAGE_REVIEW.md) | 人寫的階段檢討 |
 | 待辦與遞延 | [`docs/Backlog.md`](docs/Backlog.md) | 每一項附「現在做 vs 等 K8s」判定 |
 | 生態系調查 | [`docs/Ecosystem-Scan-2026-08.md`](docs/Ecosystem-Scan-2026-08.md)、[`docs/Ecosystem-Actions-2026-08.md`](docs/Ecosystem-Actions-2026-08.md) | 判準是「解掉我們真的踩過的問題嗎」，不是星數 |
@@ -88,6 +88,8 @@ Alertmanager、Loki、node-exporter **刻意留在 loopback**，由
 | 機器可讀證據 | `evidence/` | 不放 secret、token 或完整敏感 payload |
 | 服務接入契約 | [`NEW_SERVICE_GUIDE.md`](NEW_SERVICE_GUIDE.md) | 新服務進平台的最低要求 |
 | 生產節點接手 | [`docs/Ubu-Prod-Bringup.md`](docs/Ubu-Prod-Bringup.md) | Ubuntu prod 已完成什麼、卡在哪、下一步順序 |
+| **歷史里程碑** | [`docs/Milestone-2026-08-25.md`](docs/Milestone-2026-08-25.md) | **2026-08-25 當時的狀態，不是現況。** 保留是為了「那天我們說了什麼」可查；現況一律看板面與本檔第一節 |
+| 簡報用八張圖 | [`docs/report/README.md`](docs/report/README.md) | 一份來源、線上與離線兩個版本；三個入口都記在那裡 |
 
 ### 決策紀錄的那條規則
 
@@ -109,11 +111,34 @@ rerun: platform/analytics/benchmark.sh
 
 ## 三、各能力的說明在哪
 
+**這一節是唯一的能力索引。** 不要在別處再寫一份——2026-09-02 的盤點發現
+`platform/README.md` 裡有第二份，停在 2026-08-10，宣稱「所有可本機自主完成的
+項目皆已完成，唯一剩餘是 Public URL」。那是 Kubernetes、第二台機器、
+跨架構映像守衛之前的事。
+
+**兩份索引的問題不是重複，是分岔**：沒有人會同時更新兩份，於是其中一份開始
+說謊，而它讀起來和另一份一模一樣。
+
+守衛：`platform/tests/test_doc_graph.sh` 從這個檔案出發走完整個連結圖，
+**任何追蹤中的文件只要沒人連得到就會轉紅**（要嘛補連結，要嘛在
+`platform/docs/doc_graph.py` 的 `EXEMPT` 裡寫下理由——豁免必須有理由，
+沒有理由的豁免和「有人把它靜音了」分不出來）。
+
+自己跑一次：
+
+```bash
+python3 platform/docs/doc_graph.py          # 看整棵樹
+python3 platform/docs/doc_graph.py --check  # 有孤兒或斷鏈就 exit 1
+```
+
+
 每個 `platform/` 子目錄都有自己的 README，寫該能力**做什麼、怎麼跑、保證什麼、
 目前缺什麼**。這裡只放指標。
 
 | 目錄 | 說明 |
 |---|---|
+| [`platform/`](platform/README.md) | 目錄入口與邊界規則（能力索引就是下面這張表，不重複一份） |
+| [`pilots/`](pilots/README.md) | Pilot 端：目前只有 station2-twin |
 | [`platform/k8s/`](platform/k8s/README.md) | 兩個叢集、兩種架構，以及單節點測不到什麼 |
 | [`platform/ci/`](platform/ci/README.md) | 雲端 tier 1 與本機全量的分工；BSD↔GNU 可攜性缺陷 |
 | [`platform/observability/`](platform/observability/README.md) | 指標、日誌、告警、Grafana 權限 |
@@ -179,7 +204,9 @@ GitHub Actions 宣告 `PLATFORM_TIERS=1`，所以它的綠燈只代表**契約�
 9. [docs/Backlog.md](docs/Backlog.md)——遞延項目，**每一項附「現在做 vs 等 K8s」判定**
 10. [docs/Kubernetes-Readiness.md](docs/Kubernetes-Readiness.md)——什麼帶得走、什麼被取代、什麼完全沒碰過
 
-**給主管閱讀**：[docs/System-State.html](docs/System-State.html)（機制盤點與擴充／收斂建議）。
+**給主管閱讀**：[`docs/Stage-Report.html`](docs/Stage-Report.html)（三線階段燈號的靜態版，每 15 分鐘重新產生，可離線轉寄），以及[八張圖](docs/report/plates.offline.html)。
+
+2026-09-02 之前這裡指向 `docs/System-State.html`——一份手工維護的機制盤點，停在 2026-08-14，寫著「排程 8 個 job」（實際 17 個）與「資料治理與流程可視化幾乎是空的」。後面那句在八月是對的，在資料契約、血緣、DuckDB 鏡像、DataOps 指標都做完之後**是反的**。**一份給長官看的現況報告，說反了平台最近投入最多的地方**，比沒有那份報告糟。已刪除；它的 DORA／CNCF 十類分類框架留在 git 歷史裡，若要復活應該做成產生式的，不是手抄的。
 
 主管簡報（架構圖／流程圖／現況燈號）是**依需求生成的衍生產物，不入庫**——
 來源是 `Plan.md`、`STAGE_REVIEW.md` 與各 `platform/*/README.md`。需要時請 AI

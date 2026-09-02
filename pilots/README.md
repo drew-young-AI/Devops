@@ -41,3 +41,14 @@ Grafana/告警規則皆已驗證。**blue/green 尚未接上**——它的 compo
 但必須遵守 [../NEW_SERVICE_GUIDE.md](../NEW_SERVICE_GUIDE.md) 的服務契約與安全基線。
 
 Pilot 成功不代表產品成功，只代表平台能夠對該服務完成建置、測試、掃描、部署、監控與回滾驗證。
+
+---
+
+## 目前的 Pilot
+
+- [`station2-twin/`](station2-twin/README.md) — 疾病監測數位孿生。服務、ingest 批次、
+  migrations、mlops 都在這個目錄底下。
+
+在 2026-09-02 之前這個檔案沒有連到它。目錄裡只有一個 Pilot 的時候，
+「大家都知道在哪」是成立的；等到有第二個，沒有人會回頭補這條連結，
+而那時候缺的就不只一條。

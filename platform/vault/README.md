@@ -170,7 +170,7 @@ have been caught by just reading the HCL.
 human-in-the-loop steps for actually rotating the GitHub PAT (generating a
 new one and revoking the old one both require GitHub itself, not
 something Vault or this script can do), are in
-`runbooks/rotate_github_token.md`.
+[`runbooks/rotate_github_token.md`](runbooks/rotate_github_token.md).
 
 The short version: rotation is "write a new KV v2 version" — old versions
 stay readable (real rollback, not just claimed; verified by reading back
@@ -404,7 +404,7 @@ privilege than seeing that a secret exists.**
   refusing requests.
 - **No tamper protection.** The log is a file; anyone with root on the host
   can rewrite it. Genuine non-repudiation needs WORM storage or an external
-  sink, which is the same gap `docs/System-State.html` tracks under B.
+  sink -- the same gap `docs/Backlog.md` §5 tracks (offsite backup, awaiting a destination decision).
 - **Retention is undefined.** How long audit records must be kept is an
   auditing-body decision that has not been made, so nothing has been deleted
   and no policy has been guessed at.

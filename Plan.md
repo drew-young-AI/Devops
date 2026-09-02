@@ -11,13 +11,29 @@ timestamp: 2026-08-15T20:00:54+08:00
 
 # Enterprise DevOps Miniature Plan
 
+> **這份文件是計畫與交接紀錄，不是現況。**
+>
+> 內容寫於 2026-08-15。**現況一律看**：根 [`README.md`](README.md) 第一節的看板網址、
+> `python3 platform/statusdag/dag.py`（板面）、`docs/Stage-Report.html`（靜態版）。
+>
+> 2026-09-02 的盤點發現這份文件與現況直接矛盾，而根 README 當時把它宣告成
+> 「權威現況，衝突時以它為準」。**照那條規則走會得出「Kubernetes 不導入」**——
+> 而 k3d 叢集正在跑、station2-twin 的藍綠在上面、Vault 動態憑證也在上面。
+>
+> **一份被宣告為權威、卻描述著三週前系統的文件，比沒有那份文件危險。**
+> 它讀起來像現況，而且是這個 repo 自己叫人優先相信的那一份。
+>
+> 下面反轉過的判斷已就地標註，原文保留——記錄「當時決定了什麼」有價值，
+> 假裝那還是現在的決定沒有。
+
 ## 0.1 Handoff / Current Status
 
 > 本節是跨視窗交接紀錄。新執行緒應先讀本節、`README.md` 與 `docs/`，再採取任何動作。
 >
-> **給主管／需要決定擴充或收斂的人**：先看 `docs/System-State.html`——十類機制的
-> 現況盤點、逐項驗證狀態、以及「值得擴充／建議收斂」兩份依代價排序的清單。
-> 分類依據 DORA 能力模型與 CNCF 平台工程成熟度模型，非自訂。
+> **給主管／需要決定擴充或收斂的人**：看 [`docs/Stage-Report.html`](docs/Stage-Report.html)
+> 與 [`docs/report/plates.offline.html`](docs/report/plates.offline.html)。
+> 兩者都是**產生式**的，不會像手抄的盤點那樣過期。
+> （原本這裡指向 `docs/System-State.html`，已於 2026-09-02 刪除——見 `README.md` 說明。）
 
 ### 已完成
 
@@ -62,7 +78,7 @@ timestamp: 2026-08-15T20:00:54+08:00
 - [x] 稽核軌跡（A 類收尾）：`platform/vault/scripts/setup_audit.sh`（冪等、自我驗證）+ `audit_query.sh`（稽核者介面）。此前平台能**執行**存取控制卻無法**舉證**：`verify_identity.sh` 證明的是什麼「可能」發生，稽核日誌記錄的是什麼「實際」發生——對稽核單位而言那是兩個問題，而他們問的是第二個。**必讀：Vault 稽核裝置是 fail-closed**，所有裝置都寫不進去時 Vault **停止服務所有請求**（它不執行記不下來的操作）。這是正確姿態也是可用性風險：稽核 volume 滿了就是 Vault 全面中斷，連帶部署停擺。兩項刻意的緩解：(1) 啟用**兩個**裝置（Vault 只要一個成功就繼續）——`file/` 寫入 `vault-logs` volume 作為真實紀錄並納入備份，`stdout/` 經 Docker→Alloy→Loki 可查詢並充當第二個 sink；(2) 用具名 volume 取代原本的 tmpfs。**修掉一個會以最糟方式失敗的設定**：`/vault/logs` 原是 4MB tmpfs，理由是「反正沒在用，Vault 預設寫 stdout」——啟用稽核的那一刻這句話就失效，而舊設定會讓稽核日誌**上限 4MB、每次重啟全部消失，同時 `vault audit list` 仍回報裝置健康**；會蒸發的稽核日誌比沒有更糟，因為它看起來像有覆蓋。**HMAC 保護經實測非假設**：`setup_audit.sh` 會讀一個已知 secret 再 grep 稽核日誌找該字面值，出現就讓 setup 失敗（`log_raw=true` 絕不可設，那會把稽核軌跡變成平台最大的明文機密庫）。**立即產出的價值**：稽核紀錄獨立佐證了 RBAC——`platform-viewer` 讀 value 被 DENIED、讀 metadata 被 allowed，白紙黑字證明該角色**在正式環境真的被擋下過**，而不只是測試說它會。做成查詢工具而非直接看日誌，是因為原始日誌是每請求約 2KB 的 JSON 且關鍵值全被 HMAC；把 `tail audit.log` 交給稽核者不是稽核能力，是一堆剛好含有答案的位元組。詳見 `platform/vault/README.md`「Audit Trail」。
 - [x] `docker exec -i` stdin 陷阱：**同類缺陷第三次出現後升級為 build 會擋的檢查**（`platform/tests/test_static.sh`）。`docker exec -i` 會接管呼叫者的 stdin，在本平台造成三次事故，每次都靜默且偽裝成別的問題：(1) 還原演練的 unseal 迴圈只套用第一把金鑰就結束、Vault 停在 1/3 且**任何地方都沒有錯誤訊息**——docker 把迴圈剩下的輸入吃掉了；(2) `audit_query.sh` 每次查詢回傳零筆，因為 heredoc 才是 python 的 stdin、管線被丟棄；(3) `verify_identity.sh` 整套在 `policy write evil -` 卡死七分鐘（該指令的 `-` 表示從 stdin 讀取），無輸出無逾時。三次就不是巧合而是類別。現在每個 `docker exec -i` 都必須明確關閉 stdin（`</dev/null`）、明確重導入某物、或標記 `# stdin: intentional`，否則測試失敗；檢查本身也做過負向驗證（故意移除一處防護，確認會被抓到）。同時修掉三處潛伏未爆的同類寫法。
 
-- [x] 排程與自動觸發（收掉最早提出的那個迴圈）：`platform/scheduler/`（8 個 launchd job）+ `platform/vault/scripts/rotate_audit_log.sh`。**兩層架構，且不可合併**：第 1 層是 launchd + 純腳本，**永遠不依賴任何 agent 在線**——若平台自己的監控只在 Claude session 開著時才運作，那平台在沒人使用時（也就是大部分時間、也正是最需要它盯著的時候）就是瞎的；第 2 層才是 agent，讀證據、關聯推理、提出診斷，那是腳本做不到而 LLM 真正加值的部分（`status.sh --json` 與 `evidence/scheduler/` 已備妥作為其輸入，但尚未有東西消費）。**用 launchd 而非 cron**：它會在重開機後恢復，並且**會補跑機器睡眠期間錯過的任務**——筆電上 cron 會直接跳過一整晚的備份而且不會說。**cadence 依「被監看的事物變化多快」而定**，不是齊頭式的每小時：health/board 15 分、audit/backup/dast 24 小時、sast/restore/rotation 7 天（sast 每週重掃未變動的原始碼唯一的意義是**上游規則更新後打中舊程式碼**）。**刻意永不排程任何需要人決定的指令**——`deploy.sh promote` 會等人輸入 `PROMOTE`，排程它等於順手刪掉 release gate，`test_scheduler.sh` 有斷言擋住。**wrapper 的每一部分都對應一種具體失效**：原子 `mkdir` 鎖（非 test-then-create 競態）、陳舊鎖自動打破（否則被砍掉的行程留下的鎖會**永久且靜默地**停用該 job，看起來就像它一直很忙）、逾時（卡住的 job 比失敗的更糟——它持有鎖，之後每次執行都被跳過而排程表看起來全綠）、每次執行都留證據、**只在狀態轉換時通知**（每 15 分鐘回報一次失敗會訓練人去靜音它，而被靜音的告警等於被停用的告警；復原也通知，因為失敗後的沉默與失敗持續中無法區分）、明確設定 `PATH`（launchd 幾乎不給環境，docker 與 uv 裝的 python3 都不在預設路徑，這是 launchd job 靜默什麼都沒做的頭號原因）。**`status.sh`——誰來監督監督者**：排程器無法監督自己，沒載入、plist 壞掉、PATH 錯誤，結果都不是警報而是沉默，而沉默正是健康系統的樣子；因此新鮮度由**消費端**檢查，超過兩倍間隔即成為可見的 `STALE`，而且**陳舊性凌駕記錄的狀態**——四天前回報 ok 的 job 不是 ok，是一個過期的宣稱。**通知預設只在本機**：通知承載的是一套處理醫療資料的系統的營運細節，推送到 Telegram 或 webhook 是有實質影響範圍的決定，屬於使用者而非可以順手繼承的預設；內建 sink 不離開本機（append-only JSONL + macOS 通知中心），設定 `NOTIFY_WEBHOOK` 才會外送。**稽核輪替**解掉唯一一個「持續惡化且失敗模式是全面中斷」的風險：Vault 稽核是 fail-closed，無界成長的日誌就是一場排定好的中斷；輪替用官方的 mv + SIGHUP 機制（實測 Vault 保持解封、持續服務、重開新檔），**封存永不刪除**（保存期是稽核單位的決定，憑猜測刪除是這裡唯一不可逆的錯誤），只壓縮並回報總量。**驗證方式是實際透過 launchd 觸發**，不是在自己 shell 裡跑：8 個 job 全部在 launchd 環境下成功執行（含需要 docker 的），逾時、鎖定、陳舊鎖、never-run、陳舊 ok、轉換通知全部測過，26 項斷言。**測試當場抓到我自己造成的一個真 bug**：加 `disown` 消除 "Terminated: 15" 雜訊時把 job 移出了 job table，`wait` 因此拿不到結束狀態，**所有 job 都記錄成功，包括 `false`**——排程器看起來完美無瑕而實際只會記 ok。改為由子 shell 自行寫出 exit code 檔案。詳見 `platform/scheduler/README.md`。
+- [x] 排程與自動觸發（收掉最早提出的那個迴圈）：`platform/scheduler/`（當時 8 個 launchd job；數量以 `platform/scheduler/jobs.conf` 為準，寫死在散文裡的數字必然過期）+ `platform/vault/scripts/rotate_audit_log.sh`。**兩層架構，且不可合併**：第 1 層是 launchd + 純腳本，**永遠不依賴任何 agent 在線**——若平台自己的監控只在 Claude session 開著時才運作，那平台在沒人使用時（也就是大部分時間、也正是最需要它盯著的時候）就是瞎的；第 2 層才是 agent，讀證據、關聯推理、提出診斷，那是腳本做不到而 LLM 真正加值的部分（`status.sh --json` 與 `evidence/scheduler/` 已備妥作為其輸入，但尚未有東西消費）。**用 launchd 而非 cron**：它會在重開機後恢復，並且**會補跑機器睡眠期間錯過的任務**——筆電上 cron 會直接跳過一整晚的備份而且不會說。**cadence 依「被監看的事物變化多快」而定**，不是齊頭式的每小時：health/board 15 分、audit/backup/dast 24 小時、sast/restore/rotation 7 天（sast 每週重掃未變動的原始碼唯一的意義是**上游規則更新後打中舊程式碼**）。**刻意永不排程任何需要人決定的指令**——`deploy.sh promote` 會等人輸入 `PROMOTE`，排程它等於順手刪掉 release gate，`test_scheduler.sh` 有斷言擋住。**wrapper 的每一部分都對應一種具體失效**：原子 `mkdir` 鎖（非 test-then-create 競態）、陳舊鎖自動打破（否則被砍掉的行程留下的鎖會**永久且靜默地**停用該 job，看起來就像它一直很忙）、逾時（卡住的 job 比失敗的更糟——它持有鎖，之後每次執行都被跳過而排程表看起來全綠）、每次執行都留證據、**只在狀態轉換時通知**（每 15 分鐘回報一次失敗會訓練人去靜音它，而被靜音的告警等於被停用的告警；復原也通知，因為失敗後的沉默與失敗持續中無法區分）、明確設定 `PATH`（launchd 幾乎不給環境，docker 與 uv 裝的 python3 都不在預設路徑，這是 launchd job 靜默什麼都沒做的頭號原因）。**`status.sh`——誰來監督監督者**：排程器無法監督自己，沒載入、plist 壞掉、PATH 錯誤，結果都不是警報而是沉默，而沉默正是健康系統的樣子；因此新鮮度由**消費端**檢查，超過兩倍間隔即成為可見的 `STALE`，而且**陳舊性凌駕記錄的狀態**——四天前回報 ok 的 job 不是 ok，是一個過期的宣稱。**通知預設只在本機**：通知承載的是一套處理醫療資料的系統的營運細節，推送到 Telegram 或 webhook 是有實質影響範圍的決定，屬於使用者而非可以順手繼承的預設；內建 sink 不離開本機（append-only JSONL + macOS 通知中心），設定 `NOTIFY_WEBHOOK` 才會外送。**稽核輪替**解掉唯一一個「持續惡化且失敗模式是全面中斷」的風險：Vault 稽核是 fail-closed，無界成長的日誌就是一場排定好的中斷；輪替用官方的 mv + SIGHUP 機制（實測 Vault 保持解封、持續服務、重開新檔），**封存永不刪除**（保存期是稽核單位的決定，憑猜測刪除是這裡唯一不可逆的錯誤），只壓縮並回報總量。**驗證方式是實際透過 launchd 觸發**，不是在自己 shell 裡跑：8 個 job 全部在 launchd 環境下成功執行（含需要 docker 的），逾時、鎖定、陳舊鎖、never-run、陳舊 ok、轉換通知全部測過，26 項斷言。**測試當場抓到我自己造成的一個真 bug**：加 `disown` 消除 "Terminated: 15" 雜訊時把 job 移出了 job table，`wait` 因此拿不到結束狀態，**所有 job 都記錄成功，包括 `false`**——排程器看起來完美無瑕而實際只會記 ok。改為由子 shell 自行寫出 exit code 檔案。詳見 `platform/scheduler/README.md`。
 
 ### 尚未完成的主要交付鏈
 
@@ -111,7 +127,7 @@ Public URL 快速方案：Cloudflare Tunnel adapter
 Local ingress：NGINX + local HTTPS
 Secret：HashiCorp Vault Community；.env 只作 migration source
 MLX：127.0.0.1:9000，LLM automation actor，不是 deployment target
-Kubernetes：未來 adapter，目前不導入
+Kubernetes：未來 adapter，目前不導入　←【2026-08-26 起已反轉】k3d 叢集已建立並承載 station2-twin 藍綠，見 `platform/k8s/README.md`
 MLOps/LLMOps：保留接口，延後擴充
 
 ```
@@ -120,7 +136,10 @@ MLOps/LLMOps：保留接口，延後擴充
 
 - 不要把 Pilot 程式放進 `platform/`。
 - 不要在目前 Mac 上假裝具備 multi-node HA、真實 F5、CDN 或 production capacity。
-- 不要先安裝 Kubernetes、Argo CD、Kubeflow 或 Airflow。
+- ~~不要先安裝 Kubernetes、Argo CD、Kubeflow 或 Airflow。~~
+  **【2026-08-26 起部分反轉】** Kubernetes 已導入（k3d，單機練習叢集）。
+  Argo CD / Kubeflow / Airflow **仍然不裝**——原本那條規則的理由是「服務數量與
+  部署頻率還撐不起這些工具的複雜度」，而那個理由對這三個仍然成立。
 - 不要把 Cloudflare hosted tunnel 的結果當成自建企業網路能力。
 - 不要把明文 `.env` 直接提交 Git、image、artifact、log 或 prompt。
 - 不要使用個人全權限 token；不得要求使用者貼出 token。

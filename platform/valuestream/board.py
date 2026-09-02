@@ -299,7 +299,9 @@ def build_board():
 
 
 # --------------------------------------------------------------------------
-# Rendering. Shares the palette and type treatment of docs/System-State.html
+# Rendering. The palette and type treatment originated in the hand-curated
+# docs/System-State.html, deleted 2026-09-02 for being a stale status page; the
+# treatment stayed because it is the one the other generated views use.
 # on purpose: the platform's documents should read as one family, so a reader
 # who has seen one already knows how to read the other.
 # --------------------------------------------------------------------------

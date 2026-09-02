@@ -11,6 +11,14 @@ timestamp: 2026-08-15T20:00:54+08:00
 
 # Enterprise Application and LLM Delivery Platform Plan
 
+> **計畫參考文件，不是現況**（寫於 2026-08-15）。
+>
+> 幾份 `platform/*/README.md` 把這裡當成規範來源引用（「Station 8 要求⋯」、
+> 「安全矩陣列出⋯」），那些引用仍然有效——**它們引用的是要求，不是狀態**。
+> 現況一律看根 [`README.md`](../README.md) 第一節的看板。
+>
+> 反轉過的判斷（最主要是 Kubernetes）就地標註在 [`Plan.md`](../Plan.md)。
+
 > 目標：建立一套可套用於 Python、Node.js、Java、Go、.NET 等技術棧的企業級容器開發、交付、部署與資安標準。
 
 ## 0. 本階段範圍界線
@@ -224,6 +232,11 @@ Loki            -> container logs
 - [ ] Production 階段再加入 authentication、TLS、retention policy、alert routing 與 HA storage。
 
 目前不導入 ELK、Argo CD 或 Kubernetes。ELK 留給大量全文 log、SIEM 或既有企業標準；Argo CD 留給 Kubernetes GitOps；兩者不是目前 Compose 觀測基線的必要元件。
+
+> **【2026-08-26 起，Kubernetes 一項已反轉】** k3d 叢集已建立並承載 station2-twin 藍綠。
+> ELK 與 Argo CD **仍然不導入**，而且原本的理由沒有改變：ELK 要等真的有 SIEM 需求，
+> Argo CD 要等 GitOps 的複雜度換得回來。反轉一項不等於三項都反轉——
+> 這種「順手一起放寬」正是這條規則當初要擋的。
 
 ## 0E. Kubernetes 評估：目前延後，不是否定
 
