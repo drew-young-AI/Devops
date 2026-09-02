@@ -1,9 +1,17 @@
 {
   "schema": "gha-status/1",
-  "fetched_at": "2026-09-02T08:52:35+08:00",
+  "fetched_at": "2026-09-02T13:50:53+08:00",
   "fetch_state": "ok",
   "detail": "fetched main",
   "runs": [
+    {
+      "conclusion": "success",
+      "createdAt": "2026-09-02T01:00:24Z",
+      "displayTitle": "chore(evidence): 收斂後的板面與健康快照",
+      "status": "completed",
+      "url": "https://github.com/drew-young-AI/Devops/actions/runs/33577628695",
+      "workflowName": "Platform Tests"
+    },
     {
       "conclusion": "success",
       "createdAt": "2026-09-01T14:37:06Z",
@@ -74,14 +82,6 @@
       "displayTitle": "Merge pull request #1 from drew-young-AI/fix/cross-arch-and-ci-visibi…",
       "status": "completed",
       "url": "https://github.com/drew-young-AI/Devops/actions/runs/33487092575",
-      "workflowName": "Platform Tests"
-    },
-    {
-      "conclusion": "failure",
-      "createdAt": "2026-08-26T05:04:28Z",
-      "displayTitle": "feat(backup): the coverage gate now understands PVCs, and refuses wit…",
-      "status": "completed",
-      "url": "https://github.com/drew-young-AI/Devops/actions/runs/32932624155",
       "workflowName": "Platform Tests"
     }
   ]

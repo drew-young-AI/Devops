@@ -3,18 +3,18 @@
 # for why this exists rather than a retention policy.
 # HELP devops_health_rollup_snapshots_total Health snapshots aggregated.
 # TYPE devops_health_rollup_snapshots_total gauge
-devops_health_rollup_snapshots_total 1567
+devops_health_rollup_snapshots_total 1587
 # HELP devops_health_rollup_generated_seconds Unix time the rollup was built.
 # TYPE devops_health_rollup_generated_seconds gauge
-devops_health_rollup_generated_seconds 1788310343
+devops_health_rollup_generated_seconds 1788326412
 # HELP devops_health_rollup_coverage_ratio Snapshots present divided by snapshots expected across the recorded span.
 # TYPE devops_health_rollup_coverage_ratio gauge
-devops_health_rollup_coverage_ratio 0.8304
+devops_health_rollup_coverage_ratio 0.8318
 # HELP devops_health_verdict_samples_total Snapshots recording each verdict.
 # TYPE devops_health_verdict_samples_total gauge
 devops_health_verdict_samples_total{verdict="CRITICAL"} 1
-devops_health_verdict_samples_total{verdict="DEGRADED"} 287
-devops_health_verdict_samples_total{verdict="HEALTHY"} 1016
+devops_health_verdict_samples_total{verdict="DEGRADED"} 303
+devops_health_verdict_samples_total{verdict="HEALTHY"} 1020
 devops_health_verdict_samples_total{verdict="UNKNOWN"} 263
 # HELP devops_health_check_failed_total Snapshots in which an integrity check was not ok.
 # TYPE devops_health_check_failed_total gauge
@@ -36,7 +36,7 @@ devops_health_longest_episode_seconds{check="verdict:DEGRADED"} 73213
 devops_health_longest_episode_seconds{check="verdict:UNKNOWN"} 265472
 # HELP devops_health_coverage_gaps_total Intervals in which no snapshot was written at all.
 # TYPE devops_health_coverage_gaps_total gauge
-devops_health_coverage_gaps_total 58
+devops_health_coverage_gaps_total 60
 # HELP devops_health_coverage_gap_longest_seconds Longest interval with no snapshot.
 # TYPE devops_health_coverage_gap_longest_seconds gauge
 devops_health_coverage_gap_longest_seconds 93338

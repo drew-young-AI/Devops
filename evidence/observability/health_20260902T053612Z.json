@@ -1,0 +1,94 @@
+{
+  "verdict": "DEGRADED",
+  "exit_code": 1,
+  "checked_at": "2026-09-02T05:36:12Z",
+  "monitoring_integrity": [
+    {
+      "check": "prometheus_reachable",
+      "ok": true,
+      "detail": "api/v1/rules responded"
+    },
+    {
+      "check": "alert_rules_loaded",
+      "ok": true,
+      "detail": "15 rules"
+    },
+    {
+      "check": "alert_rules_evaluating",
+      "ok": true,
+      "detail": "all ok"
+    },
+    {
+      "check": "alertmanager_wired",
+      "ok": true,
+      "detail": "1 active"
+    },
+    {
+      "check": "alertmanager_reachable",
+      "ok": true,
+      "detail": "api/v2/alerts responded"
+    },
+    {
+      "check": "scrape_targets_visible",
+      "ok": true,
+      "detail": "3 targets"
+    }
+  ],
+  "integrity_blockers": [],
+  "active_alerts": [
+    {
+      "alertname": "WidespreadGeoDrift",
+      "severity": "warning",
+      "environment": null,
+      "service": "dataops",
+      "summary": "猩紅熱：超過 1/4 的地區年對年down 超出 0.5–2 倍區間",
+      "runbook": null,
+      "started_at": "2026-09-02T02:26:43.198Z"
+    },
+    {
+      "alertname": "DataSourceStale",
+      "severity": "warning",
+      "environment": null,
+      "service": "dataops",
+      "summary": "資料來源 cdc-rods 已 14d 22h 16m 14s 未更新",
+      "runbook": "platform/dataops/run.sh 後查 ingest_runs 最後一筆的 status 與 note",
+      "started_at": "2026-09-02T03:12:23.108Z"
+    },
+    {
+      "alertname": "WidespreadGeoDrift",
+      "severity": "warning",
+      "environment": null,
+      "service": "dataops",
+      "summary": "COVID-19：超過 1/4 的地區年對年up 超出 0.5–2 倍區間",
+      "runbook": null,
+      "started_at": "2026-09-02T02:26:43.198Z"
+    },
+    {
+      "alertname": "DataSourceStale",
+      "severity": "warning",
+      "environment": null,
+      "service": "dataops",
+      "summary": "資料來源 cdc-tb-caremag 已 14d 4h 2m 25s 未更新",
+      "runbook": "platform/dataops/run.sh 後查 ingest_runs 最後一筆的 status 與 note",
+      "started_at": "2026-09-02T03:20:23.108Z"
+    },
+    {
+      "alertname": "DataSourceStale",
+      "severity": "warning",
+      "environment": null,
+      "service": "dataops",
+      "summary": "資料來源 moi-admin-geography 已 14d 5h 41m 18s 未更新",
+      "runbook": "platform/dataops/run.sh 後查 ingest_runs 最後一筆的 status 與 note",
+      "started_at": "2026-09-02T03:12:23.108Z"
+    }
+  ],
+  "scrape_targets": {
+    "platform-dag/-": "up",
+    "station2-twin/develop": "up",
+    "station2-twin-k8s/k8s": "up"
+  },
+  "sources": {
+    "prometheus": "http://127.0.0.1:19090",
+    "alertmanager": "http://127.0.0.1:19093"
+  }
+}
