@@ -44,6 +44,7 @@ timestamp: 2026-08-11T20:05:56+08:00
 || **DataOps 管線** | http://mac.local:13000/d/dataops-pipeline/ | 資料負責人 | Grafana 帳號 (詳見 platform/observability/README.md) |
 || **服務總覽** | http://mac.local:13000/d/devops-overview/ | 維運 | Grafana 帳號 (詳見 platform/observability/README.md) |
 | 階段報告（靜態、可離線轉寄） | http://mac.local:18085/Stage-Report.html | 長官 | 否 |
+| **八張圖（三線平台圖譜）** | http://mac.local:18085/report/plates.offline.html | 長官、簡報 | 否 |
 | 決策紀錄索引 | http://mac.local:18085/decisions/index.md | 全部 | 否 |
 | 價值流看板 | http://mac.local:18085/Value-Stream-Board.html | 維運 | 否 |
 | 管線狀態 | http://mac.local:18085/Pipeline-Status.html | 維運 | 否 |
@@ -56,6 +57,12 @@ Alertmanager、Loki、node-exporter **刻意留在 loopback**，由
 [`test_network_exposure.sh`](platform/tests/test_network_exposure.sh) 每次跑測試時驗證。
 
 機器讀的入口：[`docs/Stage-Report.json`](docs/Stage-Report.json)（schema `stage-report/1`）。
+
+**沒有網路的場合**（火車上、醫院會議室、防火牆後面）：八張圖直接開檔案，
+不需要伺服器也不需要網路——[`docs/report/plates.offline.html`](docs/report/plates.offline.html)。
+頁面左上角有「匯出八張 SVG」，可以拖進 Keynote / PowerPoint。
+它與線上版由**同一份來源**產生，用法與那三個只有開瀏覽器才找得到的坑見
+[`docs/report/README.md`](docs/report/README.md)。
 
 「三線階段燈號」最下面一列（2026-09-01 新增）回答的不是「現在健不健康」，
 而是**「壞了多久，以及那段時間我們到底有沒有在看」**：涵蓋率、最長連續中斷、

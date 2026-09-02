@@ -1,9 +1,17 @@
 {
   "schema": "gha-status/1",
-  "fetched_at": "2026-09-02T13:50:53+08:00",
+  "fetched_at": "2026-09-02T14:20:58+08:00",
   "fetch_state": "ok",
   "detail": "fetched main",
   "runs": [
+    {
+      "conclusion": "success",
+      "createdAt": "2026-09-02T05:53:00Z",
+      "displayTitle": "chore(evidence): 排程證據異動",
+      "status": "completed",
+      "url": "https://github.com/drew-young-AI/Devops/actions/runs/33596486759",
+      "workflowName": "Platform Tests"
+    },
     {
       "conclusion": "success",
       "createdAt": "2026-09-02T01:00:24Z",
@@ -75,14 +83,6 @@
       "status": "completed",
       "url": "https://github.com/drew-young-AI/Devops/actions/runs/33487092531",
       "workflowName": "IaC Validation"
-    },
-    {
-      "conclusion": "success",
-      "createdAt": "2026-09-01T08:27:09Z",
-      "displayTitle": "Merge pull request #1 from drew-young-AI/fix/cross-arch-and-ci-visibi…",
-      "status": "completed",
-      "url": "https://github.com/drew-young-AI/Devops/actions/runs/33487092575",
-      "workflowName": "Platform Tests"
     }
   ]
 }

@@ -192,4 +192,31 @@ assert_rc 1 "catches: a source that has quietly lost a diagram"
 assert_output_contains "invisible by definition" "says why a short build is refused rather than shipped"
 rm -rf "$SANDBOX"
 
+# --- 6. the LAN route serves the built page and NOT the source --------------
+#
+# Conditional on the status vhost being up, like the README's own URL checks:
+# on a machine without the platform this can only fail structurally, and an
+# assertion that cannot fail for a real reason trains people to ignore the
+# channel it reports on.
+#
+# WHY THE 404 MATTERS AS MUCH AS THE 200. docs/report/ holds two near-identical
+# HTML files one directory apart, and only one of them draws anything -- the
+# source has no renderer and opens as eight empty boxes. Routing the directory
+# instead of an allowlist would put both a click apart from each other, in
+# front of the person the report is for.
+BOARD="$(scutil --get LocalHostName 2>/dev/null || true)"
+if [ -n "$BOARD" ] && curl -s -m 4 -o /dev/null "http://${BOARD}.local:18085/healthz" 2>/dev/null; then
+  code() { curl -4 -s -o /dev/null -w '%{http_code}' -m 8 "http://${BOARD}.local:18085$1" 2>/dev/null; }
+  assert_equals "200" "$(code /report/plates.offline.html)" \
+    "the built page is reachable on the status vhost"
+  assert_equals "200" "$(code /report/assets/mermaid.min.js)" \
+    "so is its diagram library (a 200 on the HTML alone renders nothing)"
+  assert_equals "404" "$(code /report/plates.src.html)" \
+    "the SOURCE stays unrouted -- it draws nothing and must not be presentable"
+  assert_equals "404" "$(code /report/build.sh)" \
+    "the build script stays unrouted"
+else
+  echo "  SKIP  status vhost not reachable -- the LAN route is UNVERIFIED"
+fi
+
 suite_summary
