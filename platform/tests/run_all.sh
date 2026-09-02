@@ -96,6 +96,11 @@ SUITES=(
   # develop copy to the static database password. Hermetic: synthetic AppRole
   # material in a sandbox, no real secret read or written.
   test_approle_env.sh
+  # The eight-plate report has to open with no network, because the room where
+  # it gets presented may not have any. Hermetic: asserts zero external
+  # references and that the generated page still carries the source's diagrams;
+  # it cannot prove they RENDER, and says so.
+  test_offline_report.sh
 )
 
 # TIER 2. Needs Docker AND a live postgres holding the pilot's data. Separated

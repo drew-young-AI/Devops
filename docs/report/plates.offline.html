@@ -1,0 +1,984 @@
+<!doctype html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  /* The Artifact host supplies these; offline nothing does. */
+  :root { color-scheme: light dark; }
+  body { margin: 0; }
+  img { max-width: 100%; }
+  [hidden] { display: none !important; }
+
+  /* THE ONE RULE THAT MAKES THE DIAGRAMS CORRECT.
+   *
+   * `<pre>` is a monospace element by browser default, and the page's own CSS
+   * never resets it -- it had no reason to, because in the Artifact the host
+   * replaces the whole <pre> when it renders.
+   *
+   * Offline, mermaid measures every label in a temporary element it appends to
+   * <body> (sans-serif, inherited from the page) and then injects the finished
+   * SVG into <pre class="mermaid"> (monospace, from the UA stylesheet). The
+   * same string is wider in the font it renders in than in the font it was
+   * measured in, so labels overflow their nodes and are clipped at the border.
+   *
+   * The symptom is why this comment is long: every diagram appears, nothing
+   * errors, the console is clean, and the only evidence is "Alertmanager"
+   * reading as "Alertmanage". It looks like a mermaid sizing bug. It is a
+   * font-inheritance bug, and it was found by rendering the same diagram
+   * inside and outside this container and comparing. */
+  pre.mermaid { font-family: inherit; }
+
+  /* Offline-only chrome: the export control and a note about provenance. */
+  .offline-bar {
+    position: sticky; top: 0; z-index: 50;
+    display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px;
+    padding: 8px 16px;
+    background: var(--surface, #fff);
+    border-bottom: 1px solid var(--rule, #d8dee7);
+    font: 12.5px "Noto Sans TC", system-ui, sans-serif;
+    color: var(--ink-soft, #4c5765);
+  }
+  .offline-bar b { color: var(--ink, #141a22); font-weight: 600; }
+  .offline-bar button {
+    font: inherit; font-weight: 600;
+    color: var(--surface, #fff); background: var(--devops, #1f5fa8);
+    border: 0; border-radius: 3px; padding: 5px 12px; cursor: pointer;
+  }
+  .offline-bar button:hover { filter: brightness(1.08); }
+  .offline-bar button:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+  .offline-bar button[disabled] { opacity: .55; cursor: default; }
+  @media print { .offline-bar { display: none; } }
+</style>
+</head>
+<body>
+<div class="offline-bar">
+  <b>離線版</b>
+  <span>不連網路。由 <code>docs/report/plates.src.html</code> 產生，勿直接編輯本檔。</span>
+  <button id="export-svg" type="button">匯出八張 SVG</button>
+  <span id="export-note"></span>
+</div>
+<title>三線平台圖譜</title>
+<style>
+  /* ------------------------------------------------------------------
+     三線平台圖譜 — eight engineering plates.
+
+     Palette hues are FIXED BY THE CLIENT and must not be substituted:
+       DevOps 藍 / DataOps 綠 / MLOps 棕, with plates 7-8 segmented in all
+     three. Everything else (neutrals, paper, type) is chosen around them.
+
+     Neutrals carry a slight blue bias so they sit with the DevOps hue
+     rather than reading as unconsidered mid-grey.
+     ------------------------------------------------------------------ */
+  :root {
+    --devops:      #1F5FA8;
+    --devops-soft: #E4EDF7;
+    --dataops:     #2E7D52;
+    --dataops-soft:#E2F0E8;
+    --mlops:       #8A5A34;
+    --mlops-soft:  #F1E8DF;
+
+    --ground:      #F5F7FA;
+    --surface:     #FFFFFF;
+    --ink:         #141A22;
+    --ink-soft:    #4C5765;
+    --ink-faint:   #7A8697;
+    --rule:        #D8DEE7;
+    --rule-strong: #B4BECB;
+
+    /* The drawing sheet stays paper in both themes. A technical drawing is
+       on paper; more practically, mermaid renders its own labels and edge
+       text, so pinning the sheet guarantees legibility whichever way the
+       host draws them. Deliberate, not an omission. */
+    --paper:       #FBFBF9;
+    --paper-ink:   #1A1F26;
+    --paper-rule:  #DFE1DC;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --devops:      #6FA6E0;
+      --devops-soft: #16283C;
+      --dataops:     #63B98A;
+      --dataops-soft:#12291D;
+      --mlops:       #C79463;
+      --mlops-soft:  #2A1F14;
+
+      --ground:      #0E1319;
+      --surface:     #161C25;
+      --ink:         #E8EDF4;
+      --ink-soft:    #A3AFBE;
+      --ink-faint:   #6F7C8C;
+      --rule:        #26303C;
+      --rule-strong: #3A4756;
+    }
+  }
+  :root[data-theme="dark"] {
+    --devops:      #6FA6E0;
+    --devops-soft: #16283C;
+    --dataops:     #63B98A;
+    --dataops-soft:#12291D;
+    --mlops:       #C79463;
+    --mlops-soft:  #2A1F14;
+
+    --ground:      #0E1319;
+    --surface:     #161C25;
+    --ink:         #E8EDF4;
+    --ink-soft:    #A3AFBE;
+    --ink-faint:   #6F7C8C;
+    --rule:        #26303C;
+    --rule-strong: #3A4756;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    background: var(--ground);
+    color: var(--ink);
+    font-family: "Noto Sans TC", "IBM Plex Sans", system-ui, sans-serif;
+    font-size: 15px;
+    line-height: 1.7;
+    margin: 0;
+  }
+
+  .wrap {
+    display: grid;
+    grid-template-columns: 210px minmax(0, 1fr);
+    gap: 0;
+    max-width: 1360px;
+    margin: 0 auto;
+  }
+
+  /* ---- index rail: the plates are meant to be read individually, so the
+     reader needs to jump, not scroll ---- */
+  .rail {
+    position: sticky;
+    top: 0;
+    align-self: start;
+    max-height: 100vh;
+    overflow-y: auto;
+    padding: 32px 20px 40px 24px;
+    border-right: 1px solid var(--rule);
+  }
+  .rail-title {
+    font-family: "IBM Plex Sans Condensed", "Noto Sans TC", sans-serif;
+    font-weight: 700;
+    font-size: 17px;
+    letter-spacing: .02em;
+    margin: 0 0 4px;
+  }
+  .rail-sub {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 10.5px;
+    letter-spacing: .06em;
+    color: var(--ink-faint);
+    text-transform: uppercase;
+    margin: 0 0 24px;
+  }
+  .rail ol { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 2px; }
+  .rail a {
+    display: grid;
+    grid-template-columns: 26px 1fr;
+    gap: 8px;
+    align-items: baseline;
+    padding: 6px 8px;
+    border-radius: 3px;
+    text-decoration: none;
+    color: var(--ink-soft);
+    font-size: 13px;
+    line-height: 1.4;
+    border-left: 2px solid transparent;
+  }
+  .rail a:hover, .rail a:focus-visible { background: var(--surface); color: var(--ink); }
+  .rail a:focus-visible { outline: 2px solid var(--devops); outline-offset: 1px; }
+  .rail .n {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11px;
+    color: var(--ink-faint);
+    font-variant-numeric: tabular-nums;
+  }
+  .rail a.d { border-left-color: var(--devops); }
+  .rail a.t { border-left-color: var(--dataops); }
+  .rail a.m { border-left-color: var(--mlops); }
+  .rail a.u { border-left-color: var(--rule-strong); }
+
+  main { padding: 32px 40px 96px; min-width: 0; }
+
+  header.masthead { margin-bottom: 40px; }
+  header.masthead h1 {
+    font-family: "IBM Plex Sans Condensed", "Noto Sans TC", sans-serif;
+    font-size: 34px;
+    font-weight: 700;
+    letter-spacing: -.01em;
+    line-height: 1.2;
+    margin: 0 0 10px;
+    text-wrap: balance;
+  }
+  header.masthead p {
+    margin: 0;
+    max-width: 62ch;
+    color: var(--ink-soft);
+  }
+
+  /* ---- status band: real measured numbers, so the plates are read as a
+     description of something running, not a proposal ---- */
+  .band {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(148px, 1fr));
+    gap: 1px;
+    background: var(--rule);
+    border: 1px solid var(--rule);
+    border-radius: 4px;
+    overflow: hidden;
+    margin: 24px 0 8px;
+  }
+  .band div { background: var(--surface); padding: 12px 14px; }
+  .band dt {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 10px;
+    letter-spacing: .07em;
+    text-transform: uppercase;
+    color: var(--ink-faint);
+    margin: 0 0 4px;
+  }
+  .band dd {
+    margin: 0;
+    font-family: "IBM Plex Sans Condensed", sans-serif;
+    font-size: 21px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.15;
+  }
+  .band dd small {
+    display: block;
+    font-family: "Noto Sans TC", sans-serif;
+    font-size: 11.5px;
+    font-weight: 400;
+    color: var(--ink-soft);
+    margin-top: 3px;
+    line-height: 1.4;
+  }
+  .band-note {
+    font-size: 12px;
+    color: var(--ink-faint);
+    margin: 0 0 44px;
+  }
+
+  /* ---- plate: a numbered drawing sheet with a title block. The numbering
+     is real — these are eight separate drawings, and 7-8 depend on 1-6 ---- */
+  .plate { margin: 0 0 52px; scroll-margin-top: 20px; }
+
+  .titleblock {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 10px 16px;
+    padding-bottom: 10px;
+    border-bottom: 2px solid var(--accent, var(--rule-strong));
+    margin-bottom: 0;
+  }
+  .plate-no {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11px;
+    font-weight: 500;
+    letter-spacing: .1em;
+    color: var(--accent, var(--ink-faint));
+    padding: 2px 7px;
+    border: 1px solid var(--accent, var(--rule-strong));
+    border-radius: 2px;
+  }
+  .titleblock h2 {
+    font-family: "IBM Plex Sans Condensed", "Noto Sans TC", sans-serif;
+    font-size: 22px;
+    font-weight: 700;
+    margin: 0;
+    flex: 1 1 auto;
+  }
+  .tag {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 10.5px;
+    letter-spacing: .05em;
+    text-transform: uppercase;
+    color: var(--accent, var(--ink-faint));
+    background: var(--accent-soft, transparent);
+    padding: 3px 8px;
+    border-radius: 2px;
+    white-space: nowrap;
+  }
+
+  .question {
+    margin: 14px 0 0;
+    font-size: 15.5px;
+    max-width: 68ch;
+  }
+  .question b { color: var(--accent, var(--ink)); font-weight: 600; }
+
+  .sheet {
+    background: var(--paper);
+    color: var(--paper-ink);
+    border: 1px solid var(--paper-rule);
+    border-radius: 4px;
+    margin-top: 16px;
+    padding: 20px 12px;
+    overflow-x: auto;
+  }
+  .sheet pre.mermaid {
+    margin: 0;
+    background: transparent;
+    text-align: center;
+  }
+
+  .readnote {
+    margin: 14px 0 0;
+    padding-left: 14px;
+    border-left: 2px solid var(--rule);
+    color: var(--ink-soft);
+    font-size: 13.5px;
+    max-width: 74ch;
+  }
+  .readnote b { color: var(--ink); font-weight: 600; }
+  .readnote code {
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 12.5px;
+    background: var(--ground);
+    padding: 1px 4px;
+    border-radius: 2px;
+  }
+
+  .src {
+    margin: 10px 0 0;
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 11px;
+    color: var(--ink-faint);
+    letter-spacing: .01em;
+  }
+
+  .d { --accent: var(--devops);  --accent-soft: var(--devops-soft); }
+  .t { --accent: var(--dataops); --accent-soft: var(--dataops-soft); }
+  .m { --accent: var(--mlops);   --accent-soft: var(--mlops-soft); }
+  .u { --accent: var(--rule-strong); --accent-soft: transparent; }
+  .u .tag { color: var(--ink-soft); }
+
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 20px;
+    margin: 10px 0 0;
+    font-size: 12.5px;
+    color: var(--ink-soft);
+  }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .swatch { width: 11px; height: 11px; border-radius: 2px; display: inline-block; }
+
+  footer {
+    border-top: 1px solid var(--rule);
+    padding-top: 20px;
+    margin-top: 8px;
+    color: var(--ink-faint);
+    font-size: 12.5px;
+    max-width: 74ch;
+  }
+  footer b { color: var(--ink-soft); }
+
+  @media (max-width: 900px) {
+    .wrap { grid-template-columns: 1fr; }
+    .rail { position: static; max-height: none; border-right: 0; border-bottom: 1px solid var(--rule); }
+    .rail ol { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+    main { padding: 24px 20px 72px; }
+    header.masthead h1 { font-size: 27px; }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    * { animation: none !important; transition: none !important; }
+  }
+</style>
+
+<div class="wrap">
+  <nav class="rail" aria-label="圖號索引">
+    <p class="rail-title">三線平台圖譜</p>
+    <p class="rail-sub">8 plates · 2026-09-01</p>
+    <ol>
+      <li><a class="d" href="#p1"><span class="n">01</span><span>DevOps 架構</span></a></li>
+      <li><a class="d" href="#p2"><span class="n">02</span><span>DevOps 流程</span></a></li>
+      <li><a class="t" href="#p3"><span class="n">03</span><span>DataOps 架構</span></a></li>
+      <li><a class="t" href="#p4"><span class="n">04</span><span>DataOps 流程</span></a></li>
+      <li><a class="m" href="#p5"><span class="n">05</span><span>MLOps 架構</span></a></li>
+      <li><a class="m" href="#p6"><span class="n">06</span><span>MLOps 流程</span></a></li>
+      <li><a class="u" href="#p7"><span class="n">07</span><span>大統整流程圖</span></a></li>
+      <li><a class="u" href="#p8"><span class="n">08</span><span>大統整架構圖</span></a></li>
+    </ol>
+    <p class="legend" style="margin-top:22px; flex-direction:column; gap:7px;">
+      <span><i class="swatch" style="background:var(--devops)"></i>DevOps</span>
+      <span><i class="swatch" style="background:var(--dataops)"></i>DataOps</span>
+      <span><i class="swatch" style="background:var(--mlops)"></i>MLOps</span>
+    </p>
+  </nav>
+
+  <main>
+    <header class="masthead">
+      <h1>三線平台圖譜</h1>
+      <p>八張圖，每一張都能單獨看懂。第 1–6 張各講一條線的架構與流程，第 7–8 張把三條線合起來看。所有節點與連線都取自
+      <code style="font-family:'IBM Plex Mono',monospace;font-size:13px">platform/statusdag/dag.py</code>
+      的實際定義，不是示意圖——圖上有的東西，板面上都跑得出來。</p>
+
+      <dl class="band">
+        <div><dt>測試</dt><dd>全通過<small>三層全跑，285 秒</small></dd></div>
+        <div><dt>靜態守衛</dt><dd>290<small>斷言，0 失敗</small></dd></div>
+        <div><dt>告警規則</dt><dd>15<small>全部評估中</small></dd></div>
+        <div><dt>失敗節點</dt><dd>0<small>板面無紅燈，3 個刻意的黃燈</small></dd></div>
+        <div><dt>監測涵蓋率</dt><dd>83.6%<small>1,520 份健康快照</small></dd></div>
+        <div><dt>回滾</dt><dd>1 秒<small>藍綠實測，8/8</small></dd></div>
+        <div><dt>DAST 涵蓋</dt><dd>40%<small>10 條路由掃到 4 條</small></dd></div>
+        <div><dt>日誌遮蔽</dt><dd>4/10<small>類別，6 類沒被找過</small></dd></div>
+      </dl>
+      <p class="band-note">數字為 2026-09-01 實測，全部可重跑：<code style="font-family:'IBM Plex Mono',monospace">bash platform/tests/run_all.sh</code></p>
+    </header>
+
+    <!-- ============================ PLATE 1 ============================ -->
+    <section class="plate d" id="p1">
+      <div class="titleblock">
+        <span class="plate-no">圖 01</span>
+        <h2>DevOps 架構</h2>
+        <span class="tag">藍 · 基礎/建置/執行/觀測</span>
+      </div>
+      <p class="question">這條線<b>由哪些東西組成</b>，以及誰依賴誰。四層由下而上：機密與排程在最底，建置產出映像，叢集執行它，觀測層看著它。</p>
+      <div class="sheet">
+<pre class="mermaid">
+%%{init:{"theme":"base","themeVariables":{"background":"#FBFBF9","primaryColor":"#E4EDF7","primaryTextColor":"#1A1F26","primaryBorderColor":"#1F5FA8","lineColor":"#8A94A0","fontFamily":"-apple-system, BlinkMacSystemFont, PingFang TC, Microsoft JhengHei, Noto Sans CJK TC, sans-serif","fontSize":"13px"}}}%%
+flowchart TB
+  subgraph OBS["觀測層"]
+    direction LR
+    PROM["Prometheus&lt;br/&gt;15 條規則評估中"]
+    LOKI["Loki&lt;br/&gt;日誌"]
+    AM["Alertmanager&lt;br/&gt;告警路由"]
+    GRAF["Grafana&lt;br/&gt;唯一驗證身分的入口"]
+  end
+  subgraph RUN["執行層"]
+    direction LR
+    K3D["k3d 叢集 (arm64)&lt;br/&gt;station2-twin 藍綠"]
+    NGINX["NGINX 入口"]
+  end
+  subgraph BLD["建置層"]
+    direction LR
+    GHA["GitHub Actions&lt;br/&gt;x86 雲端 runner"]
+    REG["本機 Registry&lt;br/&gt;k3d-registry:5111"]
+  end
+  subgraph FND["基礎層"]
+    direction LR
+    VAULT["Vault&lt;br/&gt;機密與身分"]
+    SCHED["排程器 launchd&lt;br/&gt;16 個工作"]
+    BKP["備份"]
+    RST["還原演練"]
+  end
+
+  VAULT --&gt; K3D
+  VAULT --&gt; GRAF
+  SCHED --&gt; BKP
+  BKP --&gt; RST
+  SCHED --&gt; PROM
+  GHA --&gt; REG
+  REG --&gt; K3D
+  K3D --&gt; NGINX
+  K3D --&gt; PROM
+  PROM --&gt; AM
+  PROM --&gt; GRAF
+  LOKI --&gt; GRAF
+  AM --&gt; GRAF
+
+  classDef dev fill:#1F5FA8,stroke:#153F70,color:#FFFFFF,stroke-width:1px;
+  classDef sup fill:#5A6470,stroke:#3D444D,color:#FFFFFF,stroke-width:1px;
+  class PROM,LOKI,AM,GRAF,K3D,NGINX,GHA,REG dev;
+  class VAULT,SCHED,BKP,RST sup;
+  style OBS fill:#F0F4F9,stroke:#C3CEDC
+  style RUN fill:#F0F4F9,stroke:#C3CEDC
+  style BLD fill:#F0F4F9,stroke:#C3CEDC
+  style FND fill:#EFF1F4,stroke:#C9CFD8
+</pre>
+      </div>
+      <p class="readnote"><b>要看的一件事：</b>建置在雲端（x86），執行在本機（arm64）。兩台機器指令集不同，所以映像必須帶對應架構的 manifest——這件事有測試在守（<code>test_image_arch.sh</code>），因為它每一步都會「成功」，只有 kubelet 最後才說不行。</p>
+      <p class="src">來源 · platform/statusdag/dag.py LINES：foundation / build / release / observe</p>
+    </section>
+
+    <!-- ============================ PLATE 2 ============================ -->
+    <section class="plate d" id="p2">
+      <div class="titleblock">
+        <span class="plate-no">圖 02</span>
+        <h2>DevOps 流程</h2>
+        <span class="tag">藍 · 原始碼到上線</span>
+      </div>
+      <p class="question">一次變更<b>從程式碼走到上線要經過哪些關卡</b>，以及哪些關卡能擋下它。灰色是閘門，擋得住就不會有下一步。</p>
+      <div class="sheet">
+<pre class="mermaid">
+%%{init:{"theme":"base","themeVariables":{"background":"#FBFBF9","primaryColor":"#E4EDF7","primaryTextColor":"#1A1F26","primaryBorderColor":"#1F5FA8","lineColor":"#8A94A0","fontFamily":"-apple-system, BlinkMacSystemFont, PingFang TC, Microsoft JhengHei, Noto Sans CJK TC, sans-serif","fontSize":"13px"}}}%%
+flowchart LR
+  SAST["SAST&lt;br/&gt;原始碼掃描"] --&gt; CI["CI 建置"]
+  SEC["Secret&lt;br/&gt;歷史掃描"] --&gt; CI
+  CI --&gt; TRIVY["映像漏洞掃描"]
+  TRIVY --&gt; REG["Registry 推送"]
+  CI --&gt; DEV["develop 部署"]
+  DEV --&gt; DAST["DAST&lt;br/&gt;執行中系統"]
+  DEV --&gt; LLM["LLM 複審&lt;br/&gt;建議性，不擋"]
+  DAST --&gt; GATE{{"真人 PROMOTE&lt;br/&gt;刻意不自動化"}}
+  LLM --&gt; GATE
+  GATE --&gt; PROD["production-like"]
+  PROD --&gt; NGINX["NGINX 入口"]
+  REG --&gt; BG["藍綠切換&lt;br/&gt;k8s"]
+  K3D["k3d 叢集"] --&gt; BG
+
+  classDef dev fill:#1F5FA8,stroke:#153F70,color:#FFFFFF,stroke-width:1px;
+  classDef gate fill:#5A6470,stroke:#3D444D,color:#FFFFFF,stroke-width:1px;
+  class SAST,SEC,CI,TRIVY,REG,DEV,DAST,LLM,PROD,NGINX,BG,K3D dev;
+  class GATE gate;
+</pre>
+      </div>
+      <p class="readnote"><b>另一件要看的：</b>DAST 那一格回報 PASS，而它涵蓋的是這個服務
+      <b>十條路由中的四條</b>。ZAP baseline 是被動規則加 GET spider，這個 pilot 提供的是沒有連結的
+      JSON API，所以唯一的寫入端點 <code>POST /twin/&lt;asset&gt;/observation</code>
+      在原理上碰不到。這個 40% 現在是板面上的一個數字（面板 105–107），不再是沒人知道的事。</p>
+      <p class="readnote"><b>要看的一件事：</b>LLM 複審接在流程裡，但它<b>沒有否決權</b>——verdict 是建議性的，FAIL 不會讓燈變紅。把判斷權交給模型，和把判斷權交給沒人看的紅燈，是同一種失效。真正擋下發布的是 <code>真人 PROMOTE</code> 這道閘門。</p>
+      <p class="src">來源 · platform/statusdag/dag.py EDGES（source → build → deploy → verify → gate → release）</p>
+    </section>
+
+    <!-- ============================ PLATE 3 ============================ -->
+    <section class="plate t" id="p3">
+      <div class="titleblock">
+        <span class="plate-no">圖 03</span>
+        <h2>DataOps 架構</h2>
+        <span class="tag">綠 · 來源到可查詢</span>
+      </div>
+      <p class="question">資料<b>存在哪裡、以什麼形態存</b>。同一份事實有兩種儲存：單點查詢走 Postgres，大量彙總走欄式鏡像。</p>
+      <div class="sheet">
+<pre class="mermaid">
+%%{init:{"theme":"base","themeVariables":{"background":"#FBFBF9","primaryColor":"#E2F0E8","primaryTextColor":"#1A1F26","primaryBorderColor":"#2E7D52","lineColor":"#8A94A0","fontFamily":"-apple-system, BlinkMacSystemFont, PingFang TC, Microsoft JhengHei, Noto Sans CJK TC, sans-serif","fontSize":"13px"}}}%%
+flowchart TB
+  subgraph UP["上游"]
+    direction LR
+    SRC["來源登記&lt;br/&gt;22 個登記來源"]
+    GEO["地理權威&lt;br/&gt;8,059 個行政區"]
+  end
+  subgraph STORE["儲存"]
+    direction LR
+    PG[("Postgres&lt;br/&gt;監測 6.5M 列&lt;br/&gt;人口 632k 列")]
+    MIRROR[("欄式鏡像 Parquet&lt;br/&gt;彙總快 300-425 倍")]
+  end
+  subgraph GOV["治理"]
+    direction LR
+    LIN["血緣算術&lt;br/&gt;39 批次收斂"]
+    CON["資料契約&lt;br/&gt;CHECK 約束執行中"]
+  end
+  METRICS["DataOps 指標&lt;br/&gt;新鮮度 / 漂移 / 執行健康"]
+
+  SRC --&gt; PG
+  GEO --&gt; PG
+  PG --&gt; MIRROR
+  PG --&gt; LIN
+  LIN --&gt; CON
+  CON --&gt; METRICS
+  MIRROR --&gt; METRICS
+  METRICS --&gt; PROM["Prometheus"]
+
+  classDef data fill:#2E7D52,stroke:#1E5537,color:#FFFFFF,stroke-width:1px;
+  classDef sup fill:#5A6470,stroke:#3D444D,color:#FFFFFF,stroke-width:1px;
+  class SRC,GEO,PG,MIRROR,LIN,CON,METRICS data;
+  class PROM sup;
+  style UP fill:#EDF5F0,stroke:#BFD8CB
+  style STORE fill:#EDF5F0,stroke:#BFD8CB
+  style GOV fill:#EDF5F0,stroke:#BFD8CB
+</pre>
+      </div>
+      <p class="readnote"><b>要看的一件事：</b>鏡像是<b>衍生品，不是第二個真相</b>。它落後時會拒絕回答，而不是回答錯的東西——這條選擇有量測支撐，記在決策 ADR-0001。</p>
+      <p class="src">來源 · platform/statusdag/dag.py LINES：dataops；數字取自板面實際探測</p>
+    </section>
+
+    <!-- ============================ PLATE 4 ============================ -->
+    <section class="plate t" id="p4">
+      <div class="titleblock">
+        <span class="plate-no">圖 04</span>
+        <h2>DataOps 流程</h2>
+        <span class="tag">綠 · 載入到契約</span>
+      </div>
+      <p class="question">一批資料<b>進來之後依序發生什麼</b>，以及哪一步是後面所有事情的前提。</p>
+      <div class="sheet">
+<pre class="mermaid">
+%%{init:{"theme":"base","themeVariables":{"background":"#FBFBF9","primaryColor":"#E2F0E8","primaryTextColor":"#1A1F26","primaryBorderColor":"#2E7D52","lineColor":"#8A94A0","fontFamily":"-apple-system, BlinkMacSystemFont, PingFang TC, Microsoft JhengHei, Noto Sans CJK TC, sans-serif","fontSize":"13px"}}}%%
+flowchart LR
+  SRC["來源登記"] --&gt; FACT["事實載入"]
+  GEO["地理權威&lt;br/&gt;載入的前提"] --&gt; FACT
+  FACT --&gt; LIN["血緣算術&lt;br/&gt;每批必須收斂"]
+  LIN --&gt; CON["資料契約&lt;br/&gt;PASS 才算完成"]
+  FACT --&gt; EPI["週↔日曆對照&lt;br/&gt;1045/4912 期間無日曆日"]
+  CON --&gt; DOWN(["下游：MLOps 特徵集"])
+
+  classDef data fill:#2E7D52,stroke:#1E5537,color:#FFFFFF,stroke-width:1px;
+  classDef warn fill:#B8863B,stroke:#8A6329,color:#FFFFFF,stroke-width:1px;
+  classDef out fill:#5A6470,stroke:#3D444D,color:#FFFFFF,stroke-width:1px;
+  class SRC,GEO,FACT,LIN,CON data;
+  class EPI warn;
+  class DOWN out;
+</pre>
+      </div>
+      <p class="readnote"><b>要看的一件事：</b><code>週↔日曆對照</code> 是黃的，而且刻意讓它黃著。4,912 個期間裡有 1,045 個對不到日曆日，成因待疾管署查證——<b>把它塗綠只會讓後面每一個用到週定義的數字帶著一個沒人記得的假設</b>。血緣則是硬條件：不收斂的批次不會進到契約。</p>
+      <p class="src">來源 · platform/statusdag/dag.py EDGES：sources/geo → facts → lineage → dcontract；facts → epiweek</p>
+    </section>
+
+    <!-- ============================ PLATE 5 ============================ -->
+    <section class="plate m" id="p5">
+      <div class="titleblock">
+        <span class="plate-no">圖 05</span>
+        <h2>MLOps 架構</h2>
+        <span class="tag">棕 · 特徵到預測</span>
+      </div>
+      <p class="question">模型這一側<b>有哪些成品，各自被什麼綁定</b>。重點是每一個成品都可追溯到產生它的那份程式碼。</p>
+      <div class="sheet">
+<pre class="mermaid">
+%%{init:{"theme":"base","themeVariables":{"background":"#FBFBF9","primaryColor":"#F1E8DF","primaryTextColor":"#1A1F26","primaryBorderColor":"#8A5A34","lineColor":"#8A94A0","fontFamily":"-apple-system, BlinkMacSystemFont, PingFang TC, Microsoft JhengHei, Noto Sans CJK TC, sans-serif","fontSize":"13px"}}}%%
+flowchart TB
+  CON["資料契約&lt;br/&gt;（DataOps 交界）"] --&gt; FS["特徵集&lt;br/&gt;綁定 code_sha256&lt;br/&gt;554 特徵列"]
+  FS --&gt; BT["回測 rolling-origin&lt;br/&gt;9 次"]
+  BT --&gt; GATE{{"上線閘門&lt;br/&gt;贏過持平基準才准上線"}}
+  GATE --&gt; FC["已發布預測&lt;br/&gt;1 筆"]
+  SCHED["排程器"] --&gt; RT["排程重訓&lt;br/&gt;每週"]
+  RT --&gt; BT
+  FC --&gt; EV[("模型執行紀錄&lt;br/&gt;evidence")]
+
+  classDef ml fill:#8A5A34,stroke:#5E3D23,color:#FFFFFF,stroke-width:1px;
+  classDef data fill:#2E7D52,stroke:#1E5537,color:#FFFFFF,stroke-width:1px;
+  classDef gate fill:#5A6470,stroke:#3D444D,color:#FFFFFF,stroke-width:1px;
+  class FS,BT,FC,RT,EV ml;
+  class CON data;
+  class GATE,SCHED gate;
+</pre>
+      </div>
+      <p class="readnote"><b>要看的一件事：</b>特徵集綁 <code>code_sha256</code>。這代表「哪一版程式碼算出這批特徵」不是靠記憶或註解，是資料本身帶著的欄位——<b>換了程式碼卻沿用舊特徵</b>這件事會被擋下，而不是等到預測變差才回頭猜。</p>
+      <p class="src">來源 · platform/statusdag/dag.py LINES：mlops；數字取自板面實際探測</p>
+    </section>
+
+    <!-- ============================ PLATE 6 ============================ -->
+    <section class="plate m" id="p6">
+      <div class="titleblock">
+        <span class="plate-no">圖 06</span>
+        <h2>MLOps 流程</h2>
+        <span class="tag">棕 · 閘門與現況</span>
+      </div>
+      <p class="question">一次重訓<b>要通過什麼才能變成對外的預測</b>，以及現在卡在哪裡。</p>
+      <div class="sheet">
+<pre class="mermaid">
+%%{init:{"theme":"base","themeVariables":{"background":"#FBFBF9","primaryColor":"#F1E8DF","primaryTextColor":"#1A1F26","primaryBorderColor":"#8A5A34","lineColor":"#8A94A0","fontFamily":"-apple-system, BlinkMacSystemFont, PingFang TC, Microsoft JhengHei, Noto Sans CJK TC, sans-serif","fontSize":"13px"}}}%%
+flowchart LR
+  RT["排程重訓&lt;br/&gt;每週觸發"] --&gt; FS["重建特徵集"]
+  FS --&gt; BT["rolling-origin 回測"]
+  BT --&gt; CMP{{"對比持平基準"}}
+  CMP --&gt;|"贏"| PUB["發布預測"]
+  CMP --&gt;|"輸"| HOLD["不發布&lt;br/&gt;目前狀態"]
+  HOLD -.-&gt;|"下一週重試"| RT
+  NOW["現況 t+1 −12.31%&lt;br/&gt;t+2 +0.32%"] -.-&gt; HOLD
+
+  classDef ml fill:#8A5A34,stroke:#5E3D23,color:#FFFFFF,stroke-width:1px;
+  classDef gate fill:#5A6470,stroke:#3D444D,color:#FFFFFF,stroke-width:1px;
+  classDef hold fill:#B8863B,stroke:#8A6329,color:#FFFFFF,stroke-width:1px;
+  class RT,FS,BT,PUB ml;
+  class CMP gate;
+  class HOLD,NOW hold;
+</pre>
+      </div>
+      <p class="readnote"><b>要看的一件事：</b>閘門現在是<b>擋著的</b>，而這是它在正常運作。模型還沒贏過「下週跟這週一樣」這個基準，所以不准上線。一個從不擋下任何東西的閘門，和沒有閘門，在系統上完全等價——<b>會擋，才證明它存在</b>。</p>
+      <p class="src">來源 · platform/statusdag/dag.py EDGES：dcontract → features → backtest → mgate → forecast；scheduler → retrain → backtest</p>
+    </section>
+
+    <!-- ============================ PLATE 7 ============================ -->
+    <section class="plate u" id="p7">
+      <div class="titleblock">
+        <span class="plate-no">圖 07</span>
+        <h2>大統整流程圖</h2>
+        <span class="tag">三色分段 · 一次變更走完全程</span>
+      </div>
+      <p class="question">把三條線接起來看：<b>一次變更從程式碼一路走到對外的預測</b>，中間跨過哪兩個交界。</p>
+      <div class="sheet">
+<pre class="mermaid">
+%%{init:{"theme":"base","themeVariables":{"background":"#FBFBF9","primaryColor":"#EDEFF2","primaryTextColor":"#1A1F26","lineColor":"#8A94A0","fontFamily":"-apple-system, BlinkMacSystemFont, PingFang TC, Microsoft JhengHei, Noto Sans CJK TC, sans-serif","fontSize":"13px"}}}%%
+flowchart LR
+  subgraph A["DevOps — 讓變更安全地上線"]
+    direction LR
+    A1["原始碼掃描"] --&gt; A2["CI 建置"] --&gt; A3["映像掃描"] --&gt; A4["部署 develop"]
+    A4 --&gt; A5["DAST"] --&gt; A6{{"真人 PROMOTE"}} --&gt; A7["藍綠上線"]
+  end
+  subgraph B["DataOps — 讓資料值得被信任"]
+    direction LR
+    B1["來源登記"] --&gt; B2["事實載入"] --&gt; B3["血緣收斂"] --&gt; B4["資料契約"]
+  end
+  subgraph C["MLOps — 讓預測只在贏的時候出去"]
+    direction LR
+    C1["特徵集"] --&gt; C2["回測"] --&gt; C3{{"上線閘門"}} --&gt; C4["已發布預測"]
+  end
+
+  A7 --&gt;|"執行環境"| B2
+  B4 --&gt;|"契約 PASS 才建特徵"| C1
+
+  classDef dev fill:#1F5FA8,stroke:#153F70,color:#FFFFFF,stroke-width:1px;
+  classDef data fill:#2E7D52,stroke:#1E5537,color:#FFFFFF,stroke-width:1px;
+  classDef ml fill:#8A5A34,stroke:#5E3D23,color:#FFFFFF,stroke-width:1px;
+  classDef gate fill:#5A6470,stroke:#3D444D,color:#FFFFFF,stroke-width:1px;
+  class A1,A2,A3,A4,A5,A7 dev;
+  class B1,B2,B3,B4 data;
+  class C1,C2,C4 ml;
+  class A6,C3 gate;
+  style A fill:#EDF2F8,stroke:#1F5FA8
+  style B fill:#EDF5F0,stroke:#2E7D52
+  style C fill:#F5EEE7,stroke:#8A5A34
+</pre>
+      </div>
+      <p class="readnote"><b>要看的一件事：</b>兩個交界都是<b>單向且有條件</b>的。DevOps 提供執行環境給 DataOps；DataOps 的契約沒過，MLOps 連特徵都不該建。三條線不是三個並排的專案，是一條有兩個檢查點的鏈——<b>而鏈的強度等於最弱的那個檢查點</b>。</p>
+      <p class="src">來源 · 圖 02、圖 04、圖 06 的三條路徑，接在 dag.py 的實際交界邊上</p>
+    </section>
+
+    <!-- ============================ PLATE 8 ============================ -->
+    <section class="plate u" id="p8">
+      <div class="titleblock">
+        <span class="plate-no">圖 08</span>
+        <h2>大統整架構圖</h2>
+        <span class="tag">三色分段 · 誰站在誰上面</span>
+      </div>
+      <p class="question">同一個系統換成<b>分層來看</b>：底下是所有線共用的基礎，上面三條線各自堆疊，最上面是所有人實際會打開的那一層。</p>
+      <div class="sheet">
+<pre class="mermaid">
+%%{init:{"theme":"base","themeVariables":{"background":"#FBFBF9","primaryColor":"#EDEFF2","primaryTextColor":"#1A1F26","lineColor":"#8A94A0","fontFamily":"-apple-system, BlinkMacSystemFont, PingFang TC, Microsoft JhengHei, Noto Sans CJK TC, sans-serif","fontSize":"13px"}}}%%
+flowchart TB
+  subgraph VIEW["看得到的一層 — 長官與維運實際打開的東西"]
+    direction LR
+    V1["三線階段燈號"]
+    V2["服務總覽"]
+    V3["階段報告 靜態可轉寄"]
+    V4["告警 → 通知"]
+  end
+  subgraph LINES["三條線"]
+    direction LR
+    subgraph L1["DevOps 藍"]
+      direction TB
+      D1["CI / 映像 / Registry"]
+      D2["k3d 叢集 · 藍綠"]
+    end
+    subgraph L2["DataOps 綠"]
+      direction TB
+      T1["Postgres · 欄式鏡像"]
+      T2["血緣 · 契約"]
+    end
+    subgraph L3["MLOps 棕"]
+      direction TB
+      M1["特徵集 · 回測"]
+      M2["上線閘門 · 預測"]
+    end
+  end
+  subgraph BASE["共用基礎 — 三條線都站在上面"]
+    direction LR
+    F1["Vault&lt;br/&gt;機密與身分"]
+    F2["排程器&lt;br/&gt;16 個工作"]
+    F3["備份 · 還原演練"]
+    F4["證據 evidence/&lt;br/&gt;每個判斷都留檔"]
+  end
+  subgraph OBS["觀測 — 橫跨三條線"]
+    direction LR
+    O1["Prometheus"]
+    O2["Loki"]
+    O3["Alertmanager"]
+    O4["Grafana"]
+  end
+
+  BASE --&gt; LINES
+  LINES --&gt; OBS
+  OBS --&gt; VIEW
+
+  classDef dev fill:#1F5FA8,stroke:#153F70,color:#FFFFFF,stroke-width:1px;
+  classDef data fill:#2E7D52,stroke:#1E5537,color:#FFFFFF,stroke-width:1px;
+  classDef ml fill:#8A5A34,stroke:#5E3D23,color:#FFFFFF,stroke-width:1px;
+  classDef sup fill:#5A6470,stroke:#3D444D,color:#FFFFFF,stroke-width:1px;
+  class D1,D2 dev;
+  class T1,T2 data;
+  class M1,M2 ml;
+  class F1,F2,F3,F4,O1,O2,O3,O4,V1,V2,V3,V4 sup;
+  style L1 fill:#EDF2F8,stroke:#1F5FA8
+  style L2 fill:#EDF5F0,stroke:#2E7D52
+  style L3 fill:#F5EEE7,stroke:#8A5A34
+  style BASE fill:#EFF1F4,stroke:#B4BECB
+  style OBS fill:#EFF1F4,stroke:#B4BECB
+  style VIEW fill:#EFF1F4,stroke:#B4BECB
+  style LINES fill:#FBFBF9,stroke:#DFE1DC
+</pre>
+      </div>
+      <p class="readnote"><b>要看的一件事：</b>最上面那一層存在，是因為<b>下面全部正常運作，和有人被告知，是兩件事</b>。這個平台實測過一次 73.7 小時的監測中斷：探針每 15 分鐘忠實把它寫進證據，寫了三天約 200 份，沒有人打開過任何一份。所以「看得到的一層」不是裝飾，它是這張圖裡唯一負責讓下面五層產生後果的部分。</p>
+      <p class="src">來源 · platform/statusdag/dag.py 全部 11 個 layer，依相依方向重新分組</p>
+    </section>
+
+    <footer>
+      <p><b>怎麼重跑這些圖背後的東西</b>：節點與連線來自 <code style="font-family:'IBM Plex Mono',monospace">platform/statusdag/dag.py</code>，
+      現況數字來自 <code style="font-family:'IBM Plex Mono',monospace">bash platform/tests/run_all.sh</code> 與 <code style="font-family:'IBM Plex Mono',monospace">python3 platform/statusdag/dag.py</code>。
+      圖上任何一個方塊，都對得到板面上一個會自己變色的節點。</p>
+      <p><b>刻意留著的三個黃燈</b>：週↔日曆對照（待疾管署查證）、上線閘門（模型還沒贏基準）、資料來源已 14 天未更新。
+      這三個不是待辦事項漏了，是<b>系統正確地說出它現在不知道什麼</b>——把它們塗綠是最容易做、也最沒有價值的一件事。</p>
+      <p><b>同一個原則，三個當天實測的例子</b>：DAST 涵蓋 40%、健康監測涵蓋 83.6%、
+      而秘密輪替閘門的 <code style="font-family:'IBM Plex Mono',monospace">ROTATION PASS</code>
+      是在三把秘密全部豁免的情況下、對空集合量化得出的。
+      三個數字都不好看，而它們在被量出來之前<b>全部顯示為綠色</b>。
+      <b>一條說「幾乎什麼都沒檢查」的綠燈，比一個誠實的低數字危險得多。</b></p>
+      <p><b>其中兩個的守衛早就存在，只是擋錯了那種空。</b>輪替稽核有一段註解寫著
+      「An empty tree is not a pass」，擋的是「一個秘密都沒有」；平台漂移進的是
+      「每個秘密都被豁免」，直接繞過去。<b>空集合守衛是針對你當時想像得到的那種空寫的。</b></p>
+      <p><b>當天下午，宿主休眠把整組容器停掉，這件事自己示範了一次。</b>恢復之後
+      Compose 那份副本回到靜態密碼、K8s 那份是 Vault——<b>和當天早上完全對調</b>，
+      而中間沒有任何人做過任何決定。唯一發現它的，是幾小時前才寫下的
+      「兩份副本憑證模型必須相同」那條斷言。同一次停機也被健康彙總記了下來：
+      失敗快照 201 → 205，涵蓋率 83.6% → 83.9%。
+      <b>今天建的量測，當天就抓到一次真實事件。</b></p>
+    </footer>
+  </main>
+</div>
+
+<!--claude-mermaid-runtime-begin:3477-->
+<style>.mermaid-diagram{margin-block:4px}.mermaid-diagram svg{display:block;margin:0 auto;max-width:100%;height:auto}</style>
+<script src="/_runtime/mermaid-11.16.1.min.js"></script>
+<script>(function(){
+var CFG={"palettes":{"light":{"surface":"#f4efe4","text":"#42392e","line":"#8a7f6d","border":"#7a6c52","bg":"#fffdf8"},"dark":{"surface":"#262b34","text":"#f2f3f5","line":"#a8adb8","border":"#9aa4b8","bg":"#1f232b"}}};
+if(typeof mermaid==='undefined')return;
+var pres=Array.prototype.slice.call(document.querySelectorAll('pre.mermaid')).filter(function(p){if(p.hasAttribute('data-claude-mermaid-claimed'))return false;p.setAttribute('data-claude-mermaid-claimed','1');return true;});
+if(!pres.length)return;
+var mq=window.matchMedia?window.matchMedia('(prefers-color-scheme: dark)'):null;
+var root=document.documentElement;
+var items=pres.map(function(pre){
+var mount=document.createElement('div');mount.className='mermaid-diagram';
+return {pre:pre,mount:mount,src:pre.textContent||''};
+});
+var seq=0;
+var renderGen=0;
+var lastKey='';
+function pageBg(fallback){
+var els=[document.body,document.documentElement];
+for(var i=0;i<els.length;i++){
+var c=els[i]&&getComputedStyle(els[i]).backgroundColor;
+if(c&&c!=='transparent'&&c!=='rgba(0, 0, 0, 0)')return c;
+}
+return fallback;
+}
+function render(){
+var theme=root.getAttribute('data-theme');
+var dark=theme==='dark'||(!!(mq&&mq.matches)&&theme!=='light');
+var pal=dark?CFG.palettes.dark:CFG.palettes.light;
+var bg=pageBg(pal.bg);
+var key=(dark?'d':'l')+'|'+bg;
+if(key===lastKey)return;
+lastKey=key;
+var gen=++renderGen;
+var font=getComputedStyle(document.body).fontFamily||'sans-serif';
+var nat={useMaxWidth:false};
+mermaid.initialize({
+startOnLoad:false,securityLevel:'strict',theme:'base',
+flowchart:nat,sequence:nat,er:nat,state:nat,class:nat,pie:nat,
+gantt:nat,journey:nat,timeline:nat,gitGraph:nat,mindmap:nat,xyChart:nat,
+quadrantChart:nat,sankey:nat,c4:nat,requirement:nat,block:nat,
+packet:nat,kanban:nat,architecture:nat,radar:nat,
+themeVariables:{background:bg,mainBkg:pal.surface,primaryColor:pal.surface,
+primaryTextColor:pal.text,lineColor:pal.line,primaryBorderColor:pal.border,
+nodeBorder:pal.border,clusterBorder:pal.border,edgeLabelBackground:bg,
+clusterBkg:'rgba(127,127,127,0.07)',titleColor:pal.text,
+darkMode:dark,rowOdd:bg,rowEven:'rgba(127,127,127,0.07)',
+attributeBackgroundColorOdd:bg,attributeBackgroundColorEven:'rgba(127,127,127,0.07)',
+fontSize:'16px',fontFamily:font},
+themeCSS:'.node rect, .node circle, .node polygon, .node path, .cluster rect { stroke-width: 2px; }'
+});
+items.forEach(function(it){
+var id='claude-mermaid-'+seq++;
+mermaid.render(id,it.src).then(function(r){
+if(gen!==renderGen)return;
+var prev=it.pre.previousElementSibling;
+if(prev&&prev.className==='mermaid-diagram'&&prev!==it.mount)return;
+it.mount.innerHTML=r.svg;
+if(!it.mount.parentNode)it.pre.parentNode.insertBefore(it.mount,it.pre);
+it.pre.style.display='none';
+},function(){
+var scratch=document.getElementById(id);
+if(scratch)scratch.parentNode.removeChild(scratch);
+scratch=document.getElementById('d'+id);
+if(scratch)scratch.parentNode.removeChild(scratch);
+if(gen!==renderGen)return;
+if(it.mount.parentNode)it.mount.parentNode.removeChild(it.mount);
+it.pre.style.display='';
+});
+});
+}
+render();
+if(mq&&mq.addEventListener)mq.addEventListener('change',render);
+if(typeof MutationObserver!=='undefined')new MutationObserver(render).observe(root,{attributes:true,attributeFilter:['data-theme']});
+})();</script>
+<!--claude-mermaid-runtime-end-->
+
+<script src="./assets/mermaid.min.js"></script>
+<script>
+(function () {
+  "use strict";
+  var blocks = Array.prototype.slice.call(document.querySelectorAll("pre.mermaid"));
+  var svgs = [];
+
+  function titleOf(pre) {
+    var plate = pre.closest(".plate");
+    var h2 = plate && plate.querySelector("h2");
+    var no = plate && plate.querySelector(".plate-no");
+    var n = no ? no.textContent.replace(/[^0-9]/g, "") : String(svgs.length + 1);
+    return (n.length < 2 ? "0" + n : n) + "-" + (h2 ? h2.textContent.trim() : "plate");
+  }
+
+  mermaid.initialize({ startOnLoad: false, securityLevel: "loose" });
+
+  // SEQUENTIAL, not Promise.all.
+  //
+  // This is not a style preference. mermaid measures every label by laying it
+  // out in a shared off-screen element and reading the box back; concurrent
+  // renders interleave in that one element, so a diagram gets sized against
+  // ANOTHER diagram's text. The symptom is subtle and easy to misdiagnose:
+  // every diagram appears, none errors, and labels are quietly clipped at the
+  // node border -- which reads as a mermaid bug, or as a font problem, and is
+  // neither.
+  //
+  // Found by comparing against a probe that rendered the identical diagram
+  // with the identical config one at a time and came out correct. Eight
+  // diagrams take about a second either way, so the concurrency bought
+  // nothing and cost correctness.
+  function renderAll(i) {
+    if (i >= blocks.length) return Promise.resolve();
+    var pre = blocks[i];
+    var source = pre.textContent;
+    return mermaid.render("plate-" + i, source).then(function (res) {
+      pre.innerHTML = res.svg;
+      svgs.push({ name: titleOf(pre), svg: res.svg });
+    }).catch(function (err) {
+      // Loud, in place. An empty container reads as "no diagram here".
+      pre.innerHTML = '<div style="border:1px solid #b3261e;background:#fdecea;' +
+        'color:#7a1c14;padding:10px;border-radius:3px;text-align:left;font:13px monospace">' +
+        "圖 " + (i + 1) + " 無法繪製：" + String(err && err.message ? err.message : err) +
+        "</div>";
+    }).then(function () { return renderAll(i + 1); });
+  }
+
+  renderAll(0).then(function () {
+    var btn = document.getElementById("export-svg");
+    var note = document.getElementById("export-note");
+    if (!svgs.length) { btn.disabled = true; note.textContent = "沒有可匯出的圖"; return; }
+    note.textContent = svgs.length + " 張已繪製";
+    btn.addEventListener("click", function () {
+      svgs.forEach(function (item, i) {
+        // Staggered: browsers throttle a burst of same-tick downloads and
+        // silently drop the tail, which would look like "only three exported".
+        setTimeout(function () {
+          var blob = new Blob([item.svg], { type: "image/svg+xml;charset=utf-8" });
+          var url = URL.createObjectURL(blob);
+          var a = document.createElement("a");
+          a.href = url;
+          a.download = item.name + ".svg";
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+        }, i * 250);
+      });
+      note.textContent = "已送出 " + svgs.length + " 個下載（可拖進 Keynote / PowerPoint）";
+    });
+  });
+})();
+</script>
+</body>
+</html>
