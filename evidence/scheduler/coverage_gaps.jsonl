@@ -271,3 +271,11 @@
 {"job": "stagereport", "gap_seconds": 3800, "gap_minutes": 63.3, "expected_interval_seconds": 900, "missed_runs": 3, "from": "2026-09-03T03:14:51Z", "to": "2026-09-03T04:18:11Z"}
 {"job": "dag", "gap_seconds": 3800, "gap_minutes": 63.3, "expected_interval_seconds": 900, "missed_runs": 3, "from": "2026-09-03T03:14:53Z", "to": "2026-09-03T04:18:13Z"}
 {"job": "dataops", "gap_seconds": 7537, "gap_minutes": 125.6, "expected_interval_seconds": 3600, "missed_runs": 1, "from": "2026-09-03T02:50:31Z", "to": "2026-09-03T04:56:08Z"}
+{"job": "disk", "gap_seconds": 752, "gap_minutes": 12.5, "expected_interval_seconds": 300, "missed_runs": 1, "from": "2026-09-03T09:19:45Z", "to": "2026-09-03T09:32:17Z"}
+{"job": "board", "gap_seconds": 4307, "gap_minutes": 71.8, "expected_interval_seconds": 900, "missed_runs": 3, "from": "2026-09-03T09:10:55Z", "to": "2026-09-03T10:22:42Z"}
+{"job": "stagereport", "gap_seconds": 7739, "gap_minutes": 129.0, "expected_interval_seconds": 900, "missed_runs": 7, "from": "2026-09-03T09:13:30Z", "to": "2026-09-03T11:22:29Z"}
+{"job": "health", "gap_seconds": 7736, "gap_minutes": 128.9, "expected_interval_seconds": 900, "missed_runs": 7, "from": "2026-09-03T09:13:36Z", "to": "2026-09-03T11:22:32Z"}
+{"job": "dag", "gap_seconds": 7738, "gap_minutes": 129.0, "expected_interval_seconds": 900, "missed_runs": 7, "from": "2026-09-03T09:13:32Z", "to": "2026-09-03T11:22:30Z"}
+{"job": "disk", "gap_seconds": 6687, "gap_minutes": 111.5, "expected_interval_seconds": 300, "missed_runs": 21, "from": "2026-09-03T09:32:17Z", "to": "2026-09-03T11:23:44Z"}
+{"job": "board", "gap_seconds": 4332, "gap_minutes": 72.2, "expected_interval_seconds": 900, "missed_runs": 3, "from": "2026-09-03T10:22:42Z", "to": "2026-09-03T11:34:54Z"}
+{"job": "logcov", "gap_seconds": 10436, "gap_minutes": 173.9, "expected_interval_seconds": 3600, "missed_runs": 1, "from": "2026-09-03T08:47:29Z", "to": "2026-09-03T11:41:25Z"}

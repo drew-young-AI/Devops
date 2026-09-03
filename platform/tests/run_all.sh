@@ -62,6 +62,13 @@ SUITES=(
   # and can never fire -- so the thing it claims to watch reads as permanently
   # healthy. That suite joins the rules against the exporter's actual output.
   test_dataops_metrics.sh
+  # How often each source is PUBLISHED, with provenance. §20 of the backlog
+  # carried a table of "actual update frequency" written from impression,
+  # and one of its five rows was wrong by two orders of magnitude. An
+  # estimate and a measurement are indistinguishable once both are numbers
+  # in a table, so the table records where each number came from and a row
+  # without provenance fails.
+  test_source_frequency.sh
   # Host disk. Added 2026-09-03, the day the volume filled and took the whole
   # platform down -- 14 alert rules, 91 capabilities, 777 green assertions,
   # and not one of them measured free space. The suite's real content is the

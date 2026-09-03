@@ -591,6 +591,8 @@ internal 管線是它的**精確補集**。這個分割可證明窮盡——那�
 | [`rollup_health.py`](rollup_health.py) | 排程 `rollup`，每小時 | 把累積的快照收斂成一個可查詢的答案 | **一份都不刪**（ADR-0009）。**拒絕對空目錄產出健康報告**——空集合上的「全部正常」是恆真句 |
 | [`loki_coverage.py`](loki_coverage.py) | 排程 `logcov`，每小時 | 日誌管線到底有沒有在動、資料類別是否可辨識 | 閒置管線與連不到 Loki 一律**拒答**（rc 2）；不可辨識的 `data_class` 轉紅（它會靜默落進受眾較廣、保留期較長的租戶） |
 | [`scripts/setup_notifications.sh`](scripts/setup_notifications.sh) | **一次性**／換 Telegram 憑證時 | 從模板產生 Alertmanager 實際設定 | 憑證從 repo **外面**注入，產生的檔案在 `.gitignore` 裡。Alertmanager 不展開環境變數，所以 chat id 必須是字面值——這就是它必須被產生而不是被提交的原因 |
+| [`host_disk_metrics.sh`](host_disk_metrics.sh) | 排程 `disk`，每 5 分鐘 | 把 macOS 主機的磁碟容量寫進 node-exporter 的 textfile 目錄 | 量的是 `/System/Volumes/Data` 不是 `/`（後者是唯讀封存卷，永遠接近滿）。`Docker.raw` 同時輸出 apparent 與 allocated 兩個值——只看 `ls -lh` 會得到 926G 的假警報，真實佔用是它的 1/44 |
+| [`docker_reclaim.sh`](docker_reclaim.sh) | 手動，磁碟告警的 runbook 第一步 | 回收 build cache 與 dangling image，並列出不屬於本平台的映像 | **不刪任何無法重建的東西**：本機建置的 `station2-*:local` 與 registry 的 `v15`/`v15-green` 一律保留，別的專案的映像只列出不刪。分類以「整個 repo 有沒有提到這個 repository 名稱」為準，不是只掃 compose 的 `image:`——第一版就因此把 `docker run` 叫起來的 zaproxy 誤判成別人的 |
 
 
 ---

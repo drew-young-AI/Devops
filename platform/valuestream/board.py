@@ -243,7 +243,15 @@ def collect_notifications(limit=5):
 # but a RED derived from one -- and the red is more convincing, because an
 # empty pipeline looks exactly like a stalled one. So the board says which it
 # is, rather than leaving the reader to assume the worse and wrong reading.
-DEPLOY_EVIDENCE_WRITER = "platform/compose/deploy.sh"
+# Both paths write it now. The Kubernetes one was added 2026-09-03, closing
+# the gap this constant was invented to describe: the pilot's deploy path moved
+# to k8s (ADR-0010) and left the contract behind, so the board reported 0
+# deploys on a platform that had been shipping. Listed rather than replaced --
+# the compose path still writes it for anything not yet on the cluster, and a
+# starved-board message that named only one of two writers would send the
+# reader to the wrong file.
+DEPLOY_EVIDENCE_WRITER = ("platform/k8s/station2-twin/deploy.sh "
+                          "and platform/compose/deploy.sh")
 CURRENT_DEPLOY_PATH = "platform/k8s/station2-twin/deploy.sh"
 
 
@@ -477,9 +485,9 @@ def render_html(board):
 
             f'而目前有效的 pilot 一個都沒有（退役的 station1-hello 還有 {feed["retired_files"]} 份，不計入）。'
 
-            f'寫這份證據的是 <code>{esc(feed["writer"])}</code>，但 pilot 的部署路徑已改走 Kubernetes'
+            f'寫這份證據的是 <code>{esc(feed["writer"])}</code>，'
 
-            f'（<code>{esc(feed["current_deploy_path"])}</code>），而 K8s 路徑沒有寫這份契約。'
+            f'目前的部署路徑是 <code>{esc(feed["current_deploy_path"])}</code>。'
 
             '所以下游全空<b>不代表沒有東西上線</b>，代表這條線的量測斷了——'
 

@@ -22,36 +22,36 @@ dataops_source_last_fetch_timestamp_seconds{source="cdc-rods-enterovirus"} 17884
 dataops_source_last_fetch_timestamp_seconds{source="cdc-rods-herpangina"} 1788401473
 dataops_source_last_fetch_timestamp_seconds{source="cdc-rods-hfmd"} 1788401475
 dataops_source_last_fetch_timestamp_seconds{source="cdc-rods-ili"} 1788401445
-dataops_source_last_fetch_timestamp_seconds{source="cdc-tb-caremag"} 1787102267
-dataops_source_last_fetch_timestamp_seconds{source="cdc-tb-town"} 1787131980
-dataops_source_last_fetch_timestamp_seconds{source="moi-admin-geography"} 1787096334
-dataops_source_last_fetch_timestamp_seconds{source="moi-ris-village-education"} 1787152154
-dataops_source_last_fetch_timestamp_seconds{source="moi-ris-village-population"} 1787152047
+dataops_source_last_fetch_timestamp_seconds{source="cdc-tb-caremag"} 1788423751
+dataops_source_last_fetch_timestamp_seconds{source="cdc-tb-town"} 1788423152
+dataops_source_last_fetch_timestamp_seconds{source="moi-admin-geography"} 1788423923
+dataops_source_last_fetch_timestamp_seconds{source="moi-ris-village-education"} 1788423793
+dataops_source_last_fetch_timestamp_seconds{source="moi-ris-village-population"} 1788423767
 # HELP dataops_source_age_seconds How long since this source last updated. A constraint cannot see a thing that failed to happen; this can.
 # TYPE dataops_source_age_seconds gauge
-dataops_source_age_seconds{source="cdc-nhi-covid"} 17906
-dataops_source_age_seconds{source="cdc-nhi-diarrhea"} 17841
-dataops_source_age_seconds{source="cdc-nhi-enterovirus"} 17894
-dataops_source_age_seconds{source="cdc-nhi-herpangina"} 17864
-dataops_source_age_seconds{source="cdc-nhi-hfmd"} 17882
-dataops_source_age_seconds{source="cdc-nhi-ili"} 17934
-dataops_source_age_seconds{source="cdc-nhi-influenza"} 17923
-dataops_source_age_seconds{source="cdc-nhi-pneumonia"} 17911
-dataops_source_age_seconds{source="cdc-nhi-scarlet-fever"} 17783
-dataops_source_age_seconds{source="cdc-nhi-uri"} 17820
-dataops_source_age_seconds{source="cdc-nhi-varicella"} 17772
-dataops_source_age_seconds{source="cdc-rods-conjunctivitis"} 17740
-dataops_source_age_seconds{source="cdc-rods-covid"} 17734
-dataops_source_age_seconds{source="cdc-rods-diarrhea"} 17749
-dataops_source_age_seconds{source="cdc-rods-enterovirus"} 17744
-dataops_source_age_seconds{source="cdc-rods-herpangina"} 17737
-dataops_source_age_seconds{source="cdc-rods-hfmd"} 17735
-dataops_source_age_seconds{source="cdc-rods-ili"} 17765
-dataops_source_age_seconds{source="cdc-tb-caremag"} 1316943
-dataops_source_age_seconds{source="cdc-tb-town"} 1287230
-dataops_source_age_seconds{source="moi-admin-geography"} 1322876
-dataops_source_age_seconds{source="moi-ris-village-education"} 1267056
-dataops_source_age_seconds{source="moi-ris-village-population"} 1267163
+dataops_source_age_seconds{source="cdc-nhi-covid"} 34020
+dataops_source_age_seconds{source="cdc-nhi-diarrhea"} 33955
+dataops_source_age_seconds{source="cdc-nhi-enterovirus"} 34008
+dataops_source_age_seconds{source="cdc-nhi-herpangina"} 33978
+dataops_source_age_seconds{source="cdc-nhi-hfmd"} 33996
+dataops_source_age_seconds{source="cdc-nhi-ili"} 34048
+dataops_source_age_seconds{source="cdc-nhi-influenza"} 34037
+dataops_source_age_seconds{source="cdc-nhi-pneumonia"} 34025
+dataops_source_age_seconds{source="cdc-nhi-scarlet-fever"} 33897
+dataops_source_age_seconds{source="cdc-nhi-uri"} 33934
+dataops_source_age_seconds{source="cdc-nhi-varicella"} 33886
+dataops_source_age_seconds{source="cdc-rods-conjunctivitis"} 33854
+dataops_source_age_seconds{source="cdc-rods-covid"} 33848
+dataops_source_age_seconds{source="cdc-rods-diarrhea"} 33863
+dataops_source_age_seconds{source="cdc-rods-enterovirus"} 33858
+dataops_source_age_seconds{source="cdc-rods-herpangina"} 33851
+dataops_source_age_seconds{source="cdc-rods-hfmd"} 33849
+dataops_source_age_seconds{source="cdc-rods-ili"} 33879
+dataops_source_age_seconds{source="cdc-tb-caremag"} 11573
+dataops_source_age_seconds{source="cdc-tb-town"} 12172
+dataops_source_age_seconds{source="moi-admin-geography"} 11401
+dataops_source_age_seconds{source="moi-ris-village-education"} 11531
+dataops_source_age_seconds{source="moi-ris-village-population"} 11557
 # HELP dataops_source_retired 1 for a source with ingest history but no fact rows; excluded from freshness because it can never become fresh.
 # TYPE dataops_source_retired gauge
 dataops_source_retired{source="cdc-rods"} 1
@@ -133,26 +133,26 @@ dataops_ingest_rows_total{source="cdc-rods-ili",outcome="in_file"} 770003
 dataops_ingest_rows_total{source="cdc-rods-ili",outcome="accepted"} 770003
 dataops_ingest_rows_total{source="cdc-rods-ili",outcome="rejected"} 0
 dataops_ingest_rows_total{source="cdc-rods-ili",outcome="inserted"} 770003
-dataops_ingest_rows_total{source="cdc-tb-caremag",outcome="in_file"} 3099298
-dataops_ingest_rows_total{source="cdc-tb-caremag",outcome="accepted"} 8171544
-dataops_ingest_rows_total{source="cdc-tb-caremag",outcome="rejected"} 1
-dataops_ingest_rows_total{source="cdc-tb-caremag",outcome="inserted"} 8171544
-dataops_ingest_rows_total{source="cdc-tb-town",outcome="in_file"} 22080
-dataops_ingest_rows_total{source="cdc-tb-town",outcome="accepted"} 22080
+dataops_ingest_rows_total{source="cdc-tb-caremag",outcome="in_file"} 4654386
+dataops_ingest_rows_total{source="cdc-tb-caremag",outcome="accepted"} 12273633
+dataops_ingest_rows_total{source="cdc-tb-caremag",outcome="rejected"} 2
+dataops_ingest_rows_total{source="cdc-tb-caremag",outcome="inserted"} 12273633
+dataops_ingest_rows_total{source="cdc-tb-town",outcome="in_file"} 29440
+dataops_ingest_rows_total{source="cdc-tb-town",outcome="accepted"} 29440
 dataops_ingest_rows_total{source="cdc-tb-town",outcome="rejected"} 0
-dataops_ingest_rows_total{source="cdc-tb-town",outcome="inserted"} 22080
-dataops_ingest_rows_total{source="moi-admin-geography",outcome="in_file"} 8258
-dataops_ingest_rows_total{source="moi-admin-geography",outcome="accepted"} 8059
-dataops_ingest_rows_total{source="moi-admin-geography",outcome="rejected"} 204
+dataops_ingest_rows_total{source="cdc-tb-town",outcome="inserted"} 29440
+dataops_ingest_rows_total{source="moi-admin-geography",outcome="in_file"} 16516
+dataops_ingest_rows_total{source="moi-admin-geography",outcome="accepted"} 16118
+dataops_ingest_rows_total{source="moi-admin-geography",outcome="rejected"} 408
 dataops_ingest_rows_total{source="moi-admin-geography",outcome="inserted"} 0
-dataops_ingest_rows_total{source="moi-ris-village-education",outcome="in_file"} 216999
-dataops_ingest_rows_total{source="moi-ris-village-education",outcome="accepted"} 213457
-dataops_ingest_rows_total{source="moi-ris-village-education",outcome="rejected"} 3542
-dataops_ingest_rows_total{source="moi-ris-village-education",outcome="inserted"} 213457
-dataops_ingest_rows_total{source="moi-ris-village-population",outcome="in_file"} 38729
-dataops_ingest_rows_total{source="moi-ris-village-population",outcome="accepted"} 419012
-dataops_ingest_rows_total{source="moi-ris-village-population",outcome="rejected"} 637
-dataops_ingest_rows_total{source="moi-ris-village-population",outcome="inserted"} 419012
+dataops_ingest_rows_total{source="moi-ris-village-education",outcome="in_file"} 325527
+dataops_ingest_rows_total{source="moi-ris-village-education",outcome="accepted"} 320221
+dataops_ingest_rows_total{source="moi-ris-village-education",outcome="rejected"} 5306
+dataops_ingest_rows_total{source="moi-ris-village-education",outcome="inserted"} 320221
+dataops_ingest_rows_total{source="moi-ris-village-population",outcome="in_file"} 46481
+dataops_ingest_rows_total{source="moi-ris-village-population",outcome="accepted"} 502898
+dataops_ingest_rows_total{source="moi-ris-village-population",outcome="rejected"} 763
+dataops_ingest_rows_total{source="moi-ris-village-population",outcome="inserted"} 502898
 # HELP dataops_ingest_reject_ratio Rejected rows over rows in file. Emitted as a ratio, not a verdict -- the threshold is an alert rule.
 # TYPE dataops_ingest_reject_ratio gauge
 dataops_ingest_reject_ratio{source="cdc-nhi-covid"} 0.000000
@@ -177,8 +177,8 @@ dataops_ingest_reject_ratio{source="cdc-rods-ili"} 0.000000
 dataops_ingest_reject_ratio{source="cdc-tb-caremag"} 0.000000
 dataops_ingest_reject_ratio{source="cdc-tb-town"} 0.000000
 dataops_ingest_reject_ratio{source="moi-admin-geography"} 0.024703
-dataops_ingest_reject_ratio{source="moi-ris-village-education"} 0.016323
-dataops_ingest_reject_ratio{source="moi-ris-village-population"} 0.016448
+dataops_ingest_reject_ratio{source="moi-ris-village-education"} 0.016300
+dataops_ingest_reject_ratio{source="moi-ris-village-population"} 0.016415
 # HELP dataops_ingest_runs_failed_total Runs whose status was not ok.
 # TYPE dataops_ingest_runs_failed_total counter
 dataops_ingest_runs_failed_total{source="cdc-nhi-covid"} 0
@@ -200,7 +200,7 @@ dataops_ingest_runs_failed_total{source="cdc-rods-enterovirus"} 0
 dataops_ingest_runs_failed_total{source="cdc-rods-herpangina"} 0
 dataops_ingest_runs_failed_total{source="cdc-rods-hfmd"} 0
 dataops_ingest_runs_failed_total{source="cdc-rods-ili"} 0
-dataops_ingest_runs_failed_total{source="cdc-tb-caremag"} 1
+dataops_ingest_runs_failed_total{source="cdc-tb-caremag"} 2
 dataops_ingest_runs_failed_total{source="cdc-tb-town"} 0
 dataops_ingest_runs_failed_total{source="moi-admin-geography"} 0
 dataops_ingest_runs_failed_total{source="moi-ris-village-education"} 0
@@ -268,4 +268,4 @@ dataops_yoy_geo_comparable_count{disease_id="33",disease="急性腹瀉"} 21
 dataops_yoy_geo_comparable_count{disease_id="35",disease="急性出血性結膜炎"} 3
 # HELP dataops_metrics_generated_timestamp_seconds When this file was written.
 # TYPE dataops_metrics_generated_timestamp_seconds gauge
-dataops_metrics_generated_timestamp_seconds 1788419212
+dataops_metrics_generated_timestamp_seconds 1788435325

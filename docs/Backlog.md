@@ -47,12 +47,12 @@ agent 做不了也不該替使用者決定。
 
 | 何時做 | 項目 | 觸發條件 |
 |---|---|---|
-| K8s 部署路徑穩定後 | [§16](#16-價值流看板收不到部署證據--轉-k8s-的連帶損傷2026-09-02-發現) 看板收不到部署證據 | k8s deploy 寫出 `deploy_develop_<sha>.json` |
+| ~~K8s 部署路徑穩定後~~ **已完成 2026-09-03** | [§16](#16-價值流看板收不到部署證據--已修2026-09-03) 看板收不到部署證據 | k8s deploy 現在會寫 `deploy_develop_<sha>.json`；`starved: false` |
 | 使用者決定成本後 | [§17](#17-八張圖回到板面上單一來源內嵌-svg) 板面內嵌圖 | 需 ~150 MB Chromium；**不准手繪第二套** |
 | 服務數量到位後 | [§18](#18-追蹤traces三個前提依序不可跳過) 追蹤 | 三個前提依序，遮蔽優先於接收 |
 | 第二個 pilot 或首次遇到上游停發 | [§19](#19-執行了但沒有效果重訓在沒動過的資料上看起來和真的一樣) 空抓取偵測 | 正確位置是 `pipeline_metrics.py` |
 | ~~下一個做的就是這個~~ **已完成 2026-09-03** | [§21](#21-磁碟沒有被量2026-09-03-完成) 主機磁碟監控 | 插隊到 §20 前面，因為它已經發生過一次並停掉整個平台 |
-| **下一個做的就是這個** | [§20](#20-陳舊告警假設所有來源都是每週五支年報級來源會永久紅) 每支來源的預期頻率 | 五支年報級來源**現在就在永久紅** |
+| ~~下一個做的就是這個~~ **已完成 2026-09-03** | [§20](#20-五支來源永久紅--已修2026-09-03但原因不是門檻) 五支來源永久紅 | 修法不是門檻是排程：23 支全部 ≤ 0.29 天 |
 | 後端要換的那天 | [ADR-0012](decisions/0012-otel-at-the-boundary-backend-deferred.md) OTLP 接收端 | Alloy 已是 OTel Collector，只差一個 `otelcol.receiver.otlp` 區塊 |
 
 **工具會換掉之後我們還剩什麼**，寫在
@@ -696,28 +696,42 @@ GitHub Actions 最近 20 次有 13 次紅，最近一次成功在數週前，**�
 
 ---
 
-## 16. 價值流看板收不到部署證據 — 轉 K8s 的連帶損傷（2026-09-02 發現）
+## 16. 價值流看板收不到部署證據 — ✅ 已修（2026-09-03）
 
 `docs/Value-Stream-Board.html` 上 25 個項目全卡在「已提交」、**0 次上線**、
 前置時間中位數「尚無資料」。**照字面讀，它說這個平台從來沒有出貨過。**
 
 不是。看板判斷「已部署」的依據是 `evidence/<pilot>/deploy_develop_<sha>.json`，
-寫這份契約的是 `platform/compose/deploy.sh`。而 pilot 的部署路徑已經改走
+寫這份契約的是 `platform/compose/deploy.sh`。而 pilot 的部署路徑已改走
 Kubernetes（[ADR-0010](decisions/0010-kubernetes-target-runtime-k3s.md)），
-**K8s 那條路徑沒有寫這份契約**。目前檔案系統上唯一的 `deploy_develop_*.json`
-是退役的 station1-hello 留下的 4 份。
+**K8s 那條路徑沒有把契約帶過去**。
 
 這是**空集合失效的反面**：不是從空集合推出綠燈，是從空集合推出**紅燈**——
 而紅的那種更有說服力，因為空管線和塞住的管線長得一模一樣。
-`dag.py` 已經正確地把這個狀態標成 `SUPERSEDED`，看板沒有，
-所以看板現在會在頁面上直接說明它斷在哪裡（`board.py` 的 `deploy_feed()`）。
 
-**接回來要做的**：`platform/k8s/station2-twin/deploy.sh` 在部署成功後寫出同一份
-契約（同樣的欄位：`commit_sha` / `deployed_at` / `health_status` / `image_digest`）。
-不要為 K8s 另立一份新格式——那會讓看板要讀兩種契約，而兩種契約就是兩份索引。
+### 修法
 
-**驗收**：跑一次 K8s 部署，`python3 platform/valuestream/board.py --json` 的
-`deploy_feed.starved` 轉為 `false`，且該 sha 出現在「develop 已部署」欄。
+[`platform/k8s/station2-twin/deploy.sh`](../platform/k8s/station2-twin/deploy.sh)
+在 rollout 之後寫出**同一個檔名、同一組欄位**的契約。
+沒有為 K8s 另立格式——那會讓看板讀兩種契約，而兩份索引就是分岔問題。
+
+`compose_project` 這個欄位名保留（這裡沒有 compose project），改放 Kubernetes 的
+workload 身分，另外加 `runtime` / `kube_context` / `color` / `image_tag` 讓直接打開
+檔案的人不必從 `compose_project` 的形狀去推。看板忽略它不認得的欄位，所以加欄位
+不會產生第二份契約。
+
+`health_status` 取自 `rollout status` 的結果，不是固定寫 `healthy`——
+一個永遠回報健康的部署證據，正是它要防的那種東西。
+
+### 驗收（2026-09-03 實測）
+
+```
+evidence/station2-twin/deploy_develop_410dff9.json
+deploy_feed: {"active_files": 1, "retired_files": 4, "starved": false, ...}
+```
+
+`board.py` 的 `DEPLOY_EVIDENCE_WRITER` 也一併更新為兩條路徑都會寫——
+在缺料橫幅裡只寫其中一個，會把讀者送到錯的檔案。
 
 ---
 
@@ -794,45 +808,89 @@ Kubernetes（[ADR-0010](decisions/0010-kubernetes-target-runtime-k3s.md)），
 
 ---
 
-## 20. 陳舊告警假設所有來源都是每週——五支年報級來源會永久紅
+## 20. 五支來源永久紅——✅ 已修（2026-09-03），但原因不是門檻
 
-**2026-09-03 發現，部分已修。**
+**2026-09-03 完成。原本的診斷是錯的，修法也會是錯的。**
 
-`DataSourceStale`（14 天）與 `DataSourceVeryStale`（45 天）對 25 支來源套用同一個門檻，
-註解寫的是「the surveillance feeds are weekly」——那對 19 支成立，對其餘不成立。
+### 原本的診斷
 
-**已修的部分**：`cdc-rods`（原始合併 RODS feed，2026-08-19 被疾病別 feed 取代，
-零筆事實列、無任何載入器指向它）不再進入 freshness，改以 `dataops_source_retired` 具名列出。
-它的年齡只會單調增加，永遠不可能變新鮮。
+`DataSourceStale`（14 天）與 `DataSourceVeryStale`（45 天）對所有來源套用同一個門檻，
+而五支來源永久停在 warning／critical：
 
-**沒修的部分**：這五支是真的每年更新一次
+| 來源 | 當時年齡 |
+|---|---|
+| `moi-admin-geography` | 15.35 d |
+| `cdc-tb-caremag` | 15.28 d |
+| `cdc-tb-town` | 14.94 d |
+| `moi-ris-village-population` | 14.71 d |
+| `moi-ris-village-education` | 14.71 d |
+| 其餘 18 支 | 0.25 d |
 
-| 來源 | 實際更新頻率 | 目前狀態 |
-|---|---|---|
-| `cdc-tb-caremag` | 年 | 15.0 天，warning |
-| `cdc-tb-town` | 年 | 14.7 天，warning |
-| `moi-admin-geography` | 年 | 15.1 天，warning |
-| `moi-ris-village-population` | 年／季 | 14.5 天，warning |
-| `moi-ris-village-education` | 年／季 | 14.5 天，warning |
+原本的結論是「這五支是年更新來源，門檻訂錯」，提出的修法是
+`dataops_source_expected_interval_seconds` ＋ `age > 3 * expected`。
 
-它們會在 14 天門檻上永久 warning，並在 45 天升為 **critical**，
-而這完全正常——年更新的來源本來就會 350 天不動。
+### 為什麼那個修法是錯的
 
-**為什麼這是真的要修**：`DataSourceStale` 是 2026-09-03 那次 14 天斷流
-[唯一注意到的東西](decisions/0013-pilot-loop-was-open.md)。
-一個類別裡只要有永久紅的成員，人就會學會過濾整個類別——
-那會把剛修好的偵測一起埋掉。**這不是假設，那五支現在就在紅。**
+**`dataops_source_age_seconds` 量的是「我們上次抓取」，不是「上游上次發布」。**
+它的定義是 `now - max(fetched_at) FROM ingest_runs`。
 
-**正確的做法**：`pipeline_metrics.py` 輸出 `dataops_source_expected_interval_seconds`，
-告警改成 `age > 3 * expected`。頻率是來源的屬性，屬於資料層，不屬於告警規則；
-把清單寫死在 `.yml` 裡等於在第二個地方複製一份會漂移的知識。
+所以那五支不是門檻訂錯，**是根本沒有東西在抓它們**。
+`ingest.sh` 跑的是 `--sources nhi_all,rods_all`，這五支不在裡面，
+而它自己的註解把這件事寫成一個決定：
 
-**為什麼現在不做**：這需要每支來源的實際發布頻率有**依據**而不是估計，
-而 CLAUDE.md 明訂不得猜測資料對應。取得依據的方式是查 CKAN metadata 的
-`frequency` 欄位（`discover_sources.py` 已經在讀那個 API），不是憑印象填。
+> annual and near-annual sources 「stay a manual load; DataSourceStale watches
+> them at 14 days and MissingSource at 45, which is the correct instrument」
 
-**驗收（做的時候）**：合成控制項——年報級來源在 350 天時不告警、在 3 倍週期後告警；
-週報級來源的 14 天行為不變。守衛必須被證明兩個方向都會動。
+這個推理自相矛盾：**手動載入的年更新來源必然會超過 14 天**，
+所以那個「正確的儀器」保證會永遠紅。
+
+按原本的修法把門檻拉成 3×發布週期，等於把一個**為真**的陳述
+——「兩星期沒有任何東西抓過它」——調到不再被說出來。**那是把真告警靜音。**
+
+### 實際的修法
+
+新增 `platform/dataops/ingest_slow.sh`，週排程（`ingestslow|604800`），涵蓋三支 loader：
+
+```
+load_dimensional.py --sources tb,caremag
+load_registry.py --datasets pop,edu --years 114-115
+load_geography.py --refresh
+```
+
+**量測（執行後）：23 支來源全部 ≤ 0.29 天。** 五支永久紅消失，
+`DataSourceStale` 的 14 天門檻對每一支都重新是有意義的。
+
+週而不是日：`caremag` 是 4.1M 筆存量列，日排程要重讀 365 次來學到零；
+週排程讓每一支都留在 14 天門檻內、還有一次漏跑的餘裕，成本是日排程的七分之一。
+caremag 因此落後最多 7 天，這是刻意接受的——它不餵預測。
+
+**ROC 115 也照抓**：實測 `ODRP019/115` 回 HTTP 200、`responseCode=OD-0102-S`、0 筆，
+而 `load_registry.py` 把非 `OD-0101-S` 當作 skip 不是失敗。
+所以要 114-115 的成本是每次多一個請求，好處是 115 一發布就自動開始收，沒有人要記得改。
+
+### 頻率表還是做了，但用途不同
+
+`pilots/station2-twin/ingest/source_frequency.json`，由
+`platform/dataops/refresh_source_frequency.py` 從出版方目錄產生，24 支來源：
+20 支 `declared`（CKAN `updated_freq`）、2 支 `structural`、2 支 `no-evidence`。
+
+它的用途是**決定排程週期**，不是決定告警門檻——後者問的是我們的抓取有沒有停，
+前者才需要知道上游多久發一次。
+
+**這張表當場推翻了本節原本的表格。** 原本寫 `cdc-tb-caremag` 是「年」，
+CKAN 宣告是 **`day`**——那個資料集就叫「結核病**每日**縣市鄉鎮管理中個案」。
+一個憑印象寫的數字，在 markdown 表格裡和量出來的數字長得一模一樣，放了好幾週沒人發現。
+`platform/tests/test_source_frequency.sh` 現在要求每一列都帶 provenance，沒有依據的列直接紅。
+
+**欄位名也是錯的**：Backlog 原文說查 CKAN 的 `frequency`，實際欄位是 `updated_freq`。
+
+### 還沒做的
+
+- **上游是不是還在發布，仍然量不到。** `age` 只回答「我們的抓取有沒有停」。
+  要回答前者需要比對資料本身的最大期別（epi_week／statistic year）與宣告週期，
+  那是 §19 空抓取的同一個缺口，頻率表是它的前提但不是它。
+- **`moi-ris-village-age-marital`（ODRP052）從未載入過**，在 `DATASETS` 裡但沒有攝取歷史。
+  沒有加進 slow ingest：那是新範圍，不是這次的修正。
 
 ---
 
@@ -874,14 +932,14 @@ Docker 引擎 11:23 死掉，所有容器下線。當時：14 條告警規則、
 
 | 產出 | 位置 |
 |---|---|
-| 主機端匯出器（跑在 macOS，不在容器裡） | `platform/observability/host_disk_metrics.sh` |
-| 兩條磁碟門檻規則 | `platform/observability/prometheus/alerts/host-capacity.yml` |
-| 三條匯出器新鮮度規則（守的是上面兩條的輸入） | `platform/observability/prometheus/alerts/exporter-freshness.yml` |
-| 五方交叉比對：門檻表／運算式／`jobs.conf`／compose 掛載／實際檔案 | `platform/tests/exporter_freshness_check.py` |
+| 主機端匯出器（跑在 macOS，不在容器裡） | [`platform/observability/host_disk_metrics.sh`](../platform/observability/host_disk_metrics.sh) |
+| 兩條磁碟門檻規則 | [`platform/observability/prometheus/alerts/host-capacity.yml`](../platform/observability/prometheus/alerts/host-capacity.yml) |
+| 三條匯出器新鮮度規則（守的是上面兩條的輸入） | [`platform/observability/prometheus/alerts/exporter-freshness.yml`](../platform/observability/prometheus/alerts/exporter-freshness.yml) |
+| 五方交叉比對：門檻表／運算式／`jobs.conf`／compose 掛載／實際檔案 | [`platform/tests/exporter_freshness_check.py`](../platform/tests/exporter_freshness_check.py) |
 | 合成控制（紅綠成對） | `platform/observability/prometheus/rule_tests/{host-capacity,exporter-freshness}_test.yml` |
 | 測試套件（含突變測試，證明控制能失敗） | `platform/tests/test_host_capacity.sh`、`test_exporter_freshness.sh` |
 | 排程 job（300s，本表最短） | `platform/scheduler/jobs.conf` |
-| 選擇性回收腳本（**不是** `docker system prune -a`） | `platform/observability/docker_reclaim.sh` |
+| 選擇性回收腳本（**不是** `docker system prune -a`） | [`platform/observability/docker_reclaim.sh`](../platform/observability/docker_reclaim.sh) |
 | 決策紀錄與量測 | [ADR-0014](decisions/0014-host-disk-was-unmeasured.md) |
 
 故障全程用假序列模擬。**沒有真的填滿磁碟**——CLAUDE.md §5c 點名禁止，

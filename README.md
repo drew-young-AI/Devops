@@ -104,12 +104,16 @@ Prometheus 規則 → Alertmanager → Telegram      失敗 0  ✅ 活的
 失效形狀：**「監控系統被它沒有監控的東西弄停了」**。
 這個形狀會自我隱藏，因為資源耗盡先殺掉的就是負責報告資源耗盡的那個程序。
 
-現在有三條規則（[`host-capacity.yml`](platform/observability/prometheus/alerts/host-capacity.yml)）：
+磁碟本身兩條（[`host-capacity.yml`](platform/observability/prometheus/alerts/host-capacity.yml)）：
 
 | 規則 | 條件 | 嚴重度 |
 |---|---|---|
 | `HostDiskLow` | 剩餘 < 10%，持續 15m | warning |
 | `HostDiskCritical` | 剩餘 < 4%，持續 5m | critical |
+
+回收用 [`docker_reclaim.sh`](platform/observability/docker_reclaim.sh)，**不是** `docker system prune -a`——
+後者會刪掉本機建置、無處可補的 `station2-ingest:local`、`station2-mlops:local`
+與 registry 的 `v15`/`v15-green`。
 
 另外三條在 [`exporter-freshness.yml`](platform/observability/prometheus/alerts/exporter-freshness.yml)，
 守的是**上面兩條的輸入**：磁碟真的滿的時候匯出器寫不出檔案，node-exporter 照樣供應舊檔，

@@ -1,0 +1,122 @@
+{
+  "cdc-nhi-covid": {
+    "evidence": "CKAN updated_freq='week' on data.cdc.gov.tw dataset 'hi-visit-covid-19'",
+    "seconds": 604800,
+    "source": "declared"
+  },
+  "cdc-nhi-diarrhea": {
+    "evidence": "CKAN updated_freq='day' on data.cdc.gov.tw dataset 'hi-outpatient-emergency-visit-diarrhea'",
+    "seconds": 86400,
+    "source": "declared"
+  },
+  "cdc-nhi-enterovirus": {
+    "evidence": "CKAN updated_freq='day' on data.cdc.gov.tw dataset 'hi-outpatient-emergency-visit-enteroviral-infection'",
+    "seconds": 86400,
+    "source": "declared"
+  },
+  "cdc-nhi-herpangina": {
+    "evidence": "CKAN updated_freq='day' on data.cdc.gov.tw dataset 'hi-outpatient-emergency-visit-herpangina'",
+    "seconds": 86400,
+    "source": "declared"
+  },
+  "cdc-nhi-hfmd": {
+    "evidence": "CKAN updated_freq='day' on data.cdc.gov.tw dataset 'hi-outpatient-emergency-visit-hand-foot-mouth-disease'",
+    "seconds": 86400,
+    "source": "declared"
+  },
+  "cdc-nhi-ili": {
+    "evidence": "CKAN updated_freq='day' on data.cdc.gov.tw dataset 'hi-outpatient-emergency-visit-influenza-like-illness'",
+    "seconds": 86400,
+    "source": "declared"
+  },
+  "cdc-nhi-influenza": {
+    "evidence": "CKAN updated_freq='day' on data.cdc.gov.tw dataset 'hi-outpatient-emergency-visit-influenza'",
+    "seconds": 86400,
+    "source": "declared"
+  },
+  "cdc-nhi-pneumonia": {
+    "evidence": "CKAN updated_freq='day' on data.cdc.gov.tw dataset 'hi-outpatient-emergency-visit-other-pneumonia'",
+    "seconds": 86400,
+    "source": "declared"
+  },
+  "cdc-nhi-scarlet-fever": {
+    "evidence": "CKAN updated_freq='day' on data.cdc.gov.tw dataset 'hi-outpatient-emergency-visit-scarlet-fever'",
+    "seconds": 86400,
+    "source": "declared"
+  },
+  "cdc-nhi-uri": {
+    "evidence": "CKAN updated_freq='day' on data.cdc.gov.tw dataset 'hi-outpatient-emergency-visit-acute-upper-respiratory-infections'",
+    "seconds": 86400,
+    "source": "declared"
+  },
+  "cdc-nhi-varicella": {
+    "evidence": "CKAN updated_freq='day' on data.cdc.gov.tw dataset 'hi-outpatient-emergency-visit-varicella'",
+    "seconds": 86400,
+    "source": "declared"
+  },
+  "cdc-rods": {
+    "evidence": "retired 2026-08-19 (see RETIRED_SOURCES in platform/dataops/pipeline_metrics.py); it holds no fact rows and is a target in no loader, so it has no cadence to have.",
+    "seconds": null,
+    "source": "no-evidence"
+  },
+  "cdc-rods-conjunctivitis": {
+    "evidence": "CKAN updated_freq='day' on data.cdc.gov.tw dataset 'rods-conjunctivitis'",
+    "seconds": 86400,
+    "source": "declared"
+  },
+  "cdc-rods-covid": {
+    "evidence": "CKAN updated_freq='week' on data.cdc.gov.tw dataset 'rods-covid-19'",
+    "seconds": 604800,
+    "source": "declared"
+  },
+  "cdc-rods-diarrhea": {
+    "evidence": "CKAN updated_freq='week' on data.cdc.gov.tw dataset 'rods-acute-diarrhea'",
+    "seconds": 604800,
+    "source": "declared"
+  },
+  "cdc-rods-enterovirus": {
+    "evidence": "CKAN updated_freq='day' on data.cdc.gov.tw dataset 'rods-enteroviral-infection'",
+    "seconds": 86400,
+    "source": "declared"
+  },
+  "cdc-rods-herpangina": {
+    "evidence": "CKAN updated_freq='day' on data.cdc.gov.tw dataset 'rods-herpangina'",
+    "seconds": 86400,
+    "source": "declared"
+  },
+  "cdc-rods-hfmd": {
+    "evidence": "CKAN updated_freq='day' on data.cdc.gov.tw dataset 'rods-hand-foot-mouth-disease'",
+    "seconds": 86400,
+    "source": "declared"
+  },
+  "cdc-rods-ili": {
+    "evidence": "CKAN updated_freq='day' on data.cdc.gov.tw dataset 'rods-influenza'",
+    "seconds": 86400,
+    "source": "declared"
+  },
+  "cdc-tb-caremag": {
+    "evidence": "CKAN updated_freq='day' on data.cdc.gov.tw dataset 'tbdata001'",
+    "seconds": 86400,
+    "source": "declared"
+  },
+  "cdc-tb-town": {
+    "evidence": "CKAN updated_freq='year' on data.cdc.gov.tw dataset 'tbcaretown'",
+    "seconds": 31536000,
+    "source": "declared"
+  },
+  "moi-admin-geography": {
+    "evidence": "api.nlsc.gov.tw serves a full snapshot with no period in the address and publishes no cadence, so neither declared nor structural evidence exists. Administrative boundaries move when they move.",
+    "seconds": null,
+    "source": "no-evidence"
+  },
+  "moi-ris-village-education": {
+    "evidence": "ris.gov.tw ODRP024, same per-ROC-year addressing as ODRP019.",
+    "seconds": 31536000,
+    "source": "structural"
+  },
+  "moi-ris-village-population": {
+    "evidence": "ris.gov.tw ODRP019 is addressed per ROC year (ODRP019/113, /114 ...); load_registry.py iterates a --years range. One resource per year, so a new value cannot appear more often than yearly.",
+    "seconds": 31536000,
+    "source": "structural"
+  }
+}

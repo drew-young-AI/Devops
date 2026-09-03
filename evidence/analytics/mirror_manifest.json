@@ -1,22 +1,22 @@
 {
   "schema": "analytics-mirror/1",
-  "built_at": "2026-09-03T02:14:14Z",
-  "build_seconds": 8.72,
+  "built_at": "2026-09-03T11:35:13Z",
+  "build_seconds": 10.65,
   "watermark": {
-    "max_ingest_id": 79,
-    "max_fetched_at": "2026-09-03 02:11:16.36382+00",
-    "fact_rows": 6512272
+    "max_ingest_id": 84,
+    "max_fetched_at": "2026-09-03 08:25:23.391168+00",
+    "fact_rows": 6528589
   },
   "tables": {
     "fact": {
       "table": "surveillance_fact",
-      "bytes": 41888888,
-      "rows": 6512272
+      "bytes": 42156350,
+      "rows": 6528589
     },
     "period": {
       "table": "time_period",
-      "bytes": 57220,
-      "rows": 4914
+      "bytes": 57599,
+      "rows": 4930
     },
     "geo": {
       "table": "geo_area",
@@ -34,5 +34,5 @@
       "rows": 9
     }
   },
-  "total_bytes": 42033041
+  "total_bytes": 42300882
 }

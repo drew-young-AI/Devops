@@ -63,13 +63,41 @@ serving() {
 
 # Assert the Service is serving an expected colour, keeping "wrong colour" and
 # "could not measure" as different verdicts.
+# A THIRD OUTCOME: THE SELECTOR MOVED BUT THE ENDPOINTS HAVE NOT YET.
+#
+# `promote.sh` patches the Service selector and returns. kube-proxy rewrites
+# the endpoint set asynchronously, so a probe issued immediately afterwards can
+# still land on the previous colour. That is propagation, not a failed
+# promotion -- but the first version of this function could not tell them
+# apart, and reported the old colour as "promote reported success but Service
+# serves 'blue-v15'". It passed standalone and failed inside the full suite,
+# which is the signature of a race and not of a defect in promote.sh.
+#
+# So the wrong colour is retried, bounded, and the convergence time is PRINTED
+# rather than swallowed. Bounded because an unbounded wait would turn a genuine
+# failed promotion into a slow pass; printed because "how long does a promote
+# take to reach traffic" is a number worth having, and hiding it is how a
+# gradually worsening propagation becomes invisible until it crosses the bound.
+SERVES_DEADLINE="${SERVES_DEADLINE:-20}"
+
 serves() {
-  local want="$1" msg="$2" got
-  got="$(serving)"
-  if [ "$got" = "$want" ]; then ok "$msg ($got)"
+  local want="$1" msg="$2" got start elapsed
+  start=$(date +%s)
+  while :; do
+    got="$(serving)"
+    elapsed=$(( $(date +%s) - start ))
+    [ "$got" = "$want" ] && break
+    [ "$elapsed" -ge "$SERVES_DEADLINE" ] && break
+    sleep 1
+  done
+
+  if [ "$got" = "$want" ]; then
+    if [ "$elapsed" -gt 0 ]; then ok "$msg ($got, converged in ${elapsed}s)"
+    else ok "$msg ($got)"; fi
   elif [ "$got" = "UNREACHABLE" ]; then
-    bad "UNMEASURED: $msg" "3 probes failed to reach the Service; this is NOT evidence the colour changed"
-  else bad "$msg -- Service serves '$got', expected '$want'"
+    bad "UNMEASURED: $msg" "probes failed to reach the Service for ${elapsed}s; this is NOT evidence the colour changed"
+  else
+    bad "$msg -- Service still serves '$got' after ${elapsed}s, expected '$want'"
   fi
 }
 
@@ -83,12 +111,17 @@ serves() {
 preflight() {
   local out saved rc=0 cnt
   saved="$(declare -f probe_once)"
+  # The two negative controls below stub a probe that never returns the wanted
+  # value, so they would otherwise sit out the full propagation deadline twice.
+  # A 2s deadline still exercises the loop and keeps preflight at ~0s, which is
+  # what makes it cheap enough to leave attached to the suite it guards.
+  local SERVES_DEADLINE=2
 
   probe_once() { echo UNREACHABLE; }
   out="$(serves blue-v15 "probe control" 2>&1)"
   case "$out" in
     *UNMEASURED*) case "$out" in
-        *"expected"*) bad "control: unreachable still claimed a colour change"; rc=1 ;;
+        *"expected '"*) bad "control: unreachable still claimed a colour change"; rc=1 ;;
         *) ok "control: 3 failed probes report UNMEASURED, not a colour change" ;;
       esac ;;
     *) bad "control: an unreachable Service did not report UNMEASURED" "$out"; rc=1 ;;
@@ -97,7 +130,7 @@ preflight() {
   probe_once() { echo green-v15-green; }
   out="$(serves blue-v15 "probe control" 2>&1)"
   case "$out" in
-    *"serves 'green-v15-green', expected 'blue-v15'"*)
+    *"serves 'green-v15-green'"*|*"expected 'blue-v15'"*)
       ok "control: a real colour change is still reported as one" ;;
     *) bad "control: a real colour change was swallowed" "$out"; rc=1 ;;
   esac
@@ -120,6 +153,46 @@ preflight() {
   return $rc
 }
 preflight
+
+# ── what this suite must put back ──────────────────────────────────────────
+#
+# Scenario 5 deletes the green Deployment on purpose -- refusing to promote a
+# colour that does not exist is a property worth proving -- and until
+# 2026-09-03 it left it deleted. So every full test run quietly dismantled the
+# standing green environment and left the platform on blue, which is why
+# `promote.sh green` was later REFUSED with "no deployment for colour 'green'"
+# on a platform where green had been serving that morning.
+#
+# CLAUDE.md §5c already requires that a test which mutates state restores it in
+# a trap. That rule was being applied to the stubbed functions inside this file
+# and not to the cluster the file deploys into -- the more expensive of the
+# two, and the one nothing else would notice.
+#
+# Recorded BEFORE anything is deployed, restored in the trap regardless of how
+# the suite exits.
+GREEN_EXISTED=0
+k get deploy station2-twin-green >/dev/null 2>&1 && GREEN_EXISTED=1
+SERVING_AT_START="$(k get svc station2-twin -o jsonpath='{.spec.selector.color}' 2>/dev/null)"
+
+restore_cluster() {
+  local rc=$?
+  if [ "$GREEN_EXISTED" = 1 ] && ! k get deploy station2-twin-green >/dev/null 2>&1; then
+    echo "  [restore] re-creating the green deployment this suite deleted"
+    "$HERE/deploy.sh" green v15-green 15 >/dev/null 2>&1 \
+      || echo "  [restore] FAILED to re-create green -- promote.sh green will refuse" >&2
+  fi
+  if [ -n "$SERVING_AT_START" ]; then
+    local now
+    now="$(k get svc station2-twin -o jsonpath='{.spec.selector.color}' 2>/dev/null)"
+    if [ "$now" != "$SERVING_AT_START" ]; then
+      echo "  [restore] returning traffic to '$SERVING_AT_START'"
+      "$HERE/promote.sh" "$SERVING_AT_START" >/dev/null 2>&1 \
+        || echo "  [restore] FAILED to return traffic to $SERVING_AT_START" >&2
+    fi
+  fi
+  return $rc
+}
+trap restore_cluster EXIT INT TERM
 
 echo "=== blue/green on kubernetes ==="
 
