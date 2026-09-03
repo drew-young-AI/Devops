@@ -1,9 +1,17 @@
 {
   "schema": "gha-status/1",
-  "fetched_at": "2026-09-03T17:25:29+08:00",
+  "fetched_at": "2026-09-03T19:47:28+08:00",
   "fetch_state": "ok",
   "detail": "fetched main",
   "runs": [
+    {
+      "conclusion": "failure",
+      "createdAt": "2026-09-03T11:43:39Z",
+      "displayTitle": "fix(dataops,k8s): 五支永久紅的來源不是門檻訂錯，是沒有東西在抓它們",
+      "status": "completed",
+      "url": "https://github.com/drew-young-AI/Devops/actions/runs/33751264002",
+      "workflowName": "Platform Tests"
+    },
     {
       "conclusion": "failure",
       "createdAt": "2026-09-03T08:05:22Z",
@@ -74,14 +82,6 @@
       "displayTitle": "chore(evidence): 排程產生的證據異動",
       "status": "completed",
       "url": "https://github.com/drew-young-AI/Devops/actions/runs/33516337800",
-      "workflowName": "Platform Tests"
-    },
-    {
-      "conclusion": "success",
-      "createdAt": "2026-09-01T13:08:56Z",
-      "displayTitle": "fix(vault): ROTATION PASS 是在空集合上量化出來的",
-      "status": "completed",
-      "url": "https://github.com/drew-young-AI/Devops/actions/runs/33511655459",
       "workflowName": "Platform Tests"
     }
   ]

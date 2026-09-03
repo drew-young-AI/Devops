@@ -69,6 +69,8 @@ hours. This is the origin of ADR-0007: *verify by evaluation, not by parsing*.
 | 能力 | 什麼時候跑 | 做什麼 | 保證什麼 |
 |---|---|---|---|
 | [`dataops/ingest.sh`](ingest.sh) | 排程（每日 03:00） | 拉取 19 支週報監測 feed 並 upsert 進 `surveillance_fact` | **這條線在 2026-09-03 之前根本不存在**：載入器 2026-08-20 手動跑過一次，之後 jobs.conf 的 19 個 job 沒有一個抓資料，下游全部在一份不再變動的資料上維持綠燈。每日而非每週，因為疾管署不公告星期幾發布 |
+| [`dataops/ingest_slow.sh`](ingest_slow.sh) | 排程 `ingestslow`（每週） | 抓 `ingest.sh` 刻意不抓的五支：tb、caremag、兩支村里戶政、NLSC 行政區 | **這五支在 2026-09-03 之前沒有任何東西在抓**，所以 `DataSourceStale` 對它們永久紅——而永久紅的成員會讓整個類別被人過濾掉。週而非日：caremag 是 4.1M 筆存量列，週排程讓每支都留在 14 天門檻內還有一次漏跑的餘裕 |
+| [`refresh_source_frequency.py`](refresh_source_frequency.py) | 手動／上游新增來源時 | 從出版方目錄取得每支來源的宣告發布頻率，寫成帶 provenance 的表 | **不是手寫的**。§20 原本手寫的頻率表把每日更新的 caremag 記成「年」，差兩個數量級、放了數週沒人發現——估計值一旦寫成數字就取得量測值的外觀。無依據的來源記為 `null`，不給預設值 |
 | [`dataops/run.sh`](run.sh) | 排程 | 入口 | **重用 analytics 的 venv 不另建一個**：需要的正好就是 duckdb 與 psycopg2，兩個 venv 釘同一組版本＝兩個要同步的東西 |
 | [`pipeline_metrics.py`](pipeline_metrics.py) | 排程 | 產出資料庫約束**抓不到**的三件事的指標 | 約束能擋住壞資料進來，擋不住「該來的沒來」「來得太晚」「來了但語意變了」 |
 | [`settled_week.py`](settled_week.py) | 由指標流程呼叫 | 決定漂移比較用哪一個流行病學週、落後資料多久 | 週定義是這條線唯一還沒有權威來源的參數（要問疾管署），所以它被獨立出來而不是散在各處 |

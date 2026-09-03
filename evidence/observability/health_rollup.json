@@ -1,50 +1,50 @@
 {
   "schema": "health-rollup/1",
-  "generated_at": "2026-09-03T08:51:16Z",
+  "generated_at": "2026-09-03T11:45:12Z",
   "source_dir": "evidence/observability",
-  "snapshots": 1719,
+  "snapshots": 1727,
   "snapshots_undated": 0,
   "snapshots_unreadable": 0,
   "first_sample": "2026-08-13T08:12:42Z",
-  "last_sample": "2026-09-03T08:43:31Z",
-  "span_s": 1816249,
-  "expected_samples": 2019,
-  "coverage_ratio": 0.8514,
+  "last_sample": "2026-09-03T11:38:31Z",
+  "span_s": 1826749,
+  "expected_samples": 2030,
+  "coverage_ratio": 0.8507,
   "verdicts": {
     "HEALTHY": 1035,
     "UNKNOWN": 275,
     "CRITICAL": 1,
-    "DEGRADED": 408
+    "DEGRADED": 416
   },
   "checks": {
     "prometheus_reachable": {
-      "observed": 1719,
+      "observed": 1727,
       "failed": 217
     },
     "alert_rules_loaded": {
-      "observed": 1502,
+      "observed": 1510,
       "failed": 0
     },
     "alert_rules_evaluating": {
-      "observed": 1502,
+      "observed": 1510,
       "failed": 58
     },
     "alertmanager_wired": {
-      "observed": 1719,
+      "observed": 1727,
       "failed": 218
     },
     "alertmanager_reachable": {
-      "observed": 1719,
+      "observed": 1727,
       "failed": 217
     },
     "scrape_targets_visible": {
-      "observed": 1719,
+      "observed": 1727,
       "failed": 218
     }
   },
   "episodes": [
     {
-      "check": "verdict:UNKNOWN",
+      "check": "scrape_targets_visible",
       "from": "2026-08-21T13:41:05Z",
       "to": "2026-08-24T15:25:37Z",
       "duration_s": 265472,
@@ -65,7 +65,7 @@
       "samples": 195
     },
     {
-      "check": "scrape_targets_visible",
+      "check": "verdict:UNKNOWN",
       "from": "2026-08-21T13:41:05Z",
       "to": "2026-08-24T15:25:37Z",
       "duration_s": 265472,
@@ -93,14 +93,14 @@
       "samples": 70
     },
     {
-      "check": "alert_rules_evaluating",
+      "check": "verdict:UNKNOWN",
       "from": "2026-08-28T15:57:29Z",
       "to": "2026-08-29T02:41:27Z",
       "duration_s": 38638,
       "samples": 57
     },
     {
-      "check": "verdict:UNKNOWN",
+      "check": "alert_rules_evaluating",
       "from": "2026-08-28T15:57:29Z",
       "to": "2026-08-29T02:41:27Z",
       "duration_s": 38638,
@@ -129,6 +129,13 @@
     },
     {
       "check": "verdict:DEGRADED",
+      "from": "2026-09-03T06:43:11Z",
+      "to": "2026-09-03T11:38:31Z",
+      "duration_s": 17720,
+      "samples": 27
+    },
+    {
+      "check": "verdict:DEGRADED",
       "from": "2026-08-19T05:15:52Z",
       "to": "2026-08-19T09:47:36Z",
       "duration_s": 16304,
@@ -142,7 +149,7 @@
       "samples": 12
     },
     {
-      "check": "verdict:UNKNOWN",
+      "check": "scrape_targets_visible",
       "from": "2026-09-03T03:23:59Z",
       "to": "2026-09-03T06:28:09Z",
       "duration_s": 11050,
@@ -163,7 +170,7 @@
       "samples": 12
     },
     {
-      "check": "scrape_targets_visible",
+      "check": "verdict:UNKNOWN",
       "from": "2026-09-03T03:23:59Z",
       "to": "2026-09-03T06:28:09Z",
       "duration_s": 11050,
@@ -206,13 +213,6 @@
     },
     {
       "check": "verdict:DEGRADED",
-      "from": "2026-09-03T06:43:11Z",
-      "to": "2026-09-03T08:43:31Z",
-      "duration_s": 7220,
-      "samples": 19
-    },
-    {
-      "check": "verdict:DEGRADED",
       "from": "2026-09-03T01:23:38Z",
       "to": "2026-09-03T03:08:56Z",
       "duration_s": 6318,
@@ -233,7 +233,7 @@
       "samples": 5
     },
     {
-      "check": "verdict:UNKNOWN",
+      "check": "scrape_targets_visible",
       "from": "2026-09-01T13:35:05Z",
       "to": "2026-09-01T14:01:06Z",
       "duration_s": 1561,
@@ -254,7 +254,7 @@
       "samples": 4
     },
     {
-      "check": "scrape_targets_visible",
+      "check": "verdict:UNKNOWN",
       "from": "2026-09-01T13:35:05Z",
       "to": "2026-09-01T14:01:06Z",
       "duration_s": 1561,
@@ -366,7 +366,7 @@
       "samples": 2
     },
     {
-      "check": "verdict:UNKNOWN",
+      "check": "scrape_targets_visible",
       "from": "2026-09-01T01:14:48Z",
       "to": "2026-09-01T01:14:50Z",
       "duration_s": 2,
@@ -387,7 +387,7 @@
       "samples": 2
     },
     {
-      "check": "scrape_targets_visible",
+      "check": "verdict:UNKNOWN",
       "from": "2026-09-01T01:14:48Z",
       "to": "2026-09-01T01:14:50Z",
       "duration_s": 2,
@@ -401,7 +401,7 @@
       "samples": 2
     },
     {
-      "check": "verdict:UNKNOWN",
+      "check": "scrape_targets_visible",
       "from": "2026-09-01T01:49:27Z",
       "to": "2026-09-01T01:49:29Z",
       "duration_s": 2,
@@ -422,7 +422,7 @@
       "samples": 2
     },
     {
-      "check": "scrape_targets_visible",
+      "check": "verdict:UNKNOWN",
       "from": "2026-09-01T01:49:27Z",
       "to": "2026-09-01T01:49:29Z",
       "duration_s": 2,
@@ -436,7 +436,7 @@
       "samples": 2
     },
     {
-      "check": "verdict:UNKNOWN",
+      "check": "scrape_targets_visible",
       "from": "2026-09-01T01:55:51Z",
       "to": "2026-09-01T01:55:53Z",
       "duration_s": 2,
@@ -457,7 +457,7 @@
       "samples": 2
     },
     {
-      "check": "scrape_targets_visible",
+      "check": "verdict:UNKNOWN",
       "from": "2026-09-01T01:55:51Z",
       "to": "2026-09-01T01:55:53Z",
       "duration_s": 2,
@@ -469,6 +469,20 @@
       "to": "2026-09-01T01:55:53Z",
       "duration_s": 2,
       "samples": 2
+    },
+    {
+      "check": "alertmanager_wired",
+      "from": "2026-08-16T02:37:13Z",
+      "to": "2026-08-16T02:37:13Z",
+      "duration_s": 0,
+      "samples": 1
+    },
+    {
+      "check": "verdict:UNKNOWN",
+      "from": "2026-08-16T02:37:13Z",
+      "to": "2026-08-16T02:37:13Z",
+      "duration_s": 0,
+      "samples": 1
     },
     {
       "check": "alert_rules_evaluating",
@@ -479,20 +493,6 @@
     },
     {
       "check": "scrape_targets_visible",
-      "from": "2026-08-16T02:37:13Z",
-      "to": "2026-08-16T02:37:13Z",
-      "duration_s": 0,
-      "samples": 1
-    },
-    {
-      "check": "alertmanager_wired",
-      "from": "2026-08-16T02:37:13Z",
-      "to": "2026-08-16T02:37:13Z",
-      "duration_s": 0,
-      "samples": 1
-    },
-    {
-      "check": "verdict:UNKNOWN",
       "from": "2026-08-16T02:37:13Z",
       "to": "2026-08-16T02:37:13Z",
       "duration_s": 0,
@@ -595,6 +595,12 @@
       "from": "2026-08-23T23:20:11Z",
       "to": "2026-08-24T01:31:44Z",
       "duration_s": 7893,
+      "missed_runs": 7
+    },
+    {
+      "from": "2026-09-03T09:13:36Z",
+      "to": "2026-09-03T11:22:32Z",
+      "duration_s": 7736,
       "missed_runs": 7
     },
     {

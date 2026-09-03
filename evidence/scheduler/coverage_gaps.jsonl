@@ -279,3 +279,6 @@
 {"job": "disk", "gap_seconds": 6687, "gap_minutes": 111.5, "expected_interval_seconds": 300, "missed_runs": 21, "from": "2026-09-03T09:32:17Z", "to": "2026-09-03T11:23:44Z"}
 {"job": "board", "gap_seconds": 4332, "gap_minutes": 72.2, "expected_interval_seconds": 900, "missed_runs": 3, "from": "2026-09-03T10:22:42Z", "to": "2026-09-03T11:34:54Z"}
 {"job": "logcov", "gap_seconds": 10436, "gap_minutes": 173.9, "expected_interval_seconds": 3600, "missed_runs": 1, "from": "2026-09-03T08:47:29Z", "to": "2026-09-03T11:41:25Z"}
+{"job": "rollup", "gap_seconds": 10436, "gap_minutes": 173.9, "expected_interval_seconds": 3600, "missed_runs": 1, "from": "2026-09-03T08:51:15Z", "to": "2026-09-03T11:45:11Z"}
+{"job": "gha", "gap_seconds": 8519, "gap_minutes": 142.0, "expected_interval_seconds": 1800, "missed_runs": 3, "from": "2026-09-03T09:25:27Z", "to": "2026-09-03T11:47:26Z"}
+{"job": "dataops", "gap_seconds": 10439, "gap_minutes": 174.0, "expected_interval_seconds": 3600, "missed_runs": 1, "from": "2026-09-03T09:07:01Z", "to": "2026-09-03T12:01:00Z"}

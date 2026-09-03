@@ -82,6 +82,24 @@ def pg():
         password=os.environ["PGPASSWORD"])
 
 
+# ingest_runs.status, classified. Three lists rather than "anything that is
+# not ok is bad", because the one non-ok status this platform writes is not bad.
+#
+#   ok              the run did what it was asked
+#   conflicted      the run succeeded AND the source contradicted itself: two
+#                   rows, same key, different values. The row is rejected and
+#                   counted; summing them would be a guess about whether they
+#                   are disjoint cohorts or one restatement, and the data says
+#                   neither (load_dimensional.py).
+#   failure         nothing writes one yet -- see the note in
+#                   observability/prometheus/alerts/dataops.yml. A fetch that
+#                   fails exits non-zero and writes NO row at all, so batch
+#                   failure is visible through the scheduler, not through here.
+OK_STATUSES = ["ok"]
+CONFLICT_STATUSES = ["ok-with-conflicts"]
+FAILURE_STATUSES = []
+
+
 def freshness_and_execution(lines):
     """Small tables, queried straight from Postgres -- the mirror would buy
     nothing here and would add a staleness question to a freshness metric,
@@ -95,9 +113,33 @@ def freshness_and_execution(lines):
                    coalesce(sum(rows_accepted), 0),
                    coalesce(sum(rows_rejected), 0),
                    coalesce(sum(rows_inserted), 0),
-                   count(*) FILTER (WHERE status <> 'ok')
-            FROM ingest_runs GROUP BY 1 ORDER BY 1""")
+                   count(*) FILTER (WHERE status = ANY(%s)),
+                   count(*) FILTER (WHERE status = ANY(%s)),
+                   count(*) FILTER (WHERE NOT (status = ANY(%s)))
+            FROM ingest_runs GROUP BY 1 ORDER BY 1""",
+                  (FAILURE_STATUSES, CONFLICT_STATUSES,
+                   FAILURE_STATUSES + CONFLICT_STATUSES + OK_STATUSES))
         rows = c.fetchall()
+
+        # An unclassified status is a hard error, not a default.
+        #
+        # The previous rule was `status <> 'ok'`, counted as failures. The only
+        # non-ok status any loader writes is `ok-with-conflicts`, which means
+        # the SOURCE contained two rows with the same key and different values
+        # -- a data-quality fact about the publisher, recorded deliberately with
+        # a name that starts with "ok". Counting it as a failed batch made
+        # IngestRunsFailing fire every time cdc-tb-caremag loaded, and its
+        # summary said 「有失敗的載入批次」 about a run that succeeded.
+        #
+        # Same rule and same reason as RETIRED_SOURCES above: an explicit list
+        # with an assertion against it, never a heuristic. A new status added by
+        # a loader must stop this exporter rather than be silently binned.
+        for (src, _l, _c, _in, _acc, _rej, _ins, _fail, _conf, unknown) in rows:
+            if unknown:
+                sys.exit(f"{src}: {unknown} ingest_runs row(s) carry a status "
+                         f"outside FAILURE_STATUSES / CONFLICT_STATUSES / "
+                         f"OK_STATUSES. Classify it deliberately -- a status "
+                         f"nobody classified is a status nobody alerts on.")
 
         # Freshness is not reported for a source that has been retired.
         #
@@ -166,7 +208,7 @@ def freshness_and_execution(lines):
         "ingest_runs -- recorded since day one, never surfaced until now.",
         "# TYPE dataops_ingest_rows_total counter",
     ]
-    for (src, _last, _runs, in_file, acc, rej, ins, _bad) in rows:
+    for (src, _last, _runs, in_file, acc, rej, ins, *_status_counts) in rows:
         for outcome, n in (("in_file", in_file), ("accepted", acc),
                            ("rejected", rej), ("inserted", ins)):
             lines.append(f'dataops_ingest_rows_total{{source="{esc(src)}",'
@@ -177,16 +219,33 @@ def freshness_and_execution(lines):
         "Emitted as a ratio, not a verdict -- the threshold is an alert rule.",
         "# TYPE dataops_ingest_reject_ratio gauge",
     ]
-    for (src, _l, _r, in_file, _a, rej, _i, _b) in rows:
+    for (src, _l, _r, in_file, _a, rej, _i, *_status_counts) in rows:
         ratio = (rej / in_file) if in_file else 0.0
         lines.append(f'dataops_ingest_reject_ratio{{source="{esc(src)}"}} {ratio:.6f}')
 
     lines += [
-        "# HELP dataops_ingest_runs_failed_total Runs whose status was not ok.",
+        "# HELP dataops_ingest_runs_failed_total Runs whose status is in "
+        "FAILURE_STATUSES. Zero for every source today: no loader writes a "
+        "failure status -- a failed fetch exits non-zero and writes no row.",
         "# TYPE dataops_ingest_runs_failed_total counter",
     ]
-    for (src, *_m, bad) in rows:
-        lines.append(f'dataops_ingest_runs_failed_total{{source="{esc(src)}"}} {bad}')
+    for r in rows:
+        src, fail = r[0], r[7]
+        lines.append(f'dataops_ingest_runs_failed_total{{source="{esc(src)}"}} {fail}')
+    lines += [
+        "# HELP dataops_ingest_runs_conflicted_total Runs that SUCCEEDED but "
+        "found the source contradicting itself: same key, different values.",
+        "# TYPE dataops_ingest_runs_conflicted_total counter",
+    ]
+    # Split out of the failure counter on 2026-09-03. Merged, it made
+    # IngestRunsFailing fire every time cdc-tb-caremag loaded and say
+    # 「有失敗的載入批次」 about a run that succeeded -- and since caremag's
+    # source carries the same conflict every week, that was a permanent red
+    # arriving on a weekly schedule. A permanently-red member is how a whole
+    # class of alert stops being read.
+    for r in rows:
+        src, conf = r[0], r[8]
+        lines.append(f'dataops_ingest_runs_conflicted_total{{source="{esc(src)}"}} {conf}')
     return len(rows)
 
 

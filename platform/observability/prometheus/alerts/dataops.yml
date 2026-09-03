@@ -80,16 +80,31 @@ groups:
             而不是偶發髒資料。
 
           runbook: "psql: select source,note from ingest_runs order by fetched_at desc limit 5；格式變更要改 loader，不是放寬約束"
-      - alert: IngestRunsFailing
-        expr: increase(dataops_ingest_runs_failed_total[24h]) > 0
-        for: 10m
-        labels:
-          severity: warning
-          service: dataops
-        annotations:
-          summary: "{{ $labels.source }} 過去 24 小時有失敗的載入批次"
-
-          runbook: "看 evidence/scheduler/logs/ingest.launchd.log 與 ingest_runs 最後一筆的 status/note"
+      # IngestRunsFailing REMOVED 2026-09-03. It could not fire for its stated
+      # reason, and did fire for another.
+      #
+      # It read `increase(dataops_ingest_runs_failed_total[24h]) > 0`, and that
+      # counter was `status <> 'ok'`. The only non-ok status any loader writes
+      # is `ok-with-conflicts` -- the run SUCCEEDED and the source contradicted
+      # itself, two rows with the same key and different values. So the alert
+      # announced 「有失敗的載入批次」 about runs that had not failed, and
+      # because cdc-tb-caremag's source carries the same conflict every time,
+      # the new weekly slow ingest turned it into a permanent red on a
+      # schedule. That is the failure this file spent §20 removing one level up.
+      #
+      # A genuinely failed fetch writes NO ingest_runs row at all: the loader
+      # exits non-zero, ingest.sh propagates it, the scheduler records the
+      # failure and probe_scheduler turns PlatformNodeFailed red. Batch failure
+      # is therefore covered -- by the scheduler path, not by this file. Leaving
+      # a second rule here that cannot fire would read as extra coverage and be
+      # the opposite, which is the whole argument of ADR-0005.
+      #
+      # dataops_ingest_runs_conflicted_total now carries the conflicts, and has
+      # NO rule on purpose: the count is stable (caremag has had exactly 1
+      # conflict since 2026-08-19), so only a CHANGE is news, and detecting a
+      # change needs a baseline this platform does not store yet. Alerting on
+      # the level instead would manufacture the permanent red that was just
+      # removed. Recorded in docs/Backlog.md rather than guessed at.
   - name: dataops-drift
     rules:
       # A single geography moving is epidemiology. A quarter of them moving the

@@ -80,6 +80,23 @@ serving() {
 # gradually worsening propagation becomes invisible until it crosses the bound.
 SERVES_DEADLINE="${SERVES_DEADLINE:-20}"
 
+# The same bounded wait `serves()` uses, exposed for the two scenarios that
+# need the VALUE rather than a pass/fail. Without it those two read the Service
+# the instant promote.sh returns, which is before kube-proxy has rewritten the
+# endpoints -- and the first version of this file did exactly that, producing a
+# failure that passed standalone and went red only inside the full suite.
+serving_converged() {  # <expected>
+  local want="$1" v start
+  start=$(date +%s)
+  while :; do
+    v="$(serving)"
+    [ "$v" = "$want" ] && break
+    [ $(( $(date +%s) - start )) -ge "${SERVES_DEADLINE:-20}" ] && break
+    sleep 1
+  done
+  printf '%s' "$v"
+}
+
 serves() {
   local want="$1" msg="$2" got start elapsed
   start=$(date +%s)
@@ -218,7 +235,7 @@ serves blue-v15 "traffic stayed on blue after the refusal"
 k delete deploy station2-twin-green --wait=true >/dev/null 2>&1
 "$HERE/deploy.sh" green v15-green 15 >/dev/null 2>&1
 if "$HERE/promote.sh" green >/dev/null 2>&1; then
-  V=$(serving)
+  V=$(serving_converged green-v15-green)
   [ "$V" = "green-v15-green" ] && ok "promoted to green, Service now serves $V" \
     || { [ "$V" = "UNREACHABLE" ] \
          && bad "UNMEASURED: promoted to green" "3 probes failed; NOT evidence the promotion failed" \
@@ -232,8 +249,11 @@ fi
 # version is still running, so going back is a selector flip, not a redeploy.
 START=$(date +%s)
 "$HERE/promote.sh" blue >/dev/null 2>&1
+V=$(serving_converged blue-v15)
+# Measured to the point traffic actually moved, not to the point the patch
+# returned. The old figure ("rolled back in 0s") was the API call's latency and
+# said nothing about when the previous version stopped receiving requests.
 ELAPSED=$(( $(date +%s) - START ))
-V=$(serving)
 [ "$V" = "blue-v15" ] && ok "rolled back to blue in ${ELAPSED}s ($V)" \
   || { [ "$V" = "UNREACHABLE" ] \
        && bad "UNMEASURED: rollback" "3 probes failed; NOT evidence the rollback failed" \

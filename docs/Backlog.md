@@ -1051,3 +1051,48 @@ Alloy 的 redaction 有三條規則，涵蓋 `ghp_` / `github_pat_` / `hvs.`—�
 輸出卻寫「mutant survived」——那是關於規則的宣稱，實際上是關於測試的宣稱。
 `lib.sh` 新增 `mutate()`，先驗證編輯真的落地才量它的效果。
 **「突變沒套用」和「突變存活」必須分得開。**
+
+---
+
+## §23 `IngestRunsFailing` 只可能因為「不是失敗」而燒（2026-09-03 移除）
+
+### 事實
+
+`dataops_ingest_runs_failed_total` 的定義是 `count(*) FILTER (WHERE status <> 'ok')`。
+資料庫裡實際存在的狀態只有兩種：
+
+| status | 筆數 | 意思 |
+|---|---|---|
+| `ok` | 80 | 正常 |
+| `ok-with-conflicts` | 2 | **執行成功**，但來源自己矛盾：同鍵不同值，該列被拒絕並計數 |
+
+**沒有任何 loader 寫得出失敗狀態。** 真的抓失敗時 loader 直接非零離開，
+**一列都不會寫進 `ingest_runs`**。
+
+所以這條規則：
+- **不可能**因為它宣稱的理由（批次失敗）而燒；
+- **只可能**因為 `ok-with-conflicts` 而燒，然後說「有失敗的載入批次」。
+
+而 `cdc-tb-caremag` 的來源每次都帶同一個 conflict，
+所以 §20 新增的週排程一上線，它就變成**每週準時報到的永久紅**——
+正是 §20 才剛在上一層移除掉的那個東西，在下一層立刻重現。
+
+### 處置
+
+- `pipeline_metrics.py` 改成三份具名清單 `OK_STATUSES` / `CONFLICT_STATUSES` /
+  `FAILURE_STATUSES`，未分類的狀態直接讓匯出器停掉。
+  規則與理由同 `RETIRED_SOURCES`：**具名清單加上斷言，不用啟發式。**
+- 新增 `dataops_ingest_runs_conflicted_total`，與失敗計數分開。
+- **移除 `IngestRunsFailing`。** 批次失敗由排程器那條路徑覆蓋
+  （loader 非零 → `probe_scheduler` FAIL → `PlatformNodeFailed`），
+  留一條燒不起來的規則在這裡會被讀成額外覆蓋，實際相反（[ADR-0005](decisions/0005-dataops-monitoring-scope.md)）。
+- `test_dataops_metrics.sh` 斷言資料庫裡每一個 status 都被分類，且三份清單互斥。
+
+### 還沒做的
+
+- **conflict 沒有告警，是刻意的。** caremag 的 conflict 數自 2026-08-19 起
+  一直是 1；**只有變化才是新聞**，而偵測變化需要一條這個平台還沒存的基線。
+  對絕對值告警只會製造出剛剛被移除的那種永久紅。
+- **讓 loader 真的寫得出失敗列**，`IngestRunsFailing` 才會有意義的版本可以回來。
+  現在的替代覆蓋（排程器路徑）看得到「job 失敗了」，
+  看不到「25 支來源裡有 1 支失敗、其餘成功」——那個粒度目前量不到。

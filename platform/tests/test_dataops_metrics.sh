@@ -115,12 +115,65 @@ else
   _pass "every emitted metric has a HELP line"
 fi
 
+# ---- ingest_runs.status must be classified, not defaulted ------------------
+#
+# The exporter counted `status <> 'ok'` as failures. The only non-ok status any
+# loader writes is `ok-with-conflicts`, which means the run SUCCEEDED and the
+# source contradicted itself -- so IngestRunsFailing announced 「有失敗的載入
+# 批次」 about runs that had not failed, weekly, forever.
+#
+# pipeline_metrics.py now classifies every status explicitly and exits on one
+# it does not recognise. This asserts the classification is complete against
+# what the database actually holds, which is the half an exit-on-unknown cannot
+# prove by itself: it only fires if such a row is reached, and a source that
+# stops loading stops being reached.
+if timeout 20 docker exec station2-twin-db-1 true >/dev/null 2>&1; then
+  UNCLASSIFIED="$(python3 - <<'PY'
+import re, subprocess
+src = open("platform/dataops/pipeline_metrics.py", encoding="utf-8").read()
+def lst(name):
+    m = re.search(name + r"\s*=\s*\[([^\]]*)\]", src)
+    return set(re.findall(r'"([^"]+)"', m.group(1))) if m else set()
+known = lst("OK_STATUSES") | lst("CONFLICT_STATUSES") | lst("FAILURE_STATUSES")
+out = subprocess.run(
+    ["docker", "exec", "station2-twin-db-1", "psql", "-U", "twin", "-d", "twin",
+     "-At", "-c", "SELECT DISTINCT status FROM ingest_runs"],
+    capture_output=True, text=True, timeout=60)
+actual = {s for s in out.stdout.strip().split("\n") if s}
+print(",".join(sorted(actual - known)))
+PY
+)"
+  assert_equals "" "$UNCLASSIFIED" "every ingest_runs.status in the database is classified"
+
+  # And the reverse: the three lists must not overlap, or a status would be
+  # counted twice and the totals would exceed the run count.
+  OVERLAP="$(python3 - <<'PY'
+import re
+src = open("platform/dataops/pipeline_metrics.py", encoding="utf-8").read()
+def lst(name):
+    m = re.search(name + r"\s*=\s*\[([^\]]*)\]", src)
+    return set(re.findall(r'"([^"]+)"', m.group(1))) if m else set()
+ok, conf, fail = lst("OK_STATUSES"), lst("CONFLICT_STATUSES"), lst("FAILURE_STATUSES")
+print(",".join(sorted((ok & conf) | (ok & fail) | (conf & fail))))
+PY
+)"
+  assert_equals "" "$OVERLAP" "the three status classes are disjoint"
+else
+  echo "  SKIP  no database -- status classification completeness UNVERIFIED"
+fi
+
 # ---- promtool: Prometheus' own parser, not ours ---------------------------
 if command -v docker >/dev/null 2>&1; then
   run_cmd docker run --rm -v "$REPO_ROOT/platform/observability/prometheus/alerts:/a:ro" \
       --entrypoint promtool "$(prom_image)" check rules /a/dataops.yml
   assert_rc 0 "promtool accepts the rules"
-  assert_output_contains "7 rules found" "and finds all seven (6 alerts + 1 recording rule)"
+  # Six, not seven. IngestRunsFailing was removed 2026-09-03: its counter was
+# `status <> 'ok'`, the only non-ok status means the run SUCCEEDED with a
+# self-contradicting source, and no loader writes a failure status at all --
+# so it could not fire for its stated reason and did fire for another. Batch
+# failure is covered by the scheduler path (probe_scheduler ->
+# PlatformNodeFailed), which is where a run that never wrote a row shows up.
+assert_output_contains "6 rules found" "and finds all six (5 alerts + 1 recording rule)"
 else
   echo "  SKIP  no docker -- promtool validation UNVERIFIED"
 fi
