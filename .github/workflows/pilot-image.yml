@@ -1,0 +1,206 @@
+# Build the pilot image ON the architecture it will run on, for both machines.
+#
+# WHY THIS EXISTS.
+#
+# ADR-0008 split this platform across two instruction sets: the Mac is arm64
+# (k3d, dev/SIT/UAT), the Ubuntu box is amd64 (k3s, prod). Until now every
+# image was built on the Mac, so there was no image the prod cluster could run
+# at all -- `platform/tests/test_image_arch.sh` reports context `ubu` as
+# VACUOUS, which is the honest way of saying nothing has been verified there
+# because nothing has been deployed there.
+#
+# The failure this prevents is silent almost to the end. Measured 2026-08-31,
+# moving a Mac-built arm64 image to the amd64 cluster:
+#
+#   docker save        -> success
+#   ctr images import  -> "saved", exit 0
+#   ctr images ls      -> listed, 856 B
+#   kubectl apply      -> accepted, Deployment created
+#   kubelet            -> ErrImageNeverPull
+#   containerd         -> no match for platform in manifest: not found
+#
+# Every step a person looks at reported success.
+#
+# WHY TWO NATIVE RUNNERS AND NOT buildx --platform.
+#
+# CLAUDE.md forbids x86 emulation, and the reason survives the rule: a QEMU
+# build produces a binary that has never executed on the target architecture,
+# which defers "does it run" to deployment -- the exact question this file
+# exists to answer earlier. `ubuntu-latest` is amd64 and `ubuntu-24.04-arm` is
+# arm64, both native, both free for public repositories.
+#
+# buildx DOES appear below, in the merge job only, and only as a manifest
+# assembler (`imagetools create`). It never builds anything there. That
+# distinction matters enough to say out loud, because `buildx` in a workflow
+# reads like the cross-compilation this ADR forbids.
+#
+# WHAT IS STILL MANUAL AFTER THIS.
+#
+# A ghcr.io package is private by default, so the prod cluster needs either the
+# package made public or an imagePullSecret. That is an account setting, not
+# something a workflow can decide -- docs/Ubu-Prod-Bringup.md carries it.
+
+name: pilot-image
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'pilots/station2-twin/Dockerfile'
+      - 'pilots/station2-twin/app/**'
+      - '.github/workflows/pilot-image.yml'
+
+permissions:
+  contents: read
+  packages: write
+
+# IMAGE is NOT set here. ghcr.io rejects a repository path containing an
+# uppercase letter, this account is `drew-young-AI`, and GitHub's expression
+# language has no lowercase function -- so a workflow-level
+# `ghcr.io/${{ github.repository_owner }}/...` looks correct, passes every
+# local check, and fails only at the first push. Each job lowercases it in a
+# shell step instead.
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            arch: amd64
+          - runner: ubuntu-24.04-arm
+            arch: arm64
+    runs-on: ${{ matrix.runner }}
+    # No `outputs:` block. A matrix job's outputs are written by every leg and
+    # the last one wins, so `digest-amd64` and `digest-arm64` declared here
+    # would look like two values and be one. The merge job addresses the images
+    # by their per-arch TAGS instead, which cannot collide.
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: image name (ghcr rejects uppercase in a repository path)
+        run: |
+          owner="$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')"
+          echo "IMAGE=ghcr.io/$owner/station2-twin" >> "$GITHUB_ENV"
+
+      # The architecture is ASSERTED, not assumed. A runner label is a request;
+      # this is the check that the request was honoured. If GitHub ever
+      # repoints `ubuntu-latest`, this fails loudly instead of quietly shipping
+      # an image for the wrong machine -- which is the whole failure mode.
+      - name: the runner really is ${{ matrix.arch }}
+        run: |
+          actual="$(dpkg --print-architecture)"
+          echo "runner reports: $actual"
+          [ "$actual" = "${{ matrix.arch }}" ] || {
+            echo "::error::runner ${{ matrix.runner }} is $actual, expected ${{ matrix.arch }}"
+            exit 1
+          }
+
+      - name: log in to ghcr.io
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" \
+            | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+      # Plain `docker build`. No --platform, no QEMU: the runner IS the target.
+      - name: build
+        working-directory: pilots/station2-twin
+        run: docker build -t "$IMAGE:${{ github.sha }}-${{ matrix.arch }}" .
+
+      # Proof the artifact matches the machine, before it is pushed anywhere.
+      # `docker image inspect` reads the image's own recorded architecture, so
+      # this catches a base image that resolved to the wrong variant.
+      - name: the image really is ${{ matrix.arch }}
+        run: |
+          got="$(docker image inspect "$IMAGE:${{ github.sha }}-${{ matrix.arch }}" \
+                   --format '{{.Os}}/{{.Architecture}}')"
+          echo "image reports: $got"
+          [ "$got" = "linux/${{ matrix.arch }}" ] || {
+            echo "::error::image is $got, expected linux/${{ matrix.arch }}"
+            exit 1
+          }
+
+      - name: smoke test on the architecture that built it
+        run: |
+          # An image that pushes and cannot start is the same class of defect
+          # as one built for the wrong architecture: registered, not executable.
+          cid="$(docker run -d -e PGHOST=127.0.0.1 -e PGPORT=1 \
+                   "$IMAGE:${{ github.sha }}-${{ matrix.arch }}")"
+          sleep 3
+          docker logs "$cid" 2>&1 | tail -20
+          # Liveness must answer even with no database: readiness is the probe
+          # that depends on one.
+          # One line on purpose: a multi-line -c argument would have to start at
+          # column 0 and that ends the YAML block scalar mid-step.
+          docker exec "$cid" python -c 'import urllib.request as u; print(u.urlopen("http://127.0.0.1:8080/health/live", timeout=5).status)'
+          docker rm -f "$cid" >/dev/null
+
+      - name: push
+        id: export
+        run: |
+          docker push "$IMAGE:${{ github.sha }}-${{ matrix.arch }}"
+          digest="$(docker image inspect "$IMAGE:${{ github.sha }}-${{ matrix.arch }}" \
+                      --format '{{index .RepoDigests 0}}')"
+          echo "pushed $digest"
+          echo "digest-${{ matrix.arch }}=${digest#*@}" >> "$GITHUB_OUTPUT"
+
+  manifest:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: image name (ghcr rejects uppercase in a repository path)
+        run: |
+          owner="$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')"
+          echo "IMAGE=ghcr.io/$owner/station2-twin" >> "$GITHUB_ENV"
+
+      - name: log in to ghcr.io
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" \
+            | docker login ghcr.io -u "${{ github.actor }}" --password-stdin
+
+      # imagetools only ASSEMBLES here -- it reads two images that already
+      # exist and writes an index pointing at both. Nothing is compiled.
+      - name: assemble the manifest list
+        run: |
+          docker buildx imagetools create \
+            -t "$IMAGE:${{ github.sha }}" \
+            -t "$IMAGE:latest" \
+            "$IMAGE:${{ github.sha }}-amd64" \
+            "$IMAGE:${{ github.sha }}-arm64"
+
+      # The digest a deployment should pin. Printed to the summary because a
+      # digest that only exists in a log line is a digest nobody will use, and
+      # ADR-0008's second rule is "pin digest, not tag".
+      - name: report the digest to pin
+        run: |
+          docker buildx imagetools inspect "$IMAGE:${{ github.sha }}" --raw \
+            > /tmp/index.json
+          digest="$(docker buildx imagetools inspect "$IMAGE:${{ github.sha }}" \
+                      --format '{{.Manifest.Digest}}')"
+          {
+            echo "### pilot image"
+            echo
+            echo '```'
+            echo "$IMAGE@$digest"
+            echo '```'
+            echo
+            echo "platforms:"
+            docker buildx imagetools inspect "$IMAGE:${{ github.sha }}" \
+              | grep -E 'Platform:' || true
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      # Both architectures must be IN the index. A manifest list with one entry
+      # is a tag that works on the machine that made it and fails on the other
+      # -- which is indistinguishable from success until deployment.
+      - name: the index carries both architectures
+        run: |
+          missing=0
+          for p in amd64 arm64; do
+            if docker buildx imagetools inspect "$IMAGE:${{ github.sha }}" \
+                 | grep -q "linux/$p"; then
+              echo "  ok   linux/$p"
+            else
+              echo "::error::manifest list has no linux/$p"; missing=1
+            fi
+          done
+          exit $missing

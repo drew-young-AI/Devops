@@ -84,7 +84,14 @@ LINES = [
               "進建置之前擋下：原始碼弱點與歷史中的秘密"),
         stage("建置與映像", ["ci", "gha", "trivy", "registry"],
               "編譯、遠端 CI、映像漏洞掃描、推送到 registry"),
-        stage("部署", ["k8s", "bluegreen", "develop"],
+        # prodk8s is the SECOND MACHINE (ADR-0008), on the same stage as the
+        # lab cluster rather than a stage of its own: they are the same step of
+        # the pipeline, executed on different hardware. Added here the same day
+        # the dag node was, because a node that exists in dag.py and not in
+        # LINES is invisible on this report -- and invisible reads identically
+        # to healthy. The selfcheck refuses to render until they agree, which
+        # is how this omission was caught within the hour.
+        stage("部署", ["k8s", "bluegreen", "prodk8s", "develop"],
               "Kubernetes 底座與藍綠切換（切換是改 Service 指向，不是滾動更新）"),
         stage("驗證", ["dast", "llmreview"],
               "對執行中的系統掃描，以及模型複審"),

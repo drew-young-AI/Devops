@@ -69,7 +69,26 @@ fi
 # Injected through the environment rather than by editing a compose file: the
 # fault being simulated is a value, and manufacturing it in a real file would
 # leave the repository one interrupted run away from a broken pilot.
-cp "$WORK/live.txt" "$WORK/metrics.txt" 2>/dev/null || cat > "$WORK/metrics.txt" <<'EOF'
+# THE FIXTURE IS ALWAYS SYNTHETIC. It used to be
+#
+#     cp "$WORK/live.txt" "$WORK/metrics.txt" 2>/dev/null || cat > ... <<EOF
+#
+# which copied the LIVE metrics when Loki was up and fell back to the fixture
+# when it was not. The fallback never fired: the `curl` above redirects into
+# live.txt, and a shell redirect CREATES the file even when the command fails,
+# so `cp` always succeeded -- copying an empty file. On this Mac Loki is
+# running, live.txt had content, and every control passed. On the ubu node and
+# on any CI runner the same controls were fed an EMPTY metrics file, the
+# checker refused with "0 lines in 0 streams", and six of them failed.
+#
+# So the controls' input depended on whether a service happened to be running.
+# A control whose input varies with the environment is not a control -- it is a
+# second observation of the environment. CLAUDE.md §5b requires deterministic
+# inputs for exactly this reason, and this file is where that rule is being
+# enforced on other people's code while quietly broken in its own.
+#
+# Found 2026-09-03 by running the tier-1 suite on the Linux node before pushing.
+cat > "$WORK/metrics.txt" <<'EOF'
 loki_distributor_lines_received_total{tenant="platform"} 5000
 loki_ingester_streams_created_total{tenant="platform"} 40
 loki_distributor_bytes_received_total{tenant="platform"} 900000

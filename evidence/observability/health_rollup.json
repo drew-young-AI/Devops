@@ -1,57 +1,57 @@
 {
   "schema": "health-rollup/1",
-  "generated_at": "2026-09-03T11:45:12Z",
+  "generated_at": "2026-09-03T15:01:25Z",
   "source_dir": "evidence/observability",
-  "snapshots": 1727,
+  "snapshots": 1749,
   "snapshots_undated": 0,
   "snapshots_unreadable": 0,
   "first_sample": "2026-08-13T08:12:42Z",
-  "last_sample": "2026-09-03T11:38:31Z",
-  "span_s": 1826749,
-  "expected_samples": 2030,
-  "coverage_ratio": 0.8507,
+  "last_sample": "2026-09-03T14:38:05Z",
+  "span_s": 1837523,
+  "expected_samples": 2042,
+  "coverage_ratio": 0.8565,
   "verdicts": {
     "HEALTHY": 1035,
     "UNKNOWN": 275,
     "CRITICAL": 1,
-    "DEGRADED": 416
+    "DEGRADED": 438
   },
   "checks": {
     "prometheus_reachable": {
-      "observed": 1727,
+      "observed": 1749,
       "failed": 217
     },
     "alert_rules_loaded": {
-      "observed": 1510,
+      "observed": 1532,
       "failed": 0
     },
     "alert_rules_evaluating": {
-      "observed": 1510,
+      "observed": 1532,
       "failed": 58
     },
     "alertmanager_wired": {
-      "observed": 1727,
+      "observed": 1749,
       "failed": 218
     },
     "alertmanager_reachable": {
-      "observed": 1727,
+      "observed": 1749,
       "failed": 217
     },
     "scrape_targets_visible": {
-      "observed": 1727,
+      "observed": 1749,
       "failed": 218
     }
   },
   "episodes": [
     {
-      "check": "scrape_targets_visible",
+      "check": "alertmanager_reachable",
       "from": "2026-08-21T13:41:05Z",
       "to": "2026-08-24T15:25:37Z",
       "duration_s": 265472,
       "samples": 195
     },
     {
-      "check": "alertmanager_reachable",
+      "check": "prometheus_reachable",
       "from": "2026-08-21T13:41:05Z",
       "to": "2026-08-24T15:25:37Z",
       "duration_s": 265472,
@@ -72,7 +72,7 @@
       "samples": 195
     },
     {
-      "check": "prometheus_reachable",
+      "check": "scrape_targets_visible",
       "from": "2026-08-21T13:41:05Z",
       "to": "2026-08-24T15:25:37Z",
       "duration_s": 265472,
@@ -115,6 +115,13 @@
     },
     {
       "check": "verdict:DEGRADED",
+      "from": "2026-09-03T06:43:11Z",
+      "to": "2026-09-03T14:38:05Z",
+      "duration_s": 28494,
+      "samples": 49
+    },
+    {
+      "check": "verdict:DEGRADED",
       "from": "2026-08-31T06:01:53Z",
       "to": "2026-08-31T13:48:14Z",
       "duration_s": 27981,
@@ -125,13 +132,6 @@
       "from": "2026-09-02T02:35:40Z",
       "to": "2026-09-02T08:31:50Z",
       "duration_s": 21370,
-      "samples": 27
-    },
-    {
-      "check": "verdict:DEGRADED",
-      "from": "2026-09-03T06:43:11Z",
-      "to": "2026-09-03T11:38:31Z",
-      "duration_s": 17720,
       "samples": 27
     },
     {
@@ -149,14 +149,14 @@
       "samples": 12
     },
     {
-      "check": "scrape_targets_visible",
+      "check": "alertmanager_reachable",
       "from": "2026-09-03T03:23:59Z",
       "to": "2026-09-03T06:28:09Z",
       "duration_s": 11050,
       "samples": 12
     },
     {
-      "check": "alertmanager_reachable",
+      "check": "prometheus_reachable",
       "from": "2026-09-03T03:23:59Z",
       "to": "2026-09-03T06:28:09Z",
       "duration_s": 11050,
@@ -177,7 +177,7 @@
       "samples": 12
     },
     {
-      "check": "prometheus_reachable",
+      "check": "scrape_targets_visible",
       "from": "2026-09-03T03:23:59Z",
       "to": "2026-09-03T06:28:09Z",
       "duration_s": 11050,
@@ -233,14 +233,14 @@
       "samples": 5
     },
     {
-      "check": "scrape_targets_visible",
+      "check": "alertmanager_reachable",
       "from": "2026-09-01T13:35:05Z",
       "to": "2026-09-01T14:01:06Z",
       "duration_s": 1561,
       "samples": 4
     },
     {
-      "check": "alertmanager_reachable",
+      "check": "prometheus_reachable",
       "from": "2026-09-01T13:35:05Z",
       "to": "2026-09-01T14:01:06Z",
       "duration_s": 1561,
@@ -261,7 +261,7 @@
       "samples": 4
     },
     {
-      "check": "prometheus_reachable",
+      "check": "scrape_targets_visible",
       "from": "2026-09-01T13:35:05Z",
       "to": "2026-09-01T14:01:06Z",
       "duration_s": 1561,
@@ -366,14 +366,14 @@
       "samples": 2
     },
     {
-      "check": "scrape_targets_visible",
+      "check": "alertmanager_reachable",
       "from": "2026-09-01T01:14:48Z",
       "to": "2026-09-01T01:14:50Z",
       "duration_s": 2,
       "samples": 2
     },
     {
-      "check": "alertmanager_reachable",
+      "check": "prometheus_reachable",
       "from": "2026-09-01T01:14:48Z",
       "to": "2026-09-01T01:14:50Z",
       "duration_s": 2,
@@ -394,21 +394,21 @@
       "samples": 2
     },
     {
-      "check": "prometheus_reachable",
+      "check": "scrape_targets_visible",
       "from": "2026-09-01T01:14:48Z",
       "to": "2026-09-01T01:14:50Z",
       "duration_s": 2,
       "samples": 2
     },
     {
-      "check": "scrape_targets_visible",
+      "check": "alertmanager_reachable",
       "from": "2026-09-01T01:49:27Z",
       "to": "2026-09-01T01:49:29Z",
       "duration_s": 2,
       "samples": 2
     },
     {
-      "check": "alertmanager_reachable",
+      "check": "prometheus_reachable",
       "from": "2026-09-01T01:49:27Z",
       "to": "2026-09-01T01:49:29Z",
       "duration_s": 2,
@@ -429,21 +429,21 @@
       "samples": 2
     },
     {
-      "check": "prometheus_reachable",
+      "check": "scrape_targets_visible",
       "from": "2026-09-01T01:49:27Z",
       "to": "2026-09-01T01:49:29Z",
       "duration_s": 2,
       "samples": 2
     },
     {
-      "check": "scrape_targets_visible",
+      "check": "alertmanager_reachable",
       "from": "2026-09-01T01:55:51Z",
       "to": "2026-09-01T01:55:53Z",
       "duration_s": 2,
       "samples": 2
     },
     {
-      "check": "alertmanager_reachable",
+      "check": "prometheus_reachable",
       "from": "2026-09-01T01:55:51Z",
       "to": "2026-09-01T01:55:53Z",
       "duration_s": 2,
@@ -464,14 +464,14 @@
       "samples": 2
     },
     {
-      "check": "prometheus_reachable",
+      "check": "scrape_targets_visible",
       "from": "2026-09-01T01:55:51Z",
       "to": "2026-09-01T01:55:53Z",
       "duration_s": 2,
       "samples": 2
     },
     {
-      "check": "alertmanager_wired",
+      "check": "scrape_targets_visible",
       "from": "2026-08-16T02:37:13Z",
       "to": "2026-08-16T02:37:13Z",
       "duration_s": 0,
@@ -479,6 +479,13 @@
     },
     {
       "check": "verdict:UNKNOWN",
+      "from": "2026-08-16T02:37:13Z",
+      "to": "2026-08-16T02:37:13Z",
+      "duration_s": 0,
+      "samples": 1
+    },
+    {
+      "check": "alertmanager_wired",
       "from": "2026-08-16T02:37:13Z",
       "to": "2026-08-16T02:37:13Z",
       "duration_s": 0,
@@ -486,13 +493,6 @@
     },
     {
       "check": "alert_rules_evaluating",
-      "from": "2026-08-16T02:37:13Z",
-      "to": "2026-08-16T02:37:13Z",
-      "duration_s": 0,
-      "samples": 1
-    },
-    {
-      "check": "scrape_targets_visible",
       "from": "2026-08-16T02:37:13Z",
       "to": "2026-08-16T02:37:13Z",
       "duration_s": 0,

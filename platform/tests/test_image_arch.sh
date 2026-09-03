@@ -145,6 +145,53 @@ else
   _fail "does not cry wolf: an arm64 image offered to an arm64 node" "rejected it"
 fi
 
+# ---- ADR-0008 rule 2 is now ENFORCED, not merely written down -------------
+#
+# "Deploy pins a digest, not a tag: a tag can point at the wrong architecture,
+# a digest fails at deploy time." That sentence sat in the decision record for
+# three days doing nothing, because the template hardcoded the local registry
+# and no other cluster could be targeted at all.
+#
+# deploy.sh now refuses a tag for any context that is not the local lab, and
+# keeps the tag for the lab -- one machine, one architecture, and blue/green
+# rewrites that tag on every deploy. These are the controls for both halves.
+# They run deploy.sh against a context name that does not exist, so the refusal
+# happens before any cluster is contacted and the suite touches nothing.
+DEPLOY="$REPO_ROOT/platform/k8s/station2-twin/deploy.sh"
+
+if [ -x "$DEPLOY" ]; then
+  CTX=not-a-real-cluster IMAGE="ghcr.io/example/station2-twin:latest" \
+    "$DEPLOY" green v15 15 >/dev/null 2>&1
+  if [ $? -ne 0 ]; then
+    _pass "catches: a TAG offered to a cluster that is not the local lab"
+  else
+    _fail "catches: a TAG offered to a cluster that is not the local lab" \
+          "deploy.sh accepted it"
+  fi
+
+  CTX=not-a-real-cluster "$DEPLOY" green v15 15 >/dev/null 2>&1
+  if [ $? -ne 0 ]; then
+    _pass "catches: no image reference at all off-lab"
+  else
+    _fail "catches: no image reference at all off-lab" "deploy.sh accepted it"
+  fi
+
+  # The positive control. A refusal rule that rejects everything would satisfy
+  # both checks above and make the platform undeployable, which is a different
+  # failure and just as total.
+  OUT="$(CTX=not-a-real-cluster \
+         IMAGE="ghcr.io/example/station2-twin@sha256:$(printf '0%.0s' $(seq 64))" \
+         "$DEPLOY" green v15 15 2>&1)"
+  if printf '%s' "$OUT" | grep -q 'it is a tag\|set IMAGE to a digest'; then
+    _fail "does not cry wolf: a DIGEST is accepted off-lab" \
+          "refused a digest-pinned reference"
+  else
+    _pass "does not cry wolf: a digest-pinned reference passes the image gate"
+  fi
+else
+  echo "  SKIP  deploy.sh not executable -- the digest rule is UNVERIFIED"
+fi
+
 # ---- what the live registry actually holds, for the record ----------------
 PROBE="k3d-registry:5111/station2-twin:v15"
 if PLATS="$(image_platforms "$PROBE" 2>/dev/null)" && [ -n "$PLATS" ]; then

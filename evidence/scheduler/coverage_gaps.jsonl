@@ -282,3 +282,4 @@
 {"job": "rollup", "gap_seconds": 10436, "gap_minutes": 173.9, "expected_interval_seconds": 3600, "missed_runs": 1, "from": "2026-09-03T08:51:15Z", "to": "2026-09-03T11:45:11Z"}
 {"job": "gha", "gap_seconds": 8519, "gap_minutes": 142.0, "expected_interval_seconds": 1800, "missed_runs": 3, "from": "2026-09-03T09:25:27Z", "to": "2026-09-03T11:47:26Z"}
 {"job": "dataops", "gap_seconds": 10439, "gap_minutes": 174.0, "expected_interval_seconds": 3600, "missed_runs": 1, "from": "2026-09-03T09:07:01Z", "to": "2026-09-03T12:01:00Z"}
+{"job": "disk", "gap_seconds": 1262, "gap_minutes": 21.0, "expected_interval_seconds": 300, "missed_runs": 3, "from": "2026-09-03T14:40:26Z", "to": "2026-09-03T15:01:28Z"}

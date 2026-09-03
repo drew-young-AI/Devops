@@ -31,7 +31,7 @@ agent 做不了也不該替使用者決定。
 | B4 | `zhe0@hotmail.com.tw` 的 app password | 密碼類憑證只能由使用者本人取得與輸入 | 郵件通知從 local-only 變成真的送得出去 |
 | B5 | `docs/presentation/` 的 PPTX 是否納入 git | 是使用者的簡報檔，納不納入是他的決定 | 簡報產物有版本 |
 | B6 | Google API key 輪替 | 同 B2，動到活憑證 | 憑證盤點的最後一格 |
-| B7 | ubu 主機尚未上線 | 需要實體機器與跨架構環境 | Vault on ubu、LLM review 接回 K8s、真正的兩機架構 |
+| B7 | ~~ubu 主機尚未上線~~ **2026-09-03 已上線**；剩兩件需要你操作：停用休眠（ubu 上沒有免密碼 sudo）與固定 IP（路由器保留位址） | 停用休眠與改路由器都需要 root／實體存取 | 會休眠的筆電不是生產主機；DHCP 換約會讓 kubeconfig 的 SAN 失效 |
 | B8 | 八張圖「有些細節要調整」，細節未指定 | 只有使用者知道要調哪裡；配色由使用者指定不可自行更換 | 圖定稿 |
 | B9 | 這一輪的修正尚未 commit | `CLAUDE.md` 明訂未經明確指示不得 commit / push / 開 PR | 這一輪的所有修正才會進入歷史 |
 | **B10** | **Telegram bot token 已外洩到日誌，需要輪替** | 只有使用者能對 BotFather 執行 `/revoke`；agent 不得建立或輪替憑證 | 這條通知鏈才重新可信；同時要決定既有 Loki 資料怎麼處理 |
@@ -1096,3 +1096,80 @@ Alloy 的 redaction 有三條規則，涵蓋 `ghp_` / `github_pat_` / `hvs.`—�
 - **讓 loader 真的寫得出失敗列**，`IngestRunsFailing` 才會有意義的版本可以回來。
   現在的替代覆蓋（排程器路徑）看得到「job 失敗了」，
   看不到「25 支來源裡有 1 支失敗、其餘成功」——那個粒度目前量不到。
+
+---
+
+## §24 ADR-0008 訂了三天，沒有人檢查另一邊（2026-09-03）
+
+### 事實
+
+[ADR-0008](decisions/0008-two-machines-two-architectures.md) 自 2026-08-31 起就宣告
+這個平台橫跨兩種指令集與兩個作業系統。ubu 一開機、**第一次真的在 Linux 上跑 tier 1
+（就是 CI 跑的那一層）**，找到三個已經推上去的缺陷，外加這個檢查自己找到的第四個。
+
+| 缺陷 | 為什麼 Mac 上看不到 | CI 有沒有抓到 |
+|---|---|---|
+| `host_disk_metrics.sh` 寫死 `/System/Volumes/Data` | macOS 專屬路徑，Linux 上 `df` 直接失敗 | 有——連紅四次，從 04:09 到 12:01 |
+| `sed -i ''`（`lib.sh` ＋ 兩個套件） | BSD 專屬。GNU sed 把 `''` 當腳本、腳本當**檔名**，**每個突變靜默地什麼都沒改**，輸出卻寫「mutant survived」 | 有 |
+| `source_frequency_check.py` 直接呼叫 `docker` | Linux 上沒有 docker，未捕捉的 `FileNotFoundError` 變成假缺陷 | 有 |
+| `test_loki_coverage.sh` 的合成控制項餵空檔案 | Loki 在 Mac 上活著；shell 重導向即使 curl 失敗也會建檔，所以 `\|\|` fallback 永遠不執行 | **沒有**——它在 CI 上剛好也是綠的 |
+
+第四個最值得記：**一個輸入取決於環境的控制項不是控制項**，
+它是對環境的第二次觀察。CLAUDE.md §5b 要求確定性輸入正是為了這個，
+而這個檔案一邊對別人的程式執行那條規則、一邊自己壞著。
+
+### 處置
+
+| 產出 | 位置 |
+|---|---|
+| 推之前在 Linux 節點跑 CI 那一層 | [`platform/tests/run_on_ubu.sh`](../platform/tests/run_on_ubu.sh) |
+| 可攜的就地編輯 | `lib.sh::sed_i`，＋`test_static.sh` 靜態規則＋合成控制 |
+| 磁碟匯出器依 OS 選掛載點 | `host_disk_metrics.sh`，已在 ubu 實測 |
+| cadence checker 容忍沒有 docker 的機器 | `source_frequency_check.py` |
+| loki 控制項改用確定性 fixture | `test_loki_coverage.sh` |
+| 平台知道 ubu 存在 | `dag.py` 的 `prodk8s` 節點；**空叢集回報 WARN 不是 OK** |
+| ADR-0008 第二條規則開始執法 | `deploy.sh` 對非 lab context 拒絕 tag |
+| amd64 建置鏈 | `.github/workflows/pilot-image.yml`（**尚未執行過**） |
+
+### 順帶修掉的：新增排程 job 會讓看板紅一整個星期
+
+`never-run` 原本無條件視為不新鮮，`probe_scheduler` 把任何不新鮮的 job 變成
+FAIL「not running: <job>」。**每個新加的 job 在它第一個週期內都是 never-run**——
+300s 的 `disk` 只紅五分鐘，週排程的 `ingestslow` 會紅六天，
+而那個節點正是用來偵測「job 停了」的。**保證會紅一週的紅燈，人會學會等它過去。**
+
+現在用 launchd agent 的安裝時間把三種宣稱分開：
+
+| 情況 | 判定 |
+|---|---|
+| 沒有 agent 檔 | `never-run`，**FAIL**（agent 從未載入，這才是原本註解描述的情況） |
+| 安裝未滿一個週期 | `not-yet-due`，fresh，但仍以獨立狀態顯示在板面上 |
+| 安裝已超過一個週期仍未觸發 | `never-run`，**FAIL**，而現在這句話是真的 |
+
+三個方向都有斷言（`test_scheduler.sh`）。**中間那一條是放寬，而一條無法證明
+仍然抓得到硬情況的放寬，等於把檢查關掉。** 第三條就是那個證明。
+
+### 還沒做的（需要你操作）
+
+1. **停用 ubu 的休眠**——會休眠的筆電不是生產主機。ubu 上沒有免密碼 sudo：
+   ```bash
+   ssh ubu
+   sudo systemctl mask sleep.target suspend.target hibernate.target hybrid-sleep.target
+   sudo sed -i 's/^#\?HandleLidSwitch=.*/HandleLidSwitch=ignore/' /etc/systemd/logind.conf
+   sudo systemctl restart systemd-logind
+   ```
+2. **固定 IP**（目前 `192.168.1.144`）——DHCP 換約會讓 kubeconfig 的 SAN 與所有診斷失效。
+   路由器保留位址，或在 ubu 上設固定位址。
+3. **ghcr 套件的可見性**——套件預設私有，prod 叢集要嘛需要設為公開、要嘛需要
+   imagePullSecret。**那是帳號設定，workflow 決定不了。**
+
+### 還沒做的（不需要你，但需要前置條件）
+
+- **pilot 上 prod**：等 `pilot-image.yml` 跑過一次、拿到 manifest list 的 digest。
+  在那之前 `test_image_arch.sh` 對 ubu 會一直回報 `VACUOUS`——那是誠實的空集合，不是綠燈。
+- **Vault on ubu**（使用者已決定兩台都放）：`hashicorp/vault:1.18` 是多架構，
+  k3s 自己拉得到，不需要本機建置也不需要 root。沒有現在做是因為它會產生
+  unseal key 與 root token，而那批憑證的存放位置與 pilot 上 prod 的時程應該一起決定。
+- **prodk8s 的 DAG 邊**：目前刻意沒有邊。誘人的那條是 `registry → prodk8s`，
+  但那個 registry 是 Mac 上的 k3d registry，供應 amd64 節點跑不動的 arm64 映像——
+  畫下去等於斷言 ADR-0008 明確否認的依賴關係。

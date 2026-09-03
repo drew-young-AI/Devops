@@ -86,3 +86,5 @@
 {"at": "2026-09-03T06:27:39Z", "job": "stagereport", "from": "timeout", "to": "ok", "severity": "recovered", "summary": "[OK] stagereport: timeout -> ok"}
 {"at": "2026-09-03T06:47:26Z", "job": "logcov", "from": "failed", "to": "ok", "severity": "recovered", "summary": "[OK] logcov: failed -> ok"}
 {"at": "2026-09-03T07:06:53Z", "job": "dataops", "from": "timeout", "to": "ok", "severity": "recovered", "summary": "[OK] dataops: timeout -> ok"}
+{"at": "2026-09-03T12:53:03Z", "job": "stagereport", "from": "ok", "to": "failed", "severity": "critical", "summary": "[FAIL] stagereport: ok -> failed"}
+{"at": "2026-09-03T13:23:12Z", "job": "stagereport", "from": "failed", "to": "ok", "severity": "recovered", "summary": "[OK] stagereport: failed -> ok"}

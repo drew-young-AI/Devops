@@ -89,7 +89,7 @@ assert_rc 0 "does not cry wolf: an unmodified copy agrees"
 reset_fixture
 # `#` as the sed delimiter, not `|`: jobs.conf is a pipe-separated file and a
 # pipe delimiter would end the pattern in the middle of the field.
-sed -i '' 's#^disk|300|#disk|60|#' "$FIX/jobs.conf"
+sed_i 's#^disk|300|#disk|60|#' "$FIX/jobs.conf"
 check_fixture "a cadence changed in jobs.conf without the threshold"
 
 # 2. a new exporter with no rule -- the gap this whole suite exists for.
@@ -107,7 +107,7 @@ check_fixture "the expression edited while the table still says the old number"
 #    labels, so this is the one thing that would silently uncover the
 #    never-appeared case.
 reset_fixture
-sed -i '' 's#evidence/statusdag:/textfile#evidence/statusdag:/somewhere-else#' "$FIX/compose.yaml"
+sed_i 's#evidence/statusdag:/textfile#evidence/statusdag:/somewhere-else#' "$FIX/compose.yaml"
 check_fixture "compose moved the textfile mount out from under the absent() rule"
 
 # ---- the control ----------------------------------------------------------

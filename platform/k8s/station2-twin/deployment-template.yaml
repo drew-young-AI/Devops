@@ -14,7 +14,7 @@ spec:
     spec:
       containers:
         - name: twin
-          image: k3d-registry:5111/station2-twin:__IMAGE_TAG__
+          image: __IMAGE__
           ports: [{ containerPort: 8080 }]
           env:
             - { name: PGHOST, value: "host.k3d.internal" }

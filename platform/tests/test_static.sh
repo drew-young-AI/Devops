@@ -371,6 +371,61 @@ BAD_STAT="$(printf '%s' "$BAD_STAT" | tr ' ' '\n' | sort -u | tr '\n' ' ' | sed 
 assert_equals "" "$BAD_STAT" \
   "BSD-format stat is never invoked ahead of the GNU form on the same line"
 
+# ---- the same trap, one tool along: in-place sed ---------------------------
+#
+# GNU sed takes the backup suffix ATTACHED (`-i`, `-i.bak`); BSD/macOS sed
+# takes it SEPARATE, so `-i ''` is the macOS spelling. On GNU that does not
+# error at the flag: `''` becomes the script and the real script becomes a
+# FILENAME. Every edit silently does nothing.
+#
+# Found by CI on 2026-09-03, not here: the mutation suites reported "mutant
+# survived" on Linux while the Mac stayed green, so the output was a claim
+# about the rules under test and was actually a claim about sed. That is the
+# ADR-0008 problem in a test helper -- two operating systems, one spelling.
+#
+# lib.sh::sed_i picks the right form once. This forbids the raw spelling
+# everywhere else. Matching on the CALL (`sed -i ''`) and skipping lib.sh,
+# which is where the two forms are allowed to appear literally.
+# THE PATTERN IS ASSEMBLED, NOT WRITTEN OUT. Spelling it literally here would
+# make this guard match its own implementation -- which it did on the first
+# run, and which is the FOURTH time a grep-based check in this file has flagged
+# its own prose. The stat rule above carries the same warning. At four
+# occurrences it is not carelessness, it is a property of the method: a
+# text-matching guard lives in the corpus it searches.
+Q="$(printf '\047')"
+SED_I_BSD="sed -i $Q$Q"
+
+scan_bsd_sed() {  # <root...> -- prints the basenames that use the macOS form
+  local out=""
+  while IFS= read -r hit; do
+    local file="${hit%%:*}"
+    case "$(basename "$file")" in lib.sh) continue ;; esac
+    out="$out $(basename "$file")"
+  done < <(grep -rn -- "$SED_I_BSD" "$@" --include='*.sh' 2>/dev/null \
+           | sed 's/[[:space:]]*#.*$//' | grep -- "$SED_I_BSD")
+  printf '%s' "$out" | tr ' ' '\n' | sort -u | tr '\n' ' ' | sed 's/^ *//; s/ *$//'
+}
+
+assert_equals "" "$(scan_bsd_sed "$REPO_ROOT/platform" "$REPO_ROOT/pilots")" \
+  "the macOS-only in-place edit form is confined to the one helper that knows both"
+
+# The control. A guard that has only ever been seen green is indistinguishable
+# from one that cannot go red -- and this particular guard nearly shipped
+# unable to fire, because the first version matched its own source and was
+# then narrowed. Two fixtures: one that must be caught, one that must not.
+SEDFIX="$(mktemp -d)"
+printf '#!/usr/bin/env bash\n%s "s/a/b/" f\n' "$SED_I_BSD" > "$SEDFIX/offender.sh"
+printf '#!/usr/bin/env bash\nsed_i "s/a/b/" f\n' > "$SEDFIX/portable.sh"
+CAUGHT="$(scan_bsd_sed "$SEDFIX")"
+rm -rf "$SEDFIX"
+case "$CAUGHT" in
+  *offender.sh*) case "$CAUGHT" in
+      *portable.sh*) _fail "catches only the macOS form" "flagged the portable one too" ;;
+      *) _pass "catches: a script using the macOS-only in-place form" ;;
+    esac ;;
+  *) _fail "catches: a script using the macOS-only in-place form" "found: '$CAUGHT'" ;;
+esac
+
 # ---- the pilot's AppRole must be delivered by the start path, not the shell -
 #
 # WHY (2026-09-01). `compose.yaml` reads ${VAULT_ROLE_ID:-} from the ambient

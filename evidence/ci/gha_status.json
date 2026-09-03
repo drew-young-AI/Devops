@@ -1,9 +1,17 @@
 {
   "schema": "gha-status/1",
-  "fetched_at": "2026-09-03T19:47:28+08:00",
+  "fetched_at": "2026-09-03T22:17:45+08:00",
   "fetch_state": "ok",
   "detail": "fetched main",
   "runs": [
+    {
+      "conclusion": "failure",
+      "createdAt": "2026-09-03T12:01:22Z",
+      "displayTitle": "fix(dataops): 移除一條只可能因為「不是失敗」而燒的告警",
+      "status": "completed",
+      "url": "https://github.com/drew-young-AI/Devops/actions/runs/33752874734",
+      "workflowName": "Platform Tests"
+    },
     {
       "conclusion": "failure",
       "createdAt": "2026-09-03T11:43:39Z",
@@ -74,14 +82,6 @@
       "displayTitle": "Platform Tests",
       "status": "completed",
       "url": "https://github.com/drew-young-AI/Devops/actions/runs/33519534107",
-      "workflowName": "Platform Tests"
-    },
-    {
-      "conclusion": "success",
-      "createdAt": "2026-09-01T13:55:31Z",
-      "displayTitle": "chore(evidence): 排程產生的證據異動",
-      "status": "completed",
-      "url": "https://github.com/drew-young-AI/Devops/actions/runs/33516337800",
       "workflowName": "Platform Tests"
     }
   ]

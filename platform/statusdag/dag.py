@@ -793,6 +793,51 @@ def probe_k8s():
     return OK, "k3d 叢集回應 /readyz"
 
 
+def probe_prod_cluster():
+    """The amd64 production cluster on ubu -- a SECOND machine, not a copy.
+
+    Until 2026-09-03 nothing on this board knew ubu existed. That is the
+    platform's oldest failure wearing a new hat: an unmonitored machine and a
+    healthy one produce exactly the same board.
+
+    THREE STATES, AND THE THIRD IS THE POINT.
+
+      no context      the kubeconfig has no `ubu` entry at all. Distinct from
+                      unreachable: one means never set up, the other means it
+                      went away, and they need different actions.
+      unreachable     the machine sleeps (it is a laptop with suspend still
+                      enabled -- docs/Ubu-Prod-Bringup.md §3.1). WARN and not
+                      FAIL because it carries no traffic yet; the day it does,
+                      this must become FAIL and the runbook says so.
+      ready, empty    WARN, deliberately. A reachable cluster running nothing
+                      is the vacuous green this repo keeps catching: the
+                      station1-hello rules stayed green for weeks by watching a
+                      service that had been deleted, and looked healthiest at
+                      the moment they had stopped monitoring anything. An empty
+                      prod cluster proves the API server answers. It proves
+                      nothing about prod.
+    """
+    rc, out = run(["kubectl", "config", "get-contexts", "-o", "name"], timeout=10)
+    if rc is None:
+        return UNKNOWN, "kubectl 無法執行"
+    if "ubu" not in (out or "").split():
+        return UNKNOWN, "kubeconfig 裡沒有 ubu context（bootstrap_k3s.sh 尚未跑過）"
+
+    rc, _ = run(["kubectl", "--context", "ubu", "--request-timeout=8s",
+                 "get", "--raw", "/readyz"], timeout=15)
+    if rc != 0:
+        return WARN, "prod 叢集連不上（尚無工作負載，服務不受影響）"
+
+    rc, out = run(["kubectl", "--context", "ubu", "get", "deploy", "-A",
+                   "--request-timeout=8s", "-o",
+                   "jsonpath={range .items[*]}{.metadata.namespace}{'\n'}{end}"],
+                  timeout=15)
+    workloads = [n for n in (out or "").split() if n not in ("kube-system",)]
+    if not workloads:
+        return WARN, "叢集就緒但沒有任何工作負載——這裡的綠燈證不到任何服務"
+    return OK, f"prod 叢集就緒，{len(workloads)} 個工作負載"
+
+
 def probe_bluegreen():
     """Which colour is live RIGHT NOW, read off the Service selector. Not
     'blue/green is implemented' -- that is a claim about code. This is a claim
@@ -861,6 +906,11 @@ NODES = [
     # --- Kubernetes（藍，A9/A10）-----------------------------------------
     ("k8s",        "k3d 叢集",            "k8s",         probe_k8s),
     ("bluegreen",  "藍綠切換",            "k8s",         probe_bluegreen),
+    # The second machine (ADR-0008). Separate node rather than folded into
+    # `k8s`: they are different architectures on different hardware, and one
+    # node covering both would go green whenever EITHER answered -- which is
+    # how a cluster disappears without the board changing colour.
+    ("prodk8s",    "prod 叢集 (ubu/amd64)", "k8s",       probe_prod_cluster),
 ]
 
 # (from, to) -- "to depends on from".
@@ -912,6 +962,20 @@ EDGES = [
     # Kubernetes: 叢集是藍綠的底座；藍綠取代了 Compose 的 promote 路徑。
     ("k8s", "bluegreen"),
     ("registry", "bluegreen"),
+
+    # prodk8s HAS NO EDGE, AND THAT IS THE ACCURATE STATE.
+    #
+    # It renders as an isolated node, which looks like an omission and is not.
+    # Nothing depends on the prod cluster because nothing runs there yet, and
+    # the prod cluster depends on the amd64 build chain -- which has no node,
+    # because .github/workflows/pilot-image.yml has never executed.
+    #
+    # The tempting edge is ("registry", "prodk8s"). It would be false: that
+    # registry is the k3d one on this Mac, serving arm64 images the amd64 node
+    # cannot run. Drawing it would assert exactly the dependency ADR-0008
+    # exists to deny, and an impact analysis built on it would be confidently
+    # wrong. The edge appears when the ghcr chain has run once and there is
+    # something real to point at.
 ]
 
 LAYERS = [

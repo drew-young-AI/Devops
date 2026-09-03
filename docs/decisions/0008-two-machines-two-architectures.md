@@ -32,6 +32,39 @@ decision:
 3. **每個被送到叢集的自建映像檔，必須帶有該叢集架構的 manifest**，由
    `platform/tests/test_image_arch.sh` 執法。
 
+## 執法狀態（2026-09-03 更新）
+
+第 1、3 條原本就有執法；**第 2 條在 2026-09-03 之前只是文字**。
+
+| 規則 | 執法者 | 狀態 |
+|---|---|---|
+| 1. 原生建置，不用 QEMU | `.github/workflows/pilot-image.yml` — `ubuntu-latest`(amd64) 與 `ubuntu-24.04-arm`(arm64) 兩個原生 runner，各自斷言 `dpkg --print-architecture` 與映像檔自報架構 | 已建立，**尚未執行過** |
+| 2. pin digest 不 pin tag | `platform/k8s/station2-twin/deploy.sh` 對非本機 lab 的 context **拒絕 tag** | ✅ 執法中，含三個合成控制 |
+| 3. 映像檔要有目標架構的 manifest | `platform/tests/test_image_arch.sh` | ✅ 執法中；ubu context 目前回報 `VACUOUS` |
+
+第 2 條為什麼只對非 lab 的 context 執法：本機只有一種架構、registry 在同一台主機上，
+而藍綠流程每次部署都會改寫那個 tag。digest 在那裡買不到任何東西，
+卻會讓「同一個顏色換一版重新部署」變成不可能。**兩座叢集真正相遇的地方才是風險所在。**
+
+## 這條 ADR 訂了三天沒有人檢查另一邊（2026-09-03 記）
+
+ADR 從 2026-08-31 就說這個平台橫跨兩種指令集與兩個作業系統。
+**ubu 一開機、第一次真的在 Linux 上跑 tier 1，就找到三個已經推上去的缺陷：**
+
+| 缺陷 | 為什麼 Mac 上看不到 |
+|---|---|
+| `host_disk_metrics.sh` 寫死 `/System/Volumes/Data` | macOS 專屬路徑；Linux 上 `df` 直接失敗，CI 因此連紅四次 |
+| `lib.sh` 與兩個套件用 `sed -i ''` | BSD 專屬寫法。GNU sed 把 `''` 當腳本、真正的腳本當**檔名**，於是**每個突變靜默地什麼都沒改**，輸出卻寫「mutant survived」——那是關於規則的宣稱，實際上是關於測試的宣稱 |
+| `source_frequency_check.py` 直接呼叫 `docker` | Linux 上沒有 docker，未捕捉的 `FileNotFoundError` 讓可攜性事實變成假缺陷 |
+
+第四個是這次的檢查自己第一次跑就找到的：`test_loki_coverage.sh` 的合成控制項在
+Loki 活著時複製**真實**指標、不活著時複製一個空檔案（shell 重導向即使指令失敗也會建檔，
+所以 `||` fallback 永遠不執行）。**Mac 上全綠、其他地方六個紅。
+一個輸入取決於環境的控制項不是控制項。**
+
+所以新增 `platform/tests/run_on_ubu.sh`：推之前先在 Linux 節點上跑一次 CI 那一層。
+**它不取代 CI**——只是把「四個 commit 之後被 CI 告知」變成「推之前就知道」。
+
 ## 為什麼
 
 ### 這個失敗是靜默的，而且靜默到最後一刻

@@ -16,6 +16,46 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 case "$COLOR" in blue|green) ;; *) echo "colour must be blue or green" >&2; exit 2 ;; esac
 
+# ── which registry, and pinned how ──────────────────────────────────────────
+#
+# Two clusters, two instruction sets, two image paths (ADR-0008). The template
+# used to hardcode the k3d registry, which made every other cluster
+# undeployable by construction.
+#
+# ADR-0008's second rule is "deploy pins a DIGEST, not a tag: a tag can point
+# at the wrong architecture, a digest fails at deploy time". Until now that
+# rule lived only in a document. It is enforced here, and only for the clusters
+# it protects:
+#
+#   the local k3d lab   keeps its tag. There is exactly one architecture on
+#                       this machine, the registry is on the same host, and a
+#                       tag is what the blue/green flow rewrites on every
+#                       deploy. A digest would buy nothing and cost the ability
+#                       to redeploy the same colour under a new build.
+#   anything else       must be a digest. That is where the two architectures
+#                       actually meet, and where a tag resolving to the wrong
+#                       one is silent until the kubelet gives up.
+#
+# The digest comes from .github/workflows/pilot-image.yml, which builds each
+# architecture on a native runner and prints the manifest-list digest to pin.
+if [ "$CTX" = "k3d-devops-lab" ]; then
+  IMAGE="${IMAGE:-k3d-registry:5111/station2-twin:$TAG}"
+else
+  IMAGE="${IMAGE:-}"
+  if [ -z "$IMAGE" ]; then
+    echo "context '$CTX' is not the local lab: set IMAGE to a digest-pinned" >&2
+    echo "reference, e.g. IMAGE=ghcr.io/drew-young-ai/station2-twin@sha256:..." >&2
+    exit 2
+  fi
+  case "$IMAGE" in
+    *@sha256:*) ;;
+    *) echo "refusing to deploy '$IMAGE' to context '$CTX': it is a tag." >&2
+       echo "A tag can resolve to the wrong architecture and the failure is" >&2
+       echo "silent until the kubelet gives up (ADR-0008). Pin the digest." >&2
+       exit 2 ;;
+  esac
+fi
+
 kubectl --context "$CTX" apply -f "$HERE/base.yaml" >/dev/null
 
 # The Deployment mounts VAULT_ROLE_ID / VAULT_SECRET_ID from a Secret and
@@ -26,10 +66,22 @@ kubectl --context "$CTX" apply -f "$HERE/base.yaml" >/dev/null
 # whole category of misdiagnosis.
 "$HERE/sync_vault_secret.sh" --context "$CTX"
 
-sed -e "s/__COLOR__/$COLOR/g" -e "s/__IMAGE_TAG__/$TAG/g" -e "s/__SCHEMA__/$SCHEMA/g" \
+# BOTH __IMAGE__ and __IMAGE_TAG__. The template uses the first for the image
+# reference and the second inside APP_VERSION, which is the string the app
+# serves at /version and therefore the string blue/green reads to decide which
+# colour is live. Dropping the __IMAGE_TAG__ substitution when __IMAGE__ was
+# introduced left every pod reporting `blue-__IMAGE_TAG__`, and the suite
+# caught it on the next run because that value is load-bearing rather than
+# decorative.
+#
+# `|` as the delimiter for __IMAGE__: a digest reference contains slashes.
+sed -e "s/__COLOR__/$COLOR/g" \
+    -e "s|__IMAGE__|$IMAGE|g" \
+    -e "s/__IMAGE_TAG__/$TAG/g" \
+    -e "s/__SCHEMA__/$SCHEMA/g" \
     "$HERE/deployment-template.yaml" | kubectl --context "$CTX" apply -f - >/dev/null
 
-echo "=== deployed $COLOR (image $TAG, expects schema $SCHEMA) ==="
+echo "=== deployed $COLOR (image $IMAGE, expects schema $SCHEMA) ==="
 # --timeout is deliberately short. A colour that cannot become Ready in 90s is
 # not "still starting", it is broken, and the whole value of this step is
 # finding that out BEFORE any traffic is at stake.

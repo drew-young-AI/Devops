@@ -40,12 +40,32 @@ STATE_DIR="$REPO_ROOT/evidence/scheduler"
 AS_JSON=0
 [ "${1:-}" = "--json" ] && AS_JSON=1
 
-python3 - "$SCRIPT_DIR/jobs.conf" "$STATE_DIR" "$AS_JSON" <<'PY'
+# Where install.sh puts the launchd agents. Passed in rather than hardcoded so
+# the test suite can point it at a sandbox, and so a machine without launchd
+# (the Linux prod node, any CI runner) simply finds nothing there and keeps the
+# previous, stricter behaviour.
+AGENT_DIR="${SCHEDULER_AGENT_DIR:-$HOME/Library/LaunchAgents}"
+
+python3 - "$SCRIPT_DIR/jobs.conf" "$STATE_DIR" "$AS_JSON" "$AGENT_DIR" <<'PY'
 import json, os, sys, time
 from datetime import datetime, timezone
 
-jobs_conf, state_dir, as_json = sys.argv[1:]
+jobs_conf, state_dir, as_json, agent_dir = sys.argv[1:]
 as_json = int(as_json)
+
+
+def installed_seconds_ago(name):
+    """How long since this job's launchd agent was written, or None.
+
+    None means "cannot tell": no agent file, or no agent directory at all
+    (which is every non-macOS machine). Callers keep the strict reading in that
+    case -- an unknown install time must never soften a verdict.
+    """
+    path = os.path.join(agent_dir, f"devops.platform.{name}.plist")
+    try:
+        return time.time() - os.path.getmtime(path)
+    except OSError:
+        return None
 
 now = datetime.now(timezone.utc)
 rows, worst = [], 0
@@ -61,9 +81,38 @@ for line in open(jobs_conf, encoding="utf-8"):
     if not os.path.isfile(state_path):
         # Never run at all. Not the same as "ran and failed", and worth
         # separating: it usually means the agent was never loaded.
+        #
+        # BUT "never run" AND "not running" ARE NOT THE SAME CLAIM.
+        #
+        # Every newly added job is never-run for its first interval. For the
+        # 300s disk job that lasted five minutes; for the weekly ingestslow job
+        # added on 2026-09-03 it would have held probe_scheduler at FAIL --
+        # "not running: ingestslow" -- for six days, about a job that was
+        # installed correctly and simply had not come due. A red that is
+        # guaranteed for a week is a red people learn to wait out, and this
+        # node is the one that detects a stopped job.
+        #
+        # So the agent's install time decides which claim is being made:
+        #
+        #   no agent file          the agent was never loaded. FAIL, and this
+        #                          is the case the original comment describes.
+        #   installed < interval   not due yet. Fresh, with its own status so
+        #                          it is still visible on the board.
+        #   installed >= interval  installed, had its chance, never fired.
+        #                          FAIL, and now the message is true.
+        since_install = installed_seconds_ago(name)
+        if since_install is not None and since_install < interval:
+            rows.append({"job": name, "status": "not-yet-due",
+                         "age_seconds": None, "interval_seconds": interval,
+                         "fresh": True, "exit_code": None,
+                         "duration_seconds": None,
+                         "installed_seconds_ago": int(since_install)})
+            continue
         rows.append({"job": name, "status": "never-run", "age_seconds": None,
                      "interval_seconds": interval, "fresh": False,
-                     "exit_code": None, "duration_seconds": None})
+                     "exit_code": None, "duration_seconds": None,
+                     "installed_seconds_ago":
+                         None if since_install is None else int(since_install)})
         worst = max(worst, 3)
         continue
 

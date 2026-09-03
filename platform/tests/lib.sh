@@ -113,6 +113,32 @@ prom_image() {
     "$REPO_ROOT/platform/observability/compose.yaml"
 }
 
+# sed_i <script> <file> -- portable in-place edit.
+#
+# GNU sed takes the backup suffix ATTACHED to the flag (`-i.bak`, or `-i` for
+# none). BSD/macOS sed takes it as a SEPARATE argument, so `-i ''` is how you
+# say "no backup" there. The two spellings are mutually incompatible, and the
+# BSD form on GNU does not error at the flag -- it reads `''` as the script and
+# the real script as a FILENAME:
+#
+#   sed: can't read s|for: 15m|for: 0m|: No such file or directory
+#
+# That is what CI reported on 2026-09-03. Every mutation in the suite silently
+# changed nothing and the output said "mutant survived", which reads as a
+# defect in the rules and was a defect in the test -- on Linux only, while the
+# Mac stayed green. Same shape as the BSD-vs-GNU `stat` rule test_static.sh
+# already enforces, and the reason ADR-0008 exists: this platform now runs on
+# two operating systems and a macOS-only spelling is a latent outage on the
+# other one.
+sed_i() {
+  local script="$1" file="$2"
+  if sed --version >/dev/null 2>&1; then
+    sed -i -e "$script" "$file"        # GNU
+  else
+    sed -i '' -e "$script" "$file"     # BSD / macOS
+  fi
+}
+
 # mutate <file> <sed-script> <description>
 #
 # Apply an in-place edit for a mutation test, and FAIL if it changed nothing.
@@ -126,7 +152,7 @@ prom_image() {
 mutate() {
   local file="$1" script="$2" desc="$3" before
   before="$(cksum < "$file")"
-  sed -i '' "$script" "$file"
+  sed_i "$script" "$file"
   if [ "$before" = "$(cksum < "$file")" ]; then
     _fail "mutation applies: $desc" "sed changed nothing -- the pattern is stale"
     return 1

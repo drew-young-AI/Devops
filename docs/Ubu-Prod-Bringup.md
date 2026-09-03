@@ -11,7 +11,9 @@ timestamp: 2026-08-31T00:00:00+08:00
 
 # Ubuntu 生產節點接手手冊
 
-**狀態：叢集已建好並驗證過，但機器目前連不上（休眠）。工作暫停於此。**
+**狀態（2026-09-03 更新）：機器已開機，叢集 Ready 且從 Mac 可達。**
+**平台現在知道它存在（板面新增 `prod 叢集 (ubu/amd64)` 節點）。**
+**還沒有任何工作負載——建置鏈已寫好但尚未跑過。**
 
 ## 一、已經完成的（不需重做）
 
@@ -47,23 +49,63 @@ ping -c 2 192.168.1.1            # 路由器通 → 不是本機網路問題
 
 註：IP 是 `192.168.1.144`，不是最初以為的 `.143`。
 
+## 二之二、2026-09-03 這一輪做了什麼
+
+| 項目 | 結果 |
+|---|---|
+| 連通性 | SSH 22 與 k3s 6443 皆通，mDNS `ubu.local` 解析正常 |
+| 叢集 | `kubectl --context ubu get nodes` → Ready，v1.36.4+k3s1，amd64，8 核 / 7.1GiB / 83G 可用 |
+| **平台知道 ubu 存在了** | `dag.py` 新增 `prodk8s` 節點。**空叢集回報 WARN 不是 OK**——「叢集就緒但沒有任何工作負載」，因為一個什麼都沒跑的叢集只證明 API server 會回應 |
+| 架構守衛第一次對真實第二座叢集評估 | `test_image_arch.sh` → `VACUOUS context ubu (linux/amd64)`，誠實地說「沒有自建映像部署在這裡，所以什麼都沒驗證到」 |
+| **amd64 建置鏈** | `.github/workflows/pilot-image.yml`：`ubuntu-latest`(amd64) 與 `ubuntu-24.04-arm`(arm64) 兩個**原生** runner，無 QEMU，合併成 manifest list 推 ghcr.io |
+| **ADR-0008 第二條規則開始執法** | `deploy.sh` 對非本機 lab 的 context **拒絕 tag、只收 digest**。原本這條規則只寫在文件裡 |
+| 磁碟匯出器可攜化 | `host_disk_metrics.sh` 原本寫死 macOS 的 `/System/Volumes/Data`，**CI 在 Linux 上因此紅了四次**。已改成依 OS 選擇掛載點，並在 ubu 上實測通過 |
+| `sed -i ''` 可攜性 | BSD 專屬寫法在 GNU sed 上會把腳本當檔名，**每個突變靜默地什麼都沒改**，輸出卻寫「mutant survived」。新增 `lib.sh::sed_i` 與靜態規則＋合成控制 |
+
+### 手冊原本寫錯的兩件事（已更正）
+
+第四節列的兩個「必須一起修的缺口」，查證後**都已經修好了**：
+
+- K8s 那份**已經**用 Vault AppRole（`VAULT_ROLE_ID` / `VAULT_SECRET_ID` 在 deployment env 裡），不是靜態密碼。
+- K8s 那份**已經**有 scrape job（`prometheus.yml` 的 `station2-twin-k8s`，目標 18091，現在是 up）。
+
+這份手冊寫於 2026-08-31，那兩句在寫下時是對的。**沒有標日期的現況描述會退化成信念**——
+與 `service-health.yml` 那段「沒有 node-exporter」是同一個形狀。
+
 ## 三、在它成為 prod 之前必須解決的三件事
 
 1. **會休眠的機器不是生產主機。**
    需要停用 suspend／hibernate：`systemctl mask sleep.target suspend.target
    hibernate.target hybrid-sleep.target`，筆電還要處理闔蓋行為
    （`/etc/systemd/logind.conf` 的 `HandleLidSwitch=ignore`）。
-   **未執行。**
+   **未執行——需要你操作，ubu 上沒有免密碼 sudo。** 指令：
+
+   ```bash
+   ssh ubu
+   sudo systemctl mask sleep.target suspend.target hibernate.target hybrid-sleep.target
+   sudo sed -i 's/^#\?HandleLidSwitch=.*/HandleLidSwitch=ignore/' /etc/systemd/logind.conf
+   sudo systemctl restart systemd-logind
+   ```
 
 2. **IP 需要固定。** DHCP 換約會讓 kubeconfig 的 SAN 與所有診斷失效。
    路由器保留位址，或在 ubu 上設固定位址。**未執行，需要使用者操作路由器。**
 
-3. **amd64 建置鏈還不存在。** 目前沒有任何映像檔可以在這台上跑。
+3. ~~**amd64 建置鏈還不存在。**~~ **已寫好，尚未跑過（2026-09-03）。** 目前沒有任何映像檔可以在這台上跑。
    兩條路（見 [ADR-0008](decisions/0008-two-machines-two-architectures.md)）：
    - GitHub Actions 用 `ubuntu-latest`（amd64）與 `ubuntu-24.04-arm`（arm64）
      兩個原生 runner 建置，合併成 manifest list 推 ghcr.io。**不需要 QEMU。**
    - 或在 ubu 上原生建置，走本機 registry。
-   使用者傾向前者（雲端 CI 編譯）。**待 GitLab/GitHub 方案定案。**
+   採用前者。`.github/workflows/pilot-image.yml` 已建立：
+   - `ubuntu-latest`（amd64）與 `ubuntu-24.04-arm`（arm64）兩個原生 runner，**不用 QEMU**
+   - 每個 runner 都**斷言自己的架構**（`dpkg --print-architecture`）與**映像檔自報的架構**
+     （`docker image inspect`），因為 runner 標籤是一個請求不是一個保證
+   - 各自 smoke test（無資料庫時 `/health/live` 必須回 200——已在 Mac 上先驗證過這個假設）
+   - `imagetools create` 只做**組裝**不做編譯，並斷言索引裡兩個架構都在
+   - 把要 pin 的 digest 印進 job summary
+
+   **未驗證：workflow 從未執行過。** 而且 ghcr 套件預設是私有的，
+   prod 叢集要嘛需要把套件設為公開，要嘛需要 imagePullSecret——
+   **那是帳號設定，workflow 決定不了**。
 
 ## 四、接下來的順序
 

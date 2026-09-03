@@ -126,6 +126,63 @@ run_cmd "$STATUS"
 assert_rc 3 "a job that never ran is exit 3, distinct from a passing run"
 assert_output_contains "never" "never-run job is shown as never, not as failed"
 
+# --- never-run is three different claims ---------------------------------
+#
+# `never-run` used to mean `fresh: false` unconditionally, and probe_scheduler
+# turns any not-fresh job into FAIL "not running: <job>". Every newly added job
+# is never-run for its first interval, so adding the weekly `ingestslow` job on
+# 2026-09-03 would have held that node red for six days about a job that was
+# installed correctly and simply had not come due -- and that node is the one
+# that detects a STOPPED job. A red guaranteed for a week is a red people wait
+# out.
+#
+# The agent's install time now decides which of three claims is being made.
+# All three are asserted, because the middle one is a softening and a softening
+# that cannot be shown to still catch the hard case is just a disabled check.
+NRSAND="$(make_sandbox)"
+NRAGENTS="$NRSAND/agents"
+mkdir -p "$NRAGENTS"
+cat > "$NRSAND/platform/scheduler/jobs.conf" <<'CONF'
+# name|interval|timeout|command
+weekly|604800|60|true
+CONF
+
+# 1. no agent file at all -- the agent was never loaded. Must stay FAIL.
+run_cmd env SCHEDULER_AGENT_DIR="$NRAGENTS" "$NRSAND/platform/scheduler/status.sh" --json
+NR_STATUS="$(python3 -c "
+import json,sys
+d=json.load(open(sys.argv[1]))
+j=d['jobs'][0]
+print(j['status'], j['fresh'])" "$LAST_STDOUT" 2>/dev/null || echo ERR)"
+assert_equals "never-run False" "$NR_STATUS" \
+  "a job with no launchd agent is never-run and NOT fresh"
+
+# 2. agent written just now, interval a week -- not due yet, and fresh.
+touch "$NRAGENTS/devops.platform.weekly.plist"
+run_cmd env SCHEDULER_AGENT_DIR="$NRAGENTS" "$NRSAND/platform/scheduler/status.sh" --json
+NR_STATUS="$(python3 -c "
+import json,sys
+d=json.load(open(sys.argv[1]))
+j=d['jobs'][0]
+print(j['status'], j['fresh'])" "$LAST_STDOUT" 2>/dev/null || echo ERR)"
+assert_equals "not-yet-due True" "$NR_STATUS" \
+  "a job installed less than one interval ago is not-yet-due, not 'not running'"
+
+# 3. THE ONE THAT MATTERS. Agent installed longer ago than the interval and
+#    still no run: it was loaded, it came due, it never fired. Must be FAIL --
+#    otherwise step 2 has quietly disabled the check instead of narrowing it.
+#    The install time is faked by backdating the file, which is the only input
+#    the rule reads.
+touch -t 202001010000 "$NRAGENTS/devops.platform.weekly.plist"
+run_cmd env SCHEDULER_AGENT_DIR="$NRAGENTS" "$NRSAND/platform/scheduler/status.sh" --json
+NR_STATUS="$(python3 -c "
+import json,sys
+d=json.load(open(sys.argv[1]))
+j=d['jobs'][0]
+print(j['status'], j['fresh'])" "$LAST_STDOUT" 2>/dev/null || echo ERR)"
+assert_equals "never-run False" "$NR_STATUS" \
+  "a job installed longer ago than its interval and never fired is still a failure"
+
 # --- jobs.conf sanity on the REAL config ---------------------------------
 
 REAL_CONF="$REPO_ROOT/platform/scheduler/jobs.conf"

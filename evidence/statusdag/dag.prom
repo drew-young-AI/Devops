@@ -12,9 +12,9 @@ devops_node_state{node="audit",layer="foundation",state="unknown"} 0
 devops_node_state{node="audit",layer="foundation",state="fail"} 0
 devops_node_state{node="scheduler",layer="foundation",state="ok"} 0
 devops_node_state{node="scheduler",layer="foundation",state="superseded"} 0
-devops_node_state{node="scheduler",layer="foundation",state="warn"} 0
+devops_node_state{node="scheduler",layer="foundation",state="warn"} 1
 devops_node_state{node="scheduler",layer="foundation",state="unknown"} 0
-devops_node_state{node="scheduler",layer="foundation",state="fail"} 1
+devops_node_state{node="scheduler",layer="foundation",state="fail"} 0
 devops_node_state{node="backup",layer="foundation",state="ok"} 1
 devops_node_state{node="backup",layer="foundation",state="superseded"} 0
 devops_node_state{node="backup",layer="foundation",state="warn"} 0
@@ -170,11 +170,16 @@ devops_node_state{node="bluegreen",layer="k8s",state="superseded"} 0
 devops_node_state{node="bluegreen",layer="k8s",state="warn"} 0
 devops_node_state{node="bluegreen",layer="k8s",state="unknown"} 0
 devops_node_state{node="bluegreen",layer="k8s",state="fail"} 0
+devops_node_state{node="prodk8s",layer="k8s",state="ok"} 0
+devops_node_state{node="prodk8s",layer="k8s",state="superseded"} 0
+devops_node_state{node="prodk8s",layer="k8s",state="warn"} 1
+devops_node_state{node="prodk8s",layer="k8s",state="unknown"} 0
+devops_node_state{node="prodk8s",layer="k8s",state="fail"} 0
 # HELP devops_node_state_code DISPLAY ONLY: RANK of the node's state.
 # TYPE devops_node_state_code gauge
 devops_node_state_code{node="vault",layer="foundation"} 0
 devops_node_state_code{node="audit",layer="foundation"} 0
-devops_node_state_code{node="scheduler",layer="foundation"} 4
+devops_node_state_code{node="scheduler",layer="foundation"} 2
 devops_node_state_code{node="backup",layer="foundation"} 0
 devops_node_state_code{node="restore",layer="foundation"} 0
 devops_node_state_code{node="sast",layer="source"} 0
@@ -206,29 +211,30 @@ devops_node_state_code{node="forecast",layer="mlops"} 0
 devops_node_state_code{node="retrain",layer="mlops"} 0
 devops_node_state_code{node="k8s",layer="k8s"} 0
 devops_node_state_code{node="bluegreen",layer="k8s"} 0
+devops_node_state_code{node="prodk8s",layer="k8s"} 2
 # HELP devops_node_impacted Node is downstream of a failing node.
 # TYPE devops_node_impacted gauge
 devops_node_impacted{node="vault"} 0
 devops_node_impacted{node="audit"} 0
 devops_node_impacted{node="scheduler"} 0
-devops_node_impacted{node="backup"} 1
-devops_node_impacted{node="restore"} 1
-devops_node_impacted{node="sast"} 1
+devops_node_impacted{node="backup"} 0
+devops_node_impacted{node="restore"} 0
+devops_node_impacted{node="sast"} 0
 devops_node_impacted{node="secrets"} 0
-devops_node_impacted{node="ci"} 1
+devops_node_impacted{node="ci"} 0
 devops_node_impacted{node="gha"} 0
-devops_node_impacted{node="trivy"} 1
-devops_node_impacted{node="registry"} 1
-devops_node_impacted{node="develop"} 1
-devops_node_impacted{node="dast"} 1
-devops_node_impacted{node="llmreview"} 1
-devops_node_impacted{node="gate"} 1
-devops_node_impacted{node="prodlike"} 1
-devops_node_impacted{node="nginx"} 1
-devops_node_impacted{node="prometheus"} 1
+devops_node_impacted{node="trivy"} 0
+devops_node_impacted{node="registry"} 0
+devops_node_impacted{node="develop"} 0
+devops_node_impacted{node="dast"} 0
+devops_node_impacted{node="llmreview"} 0
+devops_node_impacted{node="gate"} 0
+devops_node_impacted{node="prodlike"} 0
+devops_node_impacted{node="nginx"} 0
+devops_node_impacted{node="prometheus"} 0
 devops_node_impacted{node="loki"} 0
-devops_node_impacted{node="alertmgr"} 1
-devops_node_impacted{node="grafana"} 1
+devops_node_impacted{node="alertmgr"} 0
+devops_node_impacted{node="grafana"} 0
 devops_node_impacted{node="sources"} 0
 devops_node_impacted{node="geo"} 0
 devops_node_impacted{node="facts"} 0
@@ -236,12 +242,13 @@ devops_node_impacted{node="lineage"} 0
 devops_node_impacted{node="dcontract"} 0
 devops_node_impacted{node="epiweek"} 0
 devops_node_impacted{node="features"} 0
-devops_node_impacted{node="backtest"} 1
-devops_node_impacted{node="mgate"} 1
-devops_node_impacted{node="forecast"} 1
-devops_node_impacted{node="retrain"} 1
+devops_node_impacted{node="backtest"} 0
+devops_node_impacted{node="mgate"} 0
+devops_node_impacted{node="forecast"} 0
+devops_node_impacted{node="retrain"} 0
 devops_node_impacted{node="k8s"} 0
-devops_node_impacted{node="bluegreen"} 1
+devops_node_impacted{node="bluegreen"} 0
+devops_node_impacted{node="prodk8s"} 0
 # HELP devops_board_generated_seconds Unix time this board was built.
 # TYPE devops_board_generated_seconds gauge
-devops_board_generated_seconds 1788436361
+devops_board_generated_seconds 1788446313

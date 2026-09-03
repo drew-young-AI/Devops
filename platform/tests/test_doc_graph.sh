@@ -112,8 +112,7 @@ printf '# real\n' > "$SANDBOX/docs/real.md"
 git -C "$SANDBOX" add -A >/dev/null 2>&1
 # MIN_REACHED would refuse this tiny tree, which is correct for the real repo
 # and unhelpful here, so the control lowers the floor rather than deleting it.
-sed -i '' 's/^MIN_REACHED = .*/MIN_REACHED = 1/' "$SANDBOX/platform/docs/doc_graph.py" 2>/dev/null \
-  || sed -i 's/^MIN_REACHED = .*/MIN_REACHED = 1/' "$SANDBOX/platform/docs/doc_graph.py"
+sed_i 's/^MIN_REACHED = .*/MIN_REACHED = 1/' "$SANDBOX/platform/docs/doc_graph.py"
 run_cmd python3 "$SANDBOX/platform/docs/doc_graph.py" --check
 assert_rc 1 "catches: a link whose target does not exist"
 assert_output_contains "gone.md" "names the dead link"

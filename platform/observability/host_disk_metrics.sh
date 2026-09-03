@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Export the HOST's disk capacity as Prometheus text, into node-exporter's
-# textfile directory.
+# textfile directory. Runs on both machines: macOS (the Mac lab) and Linux
+# (the ubu prod node). The mount point differs and the reason is below.
 #
 # WHY THIS EXISTS.
 #
@@ -32,14 +33,7 @@
 # separate file and separate schedule so that a dag.py failure cannot take the
 # disk metric with it.
 #
-# WHICH MOUNT POINT.
-#
-# `/System/Volumes/Data` (/dev/disk3s5), NOT `/`. On Apple Silicon `/` is the
-# sealed, read-only system snapshot (/dev/disk3s1s1); `df /` reports it as
-# ~100% used at all times because it is a fixed-size seal, and reading that as
-# "the disk is full" -- or worse, as "the disk is fine" -- answers a different
-# question than the one being asked. This misreading has already happened once
-# during the outage.
+# WHICH MOUNT POINT: see the case statement below -- it differs per OS.
 #
 # Usage: platform/observability/host_disk_metrics.sh [--stdout]
 set -uo pipefail
@@ -47,7 +41,28 @@ set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$HERE/../.." && pwd)"
 
-DATA_VOLUME="${HOST_DISK_MOUNT:-/System/Volumes/Data}"
+# WHICH MOUNT POINT, PER OPERATING SYSTEM.
+#
+# macOS: `/System/Volumes/Data` (/dev/disk3s5), NOT `/`. On Apple Silicon `/`
+# is the sealed, read-only system snapshot (/dev/disk3s1s1); `df /` reports it
+# as ~100% used at all times because it is a fixed-size seal, and reading that
+# as "the disk is full" -- or worse, as "the disk is fine" -- answers a
+# different question than the one being asked. This misreading already happened
+# once during the outage.
+#
+# Linux: `/`. There is no sealed snapshot and no separate data volume; on the
+# ubu prod node everything shares the root LV.
+#
+# Hardcoding the macOS path was the first version, and CI (Linux) went red on
+# it within hours: `df failed for /System/Volumes/Data`. That is ADR-0008's
+# whole subject arriving in a monitoring script -- the platform runs on two
+# operating systems now, and a host-specific path is a latent outage on the
+# other one, on the host where nobody is watching a terminal.
+case "$(uname -s)" in
+  Darwin) DEFAULT_MOUNT="/System/Volumes/Data" ;;
+  *)      DEFAULT_MOUNT="/" ;;
+esac
+DATA_VOLUME="${HOST_DISK_MOUNT:-$DEFAULT_MOUNT}"
 # HOME, resolved rather than assumed. launchd starts scheduled jobs with an
 # almost empty environment -- no HOME -- and under `set -u` a bare $HOME is an
 # unbound-variable error, so this script would have failed on EVERY scheduled
@@ -78,10 +93,10 @@ emit() {
   size_kb="$(awk '{print $2}' <<<"$line")"
   avail_kb="$(awk '{print $4}' <<<"$line")"
 
-  echo "# HELP host_filesystem_size_bytes Total size of a macOS host volume."
+  echo "# HELP host_filesystem_size_bytes Total size of the host volume everything on this machine shares."
   echo "# TYPE host_filesystem_size_bytes gauge"
   echo "host_filesystem_size_bytes{mountpoint=\"$DATA_VOLUME\"} $((size_kb * 1024))"
-  echo "# HELP host_filesystem_avail_bytes Space available to an unprivileged user on a macOS host volume."
+  echo "# HELP host_filesystem_avail_bytes Space available to an unprivileged user on that volume."
   echo "# TYPE host_filesystem_avail_bytes gauge"
   echo "host_filesystem_avail_bytes{mountpoint=\"$DATA_VOLUME\"} $((avail_kb * 1024))"
 

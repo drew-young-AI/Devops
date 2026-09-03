@@ -40,10 +40,23 @@ VALID_SECONDS = {None, 86400, 604800, 2592000, 31536000}
 
 
 def ingested_sources(container):
-    out = subprocess.run(
-        ["docker", "exec", container, "psql", "-U", "twin", "-d", "twin",
-         "-At", "-c", "SELECT DISTINCT source FROM ingest_runs ORDER BY 1"],
-        capture_output=True, text=True, timeout=60)
+    """The sources with ingest history, or None if the database is not here.
+
+    FileNotFoundError is caught, not just a non-zero exit. `docker` is absent
+    entirely on the Linux CI runner and on the ubu prod node, and an uncaught
+    FileNotFoundError makes this exit with a traceback -- which the suite reads
+    as "the cadence table is broken" rather than "there is no database here".
+    A checker that crashes where its subject does not exist is a checker that
+    turns a portability fact into a false defect. Found by running the tier-1
+    suite on ubu (Linux) before pushing, rather than by CI afterwards.
+    """
+    try:
+        out = subprocess.run(
+            ["docker", "exec", container, "psql", "-U", "twin", "-d", "twin",
+             "-At", "-c", "SELECT DISTINCT source FROM ingest_runs ORDER BY 1"],
+            capture_output=True, text=True, timeout=60)
+    except (FileNotFoundError, subprocess.TimeoutExpired):
+        return None
     if out.returncode != 0:
         return None
     return {s for s in out.stdout.strip().split("\n") if s}

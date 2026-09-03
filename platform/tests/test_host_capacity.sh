@@ -89,16 +89,26 @@ for m in $PRODUCED; do
   grep -q "$m" "$RULES" || echo "  NOTE  $m is exported but no rule references it"
 done
 
-# ---- the volume being measured must be the real one -----------------------
-# `df /` on Apple Silicon reports the sealed read-only system snapshot, which
-# sits at ~100% used permanently. A disk alert pointed at it would either
-# scream forever or, read the other way, describe a volume that cannot fill.
-# This misreading already happened once during the outage.
-if grep -qF 'mountpoint="/System/Volumes/Data"' "$OUT"; then
-  _pass "the mount point is the data volume, not the sealed system snapshot"
+# ---- the volume being measured must be the real one, ON THIS OS -----------
+#
+# On Apple Silicon `df /` reports the sealed read-only system snapshot, which
+# sits at ~100% used permanently: a disk alert pointed at it would either
+# scream forever or describe a volume that cannot fill. The data volume is
+# /System/Volumes/Data. On Linux there is no such split and `/` is correct.
+#
+# Asserted per-OS rather than against the macOS path, because the first version
+# hardcoded /System/Volumes/Data and CI (Linux) went red within hours -- the
+# platform runs on two operating systems now (ADR-0008) and this suite has to
+# be true on both.
+case "$(uname -s)" in
+  Darwin) WANT_MOUNT="/System/Volumes/Data" ;;
+  *)      WANT_MOUNT="/" ;;
+esac
+if grep -qF "mountpoint=\"$WANT_MOUNT\"" "$OUT"; then
+  _pass "the mount point is the right volume for $(uname -s) ($WANT_MOUNT)"
 else
-  _fail "the mount point is the data volume, not the sealed system snapshot" \
-        "no /System/Volumes/Data series in $OUT"
+  _fail "the mount point is the right volume for $(uname -s) ($WANT_MOUNT)" \
+        "no $WANT_MOUNT series in $OUT"
 fi
 
 # The staleness gauge is what keeps the two threshold rules honest when the
