@@ -227,6 +227,45 @@ def collect_notifications(limit=5):
     return out[-limit:]
 
 
+# THE BOARD CAN ONLY BE AS TRUE AS THE EVIDENCE IT READS (2026-09-02).
+#
+# Every item on this board sits in "committed", there have been zero
+# promotions, and the median lead time is "no data". Read at face value that
+# says the platform never ships anything. It is not what happened.
+#
+# `deploy_develop_<sha>.json` is written by `platform/compose/deploy.sh`. The
+# pilot's deploy path moved to Kubernetes (ADR-0010), and the k8s path does not
+# write that evidence file. So the contract this board reads is no longer
+# produced by the thing that deploys, and the board renders the resulting
+# silence as a measured funnel with everything stuck at the top.
+#
+# That is the vacuity failure inverted: not a green derived from an empty set,
+# but a RED derived from one -- and the red is more convincing, because an
+# empty pipeline looks exactly like a stalled one. So the board says which it
+# is, rather than leaving the reader to assume the worse and wrong reading.
+DEPLOY_EVIDENCE_WRITER = "platform/compose/deploy.sh"
+CURRENT_DEPLOY_PATH = "platform/k8s/station2-twin/deploy.sh"
+
+
+def deploy_feed():
+    """Is anything currently writing the evidence contract this board reads?
+
+    Retired pilots live one directory deeper under evidence/_retired/, so they
+    do not count -- a board fed only by a pilot that was retired weeks ago is
+    starved, not healthy.
+    """
+    root = os.path.join(REPO_ROOT, "evidence")
+    active = sorted(glob.glob(os.path.join(root, "*", "deploy_develop_*.json")))
+    retired = sorted(glob.glob(os.path.join(root, "_retired", "*", "deploy_develop_*.json")))
+    return {
+        "active_files": len(active),
+        "retired_files": len(retired),
+        "starved": len(active) == 0,
+        "writer": DEPLOY_EVIDENCE_WRITER,
+        "current_deploy_path": CURRENT_DEPLOY_PATH,
+    }
+
+
 def build_board():
     commits = collect_commits()
     evidence = collect_evidence()
@@ -292,6 +331,7 @@ def build_board():
         "alert_source": (
             {"ok": True} if alerts is not None else {"ok": False, "error": alert_error}
         ),
+        "deploy_feed": deploy_feed(),
         "scheduler": scheduler,
         "scheduler_stale": [j["job"] for j in scheduler if not j["fresh"]],
         "notifications": notifications,
@@ -417,6 +457,34 @@ def render_html(board):
         notes_html = (f'<section class="sched-strip"><h2>近期狀態轉換</h2>'
                       f'<ul class="notes">{rows}</ul></section>')
 
+    # A starved board must say so on its face. A reader who sees "0 次上線"
+
+    # on a page titled 價值流看板 will conclude the platform does not ship,
+
+    # and that conclusion is wrong in the most damaging possible direction.
+
+    feed = board["deploy_feed"]
+
+    feed_note = ""
+
+    if feed["starved"]:
+
+        feed_note = (
+
+            '<p class="feednote"><b>這張看板目前收不到部署證據。</b>'
+
+            '「已部署／已上線」欄位靠 <code>deploy_develop_&lt;sha&gt;.json</code> 判斷，'
+
+            f'而目前有效的 pilot 一個都沒有（退役的 station1-hello 還有 {feed["retired_files"]} 份，不計入）。'
+
+            f'寫這份證據的是 <code>{esc(feed["writer"])}</code>，但 pilot 的部署路徑已改走 Kubernetes'
+
+            f'（<code>{esc(feed["current_deploy_path"])}</code>），而 K8s 路徑沒有寫這份契約。'
+
+            '所以下游全空<b>不代表沒有東西上線</b>，代表這條線的量測斷了——'
+
+            '在接回來之前，不要把「0 次上線」當成量測結果。</p>')
+
     alert_note = ""
     if not board["alert_source"]["ok"]:
         alert_note = (
@@ -459,6 +527,7 @@ h1{{font-size:clamp(26px,3.4vw,36px);font-weight:800;letter-spacing:-.025em;marg
 .strip{{display:flex;flex-wrap:wrap;gap:10px 30px;padding:14px 0;border-top:1px solid var(--rule);
  border-bottom:1px solid var(--rule);font-family:ui-monospace,Menlo,monospace;font-size:12.5px;
  color:var(--faint);font-variant-numeric:tabular-nums}}
+.feednote{{margin:1rem 0;padding:.8rem 1rem;border-left:3px solid #A8372C;background:#FDF6F5;font-size:.85rem;line-height:1.6}}
 .strip b{{color:var(--ink);font-weight:600}}
 .banner{{margin:20px 0 0;padding:13px 18px;border-left:3px solid var(--warn);
  background:var(--warn-s);font-size:14.5px;border-radius:0 3px 3px 0}}
@@ -525,6 +594,7 @@ a{{color:var(--accent)}}
   <span>產生於 <b>{esc(board["generated_at"])}</b></span>
 </div>
 {breaches}
+{feed_note}
 {alert_note}
 <div class="board">{"".join(cols)}</div>
 {sched_html}

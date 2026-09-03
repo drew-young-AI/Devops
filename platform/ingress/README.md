@@ -110,3 +110,15 @@ error that sends someone debugging the wrong layer.
 - **Not represented in the DAG.** An exposure is currently invisible to
   `statusdag`, so "what is reachable from outside" is not part of the
   platform verdict.
+
+
+---
+
+## 能力表（何時跑／做什麼／保證什麼）
+
+**這張表是給三種讀者的**：人要知道跑哪一支，agent 要能不讀原始碼就知道用途，
+`platform/docs/capability_graph.py` 要能驗證每支能力都被描述到。
+
+| 能力 | 什麼時候跑 | 做什麼 | 保證什麼 |
+|---|---|---|---|
+| [`ingress.sh`](ingress.sh) | 需要對外開放某個服務時 | 經 Tailscale 把單一服務刻意地開出去 | **白名單制**：`vault` / `prometheus` / `alertmanager` / `loki` 一律拒絕、exit 1、什麼都不開。這關掉了 `Plan.md` 掛最久的那一項，而且不需要雲端供應商 |

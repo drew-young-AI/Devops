@@ -1,0 +1,130 @@
+{
+  "verdict": "DEGRADED",
+  "exit_code": 1,
+  "checked_at": "2026-09-02T16:51:11Z",
+  "monitoring_integrity": [
+    {
+      "check": "prometheus_reachable",
+      "ok": true,
+      "detail": "api/v1/rules responded"
+    },
+    {
+      "check": "alert_rules_loaded",
+      "ok": true,
+      "detail": "15 rules"
+    },
+    {
+      "check": "alert_rules_evaluating",
+      "ok": true,
+      "detail": "all ok"
+    },
+    {
+      "check": "alertmanager_wired",
+      "ok": true,
+      "detail": "1 active"
+    },
+    {
+      "check": "alertmanager_reachable",
+      "ok": true,
+      "detail": "api/v2/alerts responded"
+    },
+    {
+      "check": "scrape_targets_visible",
+      "ok": true,
+      "detail": "3 targets"
+    }
+  ],
+  "integrity_blockers": [],
+  "active_alerts": [
+    {
+      "alertname": "PlatformNodeFailed",
+      "severity": "warning",
+      "environment": null,
+      "service": "platform",
+      "summary": "節點 scheduler（foundation 層）狀態為 FAIL",
+      "runbook": "python3 platform/statusdag/dag.py 看該節點的細節",
+      "started_at": "2026-09-02T14:05:52.722Z"
+    },
+    {
+      "alertname": "WidespreadGeoDrift",
+      "severity": "warning",
+      "environment": null,
+      "service": "dataops",
+      "summary": "猩紅熱：超過 1/4 的地區年對年down 超出 0.5–2 倍區間",
+      "runbook": null,
+      "started_at": "2026-09-02T15:35:58.198Z"
+    },
+    {
+      "alertname": "DataSourceStale",
+      "severity": "warning",
+      "environment": null,
+      "service": "dataops",
+      "summary": "資料來源 cdc-rods 已 15d 9h 15m 5s 未更新",
+      "runbook": "platform/dataops/run.sh 後查 ingest_runs 最後一筆的 status 與 note",
+      "started_at": "2026-09-02T14:35:53.108Z"
+    },
+    {
+      "alertname": "DataSourceStale",
+      "severity": "warning",
+      "environment": null,
+      "service": "dataops",
+      "summary": "資料來源 moi-ris-village-education 已 14d 1h 9m 49s 未更新",
+      "runbook": "platform/dataops/run.sh 後查 ingest_runs 最後一筆的 status 與 note",
+      "started_at": "2026-09-02T16:19:23.108Z"
+    },
+    {
+      "alertname": "WidespreadGeoDrift",
+      "severity": "warning",
+      "environment": null,
+      "service": "dataops",
+      "summary": "COVID-19：超過 1/4 的地區年對年up 超出 0.5–2 倍區間",
+      "runbook": null,
+      "started_at": "2026-09-02T15:35:58.198Z"
+    },
+    {
+      "alertname": "DataSourceStale",
+      "severity": "warning",
+      "environment": null,
+      "service": "dataops",
+      "summary": "資料來源 cdc-tb-caremag 已 14d 15h 1m 16s 未更新",
+      "runbook": "platform/dataops/run.sh 後查 ingest_runs 最後一筆的 status 與 note",
+      "started_at": "2026-09-02T14:35:53.108Z"
+    },
+    {
+      "alertname": "DataSourceStale",
+      "severity": "warning",
+      "environment": null,
+      "service": "dataops",
+      "summary": "資料來源 moi-admin-geography 已 14d 16h 40m 9s 未更新",
+      "runbook": "platform/dataops/run.sh 後查 ingest_runs 最後一筆的 status 與 note",
+      "started_at": "2026-09-02T14:35:53.108Z"
+    },
+    {
+      "alertname": "DataSourceStale",
+      "severity": "warning",
+      "environment": null,
+      "service": "dataops",
+      "summary": "資料來源 cdc-tb-town 已 14d 6h 46m 3s 未更新",
+      "runbook": "platform/dataops/run.sh 後查 ingest_runs 最後一筆的 status 與 note",
+      "started_at": "2026-09-02T14:35:53.108Z"
+    },
+    {
+      "alertname": "DataSourceStale",
+      "severity": "warning",
+      "environment": null,
+      "service": "dataops",
+      "summary": "資料來源 moi-ris-village-population 已 14d 1h 11m 36s 未更新",
+      "runbook": "platform/dataops/run.sh 後查 ingest_runs 最後一筆的 status 與 note",
+      "started_at": "2026-09-02T16:19:23.108Z"
+    }
+  ],
+  "scrape_targets": {
+    "platform-dag/-": "up",
+    "station2-twin/develop": "up",
+    "station2-twin-k8s/k8s": "up"
+  },
+  "sources": {
+    "prometheus": "http://127.0.0.1:19090",
+    "alertmanager": "http://127.0.0.1:19093"
+  }
+}

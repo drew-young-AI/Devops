@@ -57,3 +57,16 @@ readers** — never two copies.
    notified, because CI state reaches no board and no channel.
 3. `llmreview` is SUPERSEDED: its input comes from the retired Compose path and
    it has not been reconnected to the Kubernetes artefacts.
+
+
+---
+
+## 能力表（何時跑／做什麼／保證什麼）
+
+**這張表是給三種讀者的**：人要知道跑哪一支，agent 要能不讀原始碼就知道用途，
+`platform/docs/capability_graph.py` 要能驗證每支能力都被描述到。
+
+| 能力 | 什麼時候跑 | 做什麼 | 保證什麼 |
+|---|---|---|---|
+| [`dag.py`](dag.py) | 排程，每 15 分鐘 | 現場探測每個節點，產出值班者看的板子 | 一個節點一列，問的是「哪些容器活著」。**退役 Pilot 的證據會落到 `SUPERSEDED` 而不是被當成現況** |
+| [`stage_report.py`](stage_report.py) | 排程，跟著 `dag` 走 | 把同一批探測重組成**階段**，一份模型三種輸出 | `html` 給人與長官、`json` 給程式、`md` 給 AI（4KB）。**新增節點沒加進 `LINES` 就直接拒絕產生報告**——消失的階段讀起來和健康的階段一模一樣 |

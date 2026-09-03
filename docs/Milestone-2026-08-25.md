@@ -189,6 +189,8 @@ t+1 輸 12%，t+2 只贏 0.3%（雜訊等級）。
 
 八張圖已完成，配色依指定：DevOps 藍、DataOps 綠、MLOps 棕，
 另加兩張三色分段的大統整圖。位置：`docs/diagrams/`。
+**【2026-09-02】** 這套 SVG 已刪除，被 [`docs/report/plates.src.html`](report/plates.src.html) 的 mermaid 版取代——
+兩套並存期間已完全分岔，見 [`Plan.md`](../Plan.md) 該段補記。本里程碑記錄的是當時的狀態，不改寫。
 
 | 檔案 | 內容 |
 |---|---|

@@ -256,3 +256,11 @@ per promotion (same shape as the state file at that moment), for history
   and one hardcoded pair of blue/green ports (`18081`/`18082`, in
   `deploy.sh`'s `pl_port()`) exist. A second pilot needs its own env files
   and its own port pair added to `pl_port()`.
+
+---
+
+## 能力表（何時跑／做什麼／保證什麼）
+
+| 能力 | 什麼時候跑 | 做什麼 | 保證什麼 |
+|---|---|---|---|
+| [`compose/deploy.sh`](deploy.sh) | Compose 路徑的每次發版 | build / deploy / promote / rollback 四種職責的實作 | 每次部署寫出 `evidence/<pilot>/deploy_develop_<sha>.json`——**價值流看板讀的就是這份契約**。**629 行、四種職責混在一起**：若確定轉 K8s，[不要重構它](../../docs/Backlog.md)，那是即將被取代的程式碼 |

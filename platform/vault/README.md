@@ -600,3 +600,54 @@ platform/recover.sh
 「有東西提到 `.env.vault`」被當成「有東西寫 `.env.vault`」。
 
 > 基於 grep 的檢查，必須先被告知哪些行才是程式碼。
+
+---
+
+## 輪替相關的可執行腳本（2026-09-02 補上索引）
+
+這四支是**人要跑的**，但在 2026-09-02 之前它們**沒有出現在任何從 README 連得到的文件裡**——
+只被其他腳本呼叫。**被程式呼叫不等於找得到**：下一個人（或下一隻 agent）找不到，就會再寫一支。
+
+| 腳本 | 什麼時候跑 | 做什麼 | 保證什麼 |
+|---|---|---|---|
+| [`scripts/setup_rotation_check.sh`](scripts/setup_rotation_check.sh) | **一次性** | 發出只讀 metadata 的 AppRole，讓排程的 `rotation` job 不必用高權限身分 | 跑完之後該 job 才會停止回報「not configured」；**排程檢查用的身分只該讀得到 metadata，不該讀得到 secret 本身** |
+| [`scripts/set_rotation_policy.sh`](scripts/set_rotation_policy.sh) | 每新增一個 secret | 設定**單一** secret 的輪替週期，或記錄它為豁免 | **週期是資料不是常數**——寫死在腳本裡的週期，改的時候會漏掉某一個；豁免必須具名記錄 |
+| [`scripts/rotation_drill.sh`](scripts/rotation_drill.sh) | 定期演練 | 證明憑證**真的換得掉**，端到端 | 與 `restore_drill.sh` 對備份的論證相同：**沒演練過的輪替政策，和沒有輪替政策的差別只在文件上** |
+| [`scripts/check_rotation_sweep.sh`](scripts/check_rotation_sweep.sh) | 排程 `rotation` | 掃過每一個 secret 比對輪替週期 | **全部豁免時回 rc 2 `ROTATION VACUOUS`**——在空集合上「每一個都合規」是恆真句，不是驗證結果 |
+
+守衛：`platform/tests/test_static.sh` 斷言 `set_rotation_policy.sh` 的週期表與實際 secret 對得起來；
+`platform/docs/capability_graph.py` 斷言以上每一支都被這張表描述到。
+
+
+---
+
+## 能力表（何時跑／做什麼／保證什麼）
+
+**這張表是給三種讀者的**：人要知道跑哪一支，agent 要能不讀原始碼就知道用途，
+`platform/docs/capability_graph.py` 要能驗證每支能力都被描述到。
+**只寫一句「見某腳本」不算描述**——那句話說不出何時跑、做什麼、保證什麼。
+
+| 能力 | 什麼時候跑 | 做什麼 | 保證什麼 |
+|---|---|---|---|
+| [`scripts/init_and_unseal.sh`](scripts/init_and_unseal.sh) | **一次性**，全新 Vault | 初始化並解封 | 產出的 unseal key 與 root token 是這個 Vault 所有 secret 的主鑰，寫進 gitignore 的 `.init-output.json`，不進 repo |
+| [`scripts/setup_identity.sh`](scripts/setup_identity.sh) | 一次性，之後改權限時 | 建立身分機制：人的 RBAC 與工作負載身分 | **兩種主體共用同一套 policy、同一個稽核面、同一套管理**——拆成兩套會讓其中一套先腐爛 |
+| [`scripts/verify_identity.sh`](scripts/verify_identity.sh) | 每次改 policy 後 | 對每一條邊界發出**真實**請求並斷言允許／拒絕 | policy 檔是主張，這支是證據。存取控制的失效模式是**看起來被設定了**，只有真的發請求才分得出來 |
+| [`scripts/setup_audit.sh`](scripts/setup_audit.sh) | 一次性 | 開啟稽核裝置 | 從「能執行存取控制」升級成「能舉證」：誰讀了哪個 secret、何時、成功與否 |
+| [`scripts/audit_query.sh`](scripts/audit_query.sh) | 稽核時 | 把每筆 ~2KB、值被 HMAC 的原始 JSON 整理成人看得懂的視圖 | 把 `tail audit.log` 那堆位元組變成真的能回答問題的稽核能力 |
+| [`scripts/rotate_audit_log.sh`](scripts/rotate_audit_log.sh) | 排程 | 輪替稽核 log | **這不是清潔工作**：Vault 稽核裝置是 fail-closed，全部寫不進去時 Vault 會**拒絕所有請求**——secret、身分、部署一起停 |
+| [`scripts/setup_database_secrets.sh`](scripts/setup_database_secrets.sh) | 一次性 | 啟用 database secrets engine，發短期憑證 | 取代長期靜態密碼；每個程序一組帳密、TTL 1200s、被拒即重建連線池 |
+| [`scripts/rotate_secret.sh`](scripts/rotate_secret.sh) | 需要換某個 secret 時 | 寫入新版本並記錄 `rotated_at` | **完全依賴 KV v2 原生版本控制做回滾**，不刪不銷毀舊版本——刪除是另一個刻意的動作 |
+| [`scripts/check_rotation_due.sh`](scripts/check_rotation_due.sh) | 排程 / 手動 | 依 `rotated_at` 判斷單一 secret 是否逾期 | 週期預設 90 天，可由 `set_rotation_policy.sh` 覆寫 |
+| [`scripts/write_pilot_approle_env.sh`](scripts/write_pilot_approle_env.sh) | Pilot 重啟前 | 把 AppRole 寫進 compose 讀的 env 檔 | AppRole 必須**被送達**，不能假設它在操作者的 shell 裡——沒送達時 Pilot 會靜默退回靜態密碼 |
+
+
+---
+
+## 能力表（何時跑／做什麼／保證什麼）
+
+**這張表是給三種讀者的**：人要知道跑哪一支，agent 要能不讀原始碼就知道用途，
+`platform/docs/capability_graph.py` 要能驗證每支能力都被描述到（能力必須是**該列的主詞**）。
+
+| 能力 | 什麼時候跑 | 做什麼 | 保證什麼 |
+|---|---|---|---|
+| [`scripts/verify_database_secrets.sh`](scripts/verify_database_secrets.sh) | 動態憑證機制變更後 | **證明動態憑證真的是動態的** | 「憑證短期且可撤銷」用嘴說一文不值。**撤銷後還能用的憑證，是一個加了戲的靜態密碼** |

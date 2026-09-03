@@ -29,7 +29,7 @@ k() { kubectl --context "$CTX" -n "$NS" "$@"; }
 ok()  { printf '  PASS  %s\n' "$1"; PASS=$((PASS+1)); }
 bad() { printf '  FAIL  %s\n' "$1"; [ -n "${2:-}" ] && printf '        %s\n' "$2"; FAIL=$((FAIL+1)); }
 
-serving() {
+probe_once() {
   k run bgprobe-$RANDOM --rm -i --restart=Never --image=curlimages/curl:8.10.1 \
     --timeout=60s --quiet -- -s --max-time 5 http://station2-twin:8080/version 2>/dev/null \
     | tr -d '\r' | python3 -c 'import json,sys
@@ -37,14 +37,96 @@ try: print(json.load(sys.stdin)["version"])
 except Exception: print("UNREACHABLE")' 2>/dev/null
 }
 
+# Retry, because ONE probe failure is not evidence of anything.
+#
+# This probe schedules a fresh pod per call, so it can come back UNREACHABLE for
+# reasons that have nothing to do with the Service: scheduling delay, image
+# pull, the 60s run timeout. On 2026-09-03 that happened during scenario 2 and
+# the suite printed "traffic moved despite refusal: 'UNREACHABLE'" -- claiming
+# the release gate had leaked traffic, when what actually happened is that the
+# probe could not tell. A rerun passed 8/8 with nothing changed.
+#
+# That message was the real defect. A test that reports "I could not measure"
+# as "the safety property was violated" is a test whose red gets explained away
+# -- and this suite guards the one gate that stands between a broken build and
+# production traffic. Three bounded attempts, then say plainly which of the two
+# it is; UNREACHABLE is never again reported as a colour change.
+serving() {
+  local v i
+  for i in 1 2 3; do
+    v="$(probe_once)"
+    [ "$v" != "UNREACHABLE" ] && { printf '%s' "$v"; return 0; }
+  done
+  printf 'UNREACHABLE'
+  return 1
+}
+
+# Assert the Service is serving an expected colour, keeping "wrong colour" and
+# "could not measure" as different verdicts.
+serves() {
+  local want="$1" msg="$2" got
+  got="$(serving)"
+  if [ "$got" = "$want" ]; then ok "$msg ($got)"
+  elif [ "$got" = "UNREACHABLE" ]; then
+    bad "UNMEASURED: $msg" "3 probes failed to reach the Service; this is NOT evidence the colour changed"
+  else bad "$msg -- Service serves '$got', expected '$want'"
+  fi
+}
+
+# ── preflight: prove the probe's own verdicts still work ────────────────────
+#
+# These stub probe_once and touch no cluster (~0s). They exist because the
+# retry and the UNMEASURED verdict below are themselves guards, and a guard
+# nobody has seen go red is indistinguishable from one that cannot. Running
+# them here rather than in a separate suite keeps them attached to the thing
+# they check -- a control in another file is a control that gets deleted.
+preflight() {
+  local out saved rc=0 cnt
+  saved="$(declare -f probe_once)"
+
+  probe_once() { echo UNREACHABLE; }
+  out="$(serves blue-v15 "probe control" 2>&1)"
+  case "$out" in
+    *UNMEASURED*) case "$out" in
+        *"expected"*) bad "control: unreachable still claimed a colour change"; rc=1 ;;
+        *) ok "control: 3 failed probes report UNMEASURED, not a colour change" ;;
+      esac ;;
+    *) bad "control: an unreachable Service did not report UNMEASURED" "$out"; rc=1 ;;
+  esac
+
+  probe_once() { echo green-v15-green; }
+  out="$(serves blue-v15 "probe control" 2>&1)"
+  case "$out" in
+    *"serves 'green-v15-green', expected 'blue-v15'"*)
+      ok "control: a real colour change is still reported as one" ;;
+    *) bad "control: a real colour change was swallowed" "$out"; rc=1 ;;
+  esac
+
+  # a file, not a variable: every $(probe_once) is its own subshell, so an
+  # in-memory counter resets each call and attempt 3 is never reached
+  cnt="$(mktemp)"; echo 0 > "$cnt"
+  probe_once() {
+    local n; n=$(( $(cat "$cnt") + 1 )); echo "$n" > "$cnt"
+    [ "$n" -lt 3 ] && echo UNREACHABLE || echo blue-v15
+  }
+  out="$(serves blue-v15 "probe control" 2>&1)"
+  rm -f "$cnt"
+  case "$out" in
+    *PASS*) ok "control: a transient failure recovers on retry, not a red suite" ;;
+    *) bad "control: retry did not recover from two transient failures" "$out"; rc=1 ;;
+  esac
+
+  eval "$saved"          # always restore the real probe
+  return $rc
+}
+preflight
+
 echo "=== blue/green on kubernetes ==="
 
 # ── scenario 1: baseline ────────────────────────────────────────────────────
 "$HERE/deploy.sh" blue v15 15 >/dev/null 2>&1
 k patch svc station2-twin -p '{"spec":{"selector":{"app":"station2-twin","color":"blue"}}}' >/dev/null 2>&1
-V=$(serving)
-[ "$V" = "blue-v15" ] && ok "baseline: Service serves blue ($V)" \
-                      || bad "baseline: Service serves '$V', expected blue-v15"
+serves blue-v15 "baseline: Service serves blue"
 
 # ── scenario 2: NEGATIVE -- a green that cannot become Ready ────────────────
 # EXPECTED_SCHEMA_VERSION=99 against a database at 15. The pod runs, answers
@@ -57,9 +139,7 @@ if "$HERE/promote.sh" green >/dev/null 2>&1; then
 else
   ok "promotion refused a green whose schema does not match the database"
 fi
-V=$(serving)
-[ "$V" = "blue-v15" ] && ok "traffic stayed on blue after the refusal ($V)" \
-                      || bad "traffic moved despite refusal: '$V'"
+serves blue-v15 "traffic stayed on blue after the refusal"
 
 # ── scenario 3: POSITIVE -- a healthy green ────────────────────────────────
 k delete deploy station2-twin-green --wait=true >/dev/null 2>&1
@@ -67,7 +147,9 @@ k delete deploy station2-twin-green --wait=true >/dev/null 2>&1
 if "$HERE/promote.sh" green >/dev/null 2>&1; then
   V=$(serving)
   [ "$V" = "green-v15-green" ] && ok "promoted to green, Service now serves $V" \
-                               || bad "promote reported success but Service serves '$V'"
+    || { [ "$V" = "UNREACHABLE" ] \
+         && bad "UNMEASURED: promoted to green" "3 probes failed; NOT evidence the promotion failed" \
+         || bad "promote reported success but Service serves '$V'"; }
 else
   bad "a healthy green was refused promotion"
 fi
@@ -80,7 +162,9 @@ START=$(date +%s)
 ELAPSED=$(( $(date +%s) - START ))
 V=$(serving)
 [ "$V" = "blue-v15" ] && ok "rolled back to blue in ${ELAPSED}s ($V)" \
-                      || bad "rollback left Service serving '$V'"
+  || { [ "$V" = "UNREACHABLE" ] \
+       && bad "UNMEASURED: rollback" "3 probes failed; NOT evidence the rollback failed" \
+       || bad "rollback left Service serving '$V'"; }
 
 BOTH=$(k get deploy -o name 2>/dev/null | wc -l | tr -d ' ')
 [ "$BOTH" = "2" ] && ok "both colours still deployed ($BOTH) -- rollback needs no rebuild" \
@@ -93,9 +177,7 @@ if "$HERE/promote.sh" green >/dev/null 2>&1; then
 else
   ok "promotion refused a colour that does not exist"
 fi
-V=$(serving)
-[ "$V" = "blue-v15" ] && ok "Service still serving after all refusals ($V)" \
-                      || bad "Service ended in state '$V'"
+serves blue-v15 "Service still serving after all refusals"
 
 echo ""
 [ "$FAIL" -gt 0 ] && { echo "  $PASS passed, $FAIL FAILED" >&2; exit 1; }

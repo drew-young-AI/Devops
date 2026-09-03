@@ -77,3 +77,27 @@ about. See `platform/tests/` for the guards.
 |---|---|
 | `run_local_ci.sh` | Full local pipeline for one pilot: build, scan, deploy, write evidence. |
 | `pipeline-contract.yml` | The declared shape of a pipeline run; `platform/tests/` checks reality against it. |
+
+
+---
+
+## 能力表（何時跑／做什麼／保證什麼）
+
+**這張表是給三種讀者的**：人要知道跑哪一支，agent 要能不讀原始碼就知道用途，
+`platform/docs/capability_graph.py` 要能驗證每支能力都被描述到。
+
+| 能力 | 什麼時候跑 | 做什麼 | 保證什麼 |
+|---|---|---|---|
+| [`fetch_gha_status.sh`](fetch_gha_status.sh) | 排程 `gha`，每 30 分鐘 | 把遠端 CI 狀態抓進 `evidence/`，讓板子不必上網才讀得到 | **這是排程抓取不是即時探測**：第一版直接在 `dag.py` 裡呼叫 `gh run list`，於是板子的產生時間變成取決於網路，而 CI 紅了六天沒有人知道——現在紅燈是**證據檔的內容**，不是一次僥倖成功的網路呼叫 |
+
+
+---
+
+## 能力表（何時跑／做什麼／保證什麼）
+
+**這張表是給三種讀者的**：人要知道跑哪一支，agent 要能不讀原始碼就知道用途，
+`platform/docs/capability_graph.py` 要能驗證每支能力都被描述到（能力必須是**該列的主詞**）。
+
+| 能力 | 什麼時候跑 | 做什麼 | 保證什麼 |
+|---|---|---|---|
+| [`run_local_ci.sh`](run_local_ci.sh) | 本機全量 CI | 跑完整的本機 CI 流程 | 預設值**由 pilot 目錄推導**，不寫死 pilot 名稱——舊版把 `station1-hello` 硬編在路徑、證據路徑與 image tag 三個地方，換 pilot 時會靜默指向錯的東西 |

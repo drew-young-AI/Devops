@@ -228,4 +228,61 @@ assert_output_contains "BROKEN_CASE ('warn', '1 rule(s) cannot evaluate: Broken'
 assert_output_contains "NO_RULES_CASE ('warn', 'running, but NO alert rules" \
   "zero rules is WARN, not silence -- it looks identical to a quiet system"
 
+# ── probe_alertmanager: a channel that is declared but not wired ────────────
+#
+# The 2026-08-19 outage ended in a null receiver; the fix wired Telegram and
+# the config comment says there are TWO channels. On 2026-09-03 mail turned
+# out never to have been wired at all, and NOTHING reported it -- Alertmanager
+# was up, alerts were firing, the node read "5 alert(s) firing" and said
+# nothing about half the delivery being absent.
+#
+# These three cases fix the direction of that check: the wired case must be
+# able to go green, the unwired case must go WARN with zero alerts firing (the
+# only moment it is still cheap to fix), and a channel whose sends FAIL must
+# not look the same as one that works.
+run_cmd python3 -c "
+import io, json, sys, urllib.request
+sys.path.insert(0, '$REPO_ROOT/platform/statusdag')
+import dag
+
+class R(io.BytesIO):
+    def __enter__(self): return self
+    def __exit__(self, *a): return False
+
+METRICS = 'alertmanager_notifications_failed_total{integration=\"%s\",reason=\"other\"} %s\n'
+
+def fake(alerts, live_cfg, failed_pairs):
+    def _open(url, timeout=0):
+        if 'api/v2/alerts' in url:
+            return R(json.dumps(alerts).encode())
+        if 'api/v2/status' in url:
+            return R(json.dumps({'config': {'original': live_cfg}}).encode())
+        if 'metrics' in url:
+            body = ''.join(METRICS % (k, v) for k, v in failed_pairs)
+            return R(body.encode())
+        raise AssertionError('unexpected url ' + url)
+    return _open
+
+dag.declared_channels = lambda: {'telegram', 'email'}
+BOTH = 'receivers:\n  - name: r\n    telegram_configs:\n    email_configs:\n'
+ONLY_TG = 'receivers:\n  - name: r\n    telegram_configs:\n'
+real = urllib.request.urlopen
+try:
+    urllib.request.urlopen = fake([], BOTH, [('telegram', '0'), ('email', '0')])
+    print('WIRED_CASE', dag.probe_alertmanager())
+    urllib.request.urlopen = fake([], ONLY_TG, [('telegram', '0')])
+    print('UNWIRED_CASE', dag.probe_alertmanager())
+    urllib.request.urlopen = fake([], BOTH, [('telegram', '7'), ('email', '0')])
+    print('FAILING_CASE', dag.probe_alertmanager())
+finally:
+    urllib.request.urlopen = real
+"
+assert_rc 0 "probe_alertmanager runs against a stubbed Alertmanager"
+assert_output_contains "WIRED_CASE ('ok', 'no active alerts, all declared channels wired')" \
+  "every declared channel wired and delivering is the only way to green"
+assert_output_contains "UNWIRED_CASE ('warn', '宣告了但沒接上: email')" \
+  "a declared-but-missing channel is WARN with ZERO alerts firing, and is named"
+assert_output_contains "FAILING_CASE ('warn', '送出失敗: telegram')" \
+  "configured is not delivered: a channel whose sends fail is not green"
+
 suite_summary

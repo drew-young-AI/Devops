@@ -233,12 +233,25 @@ Loki            -> container logs
 
 目前不導入 ELK、Argo CD 或 Kubernetes。ELK 留給大量全文 log、SIEM 或既有企業標準；Argo CD 留給 Kubernetes GitOps；兩者不是目前 Compose 觀測基線的必要元件。
 
-> **【2026-08-26 起，Kubernetes 一項已反轉】** k3d 叢集已建立並承載 station2-twin 藍綠。
-> ELK 與 Argo CD **仍然不導入**，而且原本的理由沒有改變：ELK 要等真的有 SIEM 需求，
-> Argo CD 要等 GitOps 的複雜度換得回來。反轉一項不等於三項都反轉——
-> 這種「順手一起放寬」正是這條規則當初要擋的。
+> **【Kubernetes 一項已反轉，見 [ADR-0010](decisions/0010-kubernetes-target-runtime-k3s.md)】**
+> K8s 已從「未來 adapter」改為**目標執行環境**，發行版以 **k3s** 為先。
+>
+> **ELK 與 Argo CD 仍然不導入，理由沒有改變**：Argo CD 要等 GitOps 的複雜度換得回來；
+> ELK 那一格由 **Loki** 填著，而且已量測為真的在收（71,289 行／111 串流／14.2 MB，
+> 重跑 `platform/observability/loki_coverage.py`）——
+> 見 [ADR-0011](decisions/0011-loki-not-elk.md)，其中同時修正了一個常見的錯誤理由：
+> **「Prometheus 和 Grafana 已經有了」不成立，因為 Prometheus 不存 log、Grafana 不存任何東西。**
+>
+> 反轉一項不等於三項都反轉——這種「順手一起放寬」正是這條規則當初要擋的。
 
 ## 0E. Kubernetes 評估：目前延後，不是否定
+
+> **【本節整節已被 [ADR-0010](decisions/0010-kubernetes-target-runtime-k3s.md) 取代（2026-09-02）。】**
+> 下面的評估表與「導入門檻」是 2026-08 的判斷，**門檻已經跨過**，
+> K8s 是目標執行環境而不是延後項。原文保留是為了記錄當時為什麼那樣判斷，
+> **不是現況**。ADR-0010 逐條對照了下面四條「為何不適合」現在各自怎麼樣：
+> 其中一條（Mac 需要額外 VM）實測不成立，一條（測試混入 K8s 配置問題）真的發生了
+> 而且正是要練的東西，一條（Argo CD）**仍然成立且不隨之放寬**。
 
 Kubernetes 適合企業級多服務平台，但目前這個 PoC 的主要目標是驗證 DevOps 控制鏈，不是驗證 Kubernetes 本身。兩者應分開。
 
@@ -285,6 +298,11 @@ Docker Compose platform contract
 ## 0F. Docker 到 Kubernetes 的可搬遷契約
 
 目前使用 Docker Compose，不代表把架構寫死在 Compose。Pilot 與 platform 元件必須遵守可搬遷契約，未來有 Kubernetes 時只替換 deployment adapter，不重寫 application contract。
+
+> **【時態已改，見 [ADR-0010](decisions/0010-kubernetes-target-runtime-k3s.md)】**
+> 這份契約本身不改——它寫得對——但它**不再是「未來有 Kubernetes 時」的準備**，
+> 而是現在的驗收條件。station2-twin 的藍綠已經在 k3s（k3d）上跑，
+> 下面每一條「應保持平台無關」都已經是可以立刻檢驗的斷言，不是待辦。
 
 ### 應保持平台無關
 

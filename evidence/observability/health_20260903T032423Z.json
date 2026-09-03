@@ -1,0 +1,38 @@
+{
+  "verdict": "UNKNOWN",
+  "exit_code": 3,
+  "checked_at": "2026-09-03T03:23:59Z",
+  "monitoring_integrity": [
+    {
+      "check": "prometheus_reachable",
+      "ok": false,
+      "detail": "[Errno 54] Connection reset by peer"
+    },
+    {
+      "check": "alertmanager_wired",
+      "ok": false,
+      "detail": "no response within 10s"
+    },
+    {
+      "check": "alertmanager_reachable",
+      "ok": false,
+      "detail": "no response within 10s"
+    },
+    {
+      "check": "scrape_targets_visible",
+      "ok": false,
+      "detail": "[Errno 54] Connection reset by peer"
+    }
+  ],
+  "integrity_blockers": [
+    "Prometheus unreachable: [Errno 54] Connection reset by peer",
+    "Cannot confirm Alertmanager wiring: no response within 10s",
+    "Alertmanager unreachable: no response within 10s"
+  ],
+  "active_alerts": [],
+  "scrape_targets": {},
+  "sources": {
+    "prometheus": "http://127.0.0.1:19090",
+    "alertmanager": "http://127.0.0.1:19093"
+  }
+}

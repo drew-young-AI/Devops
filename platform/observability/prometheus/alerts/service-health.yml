@@ -51,6 +51,7 @@ groups:
             A monitored target has been unreachable for 10 minutes. Generic
             coverage for targets that have no dedicated rule yet.
 
+          runbook: "curl -s 127.0.0.1:19090/api/v1/targets 找該 job 的 lastError；再 docker ps 確認容器還在"
       # No blue/green rule any more. station1-hello had two colours and this
       # file carried a sum()-over-colours rule so the parked colour would not
       # alert. station2-twin has no colours yet -- its compose bundles the

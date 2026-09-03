@@ -1,0 +1,803 @@
+{
+  "generated_by": "platform/docs/capability_graph.py --catalog",
+  "root": "README.md",
+  "count": 92,
+  "capabilities": [
+    {
+      "path": "pilots/station2-twin/app/app.py",
+      "described": true,
+      "described_in": "pilots/station2-twin/README.md",
+      "when": "服務常駐",
+      "what": "數位分身的查詢／API 層",
+      "guarantee": "/health/ready 與 /health/live 分開：readiness 不是 liveness，不符即拒收流量",
+      "run": "pilots/station2-twin/app/app.py"
+    },
+    {
+      "path": "pilots/station2-twin/app/surveillance.py",
+      "described": true,
+      "described_in": "pilots/station2-twin/README.md",
+      "when": "由 app 呼叫",
+      "what": "分身的模型與背離偵測",
+      "guarantee": "分身的價值不在複製現況，在於指出現況與模型預期不一致的地方",
+      "run": "pilots/station2-twin/app/surveillance.py"
+    },
+    {
+      "path": "pilots/station2-twin/app/vault_creds.py",
+      "described": false,
+      "internal_to": "pilots/station2-twin/app/app.py"
+    },
+    {
+      "path": "pilots/station2-twin/ingest/discover_sources.py",
+      "described": true,
+      "described_in": "pilots/station2-twin/DATAOPS-LOG.md",
+      "when": "盤點資料來源時",
+      "what": "列舉 CKAN 目錄，回報真正可發布的東西",
+      "guarantee": "回報的是實際可取得的，不是「猜一個 URL 看起來存在」的——猜出來的來源會在載入當天才爆",
+      "run": "pilots/station2-twin/ingest/discover_sources.py"
+    },
+    {
+      "path": "pilots/station2-twin/ingest/load_dimensional.py",
+      "described": true,
+      "described_in": "pilots/station2-twin/DATAOPS-LOG.md",
+      "when": "由 ingest/run.sh 呼叫",
+      "what": "疫情事實表與維度",
+      "guarantee": "星狀模型的主線；upsert 與衝突判定在載入時決定，不留給查詢端",
+      "run": "pilots/station2-twin/ingest/load_dimensional.py"
+    },
+    {
+      "path": "pilots/station2-twin/ingest/load_geography.py",
+      "described": true,
+      "described_in": "pilots/station2-twin/README.md",
+      "when": "資料來源更新時",
+      "what": "載入官方行政區地理與宣告過的名稱別名",
+      "guarantee": "別名是宣告的不是猜的——行政區改名會讓歷史資料對不上，猜一個對應就是造假",
+      "run": "pilots/station2-twin/ingest/load_geography.py"
+    },
+    {
+      "path": "pilots/station2-twin/ingest/load_registry.py",
+      "described": true,
+      "described_in": "pilots/station2-twin/DATAOPS-LOG.md",
+      "when": "資料來源更新時",
+      "what": "內政部戶政司村里級人口統計",
+      "guarantee": "這是這個平台一直沒有的分母——沒有分母，通報數只能比大小、不能算率，而流行病學要的是率",
+      "run": "pilots/station2-twin/ingest/load_registry.py"
+    },
+    {
+      "path": "pilots/station2-twin/ingest/probe_feed.py",
+      "described": false,
+      "internal_to": "pilots/station2-twin/ingest/load_dimensional.py"
+    },
+    {
+      "path": "pilots/station2-twin/ingest/run.sh",
+      "described": true,
+      "described_in": "pilots/station2-twin/DATAOPS-LOG.md",
+      "when": "由 dataops/ingest.sh 呼叫（每日 03:00）",
+      "what": "入口，容器化執行整條載入",
+      "guarantee": "帶 --network host（要抓政府 API）。這一欄原本寫「排程與 CI 都從這裡進去」，而兩邊都不成立：直到 2026-09-03 才有排程，CI 至今不跑載入器。四欄全部填滿、可達性四層全過，描述照樣是錯的——這是「描述會變錯」的實例，不是舉例",
+      "run": "pilots/station2-twin/ingest/run.sh"
+    },
+    {
+      "path": "pilots/station2-twin/mlops/backtest.py",
+      "described": true,
+      "described_in": "platform/mlops/README.md",
+      "when": "由 retrain.sh 呼叫",
+      "what": "rolling-origin 回測，同時把兩個天真基準放在旁邊",
+      "guarantee": "每一折重算 seasonal index，不得使用未來資料；守衛 platform/tests/test_no_lookahead.sh",
+      "run": "pilots/station2-twin/mlops/backtest.py"
+    },
+    {
+      "path": "pilots/station2-twin/mlops/build_features.py",
+      "described": true,
+      "described_in": "platform/mlops/README.md",
+      "when": "由 retrain.sh 呼叫",
+      "what": "建立預測特徵集，並記錄它從哪裡來",
+      "guarantee": "血緣寫入 feature_set / feature_row，每個特徵都回溯得到事實表",
+      "run": "pilots/station2-twin/mlops/build_features.py"
+    },
+    {
+      "path": "pilots/station2-twin/mlops/publish_forecast.py",
+      "described": true,
+      "described_in": "pilots/station2-twin/README.md",
+      "when": "由 retrain.sh 呼叫",
+      "what": "用全部可得資料重新擬合並發布預測——如果模型配得上",
+      "guarantee": "輸給天真基準就不發布。這是這條線目前最有價值的機制，而且它正在正確地擋著",
+      "run": "pilots/station2-twin/mlops/publish_forecast.py"
+    },
+    {
+      "path": "pilots/station2-twin/mlops/run.sh",
+      "described": true,
+      "described_in": "pilots/station2-twin/README.md",
+      "when": "由 retrain.sh 呼叫",
+      "what": "在釘住的執行環境裡跑 MLOps 腳本",
+      "guarantee": "沒有 --network host：這一階段不得連外網——能抓資料的特徵建置器就是能悄悄依賴未來資料的特徵建置器",
+      "run": "pilots/station2-twin/mlops/run.sh"
+    },
+    {
+      "path": "platform/analytics/benchmark.py",
+      "described": false,
+      "internal_to": "platform/analytics/benchmark.sh"
+    },
+    {
+      "path": "platform/analytics/benchmark.sh",
+      "described": true,
+      "described_in": "platform/analytics/README.md",
+      "when": "需要重驗 ADR-0001 的數字時",
+      "what": "重現決策紀錄 0001 的量測",
+      "guarantee": "一個指令、零參數：要先設三個環境變數的重跑指令是沒有人會照做的重跑指令，然後那個數字就會被憑印象重估",
+      "run": "platform/analytics/benchmark.sh"
+    },
+    {
+      "path": "platform/analytics/mirror.py",
+      "described": false,
+      "internal_to": "platform/analytics/run.sh"
+    },
+    {
+      "path": "platform/analytics/run.sh",
+      "described": true,
+      "described_in": "platform/analytics/README.md",
+      "when": "每次重建鏡像",
+      "what": "入口，重建 Parquet 鏡像並可跑基準",
+      "guarantee": "資料庫密碼從執行中的容器進環境變數，絕不進命令列——ps 會把它給機器上每一個程序看",
+      "run": "platform/analytics/run.sh"
+    },
+    {
+      "path": "platform/analytics/setup.sh",
+      "described": true,
+      "described_in": "platform/analytics/README.md",
+      "when": "一次性",
+      "what": "建立分析鏡像用的隔離環境",
+      "guarantee": "venv 放在 platform/analytics/ 下，不用 host Python、也不共用：這層釘住引擎版本，浮動的引擎版本＝浮動的數字",
+      "run": "platform/analytics/setup.sh"
+    },
+    {
+      "path": "platform/backup/backup.sh",
+      "described": true,
+      "described_in": "platform/backup/README.md",
+      "when": "排程",
+      "what": "備份有狀態的平台 volume",
+      "guarantee": "哪些備、哪些刻意不備都是決定：Vault 檔案與稽核軌無可取代，一定備；可重建的東西不備",
+      "run": "platform/backup/backup.sh"
+    },
+    {
+      "path": "platform/backup/pvc_archive.sh",
+      "described": true,
+      "described_in": "platform/backup/README.md",
+      "when": "由 backup.sh 呼叫",
+      "what": "把單一 Kubernetes PVC 封存成本機檔案",
+      "guarantee": "PVC 不能當 docker volume 備份：k3d 經 local-path-provisioner 寫進節點的 /var/lib/rancher/k3s/storage，那條路徑背後是匿名 docker volume",
+      "run": "platform/backup/pvc_archive.sh"
+    },
+    {
+      "path": "platform/backup/restore_drill.sh",
+      "described": true,
+      "described_in": "platform/backup/README.md",
+      "when": "排程",
+      "what": "證明備份真的還原得回來",
+      "guarantee": "「我們有備份」是關於檔案存在的宣稱；這支是「那些檔案能變回一個能動的系統」的證據，是完全不同、而且強得多的主張",
+      "run": "platform/backup/restore_drill.sh"
+    },
+    {
+      "path": "platform/backup/setup_rclone.sh",
+      "described": true,
+      "described_in": "platform/backup/README.md",
+      "when": "一次性",
+      "what": "設定 Google Drive 備份目的地",
+      "guarantee": "你授權，這裡永遠看不到你的密碼：rclone 開瀏覽器登入頁，Google 回一個 OAuth token",
+      "run": "platform/backup/setup_rclone.sh"
+    },
+    {
+      "path": "platform/backup/sync_offsite.sh",
+      "described": true,
+      "described_in": "platform/backup/README.md",
+      "when": "排程",
+      "what": "把已驗證的備份複製到第二個位置，並證明那真的是第二個",
+      "guarantee": "拒絕寫到同一個實體裝置——備份與來源同碟時，整套備份機制（完整性清單、還原演練）保護的是同一次故障",
+      "run": "platform/backup/sync_offsite.sh"
+    },
+    {
+      "path": "platform/backup/sync_remote.sh",
+      "described": true,
+      "described_in": "platform/backup/README.md",
+      "when": "排程",
+      "what": "經 rclone 同步到雲端 remote",
+      "guarantee": "sync_offsite.sh 的姊妹版，對 remote 帶等價的拒絕條件",
+      "run": "platform/backup/sync_remote.sh"
+    },
+    {
+      "path": "platform/ci/fetch_gha_status.sh",
+      "described": true,
+      "described_in": "platform/ci/README.md",
+      "when": "排程 gha，每 30 分鐘",
+      "what": "把遠端 CI 狀態抓進 evidence/，讓板子不必上網才讀得到",
+      "guarantee": "這是排程抓取不是即時探測：第一版直接在 dag.py 裡呼叫 gh run list，於是板子的產生時間變成取決於網路，而 CI 紅了六天沒有人知道——現在紅燈是證據檔的內容，不是一次僥倖成功的網路呼叫",
+      "run": "platform/ci/fetch_gha_status.sh"
+    },
+    {
+      "path": "platform/ci/run_local_ci.sh",
+      "described": true,
+      "described_in": "platform/ci/README.md",
+      "when": "本機全量 CI",
+      "what": "跑完整的本機 CI 流程",
+      "guarantee": "預設值由 pilot 目錄推導，不寫死 pilot 名稱——舊版把 station1-hello 硬編在路徑、證據路徑與 image tag 三個地方，換 pilot 時會靜默指向錯的東西",
+      "run": "platform/ci/run_local_ci.sh"
+    },
+    {
+      "path": "platform/compose/deploy.sh",
+      "described": true,
+      "described_in": "platform/compose/README.md",
+      "when": "Compose 路徑的每次發版",
+      "what": "build / deploy / promote / rollback 四種職責的實作",
+      "guarantee": "每次部署寫出 evidence/<pilot>/deploy_develop_<sha>.json——價值流看板讀的就是這份契約。629 行、四種職責混在一起：若確定轉 K8s，不要重構它，那是即將被取代的程式碼",
+      "run": "platform/compose/deploy.sh"
+    },
+    {
+      "path": "platform/dataops/ingest.sh",
+      "described": true,
+      "described_in": "platform/dataops/README.md",
+      "when": "排程（每日 03:00）",
+      "what": "拉取 19 支週報監測 feed 並 upsert 進 surveillance_fact",
+      "guarantee": "這條線在 2026-09-03 之前根本不存在：載入器 2026-08-20 手動跑過一次，之後 jobs.conf 的 19 個 job 沒有一個抓資料，下游全部在一份不再變動的資料上維持綠燈。每日而非每週，因為疾管署不公告星期幾發布",
+      "run": "platform/dataops/ingest.sh"
+    },
+    {
+      "path": "platform/dataops/pipeline_metrics.py",
+      "described": true,
+      "described_in": "platform/dataops/README.md",
+      "when": "排程",
+      "what": "產出資料庫約束抓不到的三件事的指標",
+      "guarantee": "約束能擋住壞資料進來，擋不住「該來的沒來」「來得太晚」「來了但語意變了」",
+      "run": "platform/dataops/pipeline_metrics.py"
+    },
+    {
+      "path": "platform/dataops/run.sh",
+      "described": true,
+      "described_in": "platform/dataops/README.md",
+      "when": "排程",
+      "what": "入口",
+      "guarantee": "重用 analytics 的 venv 不另建一個：需要的正好就是 duckdb 與 psycopg2，兩個 venv 釘同一組版本＝兩個要同步的東西",
+      "run": "platform/dataops/run.sh"
+    },
+    {
+      "path": "platform/dataops/settled_week.py",
+      "described": true,
+      "described_in": "platform/dataops/README.md",
+      "when": "由指標流程呼叫",
+      "what": "決定漂移比較用哪一個流行病學週、落後資料多久",
+      "guarantee": "週定義是這條線唯一還沒有權威來源的參數（要問疾管署），所以它被獨立出來而不是散在各處",
+      "run": "platform/dataops/settled_week.py"
+    },
+    {
+      "path": "platform/db/migrate.sh",
+      "described": true,
+      "described_in": "platform/db/README.md",
+      "when": "每次結構變更",
+      "what": "依序、只跑一次地套用遷移，並拒絕危險的那些",
+      "guarantee": "寫一個遷移器很容易；真正造成停機的是它拒絕做的三件事，第一件是重跑一個被改過的遷移——checksum 對不上就停",
+      "run": "platform/db/migrate.sh"
+    },
+    {
+      "path": "platform/docs/capability_graph.py",
+      "described": true,
+      "described_in": "platform/docs/README.md",
+      "when": "排程／CI",
+      "what": "每支能力是否被某份可達文件描述",
+      "guarantee": "被程式呼叫不等於找得到。內部元件可指向入口，但那個入口本身必須被描述——少了這半，豁免清單就是藏東西的地方",
+      "run": "platform/docs/capability_graph.py"
+    },
+    {
+      "path": "platform/docs/context_cost.py",
+      "described": false,
+      "internal_to": "platform/docs/context_cost.sh"
+    },
+    {
+      "path": "platform/docs/context_cost.sh",
+      "described": true,
+      "described_in": "platform/docs/README.md",
+      "when": "需要時",
+      "what": "agent 讀完這個平台的證據要花多少 token",
+      "guarantee": "讓「給 AI 看的產物」的成本是數字而不是感覺",
+      "run": "platform/docs/context_cost.sh"
+    },
+    {
+      "path": "platform/docs/decisions.py",
+      "described": true,
+      "described_in": "platform/docs/README.md",
+      "when": "排程／CI",
+      "what": "驗證決策紀錄並產生 docs/decisions/index.md",
+      "guarantee": "每個帶量測的宣稱都附重跑指令，而那指令必須指向存在的東西——指向六週前改名腳本的 rerun: 比沒有更糟",
+      "run": "platform/docs/decisions.py"
+    },
+    {
+      "path": "platform/docs/doc_freshness.py",
+      "described": true,
+      "described_in": "platform/docs/README.md",
+      "when": "排程／CI",
+      "what": "每份追蹤中的渲染頁面：產生式，還是有人用手承諾",
+      "guarantee": "產生式的要通過它自己的 --check；手工維護的必須具名寫下理由。第三份 System-State.html 沒辦法安靜地被加進來",
+      "run": "platform/docs/doc_freshness.py"
+    },
+    {
+      "path": "platform/docs/doc_graph.py",
+      "described": true,
+      "described_in": "platform/docs/README.md",
+      "when": "排程／CI",
+      "what": "從 README.md 走真正的連結圖",
+      "guarantee": "回答「孤兒／斷鏈／可達」。--tree 附每份文件幾天沒動過。證不到內容還是不是真的",
+      "run": "platform/docs/doc_graph.py"
+    },
+    {
+      "path": "platform/docs/duplicate_check.py",
+      "described": true,
+      "described_in": "platform/docs/README.md",
+      "when": "排程／CI",
+      "what": "有沒有兩份東西在講同一件事",
+      "guarantee": "正規化後完全比對，刻意不做相似度評分——誤報是檢查被靜音的方式。「同一產物兩個生產者」只報告不判失敗",
+      "run": "platform/docs/duplicate_check.py"
+    },
+    {
+      "path": "platform/docs/okf_check.py",
+      "described": true,
+      "described_in": "platform/docs/README.md",
+      "when": "排程／CI",
+      "what": "OKF v0.1 frontmatter 一致性",
+      "guarantee": "每份文件都帶得走：type／title／description／tags 齊全且合法",
+      "run": "platform/docs/okf_check.py"
+    },
+    {
+      "path": "platform/ingress/ingress.sh",
+      "described": true,
+      "described_in": "platform/ingress/README.md",
+      "when": "需要對外開放某個服務時",
+      "what": "經 Tailscale 把單一服務刻意地開出去",
+      "guarantee": "白名單制：vault / prometheus / alertmanager / loki 一律拒絕、exit 1、什麼都不開。這關掉了 Plan.md 掛最久的那一項，而且不需要雲端供應商",
+      "run": "platform/ingress/ingress.sh"
+    },
+    {
+      "path": "platform/k8s/bootstrap_k3s.sh",
+      "described": true,
+      "described_in": "platform/k8s/README.md",
+      "when": "ubu 生產節點初次建置",
+      "what": "從 Mac 把生產型 k3s 叢集拉起來在 Ubuntu 上",
+      "guarantee": "k3s 不是更多的 k3d：k3d 把節點跑成 Docker 容器，而那個 Docker daemon 自己又在 VM 裡——三層間接，生產節點不該有",
+      "run": "platform/k8s/bootstrap_k3s.sh"
+    },
+    {
+      "path": "platform/k8s/create_cluster.sh",
+      "described": true,
+      "described_in": "platform/k8s/README.md",
+      "when": "需要重建練習叢集時",
+      "what": "重建 k3d 叢集，補上舊叢集缺的兩樣（真 StorageClass、registry）",
+      "guarantee": "舊叢集是殭屍：k3d CLI 沒裝、API server 沒在監聽，而它「看起來設定正確」。刪掉重建而不是調整才有辦法確定它是活的",
+      "run": "platform/k8s/create_cluster.sh"
+    },
+    {
+      "path": "platform/k8s/station2-twin/deploy.sh",
+      "described": true,
+      "described_in": "platform/k8s/README.md",
+      "when": "每次發版",
+      "what": "部署一個顏色，不切流量",
+      "guarantee": "分開才有意義：deploy 同時 promote 就沒有那個「新版本正在跑、連得到、但還沒服務流量」的檢查時刻",
+      "run": "platform/k8s/station2-twin/deploy.sh"
+    },
+    {
+      "path": "platform/k8s/station2-twin/promote.sh",
+      "described": true,
+      "described_in": "platform/k8s/README.md",
+      "when": "驗過新顏色之後",
+      "what": "把流量切到某個顏色，但只在它真的在服務時",
+      "guarantee": "切換本身只是一行 Service patch；閘門才是全部的重點——切之前檢查 Deployment 真的就緒、endpoint 真的有 pod",
+      "run": "platform/k8s/station2-twin/promote.sh"
+    },
+    {
+      "path": "platform/k8s/station2-twin/sync_vault_secret.sh",
+      "described": true,
+      "described_in": "platform/k8s/README.md",
+      "when": "AppRole 更新時",
+      "what": "把 AppRole 放進叢集 Secret",
+      "guarantee": "讓 K8s 那份不再帶靜態資料庫密碼；role_id／secret_id 走 stdin manifest，不進 argv（ps 全機可讀）",
+      "run": "platform/k8s/station2-twin/sync_vault_secret.sh"
+    },
+    {
+      "path": "platform/k8s/station2-twin/verify_networkpolicy.sh",
+      "described": true,
+      "described_in": "platform/k8s/README.md",
+      "when": "改 NetworkPolicy 後",
+      "what": "證明網路政策真的擋住東西",
+      "guarantee": "kubectl get netpol 只證明 manifest 被接受。CNI 若忽略 NetworkPolicy，每一份 manifest 都是裝飾品，而看起來一模一樣",
+      "run": "platform/k8s/station2-twin/verify_networkpolicy.sh"
+    },
+    {
+      "path": "platform/k8s/verify_cluster.sh",
+      "described": true,
+      "described_in": "platform/k8s/README.md",
+      "when": "每次建叢集後",
+      "what": "證明叢集能用，不是證明它被設定過",
+      "guarantee": "PVC 真的綁定並寫入、映像真的推送並由節點拉取——舊叢集設定完全正確而完全不能用，兩者從設定檔上看一模一樣",
+      "run": "platform/k8s/verify_cluster.sh"
+    },
+    {
+      "path": "platform/llm-review/review.py",
+      "described": true,
+      "described_in": "platform/llm-review/README.md",
+      "when": "由 review.sh 呼叫",
+      "what": "複審引擎本體",
+      "guarantee": "契約與理由寫在 review.sh，不在這裡重複一份",
+      "run": "platform/llm-review/review.py"
+    },
+    {
+      "path": "platform/llm-review/review.sh",
+      "described": true,
+      "described_in": "platform/llm-review/README.md",
+      "when": "每次 commit 的證據齊備後",
+      "what": "用本機 MLX（127.0.0.1:9000）對磁碟上既有的確定性證據做複審",
+      "guarantee": "讀的是 build metadata、Trivy 閘門結果、SBOM 摘要、develop 部署健康——它不重新判斷事實，只複審既有事實；且不具備阻擋發布的權力",
+      "run": "platform/llm-review/review.sh"
+    },
+    {
+      "path": "platform/mlops/retrain.sh",
+      "described": true,
+      "described_in": "platform/mlops/README.md",
+      "when": "排程，每週",
+      "what": "重建特徵 → 重跑回測 → 只在合格時才發布",
+      "guarantee": "週期取自它所觀察的東西變化多快（來源是週資料），與 jobs.conf 每個 job 同一條規則。不合格就不發布，閘門正在正確地擋著",
+      "run": "platform/mlops/retrain.sh"
+    },
+    {
+      "path": "platform/nginx/scripts/generate_local_certs.sh",
+      "described": true,
+      "described_in": "platform/nginx/README.md",
+      "when": "一次性／憑證到期",
+      "what": "用 mkcert 產生本機受信任的 TLS 憑證",
+      "guarantee": "憑證由本機信任存放區背書，不需要點掉「不安全的網站」警告——那個點掉的動作會訓練人忽略真的警告",
+      "run": "platform/nginx/scripts/generate_local_certs.sh"
+    },
+    {
+      "path": "platform/notify/emit_event.sh",
+      "described": true,
+      "described_in": "platform/notify/README.md",
+      "when": "一次性的平台事件",
+      "what": "送出單次事件，刻意不是 Alertmanager",
+      "guarantee": "狀態 vs 事件的分野：狀態是「為真且持續為真」（服務掛了、schema 版本不明），那是 Alertmanager 的；事件是「發生過一次」，重送就是重複",
+      "run": "platform/notify/emit_event.sh"
+    },
+    {
+      "path": "platform/notify/send_mail.sh",
+      "described": false,
+      "internal_to": "platform/notify/emit_event.sh"
+    },
+    {
+      "path": "platform/notify/setup_mail.sh",
+      "described": true,
+      "described_in": "platform/notify/README.md",
+      "when": "一次性／換憑證時",
+      "what": "設定外寄郵件，並在宣稱可用之前先證明它可用",
+      "guarantee": "這個平台為此付過一次代價：2026-08-19 告警正確觸發並持續 3h55m，而收件端根本沒收到。設定檔不會證明自己能送達，這支會",
+      "run": "platform/notify/setup_mail.sh"
+    },
+    {
+      "path": "platform/observability/check_health.py",
+      "described": false,
+      "internal_to": "platform/observability/check_health.sh"
+    },
+    {
+      "path": "platform/observability/check_health.sh",
+      "described": true,
+      "described_in": "platform/observability/README.md",
+      "when": "排程，每 15 分鐘",
+      "what": "對整個堆疊做確定性判定",
+      "guarantee": "判定順序本身就是設計；每次寫一份快照到 evidence/observability/",
+      "run": "platform/observability/check_health.sh"
+    },
+    {
+      "path": "platform/observability/loki_coverage.py",
+      "described": true,
+      "described_in": "platform/observability/README.md",
+      "when": "排程 logcov，每小時",
+      "what": "日誌管線到底有沒有在動、資料類別是否可辨識",
+      "guarantee": "閒置管線與連不到 Loki 一律拒答（rc 2）；不可辨識的 data_class 轉紅（它會靜默落進受眾較廣、保留期較長的租戶）",
+      "run": "platform/observability/loki_coverage.py"
+    },
+    {
+      "path": "platform/observability/rollup_health.py",
+      "described": true,
+      "described_in": "platform/observability/README.md",
+      "when": "排程 rollup，每小時",
+      "what": "把累積的快照收斂成一個可查詢的答案",
+      "guarantee": "一份都不刪（ADR-0009）。拒絕對空目錄產出健康報告——空集合上的「全部正常」是恆真句",
+      "run": "platform/observability/rollup_health.py"
+    },
+    {
+      "path": "platform/observability/scripts/setup_grafana_identity.sh",
+      "described": true,
+      "described_in": "platform/observability/README.md",
+      "when": "一次性／換憑證時",
+      "what": "從 Vault 取出 Grafana 管理憑證並交給 Compose",
+      "guarantee": "示範平台宣稱擁有的完整鏈：Vault（真相來源）→ bootstrap 腳本 → gitignore 的 env 檔 → 容器。中間沒有任何一段是明文躺在 repo 裡",
+      "run": "platform/observability/scripts/setup_grafana_identity.sh"
+    },
+    {
+      "path": "platform/observability/scripts/setup_notifications.sh",
+      "described": true,
+      "described_in": "platform/observability/README.md",
+      "when": "一次性／換 Telegram 憑證時",
+      "what": "從模板產生 Alertmanager 實際設定",
+      "guarantee": "憑證從 repo 外面注入，產生的檔案在 .gitignore 裡。Alertmanager 不展開環境變數，所以 chat id 必須是字面值——這就是它必須被產生而不是被提交的原因",
+      "run": "platform/observability/scripts/setup_notifications.sh"
+    },
+    {
+      "path": "platform/recover.sh",
+      "described": true,
+      "described_in": "platform/README.md",
+      "when": "主機重開機或全停之後",
+      "what": "把整個平台帶回來",
+      "guarantee": "容器已改 restart: unless-stopped，但 Vault 重啟不等於可用——它會回到封印狀態，需要解封才算恢復",
+      "run": "platform/recover.sh"
+    },
+    {
+      "path": "platform/scheduler/install.sh",
+      "described": true,
+      "described_in": "platform/scheduler/README.md",
+      "when": "一次性／改 jobs.conf 後",
+      "what": "以 launchd user agent 安裝或移除排程",
+      "guarantee": "用 launchd 不用 cron：它是 macOS 支援的機制、重開機後會重新啟動、而且會補跑機器睡著時錯過的工作——筆電上 cron 不會",
+      "run": "platform/scheduler/install.sh"
+    },
+    {
+      "path": "platform/scheduler/notify.sh",
+      "described": true,
+      "described_in": "platform/scheduler/README.md",
+      "when": "由 run_job.sh 觸發",
+      "what": "排程 job 狀態轉換的通知出口",
+      "guarantee": "預設只送本機：通知本身帶著平台狀態（哪個服務掛了、哪個閘門失敗、哪個 secret 路徑被拒），推到外部等於把維運內情送出去",
+      "run": "platform/scheduler/notify.sh"
+    },
+    {
+      "path": "platform/scheduler/record_gap.py",
+      "described": false,
+      "internal_to": "platform/scheduler/run_job.sh"
+    },
+    {
+      "path": "platform/scheduler/run_job.sh",
+      "described": true,
+      "described_in": "platform/scheduler/README.md",
+      "when": "每個排程 job 的外殼",
+      "what": "跑一個 job，並留下它跑過的證據",
+      "guarantee": "外殼比排程重要：裸的 cron 給你一個成功或失敗、答案在沒人讀的 log 裡。這支寫狀態檔、記錄覆蓋缺口、把 rc 對應成板面看得到的狀態",
+      "run": "platform/scheduler/run_job.sh"
+    },
+    {
+      "path": "platform/scheduler/status.sh",
+      "described": true,
+      "described_in": "platform/ci/README.md",
+      "when": "排程 gha，每 30 分鐘",
+      "what": "把遠端 CI 狀態抓進 evidence/，讓板子不必上網才讀得到",
+      "guarantee": "這是排程抓取不是即時探測：第一版直接在 dag.py 裡呼叫 gh run list，於是板子的產生時間變成取決於網路，而 CI 紅了六天沒有人知道——現在紅燈是證據檔的內容，不是一次僥倖成功的網路呼叫",
+      "run": "platform/scheduler/status.sh"
+    },
+    {
+      "path": "platform/security/dast_coverage.py",
+      "described": true,
+      "described_in": "platform/security/README.md",
+      "when": "排程 dastcov",
+      "what": "回報 DAST 沒有看哪些路由",
+      "guarantee": "ZAP baseline 是 GET 爬蟲，碰不到寫入端點——實測十條路由只涵蓋四條。PASS 的涵蓋範圍必須是可見的",
+      "run": "platform/security/dast_coverage.py"
+    },
+    {
+      "path": "platform/security/redaction_check.py",
+      "described": true,
+      "described_in": "platform/security/README.md",
+      "when": "排程",
+      "what": "量化 v1 遮蔽實際抓到多少",
+      "guarantee": "遮蔽是緩解不是保證；這支把「抓到幾成」變成數字，而不是一句自我宣稱",
+      "run": "platform/security/redaction_check.py"
+    },
+    {
+      "path": "platform/security/scan_dast.sh",
+      "described": true,
+      "described_in": "platform/security/README.md",
+      "when": "CI / 排程",
+      "what": "OWASP ZAP baseline 對執行中的服務掃",
+      "guarantee": "抓 SAST 結構上看不到的：只在執行期才存在的東西（缺少的安全標頭、實際的錯誤回應）",
+      "run": "platform/security/scan_dast.sh"
+    },
+    {
+      "path": "platform/security/scan_image.sh",
+      "described": true,
+      "described_in": "platform/security/README.md",
+      "when": "build 後",
+      "what": "Trivy 容器映像漏洞閘門",
+      "guarantee": "只對「可修的 Critical/High」硬性失敗（--ignore-unfixed）。這是查證過的推理不是猜測：對無修補可用的漏洞硬擋，只會訓練人繞過閘門",
+      "run": "platform/security/scan_image.sh"
+    },
+    {
+      "path": "platform/security/scan_sast.sh",
+      "described": true,
+      "described_in": "platform/security/README.md",
+      "when": "CI / 排程",
+      "what": "Semgrep OSS 讀原始碼",
+      "guarantee": "補上真正的洞：其他掃描看的是產物（Trivy／SBOM／Cosign）、基礎設施（Checkov／OPA）或歷史（Gitleaks），沒有一個讀原始碼",
+      "run": "platform/security/scan_sast.sh"
+    },
+    {
+      "path": "platform/security/scan_secrets.sh",
+      "described": true,
+      "described_in": "platform/security/README.md",
+      "when": "CI / 排程",
+      "what": "Gitleaks 掃完整 commit 歷史（--all）",
+      "guarantee": "不只掃工作目錄：commit 過再刪掉的 secret 仍然外洩，且在 repo 存在期間都取得回來",
+      "run": "platform/security/scan_secrets.sh"
+    },
+    {
+      "path": "platform/security/sign_artifact.sh",
+      "described": true,
+      "described_in": "platform/security/README.md",
+      "when": "build 後",
+      "what": "Cosign 簽章與驗章",
+      "guarantee": "金鑰式簽章（不走 Sigstore keyless），不需要 OIDC；但 Cosign v3 預設仍會寫 Rekor 透明日誌條目",
+      "run": "platform/security/sign_artifact.sh"
+    },
+    {
+      "path": "platform/statusdag/dag.py",
+      "described": true,
+      "described_in": "platform/statusdag/README.md",
+      "when": "排程，每 15 分鐘",
+      "what": "現場探測每個節點，產出值班者看的板子",
+      "guarantee": "一個節點一列，問的是「哪些容器活著」。退役 Pilot 的證據會落到 SUPERSEDED 而不是被當成現況",
+      "run": "platform/statusdag/dag.py"
+    },
+    {
+      "path": "platform/statusdag/stage_report.py",
+      "described": true,
+      "described_in": "platform/statusdag/README.md",
+      "when": "排程，跟著 dag 走",
+      "what": "把同一批探測重組成階段，一份模型三種輸出",
+      "guarantee": "html 給人與長官、json 給程式、md 給 AI（4KB）。新增節點沒加進 LINES 就直接拒絕產生報告——消失的階段讀起來和健康的階段一模一樣",
+      "run": "platform/statusdag/stage_report.py"
+    },
+    {
+      "path": "platform/valuestream/board.py",
+      "described": true,
+      "described_in": "platform/valuestream/README.md",
+      "when": "排程",
+      "what": "從既有證據推導價值流看板，從不手工維護",
+      "guarantee": "「develop 已部署」＝ deploy_develop_<sha>.json 存在且健康，所以看板無法與現實不一致。收不到部署證據時，它會在頁面上說出來，而不是把空的下游渲染成「0 次上線」",
+      "run": "platform/valuestream/board.py"
+    },
+    {
+      "path": "platform/vault/scripts/audit_query.sh",
+      "described": true,
+      "described_in": "platform/vault/README.md",
+      "when": "稽核時",
+      "what": "把每筆 ~2KB、值被 HMAC 的原始 JSON 整理成人看得懂的視圖",
+      "guarantee": "把 tail audit.log 那堆位元組變成真的能回答問題的稽核能力",
+      "run": "platform/vault/scripts/audit_query.sh"
+    },
+    {
+      "path": "platform/vault/scripts/check_rotation_due.sh",
+      "described": true,
+      "described_in": "platform/vault/README.md",
+      "when": "排程 / 手動",
+      "what": "依 rotated_at 判斷單一 secret 是否逾期",
+      "guarantee": "週期預設 90 天，可由 set_rotation_policy.sh 覆寫",
+      "run": "platform/vault/scripts/check_rotation_due.sh"
+    },
+    {
+      "path": "platform/vault/scripts/check_rotation_sweep.sh",
+      "described": true,
+      "described_in": "platform/vault/README.md",
+      "when": "排程 rotation",
+      "what": "掃過每一個 secret 比對輪替週期",
+      "guarantee": "全部豁免時回 rc 2 ROTATION VACUOUS——在空集合上「每一個都合規」是恆真句，不是驗證結果",
+      "run": "platform/vault/scripts/check_rotation_sweep.sh"
+    },
+    {
+      "path": "platform/vault/scripts/init_and_unseal.sh",
+      "described": true,
+      "described_in": "platform/vault/README.md",
+      "when": "一次性，全新 Vault",
+      "what": "初始化並解封",
+      "guarantee": "產出的 unseal key 與 root token 是這個 Vault 所有 secret 的主鑰，寫進 gitignore 的 .init-output.json，不進 repo",
+      "run": "platform/vault/scripts/init_and_unseal.sh"
+    },
+    {
+      "path": "platform/vault/scripts/rotate_audit_log.sh",
+      "described": true,
+      "described_in": "platform/vault/README.md",
+      "when": "排程",
+      "what": "輪替稽核 log",
+      "guarantee": "這不是清潔工作：Vault 稽核裝置是 fail-closed，全部寫不進去時 Vault 會拒絕所有請求——secret、身分、部署一起停",
+      "run": "platform/vault/scripts/rotate_audit_log.sh"
+    },
+    {
+      "path": "platform/vault/scripts/rotate_secret.sh",
+      "described": true,
+      "described_in": "platform/vault/README.md",
+      "when": "需要換某個 secret 時",
+      "what": "寫入新版本並記錄 rotated_at",
+      "guarantee": "完全依賴 KV v2 原生版本控制做回滾，不刪不銷毀舊版本——刪除是另一個刻意的動作",
+      "run": "platform/vault/scripts/rotate_secret.sh"
+    },
+    {
+      "path": "platform/vault/scripts/rotation_drill.sh",
+      "described": true,
+      "described_in": "platform/vault/README.md",
+      "when": "定期演練",
+      "what": "證明憑證真的換得掉，端到端",
+      "guarantee": "與 restore_drill.sh 對備份的論證相同：沒演練過的輪替政策，和沒有輪替政策的差別只在文件上",
+      "run": "platform/vault/scripts/rotation_drill.sh"
+    },
+    {
+      "path": "platform/vault/scripts/set_rotation_policy.sh",
+      "described": true,
+      "described_in": "platform/vault/README.md",
+      "when": "每新增一個 secret",
+      "what": "設定單一 secret 的輪替週期，或記錄它為豁免",
+      "guarantee": "週期是資料不是常數——寫死在腳本裡的週期，改的時候會漏掉某一個；豁免必須具名記錄",
+      "run": "platform/vault/scripts/set_rotation_policy.sh"
+    },
+    {
+      "path": "platform/vault/scripts/setup_audit.sh",
+      "described": true,
+      "described_in": "platform/vault/README.md",
+      "when": "一次性",
+      "what": "開啟稽核裝置",
+      "guarantee": "從「能執行存取控制」升級成「能舉證」：誰讀了哪個 secret、何時、成功與否",
+      "run": "platform/vault/scripts/setup_audit.sh"
+    },
+    {
+      "path": "platform/vault/scripts/setup_database_secrets.sh",
+      "described": true,
+      "described_in": "platform/vault/README.md",
+      "when": "一次性",
+      "what": "啟用 database secrets engine，發短期憑證",
+      "guarantee": "取代長期靜態密碼；每個程序一組帳密、TTL 1200s、被拒即重建連線池",
+      "run": "platform/vault/scripts/setup_database_secrets.sh"
+    },
+    {
+      "path": "platform/vault/scripts/setup_identity.sh",
+      "described": true,
+      "described_in": "platform/vault/README.md",
+      "when": "一次性，之後改權限時",
+      "what": "建立身分機制：人的 RBAC 與工作負載身分",
+      "guarantee": "兩種主體共用同一套 policy、同一個稽核面、同一套管理——拆成兩套會讓其中一套先腐爛",
+      "run": "platform/vault/scripts/setup_identity.sh"
+    },
+    {
+      "path": "platform/vault/scripts/setup_rotation_check.sh",
+      "described": true,
+      "described_in": "platform/vault/README.md",
+      "when": "一次性",
+      "what": "發出只讀 metadata 的 AppRole，讓排程的 rotation job 不必用高權限身分",
+      "guarantee": "跑完之後該 job 才會停止回報「not configured」；排程檢查用的身分只該讀得到 metadata，不該讀得到 secret 本身",
+      "run": "platform/vault/scripts/setup_rotation_check.sh"
+    },
+    {
+      "path": "platform/vault/scripts/verify_database_secrets.sh",
+      "described": true,
+      "described_in": "platform/vault/README.md",
+      "when": "動態憑證機制變更後",
+      "what": "證明動態憑證真的是動態的",
+      "guarantee": "「憑證短期且可撤銷」用嘴說一文不值。撤銷後還能用的憑證，是一個加了戲的靜態密碼",
+      "run": "platform/vault/scripts/verify_database_secrets.sh"
+    },
+    {
+      "path": "platform/vault/scripts/verify_identity.sh",
+      "described": true,
+      "described_in": "platform/vault/README.md",
+      "when": "每次改 policy 後",
+      "what": "對每一條邊界發出真實請求並斷言允許／拒絕",
+      "guarantee": "policy 檔是主張，這支是證據。存取控制的失效模式是看起來被設定了，只有真的發請求才分得出來",
+      "run": "platform/vault/scripts/verify_identity.sh"
+    },
+    {
+      "path": "platform/vault/scripts/write_pilot_approle_env.sh",
+      "described": true,
+      "described_in": "platform/vault/README.md",
+      "when": "Pilot 重啟前",
+      "what": "把 AppRole 寫進 compose 讀的 env 檔",
+      "guarantee": "AppRole 必須被送達，不能假設它在操作者的 shell 裡——沒送達時 Pilot 會靜默退回靜態密碼",
+      "run": "platform/vault/scripts/write_pilot_approle_env.sh"
+    }
+  ]
+}

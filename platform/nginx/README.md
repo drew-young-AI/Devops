@@ -152,3 +152,15 @@ adapter were both running:
   browser-untrusted-until-you-run-`mkcert -install`-once) certificate.
 - **Public URL (rathole/Cloudflare Tunnel) not wired to this adapter yet** —
   next item in `docs/Network.md`'s "Public URL experiment options".
+
+
+---
+
+## 能力表（何時跑／做什麼／保證什麼）
+
+**這張表是給三種讀者的**：人要知道跑哪一支，agent 要能不讀原始碼就知道用途，
+`platform/docs/capability_graph.py` 要能驗證每支能力都被描述到。
+
+| 能力 | 什麼時候跑 | 做什麼 | 保證什麼 |
+|---|---|---|---|
+| [`scripts/generate_local_certs.sh`](scripts/generate_local_certs.sh) | 一次性／憑證到期 | 用 mkcert 產生本機受信任的 TLS 憑證 | 憑證由本機信任存放區背書，**不需要點掉「不安全的網站」警告**——那個點掉的動作會訓練人忽略真的警告 |

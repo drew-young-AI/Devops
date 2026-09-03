@@ -72,6 +72,47 @@ Alertmanager、Loki、node-exporter **刻意留在 loopback**，由
 
 ---
 
+## 一之二、東西壞了，我怎麼會知道
+
+**不要靠自己想起來去看板面。** 板面是壞掉之後拿來查原因的，不是用來發現問題的。
+
+### 實際運作的通道（2026-09-03 量測）
+
+```
+Prometheus 規則 → Alertmanager → Telegram      已送出 52 則、失敗 0  ✅ 活的
+                              → Email          已送出 0 則           ❌ 未接上
+```
+
+**Telegram 是目前唯一真的會通知到人的通道。** `severity=critical` 10 秒內送出、
+每小時重複；warning 30 秒、每 4 小時重複。**resolved 也會送**——
+只告訴你壞了、不告訴你好了，等於逼人每則都手動追，那是通道被忽略的開始。
+
+**14 個告警規則全部帶 `runbook:` 註解**，所以 Telegram 訊息本身就含處置指令，
+不需要再去翻文件。
+
+### 已知缺一半：Email 從來沒有接上
+
+`config.template.yml` 宣告 Telegram ＋ Email 兩個通道，註解寫明
+「兩者互不為備援」。但 `mail.conf` 與 `smtp-password` 從未建立，
+產生器**正確地**把 email 區塊移除（留一個寄到字串 `__MAIL_TO__` 的 receiver 更糟），
+**而在 2026-09-03 之前沒有任何地方回報這件事**。
+
+現在會了：板面的 `Alertmanager 告警` 節點直接顯示
+`宣告了但沒接上: email`，而且**零告警在燒的時候也會顯示**——
+那是唯一還能便宜修好的時機。解除方式見 [`docs/Backlog.md`](docs/Backlog.md) B4
+（需要使用者本人取得 app password）。
+
+### 這條鏈證不到什麼
+
+| 層 | 證得到 | 證不到 |
+|---|---|---|
+| 規則會評估 | 語法對、指標存在 | 門檻對不對 |
+| 告警在燒 | 條件成立 | 有沒有人收到 |
+| Telegram 已送出 | 通道活著 | 有沒有人讀 |
+| 排程器 FAIL → 告警 | **某個 job 停了** | **某個 job 從來沒被建立**（2026-08-20 那次斷流就是這個形狀，見 [ADR-0013](docs/decisions/0013-pilot-loop-was-open.md)） |
+
+最後一列是這條鏈的真實邊界：**排程器偵測得到停掉的 job，偵測不到不存在的 job。**
+
 ## 二、紀錄放在哪裡
 
 追溯的失敗模式不是「忘記決定什麼」，是**「找不到數字怎麼來的」，於是憑印象重估**——
@@ -128,8 +169,69 @@ rerun: platform/analytics/benchmark.sh
 
 ```bash
 python3 platform/docs/doc_graph.py          # 看整棵樹
+python3 platform/docs/doc_graph.py --tree   # 樹狀圖，右欄是「幾天沒動過」
 python3 platform/docs/doc_graph.py --check  # 有孤兒或斷鏈就 exit 1
 ```
+
+### 但可達性證不到「這頁還是真的」
+
+這一點值得寫下來，因為傷最重的那份文件**完全通過可達性檢查**。
+
+`docs/System-State.html` 從這個 README 連得到、被標成「給主管閱讀：先看這份」，
+而它寫著「資料治理與流程可視化幾乎是空的」——**在那兩件都做完九天之後**。
+第二份是 `docs/Platform-Report.html`，停在 2026-08-20，還寫著「6,172,492 疫情事實列」
+（實際 6,503,799）與「31 tests」。**兩份都連得到，兩份都是錯的。**
+
+所以有第二道守衛，問的是互補的那個問題：**這頁是產生的，還是有人在用手承諾它是真的？**
+
+```bash
+python3 platform/docs/doc_freshness.py --check
+```
+
+### 第四層：有沒有兩份東西在講同一件事
+
+前三層防的是「找不到 → 再寫一支」。它們**防不了**「兩份都找得到、都有人維護、但已經分岔」——
+**而那才是 2026-09-02 真正發生的事**：八張圖存在兩套，兩套都在文件裡、都連得到，
+一套在板面、一套在簡報，**同一位長官會看到兩種架構、兩份都標著現況**。
+
+```bash
+python3 platform/docs/duplicate_check.py --check
+```
+
+規則是**正規化後的完全比對**（「DevOps 流程圖」與「DevOps 流程」是同一個主題），
+**刻意不做相似度評分**——相似度門檻是披著數字外衣的判斷，會誤報，而誤報是檢查被靜音的方式。
+
+完整的「為什麼要可達性、每一層證得到什麼、證不到什麼」寫在
+[docs/Reachability.md](docs/Reachability.md)——包含**這個 repo 的能力表與 AIS registry 的邊界**
+（不是兩份索引，判準是「別的 AI 工具需要直接呼叫它嗎」）。
+
+### 第三層：功能找得到嗎（這一層才是「不要重複開發」）
+
+前兩層問的都是**文件**。真正會造成重複開發的是**孤兒功能**：
+一支腳本能跑、被別的腳本呼叫、但**沒有出現在任何從 README 連得到的文件裡**。
+沒有東西壞掉，所以沒有東西會抗議——而下一個人（或下一隻 agent）找不到它，就再寫一支。
+
+```bash
+python3 platform/docs/capability_graph.py --check
+```
+
+第一次跑就找到 **89 支裡有 9 支**處於那個狀態，其中**四支是人要手動執行的**：
+輪替演練、輪替檢查 AppRole 的一次性設定、單一 secret 的輪替週期設定、
+Alertmanager 通知設定。**每一支都被別的程式碼呼叫著——這正是重點：被呼叫不等於找得到。**
+
+規則有兩半，第二半才有牙齒：
+- 每支能力要嘛**被某份可達文件指名**，
+- 要嘛在 `INTERNAL` 裡**指向它所屬的入口**，而**那個入口本身必須是被描述的**。
+  少了第二半，`INTERNAL` 就變成藏東西的地方。
+
+另外，`platform/tests/` 下每一支測試套件都必須登記在 `run_all.sh` 裡——
+**沒人跑的測試套件是同一個缺陷換套衣服**：它存在、手動叫它會過、但它什麼都沒守。
+
+規則**不是**「不准手寫頁面」——里程碑快照本來就該凍結，八張圖的 mermaid 原始檔本來就是手寫的。
+規則是：`docs/` 底下每一份追蹤中的**渲染頁面**，要嘛是**產生的**（且它自己的 `--check` 要過），
+要嘛在 `doc_freshness.py` 的 `CURATED` 裡**用一句話寫下它為什麼可以放著變舊**。
+兩者皆非就轉紅。**第三份 System-State.html 就沒辦法安靜地被加進來**——
+而要寫下那句話的當下，通常就是發現自己正要重蓋一次同樣東西的時刻。
 
 
 每個 `platform/` 子目錄都有自己的 README，寫該能力**做什麼、怎麼跑、保證什麼、
@@ -159,7 +261,7 @@ python3 platform/docs/doc_graph.py --check  # 有孤兒或斷鏈就 exit 1
 | [`platform/valuestream/`](platform/valuestream/README.md) | 價值流看板 |
 | [`platform/compose/`](platform/compose/README.md) | Compose 部署 |
 | [`platform/nginx/`](platform/nginx/README.md) | 靜態板面服務 |
-| [`platform/docs/`](platform/docs/README.md) | 文件規格與 OKF 檢查 |
+| [`platform/docs/`](platform/docs/README.md) | 文件規格、OKF 檢查、可達性樹狀圖與渲染頁面出處守衛 |
 | [`pilots/`](pilots/README.md) | Pilot 的定位與退役紀錄 |
 
 ---
@@ -207,6 +309,19 @@ GitHub Actions 宣告 `PLATFORM_TIERS=1`，所以它的綠燈只代表**契約�
 **給主管閱讀**：[`docs/Stage-Report.html`](docs/Stage-Report.html)（三線階段燈號的靜態版，每 15 分鐘重新產生，可離線轉寄），以及[八張圖](docs/report/plates.offline.html)。
 
 2026-09-02 之前這裡指向 `docs/System-State.html`——一份手工維護的機制盤點，停在 2026-08-14，寫著「排程 8 個 job」（實際 17 個）與「資料治理與流程可視化幾乎是空的」。後面那句在八月是對的，在資料契約、血緣、DuckDB 鏡像、DataOps 指標都做完之後**是反的**。**一份給長官看的現況報告，說反了平台最近投入最多的地方**，比沒有那份報告糟。已刪除；它的 DORA／CNCF 十類分類框架留在 git 歷史裡，若要復活應該做成產生式的，不是手抄的。
+
+同一天刪掉的還有 `docs/Platform-Report.html`（2026-08-20，手工維護，自己標著「待完成 — 這不是最終版」，
+還寫著「6,172,492 疫情事實列」與「31 tests」）。**它所規格化的八張圖早就畫完了。**
+
+**「流程可視化幾乎是空的」這句話今天也是反的，而且反得比另一句更徹底**——
+上面第一節那張表裡的[價值流看板](http://mac.local:18085/Value-Stream-Board.html)與
+[管線狀態](http://mac.local:18085/Pipeline-Status.html)**兩張都是產生式的**，
+由 `platform/valuestream/board.py` 與 `platform/statusdag/dag.py` 從實際證據推導。
+真正的缺口不是「沒有流程可視化」，是**價值流看板收不到部署證據**：
+判斷「已部署」的 `deploy_develop_<sha>.json` 由 `platform/compose/deploy.sh` 寫，
+而 pilot 已改走 Kubernetes，K8s 路徑沒有寫這份契約。
+看板現在會在頁面上直接說出這件事，而不是把空的下游渲染成「0 次上線」——
+見 [Backlog §16](docs/Backlog.md)。
 
 主管簡報（架構圖／流程圖／現況燈號）是**依需求生成的衍生產物，不入庫**——
 來源是 `Plan.md`、`STAGE_REVIEW.md` 與各 `platform/*/README.md`。需要時請 AI

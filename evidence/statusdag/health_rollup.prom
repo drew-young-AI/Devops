@@ -3,27 +3,27 @@
 # for why this exists rather than a retention policy.
 # HELP devops_health_rollup_snapshots_total Health snapshots aggregated.
 # TYPE devops_health_rollup_snapshots_total gauge
-devops_health_rollup_snapshots_total 1591
+devops_health_rollup_snapshots_total 1689
 # HELP devops_health_rollup_generated_seconds Unix time the rollup was built.
 # TYPE devops_health_rollup_generated_seconds gauge
-devops_health_rollup_generated_seconds 1788330021
+devops_health_rollup_generated_seconds 1788407460
 # HELP devops_health_rollup_coverage_ratio Snapshots present divided by snapshots expected across the recorded span.
 # TYPE devops_health_rollup_coverage_ratio gauge
-devops_health_rollup_coverage_ratio 0.8321
+devops_health_rollup_coverage_ratio 0.8458
 # HELP devops_health_verdict_samples_total Snapshots recording each verdict.
 # TYPE devops_health_verdict_samples_total gauge
 devops_health_verdict_samples_total{verdict="CRITICAL"} 1
-devops_health_verdict_samples_total{verdict="DEGRADED"} 307
-devops_health_verdict_samples_total{verdict="HEALTHY"} 1020
-devops_health_verdict_samples_total{verdict="UNKNOWN"} 263
+devops_health_verdict_samples_total{verdict="DEGRADED"} 389
+devops_health_verdict_samples_total{verdict="HEALTHY"} 1035
+devops_health_verdict_samples_total{verdict="UNKNOWN"} 264
 # HELP devops_health_check_failed_total Snapshots in which an integrity check was not ok.
 # TYPE devops_health_check_failed_total gauge
 devops_health_check_failed_total{check="alert_rules_evaluating"} 58
 devops_health_check_failed_total{check="alert_rules_loaded"} 0
-devops_health_check_failed_total{check="alertmanager_reachable"} 205
-devops_health_check_failed_total{check="alertmanager_wired"} 206
-devops_health_check_failed_total{check="prometheus_reachable"} 205
-devops_health_check_failed_total{check="scrape_targets_visible"} 206
+devops_health_check_failed_total{check="alertmanager_reachable"} 206
+devops_health_check_failed_total{check="alertmanager_wired"} 207
+devops_health_check_failed_total{check="prometheus_reachable"} 206
+devops_health_check_failed_total{check="scrape_targets_visible"} 207
 # HELP devops_health_longest_episode_seconds Longest unbroken run of consecutive not-ok snapshots.
 # TYPE devops_health_longest_episode_seconds gauge
 devops_health_longest_episode_seconds{check="alert_rules_evaluating"} 38638
@@ -36,7 +36,7 @@ devops_health_longest_episode_seconds{check="verdict:DEGRADED"} 73213
 devops_health_longest_episode_seconds{check="verdict:UNKNOWN"} 265472
 # HELP devops_health_coverage_gaps_total Intervals in which no snapshot was written at all.
 # TYPE devops_health_coverage_gaps_total gauge
-devops_health_coverage_gaps_total 60
+devops_health_coverage_gaps_total 62
 # HELP devops_health_coverage_gap_longest_seconds Longest interval with no snapshot.
 # TYPE devops_health_coverage_gap_longest_seconds gauge
 devops_health_coverage_gap_longest_seconds 93338

@@ -14,6 +14,29 @@ timestamp: 2026-08-15T19:56:49+08:00
 Grafana + Prometheus + Loki + Alloy + Alertmanager, all bound to
 `127.0.0.1` only.
 
+## 誰負責哪一格（先看這張，因為這裡最常被記錯）
+
+| 支柱 | 元件 | 狀態 |
+|---|---|---|
+| 指標 | **Prometheus** | 在跑 |
+| 日誌 | **Loki** | 在跑。**Loki 才是 Grafana 生態系中負責儲存與查詢 log 的核心組件** |
+| 追蹤 | — | **完全沒有** |
+| 錯誤追蹤 | — | **完全沒有**（那是 Sentry 那一類的位置，traces 不能替代） |
+| 採集器 | **Grafana Alloy v1.10.2** | 在跑。它是 **OpenTelemetry Collector 的一個發行版**，目前只採 Docker log |
+| 介面 | **Grafana** | 在跑。**Grafana 不儲存任何東西**，它是查詢與呈現 |
+| 告警 | **Alertmanager** | 在跑 |
+
+**「Prometheus 和 Grafana 已經有了，所以 log 有人管」是錯的**——
+Prometheus 不存 log、Grafana 不存任何東西。填那一格的是 Loki，
+而在 2026-09-02 之前沒有任何東西檢查過 Loki 有沒有收到任何一行
+（見下方 `loki_coverage.py`，以及 [ADR-0011](../../docs/decisions/0011-loki-not-elk.md)）。
+
+**追蹤與錯誤追蹤的後端刻意不選、不裝**，應用端一律 OTLP；
+**在 span 屬性的遮蔽做完之前不開 OTLP 接收端**——
+追蹤是三種訊號裡 PII 風險最高的一種，而現有遮蔽只針對 log 行。
+完整理由、三個前提與重審觸發條件見
+[ADR-0012](../../docs/decisions/0012-otel-at-the-boundary-backend-deferred.md)。
+
 ```bash
 cd platform/observability && docker compose up -d && cd -
 platform/observability/check_health.sh          # deterministic verdict
@@ -494,3 +517,89 @@ Alloy 用 Go 的 RE2 執行這些 regex，這支檢查用 Python 的 `re`。兩�
 | email 規則安靜地什麼都不匹配 | CAUGHT |
 | 加一條 catch-all 把整行日誌吃掉 | CAUGHT |
 | 加一個 RE2 會拒絕的 lookahead | CAUGHT |
+
+---
+
+## `loki_coverage.py` — 日誌管線到底有沒有在動（2026-09-02）
+
+**「我們不需要 ELK，因為 Prometheus 和 Grafana 已經有了」——這句話的結論對，理由錯。**
+Prometheus 不存 log，Grafana 不存任何東西。**填 ELK 那一格的是 Loki**，
+而在這支腳本之前，**沒有任何東西檢查過 Loki 有沒有收到任何一行**。
+
+`docker ps` 說 Loki 是 Up、compose 宣告兩個租戶、`config.alloy` 宣告寫入時遮罩、
+ingress 守衛拒絕曝露 Loki——**四件都是關於設定的陳述，沒有一件是資料流過的證據**。
+
+```bash
+python3 platform/observability/loki_coverage.py          # 報告
+python3 platform/observability/loki_coverage.py --check  # 有不可辨識的資料類別就 exit 1
+```
+
+量到的（重跑會再得到一次）：
+
+| 項目 | 值 |
+|---|---:|
+| tenant `platform` 已接收行數 | 71,289 |
+| 串流數 | 111 |
+| 位元組 | 14,260,653 |
+
+決策紀錄：[ADR-0011](../../docs/decisions/0011-loki-not-elk.md)。
+
+### 順帶查到的兩件事
+
+**1. `restricted` 租戶在生產上從未收過任何一條串流。** 它被合成容器端到端驗證過一次
+（見本檔「Log data governance」一節），之後沒有真實流量。**這是正確的狀態，不是故障**——
+目前沒有服務宣告自己是 restricted。所以這支腳本**報告它、但不因它失敗**：
+一個設計上就是紅的檢查，最後會變成沒人看的檢查。
+
+**2. 分類值打錯字會「開放失效」，而且完全無聲。**
+`discovery.relabel` 只在**完全等於** `restricted` 時把容器留在 restricted 租戶，
+internal 管線是它的**精確補集**。這個分割可證明窮盡——那正是它安全的原因，
+**也正是打錯字看不見的原因**：無法辨識的值不會報錯，它落進
+**受眾較廣、保留期較長**的租戶（168h，不是 72h）。
+
+`station2-twin` 曾宣告 `platform.data_class: platform`（那是**租戶**名，不是**類別**名），
+而它上方的註解正好寫著「明確設定而不用預設值，因為未標記的服務會靜默落到錯的租戶」。
+已改為 `internal`。**驗證放在這支腳本而不是路由規則裡**——加進路由規則會破壞補集性質，
+而補集性質是這個分割可證明的基礎。
+
+守衛：`platform/tests/test_loki_coverage.sh`（15 項，含五個合成控制項：
+不可辨識的類別、有效類別、閒置管線必須拒答、Loki 連不到必須拒答、閒置租戶只報告不失敗）。
+排程：`logcov`，每小時。
+
+---
+
+## `scripts/setup_notifications.sh` — 一次性，把 Telegram 憑證注進 Alertmanager
+
+從 `alertmanager/config.template.yml` 產生 Alertmanager 的實際設定，
+**憑證從 repo 外面注入**（產生出來的檔案在 `.gitignore` 裡）。
+
+**一次性**：改過 Telegram token 或收件對象之後要重跑。
+在 2026-09-02 之前這支腳本沒有出現在任何從 README 連得到的文件裡——
+只被 `compose.yaml` 與模板檔引用，**而那不是人找得到的地方**。
+
+
+---
+
+## 能力表（何時跑／做什麼／保證什麼）
+
+**這張表是給三種讀者的**：人要知道跑哪一支，agent 要能不讀原始碼就知道用途，
+`platform/docs/capability_graph.py` 要能驗證每支能力都被描述到。
+
+| 能力 | 什麼時候跑 | 做什麼 | 保證什麼 |
+|---|---|---|---|
+| [`check_health.sh`](check_health.sh) | 排程，每 15 分鐘 | 對整個堆疊做確定性判定 | 判定順序本身就是設計；每次寫一份快照到 `evidence/observability/` |
+| [`rollup_health.py`](rollup_health.py) | 排程 `rollup`，每小時 | 把累積的快照收斂成一個可查詢的答案 | **一份都不刪**（ADR-0009）。**拒絕對空目錄產出健康報告**——空集合上的「全部正常」是恆真句 |
+| [`loki_coverage.py`](loki_coverage.py) | 排程 `logcov`，每小時 | 日誌管線到底有沒有在動、資料類別是否可辨識 | 閒置管線與連不到 Loki 一律**拒答**（rc 2）；不可辨識的 `data_class` 轉紅（它會靜默落進受眾較廣、保留期較長的租戶） |
+| [`scripts/setup_notifications.sh`](scripts/setup_notifications.sh) | **一次性**／換 Telegram 憑證時 | 從模板產生 Alertmanager 實際設定 | 憑證從 repo **外面**注入，產生的檔案在 `.gitignore` 裡。Alertmanager 不展開環境變數，所以 chat id 必須是字面值——這就是它必須被產生而不是被提交的原因 |
+
+
+---
+
+## 能力表（何時跑／做什麼／保證什麼）
+
+**這張表是給三種讀者的**：人要知道跑哪一支，agent 要能不讀原始碼就知道用途，
+`platform/docs/capability_graph.py` 要能驗證每支能力都被描述到（能力必須是**該列的主詞**）。
+
+| 能力 | 什麼時候跑 | 做什麼 | 保證什麼 |
+|---|---|---|---|
+| [`scripts/setup_grafana_identity.sh`](scripts/setup_grafana_identity.sh) | 一次性／換憑證時 | 從 Vault 取出 Grafana 管理憑證並交給 Compose | 示範平台宣稱擁有的**完整鏈**：Vault（真相來源）→ bootstrap 腳本 → gitignore 的 env 檔 → 容器。**中間沒有任何一段是明文躺在 repo 裡** |

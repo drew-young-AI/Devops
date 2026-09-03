@@ -234,3 +234,32 @@ Fixed by mounting the directory; the config now lives in `.rclone/`.
   restore-drilled.** Only Vault gets the full usability drill. Extending the
   drill to Grafana would mean standing up a scratch Grafana and asserting a
   known dashboard and user survive.
+
+
+---
+
+## 能力表（何時跑／做什麼／保證什麼）
+
+**這張表是給三種讀者的**：人要知道跑哪一支，agent 要能不讀原始碼就知道用途，
+`platform/docs/capability_graph.py` 要能驗證每支能力都被描述到。
+**只寫一句「見某腳本」不算描述**——那句話說不出何時跑、做什麼、保證什麼。
+
+| 能力 | 什麼時候跑 | 做什麼 | 保證什麼 |
+|---|---|---|---|
+| [`pvc_archive.sh`](pvc_archive.sh) | 由 `backup.sh` 呼叫 | 把單一 Kubernetes PVC 封存成本機檔案 | **PVC 不能當 docker volume 備份**：k3d 經 local-path-provisioner 寫進節點的 `/var/lib/rancher/k3s/storage`，那條路徑背後是**匿名** docker volume |
+| [`sync_offsite.sh`](sync_offsite.sh) | 排程 | 把已驗證的備份複製到第二個位置，**並證明那真的是第二個** | 拒絕寫到同一個實體裝置——備份與來源同碟時，整套備份機制（完整性清單、還原演練）保護的是同一次故障 |
+| [`sync_remote.sh`](sync_remote.sh) | 排程 | 經 rclone 同步到雲端 remote | `sync_offsite.sh` 的姊妹版，對 remote 帶等價的拒絕條件 |
+| [`setup_rclone.sh`](setup_rclone.sh) | **一次性** | 設定 Google Drive 備份目的地 | **你授權，這裡永遠看不到你的密碼**：rclone 開瀏覽器登入頁，Google 回一個 OAuth token |
+
+
+---
+
+## 能力表（何時跑／做什麼／保證什麼）
+
+**這張表是給三種讀者的**：人要知道跑哪一支，agent 要能不讀原始碼就知道用途，
+`platform/docs/capability_graph.py` 要能驗證每支能力都被描述到（能力必須是**該列的主詞**）。
+
+| 能力 | 什麼時候跑 | 做什麼 | 保證什麼 |
+|---|---|---|---|
+| [`backup.sh`](backup.sh) | 排程 | 備份有狀態的平台 volume | **哪些備、哪些刻意不備都是決定**：Vault 檔案與稽核軌無可取代，一定備；可重建的東西不備 |
+| [`restore_drill.sh`](restore_drill.sh) | 排程 | **證明備份真的還原得回來** | 「我們有備份」是關於檔案存在的宣稱；這支是「那些檔案能變回一個能動的系統」的證據，**是完全不同、而且強得多的主張** |

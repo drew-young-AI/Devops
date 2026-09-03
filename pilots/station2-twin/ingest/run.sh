@@ -16,9 +16,15 @@ IMAGE="${INGEST_IMAGE:-station2-ingest:local}"
 
 # Build only when the Dockerfile is newer than the image, so a normal run does
 # not pay for a build it does not need.
+#
+# -u because docker reports .Created in UTC. Without it `date -j` reads that
+# string as LOCAL time, making the image look 8h older than it is here (UTC+8),
+# so this test never skipped and EVERY run rebuilt -- which quietly made each
+# run depend on Docker Hub being reachable. Found 2026-09-03 when Docker Hub
+# was not, and the ingest could not start despite the image being on disk.
 needs_build=1
 if img_created="$(docker image inspect "$IMAGE" --format '{{.Created}}' 2>/dev/null)"; then
-  img_epoch="$(date -j -f '%Y-%m-%dT%H:%M:%S' "${img_created%.*}" +%s 2>/dev/null || echo 0)"
+  img_epoch="$(date -j -u -f '%Y-%m-%dT%H:%M:%S' "${img_created%.*}" +%s 2>/dev/null || echo 0)"
   dockerfile_epoch="$(stat -f %m "$HERE/Dockerfile")"
   [ "$img_epoch" -gt "$dockerfile_epoch" ] && needs_build=0
 fi

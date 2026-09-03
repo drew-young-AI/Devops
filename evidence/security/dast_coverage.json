@@ -1,6 +1,6 @@
 {
   "schema": "dast-coverage/1",
-  "generated_at": "2026-09-01T22:00:02Z",
+  "generated_at": "2026-09-02T22:00:04Z",
   "source": "pilots/station2-twin/app/app.py",
   "scan_profile": "zap-baseline (passive rules + spider, GET only)",
   "routes_total": 10,

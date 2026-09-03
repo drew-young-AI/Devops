@@ -242,3 +242,29 @@ for j in audit backup dast sast restore; do platform/scheduler/run_job.sh "$j"; 
 ```
 
 五個全部 ok（2s / 26s / 33s / 10s / 36s）。規則沒有錯，代價要知道。
+
+
+---
+
+## 能力表（何時跑／做什麼／保證什麼）
+
+**這張表是給三種讀者的**：人要知道跑哪一支，agent 要能不讀原始碼就知道用途，
+`platform/docs/capability_graph.py` 要能驗證每支能力都被描述到。
+
+| 能力 | 什麼時候跑 | 做什麼 | 保證什麼 |
+|---|---|---|---|
+| [`install.sh`](install.sh) | 一次性／改 `jobs.conf` 後 | 以 launchd user agent 安裝或移除排程 | **用 launchd 不用 cron**：它是 macOS 支援的機制、重開機後會重新啟動、而且會補跑機器睡著時錯過的工作——筆電上 cron 不會 |
+| [`status.sh`](status.sh) | 隨時 | 排程器自己活著嗎、每個 job 真的在跑嗎 | **排程器無法監控自己**：agent 沒被載入、plist 壞掉、job 死在 PATH 錯誤，結果都不是警報，是**安靜**。`NEVER FIRED` 會被明白寫出來 |
+| [`notify.sh`](notify.sh) | 由 `run_job.sh` 觸發 | 排程 job 狀態轉換的通知出口 | **預設只送本機**：通知本身帶著平台狀態（哪個服務掛了、哪個閘門失敗、哪個 secret 路徑被拒），推到外部等於把維運內情送出去 |
+
+
+---
+
+## 能力表（何時跑／做什麼／保證什麼）
+
+**這張表是給三種讀者的**：人要知道跑哪一支，agent 要能不讀原始碼就知道用途，
+`platform/docs/capability_graph.py` 要能驗證每支能力都被描述到（能力必須是**該列的主詞**）。
+
+| 能力 | 什麼時候跑 | 做什麼 | 保證什麼 |
+|---|---|---|---|
+| [`run_job.sh`](run_job.sh) | 每個排程 job 的外殼 | 跑一個 job，**並留下它跑過的證據** | **外殼比排程重要**：裸的 cron 給你一個成功或失敗、答案在沒人讀的 log 裡。這支寫狀態檔、記錄覆蓋缺口、把 rc 對應成板面看得到的狀態 |

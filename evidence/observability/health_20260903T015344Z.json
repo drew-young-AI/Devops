@@ -1,0 +1,112 @@
+{
+  "verdict": "DEGRADED",
+  "exit_code": 1,
+  "checked_at": "2026-09-03T01:53:44Z",
+  "monitoring_integrity": [
+    {
+      "check": "prometheus_reachable",
+      "ok": true,
+      "detail": "api/v1/rules responded"
+    },
+    {
+      "check": "alert_rules_loaded",
+      "ok": true,
+      "detail": "15 rules"
+    },
+    {
+      "check": "alert_rules_evaluating",
+      "ok": true,
+      "detail": "all ok"
+    },
+    {
+      "check": "alertmanager_wired",
+      "ok": true,
+      "detail": "1 active"
+    },
+    {
+      "check": "alertmanager_reachable",
+      "ok": true,
+      "detail": "api/v2/alerts responded"
+    },
+    {
+      "check": "scrape_targets_visible",
+      "ok": true,
+      "detail": "3 targets"
+    }
+  ],
+  "integrity_blockers": [],
+  "active_alerts": [
+    {
+      "alertname": "PlatformNodeFailed",
+      "severity": "warning",
+      "environment": null,
+      "service": "platform",
+      "summary": "節點 scheduler（foundation 層）狀態為 FAIL",
+      "runbook": "python3 platform/statusdag/dag.py 看該節點的細節",
+      "started_at": "2026-09-03T01:11:52.722Z"
+    },
+    {
+      "alertname": "DataSourceStale",
+      "severity": "warning",
+      "environment": null,
+      "service": "dataops",
+      "summary": "資料來源 cdc-rods 已 15d 18h 46m 30s 未更新",
+      "runbook": "platform/dataops/run.sh 後查 ingest_runs 最後一筆的 status 與 note",
+      "started_at": "2026-09-03T01:41:53.108Z"
+    },
+    {
+      "alertname": "DataSourceStale",
+      "severity": "warning",
+      "environment": null,
+      "service": "dataops",
+      "summary": "資料來源 moi-ris-village-education 已 14d 10h 41m 14s 未更新",
+      "runbook": "platform/dataops/run.sh 後查 ingest_runs 最後一筆的 status 與 note",
+      "started_at": "2026-09-03T01:41:53.108Z"
+    },
+    {
+      "alertname": "DataSourceStale",
+      "severity": "warning",
+      "environment": null,
+      "service": "dataops",
+      "summary": "資料來源 cdc-tb-caremag 已 15d 0h 32m 41s 未更新",
+      "runbook": "platform/dataops/run.sh 後查 ingest_runs 最後一筆的 status 與 note",
+      "started_at": "2026-09-03T01:41:53.108Z"
+    },
+    {
+      "alertname": "DataSourceStale",
+      "severity": "warning",
+      "environment": null,
+      "service": "dataops",
+      "summary": "資料來源 moi-admin-geography 已 15d 2h 11m 34s 未更新",
+      "runbook": "platform/dataops/run.sh 後查 ingest_runs 最後一筆的 status 與 note",
+      "started_at": "2026-09-03T01:41:53.108Z"
+    },
+    {
+      "alertname": "DataSourceStale",
+      "severity": "warning",
+      "environment": null,
+      "service": "dataops",
+      "summary": "資料來源 cdc-tb-town 已 14d 16h 17m 28s 未更新",
+      "runbook": "platform/dataops/run.sh 後查 ingest_runs 最後一筆的 status 與 note",
+      "started_at": "2026-09-03T01:41:53.108Z"
+    },
+    {
+      "alertname": "DataSourceStale",
+      "severity": "warning",
+      "environment": null,
+      "service": "dataops",
+      "summary": "資料來源 moi-ris-village-population 已 14d 10h 43m 1s 未更新",
+      "runbook": "platform/dataops/run.sh 後查 ingest_runs 最後一筆的 status 與 note",
+      "started_at": "2026-09-03T01:41:53.108Z"
+    }
+  ],
+  "scrape_targets": {
+    "platform-dag/-": "up",
+    "station2-twin/develop": "up",
+    "station2-twin-k8s/k8s": "up"
+  },
+  "sources": {
+    "prometheus": "http://127.0.0.1:19090",
+    "alertmanager": "http://127.0.0.1:19093"
+  }
+}

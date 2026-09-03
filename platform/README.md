@@ -34,3 +34,15 @@ Platform 的修改必須考慮所有 Pilot，**不得為了單一 Pilot 直接�
 會繼承一個為了第一個 Pilot 而降低的門檻，而且不會知道。
 
 Pilot 端的對應說明見 [`pilots/README.md`](../pilots/README.md)。
+
+
+---
+
+## 能力表（何時跑／做什麼／保證什麼）
+
+**這張表是給三種讀者的**：人要知道跑哪一支，agent 要能不讀原始碼就知道用途，
+`platform/docs/capability_graph.py` 要能驗證每支能力都被描述到。
+
+| 能力 | 什麼時候跑 | 做什麼 | 保證什麼 |
+|---|---|---|---|
+| [`recover.sh`](recover.sh) | 主機重開機或全停之後 | 把整個平台帶回來 | 容器已改 `restart: unless-stopped`，**但 Vault 重啟不等於可用**——它會回到封印狀態，需要解封才算恢復 |

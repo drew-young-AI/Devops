@@ -71,3 +71,11 @@
 {"at": "2026-09-02T01:28:22Z", "job": "health", "from": "ok", "to": "degraded", "severity": "warning", "summary": "[WARN] health: ok -> degraded"}
 {"at": "2026-09-02T02:20:39Z", "job": "health", "from": "degraded", "to": "ok", "severity": "recovered", "summary": "[OK] health: degraded -> ok"}
 {"at": "2026-09-02T02:35:42Z", "job": "health", "from": "ok", "to": "degraded", "severity": "warning", "summary": "[WARN] health: ok -> degraded"}
+{"at": "2026-09-02T08:59:30Z", "job": "health", "from": "degraded", "to": "ok", "severity": "recovered", "summary": "[OK] health: degraded -> ok"}
+{"at": "2026-09-02T09:59:41Z", "job": "health", "from": "ok", "to": "degraded", "severity": "warning", "summary": "[WARN] health: ok -> degraded"}
+{"at": "2026-09-02T13:35:39Z", "job": "health", "from": "degraded", "to": "ok", "severity": "recovered", "summary": "[OK] health: degraded -> ok"}
+{"at": "2026-09-02T14:20:47Z", "job": "health", "from": "ok", "to": "degraded", "severity": "warning", "summary": "[WARN] health: ok -> degraded"}
+{"at": "2026-09-03T00:53:34Z", "job": "health", "from": "degraded", "to": "ok", "severity": "recovered", "summary": "[OK] health: degraded -> ok"}
+{"at": "2026-09-03T01:23:40Z", "job": "health", "from": "ok", "to": "degraded", "severity": "warning", "summary": "[WARN] health: ok -> degraded"}
+{"at": "2026-09-03T03:24:24Z", "job": "health", "from": "degraded", "to": "unknown", "severity": "warning", "summary": "[WARN] health: degraded -> unknown"}
+{"at": "2026-09-03T03:47:01Z", "job": "logcov", "from": "ok", "to": "failed", "severity": "critical", "summary": "[FAIL] logcov: ok -> failed"}

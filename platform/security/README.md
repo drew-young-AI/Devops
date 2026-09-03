@@ -434,3 +434,33 @@ decision about what may be attacked and when」。上面那段就是那個決定
 **一份數字在自己的推理被拿掉之後依然不變的報告，是沒有人能據以行動的報告**
 ——`unlinked` 是「加個連結」，`parameterised` 是「餵個範例 id」，
 不是同一個指令。補上原因分佈的斷言之後才抓到。
+
+
+---
+
+## 能力表（何時跑／做什麼／保證什麼）
+
+**這張表是給三種讀者的**：人要知道跑哪一支，agent 要能不讀原始碼就知道用途，
+`platform/docs/capability_graph.py` 要能驗證每支能力都被描述到。
+**只寫一句「見某腳本」不算描述**——那句話說不出何時跑、做什麼、保證什麼。
+
+| 能力 | 什麼時候跑 | 做什麼 | 保證什麼 |
+|---|---|---|---|
+| [`scan_sast.sh`](scan_sast.sh) | CI / 排程 | Semgrep OSS 讀原始碼 | 補上真正的洞：其他掃描看的是**產物**（Trivy／SBOM／Cosign）、**基礎設施**（Checkov／OPA）或**歷史**（Gitleaks），沒有一個讀原始碼 |
+| [`scan_dast.sh`](scan_dast.sh) | CI / 排程 | OWASP ZAP baseline 對執行中的服務掃 | 抓 SAST 結構上看不到的：只在執行期才存在的東西（缺少的安全標頭、實際的錯誤回應） |
+| [`dast_coverage.py`](dast_coverage.py) | 排程 `dastcov` | 回報 DAST **沒有看**哪些路由 | ZAP baseline 是 GET 爬蟲，碰不到寫入端點——實測十條路由只涵蓋四條。**PASS 的涵蓋範圍必須是可見的** |
+| [`scan_secrets.sh`](scan_secrets.sh) | CI / 排程 | Gitleaks 掃**完整 commit 歷史**（`--all`） | 不只掃工作目錄：commit 過再刪掉的 secret 仍然外洩，且在 repo 存在期間都取得回來 |
+| [`sign_artifact.sh`](sign_artifact.sh) | build 後 | Cosign 簽章與驗章 | 金鑰式簽章（不走 Sigstore keyless），不需要 OIDC；但 Cosign v3 預設仍會寫 Rekor 透明日誌條目 |
+| [`redaction_check.py`](redaction_check.py) | 排程 | 量化 v1 遮蔽**實際抓到多少** | 遮蔽是緩解不是保證；這支把「抓到幾成」變成數字，而不是一句自我宣稱 |
+
+
+---
+
+## 能力表（何時跑／做什麼／保證什麼）
+
+**這張表是給三種讀者的**：人要知道跑哪一支，agent 要能不讀原始碼就知道用途，
+`platform/docs/capability_graph.py` 要能驗證每支能力都被描述到（能力必須是**該列的主詞**）。
+
+| 能力 | 什麼時候跑 | 做什麼 | 保證什麼 |
+|---|---|---|---|
+| [`scan_image.sh`](scan_image.sh) | build 後 | Trivy 容器映像漏洞閘門 | **只對「可修的 Critical/High」硬性失敗**（`--ignore-unfixed`）。這是查證過的推理不是猜測：對無修補可用的漏洞硬擋，只會訓練人繞過閘門 |

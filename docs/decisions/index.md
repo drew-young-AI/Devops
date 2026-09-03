@@ -17,5 +17,9 @@
 | 0007 | [規則與圖表以「能不能評估」驗收，不以「能不能解析」](0007-verify-by-evaluation.md) | 已採用 | 2026-08-29 | `platform/tests/test_dashboards.sh` |
 | 0008 | [兩台機器兩種指令集：Mac 是 dev/SIT/UAT，Ubuntu 是 prod，映像檔在目標架構上建置](0008-two-machines-two-architectures.md) | 已採用 | 2026-08-31 | `platform/tests/test_image_arch.sh` |
 | 0009 | [健康快照用彙總收斂，不用保留策略刪除](0009-health-rollup-not-retention.md) | 已採用 | 2026-09-01 | `platform/observability/rollup_health.py` |
+| 0010 | [Kubernetes 從「未來 adapter」改為目標執行環境，發行版以 k3s 為先](0010-kubernetes-target-runtime-k3s.md) | 已採用 | 2026-09-02 | `platform/k8s/verify_cluster.sh` |
+| 0011 | [不導入 ELK——那一格是 Loki 在填，不是 Prometheus](0011-loki-not-elk.md) | 已採用 | 2026-09-02 | `platform/observability/loki_coverage.py` |
+| 0012 | [可觀測性：應用端一律 OTLP，後端選型延後——但「省事」的說法要拆開講](0012-otel-at-the-boundary-backend-deferred.md) | 已採用 | 2026-09-02 | `platform/observability/loki_coverage.py` |
+| 0013 | [pilot 的資料迴路是開的——排程有 19 個 job，沒有一個抓資料](0013-pilot-loop-was-open.md) | 已採用 | 2026-09-03 | `platform/scheduler/status.sh` |
 
-共 9 筆。
+共 13 筆。

@@ -192,3 +192,20 @@ Blue/green **is** done and exercised on Kubernetes (2026-08-25), and the
 schema-mismatch protection has been verified: readiness returns 503
 `schema_mismatch` when the running code expects a version the database
 does not have.
+
+
+---
+
+## 能力表（何時跑／做什麼／保證什麼）
+
+**這張表是給三種讀者的**：人要知道跑哪一支，agent 要能不讀原始碼就知道用途，
+`platform/docs/capability_graph.py` 要能驗證每支能力都被描述到。
+
+| 能力 | 什麼時候跑 | 做什麼 | 保證什麼 |
+|---|---|---|---|
+| [`app/app.py`](app/app.py) | 服務常駐 | 數位分身的查詢／API 層 | `/health/ready` 與 `/health/live` 分開：**readiness 不是 liveness**，不符即拒收流量 |
+| [`app/surveillance.py`](app/surveillance.py) | 由 app 呼叫 | 分身的模型與**背離偵測** | 分身的價值不在複製現況，在於指出現況與模型預期**不一致**的地方 |
+| [`ingest/run.sh`](ingest/run.sh) | 排程 | 載入管線的入口，容器化執行 | 有 `--network host`（要抓政府 API），與 `mlops/run.sh` 相反 |
+| [`ingest/load_geography.py`](ingest/load_geography.py) | 資料來源更新時 | 載入官方行政區地理與**宣告過的名稱別名** | 別名是**宣告**的不是猜的——行政區改名會讓歷史資料對不上，猜一個對應就是造假 |
+| [`mlops/run.sh`](mlops/run.sh) | 由 `retrain.sh` 呼叫 | 在釘住的執行環境裡跑 MLOps 腳本 | **沒有 `--network host`**：這一階段不得連外網——**能抓資料的特徵建置器就是能悄悄依賴未來資料的特徵建置器** |
+| [`mlops/publish_forecast.py`](mlops/publish_forecast.py) | 由 `retrain.sh` 呼叫 | 用全部可得資料重新擬合並發布預測——**如果模型配得上** | 輸給天真基準就不發布。這是這條線目前最有價值的機制，而且它**正在正確地擋著** |

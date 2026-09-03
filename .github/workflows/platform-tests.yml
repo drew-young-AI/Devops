@@ -7,17 +7,25 @@ name: Platform Tests
 # changing the platform frequently without a manual end-to-end deploy after
 # every edit.
 
+# pilots/** was NOT in these filters until 2026-09-03, and that was a hole, not
+# a scope decision: test_static.sh (tier 1, runs here) reads pilot sources, and
+# test_no_lookahead.sh guards the pilot's feature builder against look-ahead
+# leakage. The guards existed; a change to the code they guard simply did not
+# trigger them. The tier-2 suites still cannot run here -- see the note on
+# PLATFORM_TIERS below -- but the tier-1 gates now fire on the files they read.
 on:
   push:
     branches: [main, develop]
     paths:
       - 'platform/**'
+      - 'pilots/**'
       - 'evidence/**'
       - '.github/workflows/platform-tests.yml'
   pull_request:
     branches: [main, develop]
     paths:
       - 'platform/**'
+      - 'pilots/**'
       - 'evidence/**'
   workflow_dispatch:
 

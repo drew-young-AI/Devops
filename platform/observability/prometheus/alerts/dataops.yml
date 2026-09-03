@@ -64,6 +64,7 @@ groups:
           description: >-
             這已經不是延遲。任何以這個來源為基礎的預測與儀表板都在用陳舊資料回答問題。
 
+          runbook: "先確認該來源的預期更新頻率（年報級來源見 docs/Backlog.md §20），真的停更才追上游 URL"
   - name: dataops-execution
     rules:
       - alert: IngestRejectRatioHigh
@@ -78,6 +79,7 @@ groups:
             拒絕本身是正常的——那是約束在工作。持續偏高代表上游格式變了，
             而不是偶發髒資料。
 
+          runbook: "psql: select source,note from ingest_runs order by fetched_at desc limit 5；格式變更要改 loader，不是放寬約束"
       - alert: IngestRunsFailing
         expr: increase(dataops_ingest_runs_failed_total[24h]) > 0
         for: 10m
@@ -87,6 +89,7 @@ groups:
         annotations:
           summary: "{{ $labels.source }} 過去 24 小時有失敗的載入批次"
 
+          runbook: "看 evidence/scheduler/logs/ingest.launchd.log 與 ingest_runs 最後一筆的 status/note"
   - name: dataops-drift
     rules:
       # A single geography moving is epidemiology. A quarter of them moving the
@@ -113,6 +116,7 @@ groups:
             單一地區變動是流行病學，四分之一的地區同向變動比較像管線問題
             （來源改口徑、地理對照改變、單位變更）。先查該疾病最近的 ingest_runs。
 
+          runbook: "platform/dataops/run.sh 後比對 yoy_geo_drift_count 與 comparable_count；集中在單一疾病較可能是真疫情"
       # The drift numbers come from the analytical mirror. If the mirror is
       # stale they are not computed at all -- and a silently missing metric
       # reads as "nothing wrong", which is the failure this rule exists for.

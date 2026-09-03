@@ -90,3 +90,15 @@ not good news.
   is no auto-refresh or scheduled publish.
 - **No process time or %C/A.** The board shows where work *is*, not how long
   it spent in each stage or how often it had to go back.
+
+
+---
+
+## 能力表（何時跑／做什麼／保證什麼）
+
+**這張表是給三種讀者的**：人要知道跑哪一支，agent 要能不讀原始碼就知道用途，
+`platform/docs/capability_graph.py` 要能驗證每支能力都被描述到。
+
+| 能力 | 什麼時候跑 | 做什麼 | 保證什麼 |
+|---|---|---|---|
+| [`board.py`](board.py) | 排程 | 從既有證據推導價值流看板，**從不手工維護** | 「develop 已部署」＝ `deploy_develop_<sha>.json` 存在且健康，所以**看板無法與現實不一致**。收不到部署證據時，它會在頁面上說出來，而不是把空的下游渲染成「0 次上線」 |

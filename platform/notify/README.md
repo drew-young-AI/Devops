@@ -53,3 +53,27 @@ never fired.
 Mail is not activated: `platform/notify/setup_mail.sh <address>` still needs an
 app password. Until then Telegram is the only live channel, and the "two
 channels, neither a fallback" design is a design rather than a fact.
+
+
+---
+
+## 能力表（何時跑／做什麼／保證什麼）
+
+**這張表是給三種讀者的**：人要知道跑哪一支，agent 要能不讀原始碼就知道用途，
+`platform/docs/capability_graph.py` 要能驗證每支能力都被描述到。
+
+| 能力 | 什麼時候跑 | 做什麼 | 保證什麼 |
+|---|---|---|---|
+| [`setup_mail.sh`](setup_mail.sh) | 一次性／換憑證時 | 設定外寄郵件，**並在宣稱可用之前先證明它可用** | 這個平台為此付過一次代價：2026-08-19 告警正確觸發並持續 3h55m，而**收件端根本沒收到**。設定檔不會證明自己能送達，這支會 |
+
+
+---
+
+## 能力表（何時跑／做什麼／保證什麼）
+
+**這張表是給三種讀者的**：人要知道跑哪一支，agent 要能不讀原始碼就知道用途，
+`platform/docs/capability_graph.py` 要能驗證每支能力都被描述到（能力必須是**該列的主詞**）。
+
+| 能力 | 什麼時候跑 | 做什麼 | 保證什麼 |
+|---|---|---|---|
+| [`emit_event.sh`](emit_event.sh) | 一次性的平台**事件** | 送出單次事件，**刻意不是 Alertmanager** | **狀態 vs 事件的分野**：狀態是「為真且持續為真」（服務掛了、schema 版本不明），那是 Alertmanager 的；事件是「發生過一次」，重送就是重複 |

@@ -59,6 +59,15 @@ YOY_FLOOR = 20
 DRIFT_HIGH, DRIFT_LOW = 2.0, 0.5
 
 
+
+# Sources whose ingest history is real but which will never be fetched again.
+# Each needs a reason; a source with no reason does not belong here, and the
+# zero-fact-rows assertion above is what stops this list from drifting.
+RETIRED_SOURCES = {
+    "cdc-rods": "the original combined RODS feed, replaced 2026-08-19 by the "
+                "per-disease feeds; zero fact rows, no loader targets it",
+}
+
 def esc(v):
     return str(v).replace("\\", "\\\\").replace('"', '\\"')
 
@@ -90,13 +99,51 @@ def freshness_and_execution(lines):
             FROM ingest_runs GROUP BY 1 ORDER BY 1""")
         rows = c.fetchall()
 
+        # Freshness is not reported for a source that has been retired.
+        #
+        # RETIRED IS A NAMED LIST, NOT A HEURISTIC.
+        #
+        # The first attempt inferred it -- "no fact rows means retired" -- and
+        # immediately misclassified moi-admin-geography, which is live and
+        # annual but loads geo_area, a table with no source_id at all. Guessing
+        # a data mapping is how you get a metric that is confidently wrong, so
+        # the list is explicit and the row count is an ASSERTION against it
+        # rather than the thing that decides it.
+        #
+        # Why exclude at all: cdc-rods was the original combined RODS feed,
+        # replaced by the per-disease feeds. It holds zero surveillance_fact
+        # rows and is a target in no loader, so its age only ever increases --
+        # a DataSourceStale warning, forever, about a source carrying nothing.
+        # That alert was the ONLY thing that noticed the 14-day ingest outage
+        # on 2026-09-03, and one permanently-warning member teaches people to
+        # filter the whole class. Same rule and same reason as
+        # reportable_tenants() in loki_coverage.py.
+        #
+        # Cumulative row counts below are unaffected: those are lineage, and
+        # dropping them would be falsifying the history.
+        c.execute("SELECT DISTINCT ds.code FROM surveillance_fact sf "
+                  "JOIN data_source ds ON ds.source_id = sf.source_id")
+        with_data = {r[0] for r in c.fetchall()}
+        c.execute("SELECT DISTINCT ds.code FROM demographic_fact df "
+                  "JOIN data_source ds ON ds.source_id = df.source_id")
+        with_data |= {r[0] for r in c.fetchall()}
+
+    known = {r[0] for r in rows}
+    still_live = sorted(set(RETIRED_SOURCES) & with_data)
+    if still_live:
+        sys.exit(f"declared retired but still holding fact rows: {still_live}. "
+                 f"Either the source came back or RETIRED_SOURCES is wrong; "
+                 f"fix the list rather than the data.")
+    retired = sorted(set(RETIRED_SOURCES) & known)
+    fresh_rows = [r for r in rows if r[0] not in RETIRED_SOURCES]
+
     now = int(time.time())
     lines += [
         "# HELP dataops_source_last_fetch_timestamp_seconds Unix time of the "
         "most recent successful fetch for this source.",
         "# TYPE dataops_source_last_fetch_timestamp_seconds gauge",
     ]
-    for (src, last, *_rest) in rows:
+    for (src, last, *_rest) in fresh_rows:
         lines.append(f'dataops_source_last_fetch_timestamp_seconds{{source="{esc(src)}"}} {last}')
 
     lines += [
@@ -104,8 +151,15 @@ def freshness_and_execution(lines):
         "updated. A constraint cannot see a thing that failed to happen; this can.",
         "# TYPE dataops_source_age_seconds gauge",
     ]
-    for (src, last, *_rest) in rows:
+    for (src, last, *_rest) in fresh_rows:
         lines.append(f'dataops_source_age_seconds{{source="{esc(src)}"}} {now - int(last)}')
+    # Named, not silently dropped: a source that vanishes from freshness
+    # without saying so is the same defect one level down.
+    lines += [
+        "# HELP dataops_source_retired 1 for a source with ingest history but no "
+        "fact rows; excluded from freshness because it can never become fresh.",
+        "# TYPE dataops_source_retired gauge",
+    ] + [f'dataops_source_retired{{source="{esc(src)}"}} 1' for src in retired]
 
     lines += [
         "# HELP dataops_ingest_rows_total Cumulative rows by outcome, from "

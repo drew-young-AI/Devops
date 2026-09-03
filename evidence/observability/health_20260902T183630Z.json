@@ -1,0 +1,229 @@
+{
+  "verdict": "DEGRADED",
+  "exit_code": 1,
+  "checked_at": "2026-09-02T18:36:30Z",
+  "monitoring_integrity": [
+    {
+      "check": "prometheus_reachable",
+      "ok": true,
+      "detail": "api/v1/rules responded"
+    },
+    {
+      "check": "alert_rules_loaded",
+      "ok": true,
+      "detail": "15 rules"
+    },
+    {
+      "check": "alert_rules_evaluating",
+      "ok": true,
+      "detail": "all ok"
+    },
+    {
+      "check": "alertmanager_wired",
+      "ok": true,
+      "detail": "1 active"
+    },
+    {
+      "check": "alertmanager_reachable",
+      "ok": true,
+      "detail": "api/v2/alerts responded"
+    },
+    {
+      "check": "scrape_targets_visible",
+      "ok": true,
+      "detail": "3 targets"
+    }
+  ],
+  "integrity_blockers": [],
+  "active_alerts": [
+    {
+      "alertname": "PlatformNodeFailed",
+      "severity": "warning",
+      "environment": null,
+      "service": "platform",
+      "summary": "節點 scheduler（foundation 層）狀態為 FAIL",
+      "runbook": "python3 platform/statusdag/dag.py 看該節點的細節",
+      "started_at": "2026-09-02T14:05:52.722Z"
+    },
+    {
+      "alertname": "DataSourceStale",
+      "severity": "warning",
+      "environment": null,
+      "service": "dataops",
+      "summary": "資料來源 cdc-nhi-influenza 已 14d 2h 49m 23s 未更新",
+      "runbook": "platform/dataops/run.sh 後查 ingest_runs 最後一筆的 status 與 note",
+      "started_at": "2026-09-02T17:19:23.108Z"
+    },
+    {
+      "alertname": "DataSourceStale",
+      "severity": "warning",
+      "environment": null,
+      "service": "dataops",
+      "summary": "資料來源 cdc-nhi-enterovirus 已 14d 2h 48m 39s 未更新",
+      "runbook": "platform/dataops/run.sh 後查 ingest_runs 最後一筆的 status 與 note",
+      "started_at": "2026-09-02T17:19:23.108Z"
+    },
+    {
+      "alertname": "DataSourceStale",
+      "severity": "warning",
+      "environment": null,
+      "service": "dataops",
+      "summary": "資料來源 cdc-nhi-herpangina 已 14d 2h 48m 2s 未更新",
+      "runbook": "platform/dataops/run.sh 後查 ingest_runs 最後一筆的 status 與 note",
+      "started_at": "2026-09-02T17:19:23.108Z"
+    },
+    {
+      "alertname": "WidespreadGeoDrift",
+      "severity": "warning",
+      "environment": null,
+      "service": "dataops",
+      "summary": "猩紅熱：超過 1/4 的地區年對年down 超出 0.5–2 倍區間",
+      "runbook": null,
+      "started_at": "2026-09-02T15:35:58.198Z"
+    },
+    {
+      "alertname": "DataSourceStale",
+      "severity": "warning",
+      "environment": null,
+      "service": "dataops",
+      "summary": "資料來源 cdc-rods 已 15d 11h 15m 11s 未更新",
+      "runbook": "platform/dataops/run.sh 後查 ingest_runs 最後一筆的 status 與 note",
+      "started_at": "2026-09-02T14:35:53.108Z"
+    },
+    {
+      "alertname": "DataSourceStale",
+      "severity": "warning",
+      "environment": null,
+      "service": "dataops",
+      "summary": "資料來源 cdc-nhi-scarlet-fever 已 14d 2h 47m 0s 未更新",
+      "runbook": "platform/dataops/run.sh 後查 ingest_runs 最後一筆的 status 與 note",
+      "started_at": "2026-09-02T17:19:23.108Z"
+    },
+    {
+      "alertname": "DataSourceStale",
+      "severity": "warning",
+      "environment": null,
+      "service": "dataops",
+      "summary": "資料來源 moi-ris-village-education 已 14d 3h 9m 55s 未更新",
+      "runbook": "platform/dataops/run.sh 後查 ingest_runs 最後一筆的 status 與 note",
+      "started_at": "2026-09-02T16:19:23.108Z"
+    },
+    {
+      "alertname": "DataSourceStale",
+      "severity": "warning",
+      "environment": null,
+      "service": "dataops",
+      "summary": "資料來源 cdc-nhi-hfmd 已 14d 2h 48m 20s 未更新",
+      "runbook": "platform/dataops/run.sh 後查 ingest_runs 最後一筆的 status 與 note",
+      "started_at": "2026-09-02T17:19:23.108Z"
+    },
+    {
+      "alertname": "WidespreadGeoDrift",
+      "severity": "warning",
+      "environment": null,
+      "service": "dataops",
+      "summary": "COVID-19：超過 1/4 的地區年對年up 超出 0.5–2 倍區間",
+      "runbook": null,
+      "started_at": "2026-09-02T15:35:58.198Z"
+    },
+    {
+      "alertname": "DataSourceStale",
+      "severity": "warning",
+      "environment": null,
+      "service": "dataops",
+      "summary": "資料來源 cdc-tb-caremag 已 14d 17h 1m 22s 未更新",
+      "runbook": "platform/dataops/run.sh 後查 ingest_runs 最後一筆的 status 與 note",
+      "started_at": "2026-09-02T14:35:53.108Z"
+    },
+    {
+      "alertname": "DataSourceStale",
+      "severity": "warning",
+      "environment": null,
+      "service": "dataops",
+      "summary": "資料來源 cdc-nhi-diarrhea 已 14d 2h 47m 44s 未更新",
+      "runbook": "platform/dataops/run.sh 後查 ingest_runs 最後一筆的 status 與 note",
+      "started_at": "2026-09-02T17:19:23.108Z"
+    },
+    {
+      "alertname": "DataSourceStale",
+      "severity": "warning",
+      "environment": null,
+      "service": "dataops",
+      "summary": "資料來源 cdc-nhi-ili 已 14d 2h 49m 40s 未更新",
+      "runbook": "platform/dataops/run.sh 後查 ingest_runs 最後一筆的 status 與 note",
+      "started_at": "2026-09-02T17:19:23.108Z"
+    },
+    {
+      "alertname": "DataSourceStale",
+      "severity": "warning",
+      "environment": null,
+      "service": "dataops",
+      "summary": "資料來源 cdc-nhi-varicella 已 14d 2h 46m 40s 未更新",
+      "runbook": "platform/dataops/run.sh 後查 ingest_runs 最後一筆的 status 與 note",
+      "started_at": "2026-09-02T17:19:23.108Z"
+    },
+    {
+      "alertname": "DataSourceStale",
+      "severity": "warning",
+      "environment": null,
+      "service": "dataops",
+      "summary": "資料來源 moi-admin-geography 已 14d 18h 40m 15s 未更新",
+      "runbook": "platform/dataops/run.sh 後查 ingest_runs 最後一筆的 status 與 note",
+      "started_at": "2026-09-02T14:35:53.108Z"
+    },
+    {
+      "alertname": "DataSourceStale",
+      "severity": "warning",
+      "environment": null,
+      "service": "dataops",
+      "summary": "資料來源 cdc-tb-town 已 14d 8h 46m 9s 未更新",
+      "runbook": "platform/dataops/run.sh 後查 ingest_runs 最後一筆的 status 與 note",
+      "started_at": "2026-09-02T14:35:53.108Z"
+    },
+    {
+      "alertname": "DataSourceStale",
+      "severity": "warning",
+      "environment": null,
+      "service": "dataops",
+      "summary": "資料來源 cdc-nhi-covid 已 14d 2h 48m 56s 未更新",
+      "runbook": "platform/dataops/run.sh 後查 ingest_runs 最後一筆的 status 與 note",
+      "started_at": "2026-09-02T17:19:23.108Z"
+    },
+    {
+      "alertname": "DataSourceStale",
+      "severity": "warning",
+      "environment": null,
+      "service": "dataops",
+      "summary": "資料來源 cdc-nhi-uri 已 14d 2h 47m 23s 未更新",
+      "runbook": "platform/dataops/run.sh 後查 ingest_runs 最後一筆的 status 與 note",
+      "started_at": "2026-09-02T17:19:23.108Z"
+    },
+    {
+      "alertname": "DataSourceStale",
+      "severity": "warning",
+      "environment": null,
+      "service": "dataops",
+      "summary": "資料來源 cdc-nhi-pneumonia 已 14d 2h 49m 5s 未更新",
+      "runbook": "platform/dataops/run.sh 後查 ingest_runs 最後一筆的 status 與 note",
+      "started_at": "2026-09-02T17:19:23.108Z"
+    },
+    {
+      "alertname": "DataSourceStale",
+      "severity": "warning",
+      "environment": null,
+      "service": "dataops",
+      "summary": "資料來源 moi-ris-village-population 已 14d 3h 11m 42s 未更新",
+      "runbook": "platform/dataops/run.sh 後查 ingest_runs 最後一筆的 status 與 note",
+      "started_at": "2026-09-02T16:19:23.108Z"
+    }
+  ],
+  "scrape_targets": {
+    "platform-dag/-": "up",
+    "station2-twin/develop": "up",
+    "station2-twin-k8s/k8s": "up"
+  },
+  "sources": {
+    "prometheus": "http://127.0.0.1:19090",
+    "alertmanager": "http://127.0.0.1:19093"
+  }
+}

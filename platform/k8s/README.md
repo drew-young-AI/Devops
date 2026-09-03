@@ -189,3 +189,33 @@ endpoints，藍綠因此無法把一份拿不到憑證的副本推上線。悄�
 只比對 `mode` 不比對使用者名稱是刻意的：**使用者名稱本來就該不同**（各自的 lease），
 mode 不該。對「必須相同的東西」斷言相同、同時讓「必須不同的東西」自由不同，
 才是真的檢查，不是套套邏輯。
+
+
+---
+
+## 能力表（何時跑／做什麼／保證什麼）
+
+**這張表是給三種讀者的**：人要知道跑哪一支，agent 要能不讀原始碼就知道用途，
+`platform/docs/capability_graph.py` 要能驗證每支能力都被描述到。
+**只寫一句「見某腳本」不算描述**——那句話說不出何時跑、做什麼、保證什麼。
+
+| 能力 | 什麼時候跑 | 做什麼 | 保證什麼 |
+|---|---|---|---|
+| [`station2-twin/deploy.sh`](station2-twin/deploy.sh) | 每次發版 | 部署**一個顏色**，**不切流量** | 分開才有意義：deploy 同時 promote 就沒有那個「新版本正在跑、連得到、但還沒服務流量」的檢查時刻 |
+| [`station2-twin/promote.sh`](station2-twin/promote.sh) | 驗過新顏色之後 | 把流量切到某個顏色，**但只在它真的在服務時** | 切換本身只是一行 Service patch；**閘門才是全部的重點**——切之前檢查 Deployment 真的就緒、endpoint 真的有 pod |
+| [`station2-twin/sync_vault_secret.sh`](station2-twin/sync_vault_secret.sh) | AppRole 更新時 | 把 AppRole 放進叢集 Secret | 讓 K8s 那份不再帶靜態資料庫密碼；role_id／secret_id 走 stdin manifest，**不進 argv**（`ps` 全機可讀） |
+| [`station2-twin/verify_networkpolicy.sh`](station2-twin/verify_networkpolicy.sh) | 改 NetworkPolicy 後 | 證明網路政策**真的擋住東西** | `kubectl get netpol` 只證明 manifest 被接受。**CNI 若忽略 NetworkPolicy，每一份 manifest 都是裝飾品**，而看起來一模一樣 |
+
+
+---
+
+## 能力表（何時跑／做什麼／保證什麼）
+
+**這張表是給三種讀者的**：人要知道跑哪一支，agent 要能不讀原始碼就知道用途，
+`platform/docs/capability_graph.py` 要能驗證每支能力都被描述到（能力必須是**該列的主詞**）。
+
+| 能力 | 什麼時候跑 | 做什麼 | 保證什麼 |
+|---|---|---|---|
+| [`create_cluster.sh`](create_cluster.sh) | 需要重建練習叢集時 | 重建 k3d 叢集，補上舊叢集缺的兩樣（真 StorageClass、registry） | 舊叢集是**殭屍**：k3d CLI 沒裝、API server 沒在監聽，而它「看起來設定正確」。**刪掉重建而不是調整**才有辦法確定它是活的 |
+| [`verify_cluster.sh`](verify_cluster.sh) | 每次建叢集後 | 證明叢集**能用**，不是證明它**被設定過** | PVC 真的綁定並寫入、映像真的推送並由節點拉取——**舊叢集設定完全正確而完全不能用**，兩者從設定檔上看一模一樣 |
+| [`bootstrap_k3s.sh`](bootstrap_k3s.sh) | ubu 生產節點初次建置 | 從 Mac 把生產型 k3s 叢集拉起來在 Ubuntu 上 | **k3s 不是更多的 k3d**：k3d 把節點跑成 Docker 容器，而那個 Docker daemon 自己又在 VM 裡——三層間接，生產節點不該有 |

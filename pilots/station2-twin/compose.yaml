@@ -54,7 +54,15 @@ services:
       # operational telemetry, not patient data -- but the label is set
       # explicitly rather than defaulted, because an unlabelled service
       # silently lands in the wrong tenant.
-      platform.data_class: platform
+      #
+      # The value must be `internal` or `restricted` -- those are the only two
+      # strings the relabel rules can tell apart, and anything else lands in
+      # `internal` by falling through the complement, which is precisely the
+      # silent default this label exists to avoid. Until 2026-09-02 this said
+      # `platform`, the TENANT name rather than the CLASS name, so the
+      # explicitness above bought nothing. `platform/observability/loki_coverage.py`
+      # now refuses any value outside that set.
+      platform.data_class: internal
     ports:
       - "127.0.0.1:${HOST_PORT:-18090}:8080"
     environment:

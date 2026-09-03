@@ -47,3 +47,15 @@ The migration path has only ever been exercised against the Mac's Compose
 database. The Kubernetes copy shares the same database today, so this is not yet
 a second code path — but it becomes one the moment the Ubuntu production cluster
 gets its own database.
+
+
+---
+
+## 能力表（何時跑／做什麼／保證什麼）
+
+**這張表是給三種讀者的**：人要知道跑哪一支，agent 要能不讀原始碼就知道用途，
+`platform/docs/capability_graph.py` 要能驗證每支能力都被描述到（能力必須是**該列的主詞**）。
+
+| 能力 | 什麼時候跑 | 做什麼 | 保證什麼 |
+|---|---|---|---|
+| [`migrate.sh`](migrate.sh) | 每次結構變更 | 依序、只跑一次地套用遷移，**並拒絕危險的那些** | 寫一個遷移器很容易；真正造成停機的是它**拒絕**做的三件事，第一件是**重跑一個被改過的遷移**——checksum 對不上就停 |

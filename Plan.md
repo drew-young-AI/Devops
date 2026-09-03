@@ -127,7 +127,7 @@ Public URL 快速方案：Cloudflare Tunnel adapter
 Local ingress：NGINX + local HTTPS
 Secret：HashiCorp Vault Community；.env 只作 migration source
 MLX：127.0.0.1:9000，LLM automation actor，不是 deployment target
-Kubernetes：未來 adapter，目前不導入　←【2026-08-26 起已反轉】k3d 叢集已建立並承載 station2-twin 藍綠，見 `platform/k8s/README.md`
+Kubernetes：未來 adapter，目前不導入　←【已反轉，見 ADR-0010】K8s 是目標執行環境，發行版以 k3s 為先（mac 用 k3d 開發、ubu 用 k3s 生產）
 MLOps/LLMOps：保留接口，延後擴充
 
 ```
@@ -137,9 +137,12 @@ MLOps/LLMOps：保留接口，延後擴充
 - 不要把 Pilot 程式放進 `platform/`。
 - 不要在目前 Mac 上假裝具備 multi-node HA、真實 F5、CDN 或 production capacity。
 - ~~不要先安裝 Kubernetes、Argo CD、Kubeflow 或 Airflow。~~
-  **【2026-08-26 起部分反轉】** Kubernetes 已導入（k3d，單機練習叢集）。
+  **【部分反轉，見 [ADR-0010](docs/decisions/0010-kubernetes-target-runtime-k3s.md)】**
+  Kubernetes 已導入，而且**方向已改**：它是目標執行環境，不是未來 adapter，
+  發行版以 **k3s** 為先。
   Argo CD / Kubeflow / Airflow **仍然不裝**——原本那條規則的理由是「服務數量與
   部署頻率還撐不起這些工具的複雜度」，而那個理由對這三個仍然成立。
+  **反轉的只有 Kubernetes 一項**，同一行裡的其他三個不跟著鬆綁。
 - 不要把 Cloudflare hosted tunnel 的結果當成自建企業網路能力。
 - 不要把明文 `.env` 直接提交 Git、image、artifact、log 或 prompt。
 - 不要使用個人全權限 token；不得要求使用者貼出 token。
@@ -392,7 +395,10 @@ t+1 被 `publish_forecast.py` 擋下（輸給持平基準），t+2 發布 2026W3
 **沒東西發布時 exit 0**——「這週模型不夠好」是正確結果不是失敗，
 每週為此發一次警報，是讓警報被靜音的最快方法。
 
-**八張圖全部畫完**，在 `docs/diagrams/`，全部通過 diagram-design 的 `self_check`。
+**八張圖全部畫完**（2026-08-25，`docs/diagrams/` 的 SVG 版），全部通過 diagram-design 的 `self_check`。
+**【2026-09-02 已取代】** 那一套與後來為長官簡報做的 mermaid 版**完全分岔**（舊版寫「31 tests」、沒有 Kubernetes），
+而階段報告內嵌舊版、離線簡報用新版，同一位讀者會看到兩種架構。舊的 SVG 那套已刪，
+八張圖現在只有一份來源：[`docs/report/plates.src.html`](docs/report/plates.src.html)。
 
 ### 2026-08-21 補記（A9 完成：Kubernetes 底座）
 
@@ -525,7 +531,8 @@ Pilot 只用來驗證平台，不代表產品需求或產品效果已完成。
 
 - [ ] 實際 Cloud resource apply。
 - [ ] 多節點 HA、真實 F5/WAF/CDN 與大型流量。
-- [ ] Kubernetes、Argo CD、Kubeflow、Airflow。
+- [ ] ~~Kubernetes~~、Argo CD、Kubeflow、Airflow。
+      **Kubernetes 已移出本清單**（[ADR-0010](docs/decisions/0010-kubernetes-target-runtime-k3s.md)）；另外三個留著。
 - [ ] MLOps/LLMOps 完整平台；只保留未來 integration contract（詳見
       `docs/Future-ML-LLMOps.md`，已補上具體臨床模型類型）。
 - [ ] DataOps 完整平台（Warehouse/Lakehouse/多模態醫療資料、Databricks 或任何
@@ -556,11 +563,11 @@ Pilot 只用來驗證平台，不代表產品需求或產品效果已完成。
 | IaC | OpenTofu 為主，Checkov/OPA/Conftest 作 policy validation |
 | Source control | 外部 GitHub Free 或 GitLab Free，不在 Mac 部署 GitLab CE |
 | Runtime | Docker Engine + Docker Compose |
-| Observability | Grafana + Prometheus + Loki + Alloy |
+| Observability | Grafana（介面，不儲存）+ Prometheus（指標）+ **Loki（日誌）** + Alloy（採集器，本身就是 OpenTelemetry Collector 發行版）。**追蹤與錯誤追蹤：沒有，刻意延後**，應用端一律 OTLP，見 [ADR-0012](docs/decisions/0012-otel-at-the-boundary-backend-deferred.md) |
 | Local ingress | NGINX + local HTTPS |
 | Secret | HashiCorp Vault Community；`.env` 只作 migration source，不作正式 Secret store |
 | Object storage | MinIO，可作 S3-compatible artifact/model/backup/state blob store |
-| Kubernetes | 未來 deployment adapter，不是目前 runtime |
+| Kubernetes | **目標執行環境**，發行版以 k3s 為先（[ADR-0010](docs/decisions/0010-kubernetes-target-runtime-k3s.md)）。此列在 2026-09-02 之前寫「未來 deployment adapter，不是目前 runtime」 |
 | MLX | `127.0.0.1:9000` 的 LLM automation endpoint，不是 deployment target |
 | Public URL experiment | 主方案：Cloud trial VM + rathole + NGINX；可選 Cloudflare Tunnel adapter；不暴露 MLX endpoint |
 

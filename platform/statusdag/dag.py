@@ -37,6 +37,7 @@ import argparse
 import glob
 import json
 import os
+import re
 import shutil
 import subprocess
 import urllib.error
@@ -453,19 +454,102 @@ def probe_registry():
     return OK, f"{data.get('registry_image', 'pushed')}".split("/")[-1][:28]
 
 
+ALERT_CHANNEL_RE = re.compile(r"^\s{4,}(\w+)_configs:", re.M)
+
+
+def declared_channels():
+    """Which delivery channels config.template.yml says this platform has.
+
+    The template is the declaration; the live config.yml is generated from it
+    by setup_notifications.sh, which DROPS a channel whose credential file is
+    absent rather than leaving a receiver addressed to `__MAIL_TO__`. Dropping
+    is the right behaviour. Dropping SILENTLY is not, and that is what this
+    reads the template to catch.
+    """
+    path = os.path.join(REPO_ROOT,
+                        "platform/observability/alertmanager/config.template.yml")
+    try:
+        with open(path, encoding="utf-8") as fh:
+            return set(ALERT_CHANNEL_RE.findall(fh.read()))
+    except OSError:
+        return set()
+
+
 def probe_alertmanager():
+    """Alerts firing is NECESSARY AND NOT SUFFICIENT -- they must reach someone.
+
+    Same lesson as probe_prometheus above, one hop further down the chain. On
+    2026-08-19 every layer worked and the alert still went nowhere for 3h55m
+    because the last hop was a null receiver; the fix wired Telegram, and the
+    config comment written that day says there are TWO channels -- "mail is
+    where it can be found again a week later ... neither is a fallback for the
+    other".
+
+    On 2026-09-03 that was measured for the first time. Telegram had delivered
+    52 notifications with 0 failures. Email had delivered 0, because there is
+    no email receiver in the live config at all: mail.conf and smtp-password
+    were never created, so the generator correctly removed the block -- and
+    NOTHING anywhere reported that one of the two declared channels did not
+    exist. A comment describing a mechanism is not the mechanism.
+
+    So this node now answers three questions instead of one:
+      1. is Alertmanager reachable        (it always did)
+      2. is every DECLARED channel wired  (not-configured, like offsite)
+      3. is delivery actually succeeding  (failed_total, not just configured)
+    """
     try:
         with urllib.request.urlopen(
                 "http://127.0.0.1:19093/api/v2/alerts?active=true", timeout=6) as r:
             alerts = json.load(r)
     except Exception as e:  # noqa: BLE001
         return UNKNOWN, f"unreachable: {str(e)[:40]}"
+
+    reasons = []
+
+    # Wiring: declared in the template, present in what Alertmanager LOADED.
+    # Read from the API, not from the file on disk -- the file is what someone
+    # meant to run and this is what is running.
+    live = ""
+    try:
+        with urllib.request.urlopen(
+                "http://127.0.0.1:19093/api/v2/status", timeout=6) as r:
+            live = json.load(r).get("config", {}).get("original", "") or ""
+    except Exception:  # noqa: BLE001
+        reasons.append("設定無法讀取，無法確認通道是否接上")
+    if live:
+        missing = sorted(c for c in declared_channels()
+                         if f"{c}_configs:" not in live)
+        if missing:
+            reasons.append("宣告了但沒接上: " + ", ".join(missing))
+
+    # Delivery: configured is not delivered. A channel whose every send fails
+    # is indistinguishable, from the board, from one that is working.
+    try:
+        with urllib.request.urlopen(
+                "http://127.0.0.1:19093/metrics", timeout=6) as r:
+            body = r.read().decode("utf-8", "replace")
+        failed = {}
+        for m in re.finditer(
+                r'alertmanager_notifications_failed_total\{integration="(\w+)"[^}]*\}'
+                r"\s+([0-9.e+]+)", body):
+            failed[m.group(1)] = failed.get(m.group(1), 0.0) + float(m.group(2))
+        broken = sorted(k for k, v in failed.items() if v > 0)
+        if broken:
+            reasons.append("送出失敗: " + ", ".join(broken))
+    except Exception:  # noqa: BLE001
+        reasons.append("送達指標無法讀取")
+
     crit = [a for a in alerts if a["labels"].get("severity") == "critical"]
     if crit:
-        return FAIL, f"{len(crit)} critical firing"
+        return FAIL, "; ".join([f"{len(crit)} critical firing"] + reasons)
+    if reasons:
+        # A channel that is not wired is a WARN even with zero alerts firing --
+        # that is the only moment you can still fix it cheaply.
+        return WARN, "; ".join(reasons + ([f"{len(alerts)} alert(s) firing"]
+                                          if alerts else []))
     if alerts:
         return WARN, f"{len(alerts)} alert(s) firing"
-    return OK, "no active alerts"
+    return OK, "no active alerts, all declared channels wired"
 
 
 def probe_prometheus():

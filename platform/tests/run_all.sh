@@ -105,6 +105,34 @@ SUITES=(
   # on 2026-09-02 found five documents nothing linked to, one of which was a
   # second, stale copy of the capability index. Walks the real link graph.
   test_doc_graph.sh
+  # "We do not need ELK" rests entirely on Loki already occupying that slot,
+  # and nothing checked that Loki was receiving anything. It was -- but the
+  # same look found station2-twin declaring `data_class: platform`, which is
+  # not a class, and which therefore fell through to the tenant with the wider
+  # audience and the longer retention without erroring. The controls are
+  # hermetic (metrics bodies from a file, class values from the environment);
+  # the live half SKIPs loudly when Loki is not reachable, because on a
+  # machine without the observability stack its absence is not a defect.
+  test_loki_coverage.sh
+  # Reachability is not currency. The document that did the most damage here
+  # was reachable, prominently linked, and wrong -- a hand-curated status page
+  # that said data governance and process visualisation were "almost empty"
+  # nine days after both were built. This suite asks the complementary
+  # question: is this rendered page generated, or is somebody promising to keep
+  # it true by hand? Either is allowed; being neither is not.
+  test_doc_freshness.sh
+  # Documents being reachable is not the same as capabilities being findable.
+  # First run found 9 of 89 scripts that no reachable document named -- four of
+  # them things a human is supposed to RUN. Every one was called by other code,
+  # which is the point: being called is not being discoverable, and the next
+  # person who cannot find one writes a second one.
+  test_capability_graph.sh
+  # Reachability prevents one route to duplicate work -- you cannot find the
+  # existing thing, so you build a second. It does nothing about the route that
+  # actually happened: BOTH copies documented, BOTH reachable, drifted apart,
+  # each shown to the same reader as current. Eight diagrams existed twice, one
+  # set on the board and one in the deck.
+  test_duplicate_check.sh
 )
 
 # TIER 2. Needs Docker AND a live postgres holding the pilot's data. Separated

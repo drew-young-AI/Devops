@@ -154,3 +154,16 @@ degraded modes were injected rather than assumed:
   in `docs/Plan-detail.md`'s LLMOps sequence.
 - **No cost/latency dashboard.** Each review is a ~11 s local call; nothing
   records latency trends into Prometheus yet.
+
+
+---
+
+## 能力表（何時跑／做什麼／保證什麼）
+
+**這張表是給三種讀者的**：人要知道跑哪一支，agent 要能不讀原始碼就知道用途，
+`platform/docs/capability_graph.py` 要能驗證每支能力都被描述到。
+
+| 能力 | 什麼時候跑 | 做什麼 | 保證什麼 |
+|---|---|---|---|
+| [`review.sh`](review.sh) | 每次 commit 的證據齊備後 | 用本機 MLX（`127.0.0.1:9000`）對**磁碟上既有的確定性證據**做複審 | 讀的是 build metadata、Trivy 閘門結果、SBOM 摘要、develop 部署健康——**它不重新判斷事實，只複審既有事實**；且**不具備阻擋發布的權力** |
+| [`review.py`](review.py) | 由 `review.sh` 呼叫 | 複審引擎本體 | 契約與理由寫在 `review.sh`，不在這裡重複一份 |

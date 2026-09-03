@@ -54,7 +54,6 @@ import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO_ROOT = os.path.abspath(os.path.join(HERE, "..", ".."))
-DIAGRAMS = os.path.join(REPO_ROOT, "docs", "diagrams")
 DOCS = os.path.join(REPO_ROOT, "docs")
 SCHEMA = "stage-report/1"
 
@@ -487,22 +486,48 @@ def esc(text):
     return html.escape(str(text), quote=True)
 
 
-def svg_of(name):
-    """Inline the diagram's SVG. Returns None rather than a placeholder if the
-    file is missing -- a report that silently shows an empty frame where a
-    diagram should be is worse than one that says the diagram is absent."""
-    path = os.path.join(DIAGRAMS, name)
-    if not os.path.isfile(path):
-        return None
-    with open(path, encoding="utf-8") as fh:
-        match = re.search(r"<svg\b.*?</svg>", fh.read(), re.S)
-    return match.group(0) if match else None
+# THE EIGHT DIAGRAMS LIVE IN EXACTLY ONE PLACE (2026-09-02).
+#
+# Until today they lived in two, and the two had drifted apart completely.
+#
+# `docs/diagrams/*.html` held eight hand-authored inline SVGs from 2026-08-25,
+# and this file embedded them. `docs/report/plates.src.html` holds eight
+# mermaid plates built for the stage report to management. Same eight subjects,
+# independently written, near-zero shared label text when compared -- and the
+# older set still said "31 tests" and did not contain Kubernetes at all.
+#
+# So the board showed one architecture and the deck showed another, to the same
+# reader, both labelled current. That is the two-index divergence problem in
+# the two artefacts most likely to be put in front of somebody senior.
+#
+# The stale set is deleted. This page now LINKS to the single source instead of
+# carrying a copy, which costs the inline figures and buys the guarantee that
+# there is nothing left to diverge from. Restoring inline figures means
+# rendering the mermaid source to SVG at build time -- a real option, recorded
+# in docs/Backlog.md, and not one to fake by hand-drawing a second set again.
+
+PLATES_HREF = "report/plates.offline.html"
+
+# Which plate answers which line. Anchors are the section ids in plates.src.html.
+PLATE_ANCHOR = {
+    "devops":   ("p1", "p2"),
+    "dataops":  ("p3", "p4"),
+    "mlops":    ("p5", "p6"),
+    "unified":  ("p8", "p7"),
+}
 
 
-def figure(caption, svg):
-    body = (f'<div class="canvas">{svg}</div>' if svg
-            else '<p class="missing">圖檔不存在（docs/diagrams/）</p>')
-    return f'<figure><figcaption>{esc(caption)}</figcaption>{body}</figure>'
+def plate_links(line_id, line_name):
+    """A link to the one source, not a second copy of it."""
+    pair = PLATE_ANCHOR.get(line_id)
+    if not pair:
+        return ""
+    arch, flow = pair
+    return (
+        '<p class="plates">圖：'
+        f'<a href="{PLATES_HREF}#{arch}">{esc(line_name)} 架構圖</a>　'
+        f'<a href="{PLATES_HREF}#{flow}">{esc(line_name)} 流程圖</a>'
+        '<small>八張圖只有一份來源，離線可開</small></p>')
 
 
 def render_html(m):
@@ -558,8 +583,7 @@ def render_html(m):
         # Named on the line header too, not only in the global tally: a reader
         # who sees "4 / 9" without it will assume five things are broken.
         sup = f"，{l['superseded']} 已被取代" if l["superseded"] else ""
-        figs = (figure(f"{l['name']} 架構圖", svg_of(f"{l['id']}-architecture.html"))
-                + figure(f"{l['name']} 流程圖", svg_of(f"{l['id']}-flow.html")))
+        figs = plate_links(l["id"], l["name"])
         line_html += (
             f'<section class="line" data-line="{esc(l["id"])}">'
             f'<header class="line-head">'
@@ -570,12 +594,7 @@ def render_html(m):
             f'<div class="figs">{figs}</div>'
             f'<div class="stages">{cards}</div></section>')
 
-    unified = ""
-    for cap, name in (("三線統整架構圖", "unified-architecture.html"),
-                      ("三線統整流程圖", "unified-flow.html")):
-        svg = svg_of(name)
-        if svg:
-            unified += figure(cap, svg)
+    unified = plate_links("unified", "三線統整")
 
     tally = "".join(
         f'<div class="{l["id"]}"><span class="n">{l["green"]} / {l["total"]}</span>'
@@ -619,7 +638,10 @@ def render_html(m):
       標題下的時間戳記是它唯一的有效期宣告。</span>
     <span>同一份資料另有兩種格式：<code>docs/Stage-Report.json</code>（完整節點資料，供程式判讀）、
       <code>docs/Stage-Report.md</code>（精簡摘要，供 AI 讀取）。</span>
-    <span>圖檔來源 <code>docs/diagrams/</code>；節點探測邏輯 <code>platform/statusdag/dag.py</code>。</span>
+    <span>八張圖的<strong>唯一</strong>來源是 <code>docs/report/plates.src.html</code>
+      （離線版 <a href="report/plates.offline.html">report/plates.offline.html</a>）；
+      節點探測邏輯 <code>platform/statusdag/dag.py</code>。
+      2026-09-02 之前本頁內嵌 <code>docs/diagrams/</code> 的第二套圖，兩套已完全分岔，舊的那套已刪。</span>
     <span><a href="/decisions/index.md">決策紀錄</a>——每一筆帶量測的決定都附重跑指令，
       所以三個月後是重跑一次，不是憑印象重估。</span>
   </footer>
@@ -711,6 +733,10 @@ figcaption{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:.72rem;
 .canvas svg{display:block;min-width:900px;width:100%;height:auto}
 .missing{color:var(--fail);font-size:.9rem;margin:0}
 .figs{display:flex;flex-direction:column;gap:1.5rem}
+.plates{margin:0;padding:.7rem .9rem;border:1px solid var(--rule-soft);border-radius:3px;
+  background:#FBFCFD;font-size:.82rem}
+.plates a{font-weight:600;text-decoration:none;border-bottom:1px solid currentColor}
+.plates small{display:block;margin-top:.3rem;color:var(--muted);font-size:.72rem}
 
 .groups{display:flex;flex-direction:column;gap:1.5rem}
 .grp{background:var(--surface);border:1px solid var(--rule-soft);border-radius:3px;

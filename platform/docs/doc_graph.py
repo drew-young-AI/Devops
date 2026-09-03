@@ -28,8 +28,24 @@ a document in a hurry -- and a stale manifest reports full coverage of a tree
 that has grown. Walking the real links means a new unlinked document shows up
 as an orphan on the next run without anyone remembering to do anything.
 
+WHAT THIS CANNOT PROVE, WHICH MATTERS AS MUCH AS WHAT IT CAN.
+
+Reachability is not currency. The document that did the most damage in this
+repository -- a hand-curated status page declaring "data governance and process
+visualisation are almost empty" nine days after both were built -- was
+reachable, prominently linked, and labelled "read this first". This walk would
+have given it a clean bill of health, because it was clean: it was linked.
+
+So --tree exists to make the graph usable for MAINTENANCE rather than only as a
+gate. It prints the tree a reader actually descends, annotated with how long
+since each document was last touched, so the question "which part of this tree
+has nobody looked at" has an answer that does not depend on remembering. The
+complementary question -- "is this document generated, or is somebody promising
+to keep it true by hand" -- is `platform/docs/doc_freshness.py`.
+
 Usage:
   doc_graph.py             human-readable report
+  doc_graph.py --tree      the reading tree, annotated with age
   doc_graph.py --json      machine-readable
   doc_graph.py --check     exit 1 if there are unexplained orphans or broken links
 
@@ -121,11 +137,13 @@ def walk():
 
     reached = set()
     broken = []          # (source, raw target)
+    children = {}        # first discoverer -> documents it introduced
     queue = [ROOT_DOC]
     reached.add(ROOT_DOC)
 
     while queue:
-        current = queue.pop()
+        current = queue.pop(0)   # breadth-first, so a document's parent in the
+                                 # rendered tree is its SHALLOWEST route in
         for raw, resolved in links_from(current):
             exists = (
                 resolved in tracked_any
@@ -144,6 +162,7 @@ def walk():
                 continue
             if resolved.endswith(".md") and resolved in docs and resolved not in reached:
                 reached.add(resolved)
+                children.setdefault(current, []).append(resolved)
                 queue.append(resolved)
 
     orphans = sorted(docs - reached - set(EXEMPT))
@@ -157,12 +176,76 @@ def walk():
         "exempt": exempt_present,
         "exempt_stale": exempt_stale,
         "broken": [{"in": s, "link": t} for s, t in sorted(broken)],
+        "children": {k: sorted(v) for k, v in children.items()},
     }
+
+
+def last_touched_days():
+    """Days since each tracked file was last committed.
+
+    One `git log` over the whole history rather than one per file: 60-odd
+    subprocesses to answer a question this cheap is how a useful report turns
+    into one nobody waits for.
+    """
+    out = subprocess.run(
+        ["git", "-C", REPO_ROOT, "log", "--format=@%ct", "--name-only", "--no-renames"],
+        capture_output=True, text=True, check=False).stdout
+    now = int(subprocess.run(["date", "+%s"], capture_output=True, text=True,
+                             check=False).stdout.strip() or 0)
+    ages, stamp = {}, None
+    for line in out.splitlines():
+        if line.startswith("@"):
+            stamp = int(line[1:])
+        elif line.strip() and stamp is not None and line not in ages:
+            ages[line] = max(0, (now - stamp) // 86400)
+    return ages
+
+
+def render_tree(report):
+    """The tree a reader descends, with the age of every document on it."""
+    ages = last_touched_days()
+    children = report["children"]
+    printed = set()
+
+    def walk_node(path, prefix, is_last, depth):
+        if depth > 12:
+            return
+        age = ages.get(path)
+        mark = "" if age is None else ("%4dd" % age)
+        # A document reachable by two routes is shown once, at its shallowest,
+        # and marked elsewhere -- otherwise the tree prints the same subtree
+        # repeatedly and stops being readable, which defeats the purpose.
+        if path in printed:
+            print("%s%s%s  (already above)" % (prefix, "`-- " if is_last else "|-- ", path))
+            return
+        printed.add(path)
+        print("%s%s%-58s %s" % (prefix, "" if depth == 0 else ("`-- " if is_last else "|-- "),
+                                path, mark))
+        kids = children.get(path, [])
+        nxt = prefix if depth == 0 else prefix + ("    " if is_last else "|   ")
+        for i, kid in enumerate(kids):
+            walk_node(kid, nxt, i == len(kids) - 1, depth + 1)
+
+    print("reading tree from %s   (right column: days since last commit)" % ROOT_DOC)
+    walk_node(ROOT_DOC, "", True, 0)
+
+    stale = sorted(((ages.get(p, 0), p) for p in printed if ages.get(p) is not None),
+                   reverse=True)[:8]
+    if stale:
+        print()
+        print("longest untouched on the tree:")
+        for age, path in stale:
+            print("  %4dd  %s" % (age, path))
+        print()
+        print("  Age is not a defect. It is the only cheap signal for WHERE to look,")
+        print("  and whether a document may go stale at all depends on whether")
+        print("  anything regenerates it -- see platform/docs/doc_freshness.py.")
 
 
 def main(argv):
     as_json = "--json" in argv
     check = "--check" in argv
+    as_tree = "--tree" in argv
 
     report = walk()
 
@@ -175,7 +258,9 @@ def main(argv):
         )
         return 2
 
-    if as_json:
+    if as_tree:
+        render_tree(report)
+    elif as_json:
         print(json.dumps(report, indent=2, ensure_ascii=False))
     else:
         print("documentation tree from %s" % ROOT_DOC)

@@ -262,3 +262,29 @@ Authority` 簽發，伺服器卻送 `TWCA Secure SSL Certification Authority`）
    （非開放資料）。
 5. **CareMag 重新載入約 50 分鐘**：110 MB 下載 + 1.55M 列解析。尚未做增量載入
    （來源沒有提供變更指標）。
+
+---
+
+## 7. 這條線實際執行的載入器（2026-09-02 補上索引）
+
+| 檔案 | 什麼時候跑 | 載入什麼 | 保證什麼 |
+|---|---|---|---|
+| [`ingest/run.sh`](ingest/run.sh) | 由 [`dataops/ingest.sh`](../../platform/dataops/ingest.sh) 呼叫（每日 03:00） | **入口**，容器化執行整條載入 | 帶 `--network host`（要抓政府 API）。**這一欄原本寫「排程與 CI 都從這裡進去」，而兩邊都不成立**：直到 2026-09-03 才有排程，CI 至今不跑載入器。四欄全部填滿、可達性四層全過，描述照樣是錯的——這是「描述會變錯」的實例，不是舉例 |
+| [`ingest/load_dimensional.py`](ingest/load_dimensional.py) | 由 `ingest/run.sh` 呼叫 | 疫情事實表與維度 | 星狀模型的主線；upsert 與衝突判定在載入時決定，不留給查詢端 |
+| [`ingest/load_registry.py`](ingest/load_registry.py) | 資料來源更新時 | 內政部戶政司**村里級人口統計** | **這是這個平台一直沒有的分母**——沒有分母，通報數只能比大小、不能算率，而流行病學要的是率 |
+
+`load_registry.py` 在 2026-09-02 之前**沒有被任何從 README 連得到的文件指名**，
+只被測試呼叫。它不是內部細節，它是這條線缺了很久的那一半。
+守衛：`platform/docs/capability_graph.py`。
+
+
+---
+
+## 能力表（何時跑／做什麼／保證什麼）
+
+**這張表是給三種讀者的**：人要知道跑哪一支，agent 要能不讀原始碼就知道用途，
+`platform/docs/capability_graph.py` 要能驗證每支能力都被描述到（能力必須是**該列的主詞**）。
+
+| 能力 | 什麼時候跑 | 做什麼 | 保證什麼 |
+|---|---|---|---|
+| [`ingest/discover_sources.py`](ingest/discover_sources.py) | 盤點資料來源時 | 列舉 CKAN 目錄，回報**真正可發布**的東西 | 回報的是**實際可取得**的，不是「猜一個 URL 看起來存在」的——猜出來的來源會在載入當天才爆 |

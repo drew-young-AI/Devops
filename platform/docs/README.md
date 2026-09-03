@@ -125,11 +125,40 @@ stricter than the standard and would punish a legitimate new concept kind.
 - **No `index.md` files.** Optional in the spec, and they would turn the
   bundle into a navigable graph, but a hand-maintained index goes stale. If
   added, it should be generated.
-- **Cross-links are not yet used as a graph.** OKF treats markdown links
-  between concepts as edges; these documents link by path but nothing
-  consumes that structure yet.
+  **That instinct turned out to be the load-bearing one**, and it now has a
+  guard: `doc_freshness.py` requires every tracked rendered page under `docs/`
+  to be either generated (with its generator's own check passing) or recorded
+  as deliberately hand-maintained with a one-line reason. Two pages that were
+  neither had already gone wrong — one told management that data governance
+  and process visualisation were "almost empty" nine days after both were
+  built. **Reachability could not have caught either; both were linked.**
+- ~~**Cross-links are not yet used as a graph.**~~ **Closed 2026-09-02.**
+  `doc_graph.py` walks those edges from `README.md` and reports what is
+  reachable, orphaned, or broken; `--tree` renders the graph with each
+  document's age, so the tree is a maintenance instrument rather than only a
+  gate. It found five orphans on the first run, one of which was a second and
+  stale copy of the capability index. Guarded by
+  `platform/tests/test_doc_graph.sh`.
 - **The mixed-shape README problem above is unaddressed.**
 - **`resource` is unused.** It would matter once concepts point at real
   assets (a table, an endpoint) rather than describing platform components.
 - **Only this repo.** `~/Apps/AIS/capabilities/` and the memory directory are
   the other knowledge surfaces and are not covered.
+
+
+---
+
+## 能力表（何時跑／做什麼／保證什麼）
+
+**這張表是給三種讀者的**：人要知道跑哪一支，agent 要能不讀原始碼就知道用途，
+`platform/docs/capability_graph.py` 要能驗證每支能力都被描述到。
+
+| 能力 | 什麼時候跑 | 做什麼 | 保證什麼 |
+|---|---|---|---|
+| [`doc_graph.py`](doc_graph.py) | 排程／CI | 從 `README.md` 走真正的連結圖 | 回答「孤兒／斷鏈／可達」。`--tree` 附每份文件幾天沒動過。**證不到內容還是不是真的** |
+| [`doc_freshness.py`](doc_freshness.py) | 排程／CI | 每份追蹤中的渲染頁面：產生式，還是有人用手承諾 | 產生式的要通過它自己的 `--check`；手工維護的必須具名寫下理由。**第三份 System-State.html 沒辦法安靜地被加進來** |
+| [`capability_graph.py`](capability_graph.py) | 排程／CI | 每支能力是否被某份**可達**文件描述 | **被程式呼叫不等於找得到**。內部元件可指向入口，**但那個入口本身必須被描述**——少了這半，豁免清單就是藏東西的地方 |
+| [`duplicate_check.py`](duplicate_check.py) | 排程／CI | 有沒有兩份東西在講同一件事 | 正規化後**完全比對**，刻意不做相似度評分——誤報是檢查被靜音的方式。「同一產物兩個生產者」只報告不判失敗 |
+| [`decisions.py`](decisions.py) | 排程／CI | 驗證決策紀錄並產生 `docs/decisions/index.md` | **每個帶量測的宣稱都附重跑指令，而那指令必須指向存在的東西**——指向六週前改名腳本的 `rerun:` 比沒有更糟 |
+| [`context_cost.sh`](context_cost.sh) | 需要時 | agent 讀完這個平台的證據要花多少 token | 讓「給 AI 看的產物」的成本是數字而不是感覺 |
+| [`okf_check.py`](okf_check.py) | 排程／CI | OKF v0.1 frontmatter 一致性 | 每份文件都帶得走：type／title／description／tags 齊全且合法 |
