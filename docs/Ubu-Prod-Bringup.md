@@ -13,7 +13,8 @@ timestamp: 2026-08-31T00:00:00+08:00
 
 **狀態（2026-09-03 更新）：機器已開機，叢集 Ready 且從 Mac 可達。**
 **平台現在知道它存在（板面新增 `prod 叢集 (ubu/amd64)` 節點）。**
-**還沒有任何工作負載——建置鏈已寫好但尚未跑過。**
+**建置鏈 2026-09-03 首次執行成功；amd64 映像已實測能在 ubu 上執行（`machine: x86_64`）。**
+**叢集刻意維持空的：pilot 還缺 Vault 與資料庫，一個永遠 NotReady 的部署是永久紅。**
 
 ## 一、已經完成的（不需重做）
 
@@ -103,9 +104,16 @@ ping -c 2 192.168.1.1            # 路由器通 → 不是本機網路問題
    - `imagetools create` 只做**組裝**不做編譯，並斷言索引裡兩個架構都在
    - 把要 pin 的 digest 印進 job summary
 
-   **未驗證：workflow 從未執行過。** 而且 ghcr 套件預設是私有的，
-   prod 叢集要嘛需要把套件設為公開，要嘛需要 imagePullSecret——
-   **那是帳號設定，workflow 決定不了**。
+   **2026-09-03 首次執行成功**（run 33770464457）。要 pin 的 digest：
+
+   ```
+   ghcr.io/drew-young-ai/station2-twin@sha256:a07378130521b1e44abd13d8ae58c55f8b9f84724f2498886bb884ab86e01602
+   ```
+
+   **套件是公開可讀的**——未帶認證的 `imagetools inspect` 就解析得到，
+   所以不需要 imagePullSecret。這是量出來的，原本那句「預設私有」是假設。
+
+   已在 ubu 上以一次性 Job 實測：節點拉的是 digest、跑起來 `machine: x86_64`。
 
 ## 四、接下來的順序
 

@@ -1,9 +1,25 @@
 {
   "schema": "gha-status/1",
-  "fetched_at": "2026-09-03T22:17:45+08:00",
+  "fetched_at": "2026-09-03T23:03:47+08:00",
   "fetch_state": "ok",
   "detail": "fetched main",
   "runs": [
+    {
+      "conclusion": "",
+      "createdAt": "2026-09-03T15:03:42Z",
+      "displayTitle": "fix(portability,k8s): 第二台機器一開機，就找到四個「Mac 上全綠」的缺陷",
+      "status": "in_progress",
+      "url": "https://github.com/drew-young-AI/Devops/actions/runs/33770464364",
+      "workflowName": "Platform Tests"
+    },
+    {
+      "conclusion": "",
+      "createdAt": "2026-09-03T15:03:42Z",
+      "displayTitle": "fix(portability,k8s): 第二台機器一開機，就找到四個「Mac 上全綠」的缺陷",
+      "status": "in_progress",
+      "url": "https://github.com/drew-young-AI/Devops/actions/runs/33770464457",
+      "workflowName": "pilot-image"
+    },
     {
       "conclusion": "failure",
       "createdAt": "2026-09-03T12:01:22Z",
@@ -66,22 +82,6 @@
       "displayTitle": "chore(evidence): 收斂後的板面與健康快照",
       "status": "completed",
       "url": "https://github.com/drew-young-AI/Devops/actions/runs/33577628695",
-      "workflowName": "Platform Tests"
-    },
-    {
-      "conclusion": "success",
-      "createdAt": "2026-09-01T14:37:06Z",
-      "displayTitle": "fix(tests): 同一個 stat 缺陷的第五次，以及讓它不會有第六次的守衛",
-      "status": "completed",
-      "url": "https://github.com/drew-young-AI/Devops/actions/runs/33520597323",
-      "workflowName": "Platform Tests"
-    },
-    {
-      "conclusion": "failure",
-      "createdAt": "2026-09-01T14:26:52Z",
-      "displayTitle": "Platform Tests",
-      "status": "completed",
-      "url": "https://github.com/drew-young-AI/Devops/actions/runs/33519534107",
       "workflowName": "Platform Tests"
     }
   ]

@@ -1160,13 +1160,18 @@ FAIL「not running: <job>」。**每個新加的 job 在它第一個週期內都
    ```
 2. **固定 IP**（目前 `192.168.1.144`）——DHCP 換約會讓 kubeconfig 的 SAN 與所有診斷失效。
    路由器保留位址，或在 ubu 上設固定位址。
-3. **ghcr 套件的可見性**——套件預設私有，prod 叢集要嘛需要設為公開、要嘛需要
-   imagePullSecret。**那是帳號設定，workflow 決定不了。**
+3. ~~**ghcr 套件的可見性**~~ **不需要處理**：實測未帶認證即可 `imagetools inspect`，
+   套件是公開可讀的，ubu 的 k3s 直接拉得到。原本那句「預設私有」是假設不是量測。
 
 ### 還沒做的（不需要你，但需要前置條件）
 
-- **pilot 上 prod**：等 `pilot-image.yml` 跑過一次、拿到 manifest list 的 digest。
-  在那之前 `test_image_arch.sh` 對 ubu 會一直回報 `VACUOUS`——那是誠實的空集合，不是綠燈。
+- **pilot 上 prod**：`pilot-image.yml` 已於 2026-09-03 首次執行成功，
+  digest 是 `ghcr.io/drew-young-ai/station2-twin@sha256:a073781305...`，
+  且已在 ubu 上以一次性 Job 實測跑起來（`machine: x86_64`，拉的是 digest 不是 tag）。
+  **剩下的阻塞不是映像，是 Vault 與資料庫**：`deployment-template.yaml` 的
+  `PGHOST` 與 `VAULT_ADDR` 都指向 `host.k3d.internal`，那是 k3d 專屬的名字，
+  ubu 上不存在。在那之前 `test_image_arch.sh` 對 ubu 會回報 `VACUOUS`——
+  它問的是「部署在那裡的 Deployment」，一次性 Job 不算。**空集合就該說是空集合。**
 - **Vault on ubu**（使用者已決定兩台都放）：`hashicorp/vault:1.18` 是多架構，
   k3s 自己拉得到，不需要本機建置也不需要 root。沒有現在做是因為它會產生
   unseal key 與 root token，而那批憑證的存放位置與 pilot 上 prod 的時程應該一起決定。

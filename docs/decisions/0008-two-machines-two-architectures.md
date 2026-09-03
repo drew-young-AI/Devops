@@ -38,13 +38,43 @@ decision:
 
 | 規則 | 執法者 | 狀態 |
 |---|---|---|
-| 1. 原生建置，不用 QEMU | `.github/workflows/pilot-image.yml` — `ubuntu-latest`(amd64) 與 `ubuntu-24.04-arm`(arm64) 兩個原生 runner，各自斷言 `dpkg --print-architecture` 與映像檔自報架構 | 已建立，**尚未執行過** |
+| 1. 原生建置，不用 QEMU | `.github/workflows/pilot-image.yml` — `ubuntu-latest`(amd64) 與 `ubuntu-24.04-arm`(arm64) 兩個原生 runner，各自斷言 `dpkg --print-architecture` 與映像檔自報架構 | ✅ **2026-09-03 首次執行成功**（run 33770464457） |
 | 2. pin digest 不 pin tag | `platform/k8s/station2-twin/deploy.sh` 對非本機 lab 的 context **拒絕 tag** | ✅ 執法中，含三個合成控制 |
 | 3. 映像檔要有目標架構的 manifest | `platform/tests/test_image_arch.sh` | ✅ 執法中；ubu context 目前回報 `VACUOUS` |
 
 第 2 條為什麼只對非 lab 的 context 執法：本機只有一種架構、registry 在同一台主機上，
 而藍綠流程每次部署都會改寫那個 tag。digest 在那裡買不到任何東西，
 卻會讓「同一個顏色換一版重新部署」變成不可能。**兩座叢集真正相遇的地方才是風險所在。**
+
+## 正面終於被量到了（2026-09-03）
+
+2026-08-31 量到的是**反面**：Mac 建的 arm64 映像搬到 amd64 叢集，
+每個人會看的步驟都回報成功，只有 containerd 說了實話
+（`no match for platform in manifest`）。
+
+2026-09-03 量到正面，全鏈：
+
+```
+CI 原生建置        runner reports: amd64   image reports: linux/amd64
+                   runner reports: arm64   image reports: linux/arm64
+推 ghcr（by digest） amd64 → sha256:6c191ed8...
+                   arm64 → sha256:543fdf20...
+組裝 manifest list  ok linux/amd64   ok linux/arm64
+                   sha256:a07378130521b1e44abd13d8ae58c55f8b9f84724f2498886bb884ab86e01602
+ubu 節點拉取並執行   machine: x86_64   python: 3.12.14
+                   imageID = ...@sha256:a073781305...（digest，不是 tag）
+```
+
+用一次性 Job 證明，不是 Deployment：pilot 在 ubu 上還沒有 Vault 與資料庫，
+一個永遠 NotReady 的 Deployment 會變成這個 repo 整場在移除的那種永久紅。
+Job 完成後即刪除，ubu 的叢集回到空的。
+
+**ghcr 套件是公開可讀的**——未帶任何認證的 `imagetools inspect` 就解析得到，
+所以原本標記的「prod 叢集需要 imagePullSecret」不成立。這是量出來的，不是假設。
+
+`test_image_arch.sh` 對 ubu 仍然回報 `VACUOUS`，而那是對的：
+它問的是「部署在那裡的自建映像」，而 Job 不是 Deployment。
+**空集合就該說是空集合。**
 
 ## 這條 ADR 訂了三天沒有人檢查另一邊（2026-09-03 記）
 

@@ -283,3 +283,7 @@
 {"job": "gha", "gap_seconds": 8519, "gap_minutes": 142.0, "expected_interval_seconds": 1800, "missed_runs": 3, "from": "2026-09-03T09:25:27Z", "to": "2026-09-03T11:47:26Z"}
 {"job": "dataops", "gap_seconds": 10439, "gap_minutes": 174.0, "expected_interval_seconds": 3600, "missed_runs": 1, "from": "2026-09-03T09:07:01Z", "to": "2026-09-03T12:01:00Z"}
 {"job": "disk", "gap_seconds": 1262, "gap_minutes": 21.0, "expected_interval_seconds": 300, "missed_runs": 3, "from": "2026-09-03T14:40:26Z", "to": "2026-09-03T15:01:28Z"}
+{"job": "board", "gap_seconds": 1862, "gap_minutes": 31.0, "expected_interval_seconds": 900, "missed_runs": 1, "from": "2026-09-03T14:35:25Z", "to": "2026-09-03T15:06:27Z"}
+{"job": "health", "gap_seconds": 1862, "gap_minutes": 31.0, "expected_interval_seconds": 900, "missed_runs": 1, "from": "2026-09-03T14:38:05Z", "to": "2026-09-03T15:09:07Z"}
+{"job": "dag", "gap_seconds": 1864, "gap_minutes": 31.1, "expected_interval_seconds": 900, "missed_runs": 1, "from": "2026-09-03T14:38:30Z", "to": "2026-09-03T15:09:34Z"}
+{"job": "stagereport", "gap_seconds": 1864, "gap_minutes": 31.1, "expected_interval_seconds": 900, "missed_runs": 1, "from": "2026-09-03T14:38:32Z", "to": "2026-09-03T15:09:36Z"}
