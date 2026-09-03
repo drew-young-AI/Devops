@@ -62,6 +62,20 @@ SUITES=(
   # and can never fire -- so the thing it claims to watch reads as permanently
   # healthy. That suite joins the rules against the exporter's actual output.
   test_dataops_metrics.sh
+  # Host disk. Added 2026-09-03, the day the volume filled and took the whole
+  # platform down -- 14 alert rules, 91 capabilities, 777 green assertions,
+  # and not one of them measured free space. The suite's real content is the
+  # mutation check: it proves the new rules can go RED, which is the only
+  # thing promtool SUCCESS does not tell you.
+  test_host_capacity.sh
+  # The same freshness question, asked generically. The disk suite above
+  # originally carried a bespoke staleness rule for its own .prom file;
+  # node-exporter already publishes node_textfile_mtime_seconds for all six,
+  # and five of them had no guard at all. This suite is mostly a four-way
+  # cross-check between the thresholds, the expression, jobs.conf and the
+  # files that actually exist -- a NEW exporter with no rule is the gap an
+  # alert cannot see, because an unwatched exporter reads as a healthy one.
+  test_exporter_freshness.sh
   # The dashboards themselves. Until 2026-08-29 nothing read them, and every
   # panel of the reviewer-facing board was querying a datasource uid that does
   # not exist -- valid JSON, valid PromQL, existing metrics, empty panels.

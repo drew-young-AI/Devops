@@ -1,0 +1,93 @@
+# Host capacity. The first rules on this platform that watch the machine
+# rather than the software running on it.
+#
+# WHY THEY DID NOT EXIST UNTIL 2026-09-03.
+#
+# service-health.yml still carries the sentence "Rules for CPU, memory and
+# container restarts are deliberately absent -- nothing collects those metrics
+# yet (no cAdvisor/node-exporter)". node-exporter has in fact been running for
+# weeks; it is started with `--collector.disable-defaults --collector.textfile`,
+# so the reasoning was half right (no host metrics) for a reason that had
+# stopped being true (no exporter). The acknowledged gap outlived the fact it
+# was based on, and nobody re-read it. Shape:
+# 「註解描述的機制不等於機制存在」, inverted.
+#
+# On 2026-09-03 the APFS data volume hit 100%. Prometheus stopped answering,
+# Docker's engine died at 11:23, every container went with it. Fourteen alert
+# rules, 91 capabilities, 777 green assertions -- and the thing that stopped
+# all of it was a quantity none of them measured. That is the failure shape
+# 「監控系統被它沒有監控的東西弄停了」: the monitor cannot report the resource
+# it is itself running on running out.
+#
+# The metrics come from platform/observability/host_disk_metrics.sh, written
+# into node-exporter's textfile directory. Read that script's header before
+# changing a threshold -- in particular for why the mount point is
+# /System/Volumes/Data and not /, and why Docker.raw is exported as two
+# separate numbers.
+
+groups:
+  - name: host-capacity
+    rules:
+      # Percentage, not an absolute byte count. A 60GiB floor is meaningless
+      # the day this repo runs on a different machine, and a threshold whose
+      # meaning depends on hardware nobody re-checks is a threshold that
+      # quietly stops meaning anything.
+      #
+      # 10% of 926GiB is ~92GiB, which given the observed fill rate is hours
+      # of warning, not minutes. Deliberately generous: the cost of acting
+      # early is one `docker image prune`; the cost of acting late was this
+      # entire platform being down for an afternoon.
+      - alert: HostDiskLow
+        expr: >-
+          host_filesystem_avail_bytes / host_filesystem_size_bytes < 0.10
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Host volume {{ $labels.mountpoint }} below 10% free"
+          description: >-
+            Free space on the macOS data volume has been under 10% for 15
+            minutes. Everything on this machine shares one volume: the
+            container engine, Prometheus' own TSDB, the Parquet mirror and the
+            evidence tree. When it fills, the platform does not degrade -- it
+            stops, and it stops being able to tell you why.
+          runbook: >-
+            df -h /System/Volumes/Data;
+            du -sh ~/Library/Containers/com.docker.docker/Data/vms/0/data/Docker.raw;
+            docker system df; then platform/observability/docker_reclaim.sh --dry-run
+
+      # 4%, and only 5 minutes of `for`. At this point the question is no
+      # longer whether to act but whether there is still room to act in: the
+      # 2026-09-03 outage went from "low" to Docker refusing to answer at all
+      # inside one working session, and a wedged engine cannot be cleaned up
+      # with docker commands.
+      - alert: HostDiskCritical
+        expr: >-
+          host_filesystem_avail_bytes / host_filesystem_size_bytes < 0.04
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Host volume {{ $labels.mountpoint }} below 4% free -- act now"
+          description: >-
+            The volume is nearly full. Below this line Docker's engine has
+            already been observed to die outright (2026-09-03 11:23), which
+            takes Prometheus, Alertmanager and Grafana with it -- so this alert
+            is one of the last messages this platform is able to send.
+          runbook: >-
+            docker desktop restart may be required first if docker commands hang;
+            then platform/observability/docker_reclaim.sh
+
+      # THE STALENESS GUARD MOVED OUT OF THIS FILE, 2026-09-03.
+      #
+      # The two rules above fail silently when their input freezes: node-exporter
+      # keeps serving the last .prom file, so a full disk -- which is exactly
+      # when the exporter cannot write -- leaves them evaluating a comfortable
+      # number that stopped being true. That still needs a witness.
+      #
+      # It is now alerts/exporter-freshness.yml, keyed on
+      # `node_textfile_mtime_seconds`, for three reasons the first version got
+      # wrong: node-exporter already publishes that; the filesystem's mtime
+      # cannot be asserted by a writer with a bad clock, whereas a
+      # self-reported timestamp can; and the same failure applies to five other
+      # .prom files that had no rule at all. See that file's header.

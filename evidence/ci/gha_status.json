@@ -1,9 +1,17 @@
 {
   "schema": "gha-status/1",
-  "fetched_at": "2026-09-03T11:52:38+08:00",
+  "fetched_at": "2026-09-03T15:53:20+08:00",
   "fetch_state": "ok",
   "detail": "fetched main",
   "runs": [
+    {
+      "conclusion": "failure",
+      "createdAt": "2026-09-03T04:09:02Z",
+      "displayTitle": "feat(ops): 接上 pilot 資料迴路，並讓未接通的告警通道自己說出來",
+      "status": "completed",
+      "url": "https://github.com/drew-young-AI/Devops/actions/runs/33713979071",
+      "workflowName": "Platform Tests"
+    },
     {
       "conclusion": "success",
       "createdAt": "2026-09-02T06:48:10Z",
@@ -74,14 +82,6 @@
       "displayTitle": "feat(security): DAST 回報 PASS，而它涵蓋的是十條路由中的四條",
       "status": "completed",
       "url": "https://github.com/drew-young-AI/Devops/actions/runs/33510302712",
-      "workflowName": "Platform Tests"
-    },
-    {
-      "conclusion": "success",
-      "createdAt": "2026-09-01T09:03:07Z",
-      "displayTitle": "docs: 簡報用的八張圖，以及那個「前置條件」其實不是前置條件",
-      "status": "completed",
-      "url": "https://github.com/drew-young-AI/Devops/actions/runs/33490192649",
       "workflowName": "Platform Tests"
     }
   ]

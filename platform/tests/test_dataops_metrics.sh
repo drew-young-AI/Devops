@@ -118,7 +118,7 @@ fi
 # ---- promtool: Prometheus' own parser, not ours ---------------------------
 if command -v docker >/dev/null 2>&1; then
   run_cmd docker run --rm -v "$REPO_ROOT/platform/observability/prometheus/alerts:/a:ro" \
-      --entrypoint promtool prom/prometheus:v3.6.0 check rules /a/dataops.yml
+      --entrypoint promtool "$(prom_image)" check rules /a/dataops.yml
   assert_rc 0 "promtool accepts the rules"
   assert_output_contains "7 rules found" "and finds all seven (6 alerts + 1 recording rule)"
 else

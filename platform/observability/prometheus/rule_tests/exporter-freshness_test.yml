@@ -1,0 +1,168 @@
+# Synthetic control for alerts/exporter-freshness.yml.
+#
+# Every case is paired: one where the rule must fire, one where it must not.
+# A staleness rule with no fresh-case control is indistinguishable from a rule
+# whose expression is true unconditionally, and it would then fire forever and
+# be silenced -- which is worse than not having it.
+#
+# NOTE ON THE LABEL. The series below carry `/textfile/<name>.prom`, which is
+# what node-exporter actually emits -- not the bare basename. The first version
+# of the rule was written against a basename that only existed because a display
+# command had stripped the prefix, so it matched nothing and could never have
+# fired. Using the production form here is what makes this control a test of
+# the real rule rather than of a convenient fiction.
+#
+# NOTE ON time(). promtool evaluates from epoch 0, so time() at eval_time=T
+# minutes is T*60. A series written `0+60x N` equals time() at every step,
+# which is what "fresh" means here; a series pinned at a constant ages at one
+# second per second, which is what "frozen" means.
+
+rule_files:
+  - ../alerts/exporter-freshness.yml
+
+evaluation_interval: 1m
+
+tests:
+  # ---- host_disk.prom frozen: fires after 900s + for:5m -------------------
+  - interval: 1m
+    input_series:
+      - series: 'node_textfile_mtime_seconds{file="/textfile/host_disk.prom"}'
+        values: "0x40"
+      - series: 'node_textfile_mtime_seconds{file="/textfile/dag.prom"}'
+        values: "0+60x40"
+      - series: 'node_textfile_scrape_error'
+        values: "0x40"
+    alert_rule_test:
+      # Crosses 900s at t=15m, plus `for: 5m`.
+      - eval_time: 21m
+        alertname: TextfileExporterStale
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              file: "/textfile/host_disk.prom"
+            exp_annotations:
+              summary: "/textfile/host_disk.prom has not been rewritten -- everything derived from it is frozen"
+              description: >-
+                A textfile exporter stopped writing. node-exporter keeps serving the last file it wrote, so every metric in it still has a value and every rule reading those metrics still evaluates -- against numbers that stopped being true. Nothing else reports this: a stale value and a steady one are identical from downstream.
+              runbook: >-
+                platform/scheduler/status.sh; launchctl print gui/$(id -u)/devops.platform.<job> | grep -E 'runs|last exit'; tail evidence/scheduler/logs/<job>.launchd.log
+      # THE PAIRED CONTROL. At 14m it is stale but has not crossed 900s, so the
+      # threshold is doing work rather than the rule being always true.
+      - eval_time: 14m
+        alertname: TextfileExporterStale
+        exp_alerts: []
+      # dag.prom is fresh throughout and must never appear above. Without this,
+      # a rule that dropped its file matcher would still pass.
+      - eval_time: 21m
+        alertname: TextfileExporterMissing
+        exp_alerts: []
+
+  # ---- everything fresh: silent ------------------------------------------
+  - interval: 1m
+    input_series:
+      - series: 'node_textfile_mtime_seconds{file="/textfile/host_disk.prom"}'
+        values: "0+60x60"
+      - series: 'node_textfile_mtime_seconds{file="/textfile/dag.prom"}'
+        values: "0+60x60"
+      - series: 'node_textfile_scrape_error'
+        values: "0x60"
+    alert_rule_test:
+      - eval_time: 55m
+        alertname: TextfileExporterStale
+        exp_alerts: []
+      - eval_time: 55m
+        alertname: TextfileExporterMissing
+        exp_alerts: []
+      - eval_time: 55m
+        alertname: TextfileCollectorErrored
+        exp_alerts: []
+
+  # ---- the cadences are not all the same ---------------------------------
+  # dag.prom frozen for 40m is fine (2700s threshold) while host_disk frozen
+  # for the same 40m is not. If someone collapsed the per-file thresholds into
+  # one number, exactly one of these two assertions would break.
+  - interval: 1m
+    input_series:
+      - series: 'node_textfile_mtime_seconds{file="/textfile/dag.prom"}'
+        values: "0x60"
+      - series: 'node_textfile_scrape_error'
+        values: "0x60"
+    alert_rule_test:
+      - eval_time: 40m
+        alertname: TextfileExporterStale
+        exp_alerts: []
+      # And it does fire once 2700s is genuinely passed (45m + for:5m). 52m,
+      # not 50m: at exactly 50m the `for` window has not closed, and a test
+      # written on the boundary would have read as "the rule does not work".
+      - eval_time: 52m
+        alertname: TextfileExporterStale
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              file: "/textfile/dag.prom"
+            exp_annotations:
+              summary: "/textfile/dag.prom has not been rewritten -- everything derived from it is frozen"
+              description: >-
+                A textfile exporter stopped writing. node-exporter keeps serving the last file it wrote, so every metric in it still has a value and every rule reading those metrics still evaluates -- against numbers that stopped being true. Nothing else reports this: a stale value and a steady one are identical from downstream.
+              runbook: >-
+                platform/scheduler/status.sh; launchctl print gui/$(id -u)/devops.platform.<job> | grep -E 'runs|last exit'; tail evidence/scheduler/logs/<job>.launchd.log
+
+  # ---- never appeared at all ---------------------------------------------
+  # The empty-set case. With no mtime series the staleness rule is a true
+  # statement about nothing and stays silent, which is why the absent() rule
+  # has to be separate rather than folded into it.
+  - interval: 1m
+    input_series:
+      - series: 'node_textfile_scrape_error'
+        values: "0x30"
+    alert_rule_test:
+      # TWO alerts, one per missing file, each naming itself. Asserted rather
+      # than collapsed: if a future edit merged the two absent() calls into one
+      # unlabelled check, the operator would be told "something is missing" and
+      # have to go and find out which.
+      - eval_time: 10m
+        alertname: TextfileExporterMissing
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              file: "/textfile/dag.prom"
+            exp_annotations:
+              summary: "/textfile/dag.prom has never appeared in the textfile directory"
+              description: >-
+                The file is not in the textfile directory at all, so every rule that reads it is a true statement about an empty set -- it cannot fire, and the platform reports all-clear on something nobody is measuring.
+              runbook: >-
+                ls -l evidence/statusdag/; platform/scheduler/install.sh --status; platform/observability/host_disk_metrics.sh
+          - exp_labels:
+              severity: warning
+              file: "/textfile/host_disk.prom"
+            exp_annotations:
+              summary: "/textfile/host_disk.prom has never appeared in the textfile directory"
+              description: >-
+                The file is not in the textfile directory at all, so every rule that reads it is a true statement about an empty set -- it cannot fire, and the platform reports all-clear on something nobody is measuring.
+              runbook: >-
+                ls -l evidence/statusdag/; platform/scheduler/install.sh --status; platform/observability/host_disk_metrics.sh
+      - eval_time: 10m
+        alertname: TextfileExporterStale
+        exp_alerts: []
+
+  # ---- a malformed file kills the whole directory -------------------------
+  - interval: 1m
+    input_series:
+      - series: 'node_textfile_scrape_error'
+        values: "1x30"
+      - series: 'node_textfile_mtime_seconds{file="/textfile/host_disk.prom"}'
+        values: "0+60x30"
+      - series: 'node_textfile_mtime_seconds{file="/textfile/dag.prom"}'
+        values: "0+60x30"
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: TextfileCollectorErrored
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+            exp_annotations:
+              summary: "node-exporter could not parse a textfile -- ALL textfile metrics are gone"
+              description: >-
+                node_textfile_scrape_error is non-zero. A single malformed file causes node-exporter to drop every metric in the directory, so the symptom is not one missing metric but all of them at once.
+              runbook: >-
+                docker logs observability-node-exporter-1 --tail 50; head -3 evidence/statusdag/*.prom

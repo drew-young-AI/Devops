@@ -67,7 +67,7 @@ print(json.load(open(sys.argv[1]))[sys.argv[2]])" "$SANDBOX/red.json" "$1" 2>/de
 #
 # A parser that stops matching would otherwise report "0 rules, 0 drift, all
 # clean" -- the vacuous pass this repo keeps finding in its own gates.
-assert_equals "3" "$(field rules_per_block)" "finds all three declared rules"
+assert_equals "4" "$(field rules_per_block)" "finds all four declared rules"
 assert_equals "2" "$(field blocks)" "finds both redaction blocks (internal and restricted)"
 
 # --- drift between the two streams ------------------------------------------

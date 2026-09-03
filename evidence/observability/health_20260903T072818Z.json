@@ -1,0 +1,67 @@
+{
+  "verdict": "DEGRADED",
+  "exit_code": 1,
+  "checked_at": "2026-09-03T07:28:18Z",
+  "monitoring_integrity": [
+    {
+      "check": "prometheus_reachable",
+      "ok": true,
+      "detail": "api/v1/rules responded"
+    },
+    {
+      "check": "alert_rules_loaded",
+      "ok": true,
+      "detail": "18 rules"
+    },
+    {
+      "check": "alert_rules_evaluating",
+      "ok": true,
+      "detail": "all ok"
+    },
+    {
+      "check": "alertmanager_wired",
+      "ok": true,
+      "detail": "1 active"
+    },
+    {
+      "check": "alertmanager_reachable",
+      "ok": true,
+      "detail": "api/v2/alerts responded"
+    },
+    {
+      "check": "scrape_targets_visible",
+      "ok": true,
+      "detail": "3 targets"
+    }
+  ],
+  "integrity_blockers": [],
+  "active_alerts": [
+    {
+      "alertname": "PlatformNodeFailed",
+      "severity": "warning",
+      "environment": null,
+      "service": "platform",
+      "summary": "節點 scheduler（foundation 層）狀態為 FAIL",
+      "runbook": "python3 platform/statusdag/dag.py 看該節點的細節",
+      "started_at": "2026-09-03T07:12:52.722Z"
+    },
+    {
+      "alertname": "PlatformNodeFailed",
+      "severity": "warning",
+      "environment": null,
+      "service": "platform",
+      "summary": "節點 gha（build 層）狀態為 FAIL",
+      "runbook": "python3 platform/statusdag/dag.py 看該節點的細節",
+      "started_at": "2026-09-03T07:01:07.722Z"
+    }
+  ],
+  "scrape_targets": {
+    "platform-dag/-": "up",
+    "station2-twin/develop": "up",
+    "station2-twin-k8s/k8s": "up"
+  },
+  "sources": {
+    "prometheus": "http://127.0.0.1:19090",
+    "alertmanager": "http://127.0.0.1:19093"
+  }
+}

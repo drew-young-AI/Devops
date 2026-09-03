@@ -1,0 +1,121 @@
+# Synthetic control for alerts/host-capacity.yml.
+#
+# `promtool check rules` reporting SUCCESS proves the file PARSES. This
+# repository has a recorded case of promtool returning SUCCESS for a rule that
+# failed every single evaluation (docs/decisions/0005), so parsing is not
+# evidence of anything. What has to be proved is that the rule GOES RED when
+# the disk is low and STAYS GREEN when it is not.
+#
+# It is proved with synthetic series, not by filling the disk. CLAUDE.md §5c
+# forbids injecting the real fault on this host -- 「填滿磁碟」 is named
+# explicitly -- and it would be self-defeating anyway: the fault under test is
+# the one that kills the process doing the testing.
+#
+# Every firing case is paired with a NOT-firing case. A test that only ever
+# asserts "it fired" cannot tell a working alert apart from one whose
+# expression is true unconditionally.
+#
+# The staleness cases moved to rule_tests/exporter-freshness_test.yml when the
+# guard was rewritten against node_textfile_mtime_seconds. What is left here is
+# the threshold behaviour of the two disk rules themselves.
+#
+# Run: platform/tests/test_host_capacity.sh
+
+rule_files:
+  - ../alerts/host-capacity.yml
+
+evaluation_interval: 1m
+
+tests:
+  # ---- HostDiskLow: fires at 5% free -------------------------------------
+  - interval: 1m
+    input_series:
+      - series: 'host_filesystem_avail_bytes{mountpoint="/System/Volumes/Data"}'
+        values: "50 50 50 50 50 50 50 50 50 50 50 50 50 50 50 50 50 50 50 50 50"
+      - series: 'host_filesystem_size_bytes{mountpoint="/System/Volumes/Data"}'
+        values: "1000x20"
+    alert_rule_test:
+      # Under threshold from t=0, `for: 15m`, so 16m is the first firing eval.
+      - eval_time: 16m
+        alertname: HostDiskLow
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              mountpoint: "/System/Volumes/Data"
+            exp_annotations:
+              summary: "Host volume /System/Volumes/Data below 10% free"
+              description: >-
+                Free space on the macOS data volume has been under 10% for 15 minutes. Everything on this machine shares one volume: the container engine, Prometheus' own TSDB, the Parquet mirror and the evidence tree. When it fills, the platform does not degrade -- it stops, and it stops being able to tell you why.
+              runbook: >-
+                df -h /System/Volumes/Data; du -sh ~/Library/Containers/com.docker.docker/Data/vms/0/data/Docker.raw; docker system df; then platform/observability/docker_reclaim.sh --dry-run
+      # THE PAIRED CONTROL: the `for:` clause is real. At 14m the condition has
+      # been true the whole time and the alert must still be silent. Without
+      # this, a rule with `for:` accidentally dropped would still pass above.
+      - eval_time: 14m
+        alertname: HostDiskLow
+        exp_alerts: []
+
+  # ---- HostDiskLow: silent at 50% free -----------------------------------
+  # The control that stops "it fired" from being satisfied by an expression
+  # that is simply always true.
+  - interval: 1m
+    input_series:
+      - series: 'host_filesystem_avail_bytes{mountpoint="/System/Volumes/Data"}'
+        values: "500x30"
+      - series: 'host_filesystem_size_bytes{mountpoint="/System/Volumes/Data"}'
+        values: "1000x30"
+    alert_rule_test:
+      - eval_time: 25m
+        alertname: HostDiskLow
+        exp_alerts: []
+      - eval_time: 25m
+        alertname: HostDiskCritical
+        exp_alerts: []
+
+  # ---- HostDiskCritical: fires at 2%, and the bands do not overlap wrongly -
+  - interval: 1m
+    input_series:
+      - series: 'host_filesystem_avail_bytes{mountpoint="/System/Volumes/Data"}'
+        values: "20x20"
+      - series: 'host_filesystem_size_bytes{mountpoint="/System/Volumes/Data"}'
+        values: "1000x20"
+    alert_rule_test:
+      - eval_time: 6m
+        alertname: HostDiskCritical
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              mountpoint: "/System/Volumes/Data"
+            exp_annotations:
+              summary: "Host volume /System/Volumes/Data below 4% free -- act now"
+              description: >-
+                The volume is nearly full. Below this line Docker's engine has already been observed to die outright (2026-09-03 11:23), which takes Prometheus, Alertmanager and Grafana with it -- so this alert is one of the last messages this platform is able to send.
+              runbook: >-
+                docker desktop restart may be required first if docker commands hang; then platform/observability/docker_reclaim.sh
+      # 2% is also under 10%, so the warning is EXPECTED to fire too. Asserted
+      # rather than assumed: if a future edit made the bands exclusive, the
+      # warning would vanish for the worst disks on the platform.
+      - eval_time: 16m
+        alertname: HostDiskLow
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              mountpoint: "/System/Volumes/Data"
+            exp_annotations:
+              summary: "Host volume /System/Volumes/Data below 10% free"
+              description: >-
+                Free space on the macOS data volume has been under 10% for 15 minutes. Everything on this machine shares one volume: the container engine, Prometheus' own TSDB, the Parquet mirror and the evidence tree. When it fills, the platform does not degrade -- it stops, and it stops being able to tell you why.
+              runbook: >-
+                df -h /System/Volumes/Data; du -sh ~/Library/Containers/com.docker.docker/Data/vms/0/data/Docker.raw; docker system df; then platform/observability/docker_reclaim.sh --dry-run
+
+  # ---- 4% is NOT critical: the boundary is where it is claimed to be ------
+  - interval: 1m
+    input_series:
+      - series: 'host_filesystem_avail_bytes{mountpoint="/System/Volumes/Data"}'
+        values: "40x20"
+      - series: 'host_filesystem_size_bytes{mountpoint="/System/Volumes/Data"}'
+        values: "1000x20"
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: HostDiskCritical
+        exp_alerts: []

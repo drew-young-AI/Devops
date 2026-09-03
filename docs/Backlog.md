@@ -33,8 +33,10 @@ agent 做不了也不該替使用者決定。
 | B6 | Google API key 輪替 | 同 B2，動到活憑證 | 憑證盤點的最後一格 |
 | B7 | ubu 主機尚未上線 | 需要實體機器與跨架構環境 | Vault on ubu、LLM review 接回 K8s、真正的兩機架構 |
 | B8 | 八張圖「有些細節要調整」，細節未指定 | 只有使用者知道要調哪裡；配色由使用者指定不可自行更換 | 圖定稿 |
-| B9 | 約 70 個檔案 staged 但未 commit | `CLAUDE.md` 明訂未經明確指示不得 commit / push / 開 PR | 這一輪的所有修正才會進入歷史 |
+| B9 | 這一輪的修正尚未 commit | `CLAUDE.md` 明訂未經明確指示不得 commit / push / 開 PR | 這一輪的所有修正才會進入歷史 |
+| **B10** | **Telegram bot token 已外洩到日誌，需要輪替** | 只有使用者能對 BotFather 執行 `/revoke`；agent 不得建立或輪替憑證 | 這條通知鏈才重新可信；同時要決定既有 Loki 資料怎麼處理 |
 
+**B10 是唯一有時效性的一項**，詳見 [§22](#22-telegram-bot-token-經由錯誤路徑外洩到日誌2026-09-03-發現)。
 **B9 是其中唯一會讓其他所有工作歸零的一項。** 目前所有修正只存在於工作目錄。
 
 ---
@@ -49,6 +51,7 @@ agent 做不了也不該替使用者決定。
 | 使用者決定成本後 | [§17](#17-八張圖回到板面上單一來源內嵌-svg) 板面內嵌圖 | 需 ~150 MB Chromium；**不准手繪第二套** |
 | 服務數量到位後 | [§18](#18-追蹤traces三個前提依序不可跳過) 追蹤 | 三個前提依序，遮蔽優先於接收 |
 | 第二個 pilot 或首次遇到上游停發 | [§19](#19-執行了但沒有效果重訓在沒動過的資料上看起來和真的一樣) 空抓取偵測 | 正確位置是 `pipeline_metrics.py` |
+| ~~下一個做的就是這個~~ **已完成 2026-09-03** | [§21](#21-磁碟沒有被量2026-09-03-完成) 主機磁碟監控 | 插隊到 §20 前面，因為它已經發生過一次並停掉整個平台 |
 | **下一個做的就是這個** | [§20](#20-陳舊告警假設所有來源都是每週五支年報級來源會永久紅) 每支來源的預期頻率 | 五支年報級來源**現在就在永久紅** |
 | 後端要換的那天 | [ADR-0012](decisions/0012-otel-at-the-boundary-backend-deferred.md) OTLP 接收端 | Alloy 已是 OTel Collector，只差一個 `otelcol.receiver.otlp` 區塊 |
 
@@ -844,3 +847,149 @@ Kubernetes（[ADR-0010](decisions/0010-kubernetes-target-runtime-k3s.md)），
 - **scheduler 的日曆觸發**：2026-08-18 03:00 是第一次真實 `StartCalendarInterval`
   觸發。在確認 `status.sh` 的 SCHEDULE 欄位由 `NEVER FIRED` 轉為 `fired`
   之前，整個排程機制仍屬 UNVERIFIED。K8s 上這些會變成 CronJob。
+
+---
+
+## §21 磁碟沒有被量（2026-09-03 完成）
+
+**插隊的理由，明說。** §20 原本是下一個。磁碟監控排到它前面，
+不是因為比較重要，是因為**它已經發生過一次，而且停掉的是整個平台**——
+包含用來發現 §20 那五支永久紅來源的那套監控本身。
+
+### 發生了什麼
+
+`/System/Volumes/Data` 使用率 100%（剩 133Mi）。Prometheus 停止回應，
+Docker 引擎 11:23 死掉，所有容器下線。當時：14 條告警規則、91 個已登記能力
+（零孤兒）、777 個通過的斷言，**沒有一條引用剩餘空間**。
+
+新的失效形狀，加進目錄：
+
+> **「監控系統被它沒有監控的東西弄停了」**
+
+它與其他形狀的差別在於**自我隱藏**：資源耗盡先殺掉的，
+正是負責報告資源耗盡的那個程序。事後看不到告警，
+和「沒有東西值得告警」在輸出上分不出來。
+
+### 做了什麼
+
+| 產出 | 位置 |
+|---|---|
+| 主機端匯出器（跑在 macOS，不在容器裡） | `platform/observability/host_disk_metrics.sh` |
+| 兩條磁碟門檻規則 | `platform/observability/prometheus/alerts/host-capacity.yml` |
+| 三條匯出器新鮮度規則（守的是上面兩條的輸入） | `platform/observability/prometheus/alerts/exporter-freshness.yml` |
+| 五方交叉比對：門檻表／運算式／`jobs.conf`／compose 掛載／實際檔案 | `platform/tests/exporter_freshness_check.py` |
+| 合成控制（紅綠成對） | `platform/observability/prometheus/rule_tests/{host-capacity,exporter-freshness}_test.yml` |
+| 測試套件（含突變測試，證明控制能失敗） | `platform/tests/test_host_capacity.sh`、`test_exporter_freshness.sh` |
+| 排程 job（300s，本表最短） | `platform/scheduler/jobs.conf` |
+| 選擇性回收腳本（**不是** `docker system prune -a`） | `platform/observability/docker_reclaim.sh` |
+| 決策紀錄與量測 | [ADR-0014](decisions/0014-host-disk-was-unmeasured.md) |
+
+故障全程用假序列模擬。**沒有真的填滿磁碟**——CLAUDE.md §5c 點名禁止，
+何況要測的故障正好會殺掉執行測試的那個程序。
+
+### 三件被推翻的事
+
+1. **`ls -lh` 說 `Docker.raw` 926G。** 那是 sparse image 的 apparent size，
+   等於整顆卷。真正佔用（`stat -f %b × 512`）是 22.4GB。差 44 倍。
+   與事故初期把 `df /`（唯讀封存卷）誤讀成資料卷是同一類錯誤。
+2. **「macOS 的 Docker.raw 只增不減」不成立於這個版本。** 先寫進註解、再實測：
+   VM 內回收 ~2.7GB 後，主機檔案數分鐘內從 24.03GB 降到 22.49GB，
+   三次取樣一致。保留原敘述會把人推向「重設磁碟映像」這條破壞性路徑。
+3. **`service-health.yml` 說「沒有 node-exporter」。** node-exporter 已經跑了數週。
+   結論碰巧還對（它以 `--collector.disable-defaults` 啟動），但理由早就不成立。
+   **沒有標日期的「已承認缺口」會從決策退化成信念。** 該段已更正並標日期。
+
+### 順帶修掉的版本歪斜
+
+測試用 `promtool` 來自 `prom/prometheus:v3.6.0`，實際評估規則的是 `v3.5.0`。
+**驗證規則的版本不是跑規則的版本**，形狀同「登記為存在，但不執行」。
+`lib.sh` 新增 `prom_image()` 直接從 compose 讀，兩者不可能再分岔。
+
+### 還沒做到的
+
+- **逐則訊息對不上告警。** `HostDiskMetricsStale` 已在真實資料上燒過並解除，
+  telegram 計數器 1 → 5、失敗 0；但一次就成功的通知不留日誌，
+  哪一則對應哪一個要看使用者的 Telegram。
+  `HostDiskLow` / `HostDiskCritical` 從未在真實資料上燒過——磁碟一直健康。
+- **門檻是推的不是量的。** 10% / 4% 依事故當天的填充速度選定，只有一次觀察。
+- **只涵蓋一顆卷。** 外接磁碟與其他 APFS volume 沒有涵蓋。
+
+---
+
+## §22 Telegram bot token 經由錯誤路徑外洩到日誌（2026-09-03 發現）
+
+### 事實
+
+Alertmanager 的容器日誌裡有完整的 bot token 明文，形如
+`https://api.telegram.org/bot<id>:<token>/sendMessage`。
+Alloy 把容器日誌送進 Loki，所以 **Loki 裡有 379 行含 token**
+（`observability-alertmanager-1` 39 行、`observability-loki-1` 340 行）。
+
+擴散範圍已量：
+
+| 位置 | 結果 |
+|---|---|
+| git 追蹤的檔案 | **0**（`git ls-files \| xargs grep` 全掃） |
+| `evidence/` | **0** |
+| `docs/` | **0** |
+| 容器日誌 | 有 |
+| Loki | **379 行** |
+
+**Loki 沒有認證，Grafana 對區網開放**（[ADR-0003](decisions/0003-prometheus-lan-exposure.md)），
+所以區網上任何能開 Grafana 的人都讀得到這個 token。
+
+### 為什麼既有防護擋不住
+
+`alertmanager/config.yml` 刻意用 `bot_token_file` 讓 token **不進設定檔**，
+那一層是對的、也生效了。漏的是**錯誤路徑**：telebot 把整個請求 URL（含 token）
+放進 error 字串，Alertmanager 把 error 記進日誌。
+
+**一個被擋在設定檔外的憑證，在第一次呼叫失敗時就會抵達日誌儲存。**
+這不是 Telegram 的怪癖，是通則。
+
+Alloy 的 redaction 有三條規則，涵蓋 `ghp_` / `github_pat_` / `hvs.`——
+那三條是**從憑證格式清單推出來的**。這一條是**因為真的漏了才存在的**。
+兩種選規則的方式，找到的東西不一樣。
+
+### 已做（止血）
+
+- `config.alloy` 兩個 redaction block 各加第四條規則（drift guard 要求兩份一致）。
+  規則刻意保留數字 bot id、只遮掉冒號後的祕密——bot id 用來分辨是哪一支 bot，不是祕密。
+- `redaction_check.py` 加入 `Telegram bot token` 正向控制；
+  `test_redaction.sh` 的 `rules_per_block` 由 3 改 4。10/10 通過，
+  且 negative control 仍然通過（沒有變成「什麼都遮」）。
+- Alloy 已重啟，規則對**新**日誌生效。
+
+### 只有使用者能做（B10）
+
+1. **輪替 token**：Telegram BotFather `/revoke` 後重新產生，寫回
+   `platform/observability/alertmanager/telegram-token`（chmod 600）並重啟 Alertmanager。
+   **agent 不建立也不輪替憑證。**
+2. **決定既有 379 行怎麼處理**：Loki 的 `/loki/api/v1/delete` 需要開啟
+   `deletion_mode`；或直接讓保留策略過期。**刪資料不是 agent 該自己決定的事。**
+
+輪替之前，這條通知鏈要當成已知外洩來看待。
+
+### 補記：「守衛的守衛」被追問之後改掉的東西（2026-09-03 當天）
+
+第三條原本是 `HostDiskMetricsStale`，看磁碟匯出器**自己寫的**時間戳。原則對，實作三處錯：
+
+1. **node-exporter 早就有 `node_textfile_mtime_seconds`**，六個檔案全都有——自訂 gauge 是重複造輪子。
+2. **mtime 比較強**：自訂 gauge 是腳本對自己的宣稱，時鐘錯了或 `mv` 失敗它會繼續報新鮮；
+   mtime 是檔案系統觀察到的，寫入者無法宣稱。
+3. **只守一個檔案**，另外五個失效模式相同卻一條規則都沒有。
+
+遞迴的終止條件是一個**性質**：安靜失敗的檢查需要外部見證者，大聲失敗的不需要。
+新規則以 `time()` 為軸，Prometheus 停了它會連同整組規則消失而不是安靜變綠。**鏈長是二。**
+剩下的縫（新 `.prom` 沒門檻）是**組態**性質，放測試不放告警——
+執行期的問題給告警，組態的問題給測試。
+
+**當場抓到的量測錯誤**：第一版規則寫 `file="host_disk.prom"`，實際 label 是
+`/textfile/host_disk.prom`——是我自己的顯示指令 `sed` 掉前綴，我再照那個形式寫規則，
+於是它匹配不到任何序列、永遠不會燒。抓到它的是 `TextfileExporterMissing` 轉 pending。
+**與把 `ls -lh` 的 926G 當成佔用量同一類：為了好讀而做的轉換改變了答案。**
+
+**另一個當場抓到的**：突變測試的 `sed` 指著舊的 matcher 拼法，什麼都沒改到，
+輸出卻寫「mutant survived」——那是關於規則的宣稱，實際上是關於測試的宣稱。
+`lib.sh` 新增 `mutate()`，先驗證編輯真的落地才量它的效果。
+**「突變沒套用」和「突變存活」必須分得開。**

@@ -7,12 +7,28 @@
 #
 # Every rule below is written only against metrics that actually exist today
 # (`up`, `station2_requests_total`, `station2_errors_total`,
-# `station2_db_errors_total`, `station2_schema_version`). Rules for CPU,
-# memory and container restarts are deliberately absent -- nothing collects
-# those metrics yet (no cAdvisor/node-exporter). Writing rules against
-# metrics that are never produced would give alerts that can never fire,
-# which reads as "all clear" and is worse than an acknowledged gap. See
+# `station2_db_errors_total`, `station2_schema_version`). Writing rules
+# against metrics that are never produced would give alerts that can never
+# fire, which reads as "all clear" and is worse than an acknowledged gap. See
 # README.md "Known gaps".
+#
+# CPU, memory and container restarts are still absent for that reason.
+#
+# CORRECTED 2026-09-03. This paragraph used to justify the absence with
+# "nothing collects those metrics yet (no cAdvisor/node-exporter)".
+# node-exporter had been running for weeks by then. The half that was true --
+# it is started with `--collector.disable-defaults --collector.textfile`, so
+# it produces nothing but the textfile drop -- kept the conclusion looking
+# right while its stated reason had quietly become false, and nobody re-read
+# it. That is what an acknowledged gap costs when it is not dated: it stops
+# being a decision and becomes a belief.
+#
+# The gap it was hiding closed the hard way. On 2026-09-03 the host volume
+# filled, Docker's engine died at 11:23 and every container went down --
+# a resource none of these rules measured. Host disk now has its own file,
+# alerts/host-capacity.yml, fed by a host-side exporter rather than by
+# node-exporter's own collectors, which inside a Linux VM would describe the
+# VM's disk and not the Mac's.
 #
 # Retargeted from station1-hello to station2-twin on 2026-08-19. The old rules
 # were syntactically fine and permanently green, because they watched a service

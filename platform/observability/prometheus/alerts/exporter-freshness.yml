@@ -1,0 +1,167 @@
+# Is the textfile exporter's output still being written?
+#
+# WHY THIS REPLACED A PER-FILE RULE.
+#
+# The first version of this idea was HostDiskMetricsStale in host-capacity.yml:
+# a bespoke rule watching a timestamp the disk exporter wrote about itself. It
+# was right about the problem and wrong about three things.
+#
+#   1. node-exporter ALREADY publishes this. `node_textfile_mtime_seconds` is
+#      emitted for every file in the textfile directory, by the collector that
+#      is already enabled. The custom gauge duplicated a built-in.
+#   2. mtime is the STRONGER signal. The custom gauge was a number the script
+#      wrote about itself, so a script with a wrong clock -- or one whose
+#      `emit` succeeded and whose `mv` did not -- would keep publishing a fresh
+#      timestamp for a file that never landed. mtime is what the filesystem
+#      observed, and cannot be asserted by the writer.
+#   3. It covered ONE file. Five others (dag, dataops, health_rollup,
+#      loki_coverage, dast_coverage) have exactly the same failure mode and had
+#      no rule at all. dag.prom in particular is the platform's own status
+#      board: if it froze, every node on it would keep showing its last state
+#      forever, and a frozen green board is the most expensive possible lie.
+#
+# WHY THE FAILURE IS SILENT, WHICH IS THE WHOLE REASON ANY OF THIS EXISTS.
+#
+# node-exporter serves whatever is in the directory. A writer that dies leaves
+# its last file there, and Prometheus keeps scraping it forever. Every rule
+# downstream then evaluates a value that stopped being true at a known moment
+# and says nothing. `absent()` does not help: the series is present. Only the
+# AGE gives it away, and the age is not otherwise a metric anyone looks at.
+#
+# WHERE THE RECURSION STOPS.
+#
+# "A guard for the guard" invites the obvious question of who guards this one.
+# It terminates here, and the reason is a property, not a convention: these
+# rules are keyed on `time()`, which Prometheus generates itself. If Prometheus
+# stops evaluating, this rule does not go quietly green -- it stops existing,
+# and PlatformNodeFailed, ScrapeTargetDownProlonged and the scheduler's own
+# freshness probe all go red from outside. The rule to apply when deciding
+# whether something needs a guard is therefore:
+#
+#     does this check fail QUIETLY or LOUDLY?
+#
+# Quiet failure needs an external witness. Loud failure is already witnessed.
+# A frozen textfile fails quietly, so it gets this. This rule fails loudly, so
+# it gets nothing -- and the chain is two links long, not infinite.
+#
+# The one gap that is NOT covered by another rule -- a new .prom file appearing
+# with no threshold here -- is checked in platform/tests/test_exporter_freshness.sh
+# against jobs.conf. It belongs in a test, not in a third alert: it is a
+# property of the CONFIGURATION, which changes only when someone edits a file,
+# and paying for it on every evaluation would buy nothing.
+#
+# THRESHOLDS are 3x the writing job's interval in jobs.conf: two missed runs
+# are tolerated, the third is an alert. Not tuned per file -- a derived number
+# is one that stays right when the cadence changes, and the test enforces the
+# relationship rather than the value.
+
+groups:
+  - name: exporter-freshness
+    rules:
+      # THRESHOLD TABLE -- parsed by platform/tests/test_exporter_freshness.sh,
+      # which checks every line of it against platform/scheduler/jobs.conf and
+      # against the expression below. It is a comment because a folded PromQL
+      # scalar cannot carry one, but it is not decoration: change a cadence in
+      # jobs.conf without changing it here and the suite goes red.
+      #
+      # NOTE ON THE MATCHER. `file` carries node-exporter's full path,
+      # `/textfile/dag.prom`, not the basename -- a display command of mine
+      # stripped the prefix and the first version of this rule was written
+      # against the stripped form, so it matched nothing and would never have
+      # fired. Caught only because TextfileExporterMissing went pending.
+      # Same class of error as reading `ls -lh` on a sparse file: the
+      # transformation applied for readability changed the answer. Matched with
+      # `(.*/)?` so the rule also survives the mount path moving, which is a
+      # deployment detail and not something an alert should depend on.
+      #
+      #   file                  writer job      interval   threshold
+      #   host_disk.prom        disk            300        900
+      #   dag.prom              dag             900        2700
+      #   dataops.prom          dataops         3600       10800
+      #   health_rollup.prom    rollup          3600       10800
+      #   loki_coverage.prom    logcov          3600       10800
+      #   dast_coverage.prom    dastcov         86400      259200
+      - alert: TextfileExporterStale
+        expr: >-
+          (time() - node_textfile_mtime_seconds{file=~"(.*/)?host_disk\\.prom"} > 900)
+          or (time() - node_textfile_mtime_seconds{file=~"(.*/)?dag\\.prom"} > 2700)
+          or (time() - node_textfile_mtime_seconds{file=~"(.*/)?dataops\\.prom"} > 10800)
+          or (time() - node_textfile_mtime_seconds{file=~"(.*/)?health_rollup\\.prom"} > 10800)
+          or (time() - node_textfile_mtime_seconds{file=~"(.*/)?loki_coverage\\.prom"} > 10800)
+          or (time() - node_textfile_mtime_seconds{file=~"(.*/)?dast_coverage\\.prom"} > 259200)
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "{{ $labels.file }} has not been rewritten -- everything derived from it is frozen"
+          description: >-
+            A textfile exporter stopped writing. node-exporter keeps serving the
+            last file it wrote, so every metric in it still has a value and every
+            rule reading those metrics still evaluates -- against numbers that
+            stopped being true. Nothing else reports this: a stale value and a
+            steady one are identical from downstream.
+          runbook: >-
+            platform/scheduler/status.sh;
+            launchctl print gui/$(id -u)/devops.platform.<job> | grep -E 'runs|last exit';
+            tail evidence/scheduler/logs/<job>.launchd.log
+
+      # The never-appeared case, kept separate from the stale case because the
+      # two have different causes and different fixes: stale means the job
+      # stopped, absent means it was never scheduled or its output path is
+      # wrong. Merging them into one alert would make the runbook ambiguous
+      # exactly when someone is reading it under pressure.
+      #
+      # Only host_disk and dag are listed: those two are the ones whose absence
+      # is indistinguishable from a healthy platform. A missing dast_coverage
+      # is visible in the DAST stage itself.
+      #
+      # EXACT MATCHERS HERE, REGEX ABOVE, AND THE DIFFERENCE IS NOT STYLE.
+      # `absent()` propagates only EQUALITY matchers into its output labels. Written
+      # with `=~` it returns a bare vector, so the alert cannot say which file is
+      # missing and two missing files collapse into one notification -- an alert
+      # that tells you something is wrong and not what. The staleness rule above
+      # keeps its regex because there its labels come from the series itself.
+      #
+      # The cost is the hardcoded `/textfile/` prefix, which is compose's mount
+      # target. That is not left on trust: test_exporter_freshness.sh reads the
+      # mount out of compose.yaml and fails if the two ever disagree.
+      - alert: TextfileExporterMissing
+        expr: >-
+          absent(node_textfile_mtime_seconds{file="/textfile/host_disk.prom"})
+          or absent(node_textfile_mtime_seconds{file="/textfile/dag.prom"})
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          # absent() carries the matcher's own labels through, so this names the
+          # file rather than listing both and leaving the reader to work out
+          # which one is missing. Two missing files produce two alerts.
+          summary: "{{ $labels.file }} has never appeared in the textfile directory"
+          description: >-
+            The file is not in the textfile directory at all, so every rule that
+            reads it is a true statement about an empty set -- it cannot fire,
+            and the platform reports all-clear on something nobody is measuring.
+          runbook: >-
+            ls -l evidence/statusdag/;
+            platform/scheduler/install.sh --status;
+            platform/observability/host_disk_metrics.sh
+
+      # A malformed .prom makes node-exporter drop the ENTIRE scrape, not just
+      # the bad file -- so one broken writer takes the DAG board, the dataops
+      # metrics and the disk figures down together, and every one of them
+      # simply goes absent. This is the cheapest rule in the file and it covers
+      # the widest blast radius.
+      - alert: TextfileCollectorErrored
+        expr: node_textfile_scrape_error != 0
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "node-exporter could not parse a textfile -- ALL textfile metrics are gone"
+          description: >-
+            node_textfile_scrape_error is non-zero. A single malformed file
+            causes node-exporter to drop every metric in the directory, so the
+            symptom is not one missing metric but all of them at once.
+          runbook: >-
+            docker logs observability-node-exporter-1 --tail 50;
+            head -3 evidence/statusdag/*.prom

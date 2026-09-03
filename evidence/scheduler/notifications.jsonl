@@ -79,3 +79,10 @@
 {"at": "2026-09-03T01:23:40Z", "job": "health", "from": "ok", "to": "degraded", "severity": "warning", "summary": "[WARN] health: ok -> degraded"}
 {"at": "2026-09-03T03:24:24Z", "job": "health", "from": "degraded", "to": "unknown", "severity": "warning", "summary": "[WARN] health: degraded -> unknown"}
 {"at": "2026-09-03T03:47:01Z", "job": "logcov", "from": "ok", "to": "failed", "severity": "critical", "summary": "[FAIL] logcov: ok -> failed"}
+{"at": "2026-09-03T04:21:25Z", "job": "stagereport", "from": "ok", "to": "timeout", "severity": "critical", "summary": "[FAIL] stagereport: ok -> timeout"}
+{"at": "2026-09-03T04:21:26Z", "job": "dag", "from": "ok", "to": "timeout", "severity": "critical", "summary": "[FAIL] dag: ok -> timeout"}
+{"at": "2026-09-03T05:01:27Z", "job": "dataops", "from": "ok", "to": "timeout", "severity": "critical", "summary": "[FAIL] dataops: ok -> timeout"}
+{"at": "2026-09-03T06:27:39Z", "job": "dag", "from": "timeout", "to": "ok", "severity": "recovered", "summary": "[OK] dag: timeout -> ok"}
+{"at": "2026-09-03T06:27:39Z", "job": "stagereport", "from": "timeout", "to": "ok", "severity": "recovered", "summary": "[OK] stagereport: timeout -> ok"}
+{"at": "2026-09-03T06:47:26Z", "job": "logcov", "from": "failed", "to": "ok", "severity": "recovered", "summary": "[OK] logcov: failed -> ok"}
+{"at": "2026-09-03T07:06:53Z", "job": "dataops", "from": "timeout", "to": "ok", "severity": "recovered", "summary": "[OK] dataops: timeout -> ok"}

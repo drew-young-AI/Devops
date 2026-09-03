@@ -21,5 +21,6 @@
 | 0011 | [不導入 ELK——那一格是 Loki 在填，不是 Prometheus](0011-loki-not-elk.md) | 已採用 | 2026-09-02 | `platform/observability/loki_coverage.py` |
 | 0012 | [可觀測性：應用端一律 OTLP，後端選型延後——但「省事」的說法要拆開講](0012-otel-at-the-boundary-backend-deferred.md) | 已採用 | 2026-09-02 | `platform/observability/loki_coverage.py` |
 | 0013 | [pilot 的資料迴路是開的——排程有 19 個 job，沒有一個抓資料](0013-pilot-loop-was-open.md) | 已採用 | 2026-09-03 | `platform/scheduler/status.sh` |
+| 0014 | [磁碟沒有被量——14 條告警規則、91 個能力、777 個綠燈，被一個沒人量的數字停掉](0014-host-disk-was-unmeasured.md) | 已採用 | 2026-09-03 | `platform/tests/test_host_capacity.sh` |
 
-共 13 筆。
+共 14 筆。

@@ -79,6 +79,16 @@ CLASSES = [
      "sample": "token ghp_AbCdEfGhIjKlMnOpQrStUvWxYz012345 leaked"},
     {"name": "Vault service token", "expected": True,
      "sample": "auth hvs.CAESIJxxxxxxxxxxxxxxxxxxxxxxxx used"},
+    # ADDED 2026-09-03. Not from a list of credential formats like the three
+    # above, but from finding 379 lines of a real one already in Loki:
+    # Alertmanager reads the token from bot_token_file so it never enters a
+    # config file, and then telebot embeds the whole request URL -- token
+    # included -- in its error string, which Alertmanager logs. The secret
+    # escaped through the ERROR path, which no care on the CONFIG path covers.
+    # The sample below is invented; the bot id shape is kept because the rule
+    # deliberately preserves it (it identifies which bot, and is not secret).
+    {"name": "Telegram bot token", "expected": True,
+     "sample": 'Post "https://api.telegram.org/bot1234567890:AAFakeTokenForTestingOnly_xyz/sendMessage" failed'},
     # --- what it does not, and what each one costs in a hospital dataset ----
     {"name": "健保卡號 (NHI card)", "expected": False, "sample": "nhi card 000012345678 scanned",
      "why": "12 digits, no letter prefix -- indistinguishable from any other long number"},

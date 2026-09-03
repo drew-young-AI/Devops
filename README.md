@@ -79,16 +79,64 @@ Alertmanager、Loki、node-exporter **刻意留在 loopback**，由
 ### 實際運作的通道（2026-09-03 量測）
 
 ```
-Prometheus 規則 → Alertmanager → Telegram      已送出 52 則、失敗 0  ✅ 活的
-                              → Email          已送出 0 則           ❌ 未接上
+Prometheus 規則 → Alertmanager → Telegram      失敗 0  ✅ 活的
+                              → Email          已送出 0 則  ❌ 未接上
 ```
+
+送出計數隨容器重啟歸零，所以「已送出 N 則」是**開機以來**的數字，不是歷史總量：
+當日 11:23 停機前量到 52 則／失敗 0，06:30(UTC) 重啟後重新從 1 起算。
+會被誤讀成「通知變少了」的正是這個歸零，記在這裡而不是修掉它——
+`alertmanager_notifications_total` 是 counter，歸零是它應有的行為。
 
 **Telegram 是目前唯一真的會通知到人的通道。** `severity=critical` 10 秒內送出、
 每小時重複；warning 30 秒、每 4 小時重複。**resolved 也會送**——
 只告訴你壞了、不告訴你好了，等於逼人每則都手動追，那是通道被忽略的開始。
 
-**14 個告警規則全部帶 `runbook:` 註解**，所以 Telegram 訊息本身就含處置指令，
+**19 個告警規則全部帶 `runbook:` 註解**，所以 Telegram 訊息本身就含處置指令，
 不需要再去翻文件。
+
+### 2026-09-03 補上的那一格：磁碟
+
+那天資料卷滿了。Prometheus 停止回應，Docker 引擎 11:23 死掉，所有容器跟著下線。
+當時平台有 14 條告警規則、91 個已登記能力、777 個通過的斷言——
+**沒有一條規則引用剩餘空間**。
+
+失效形狀：**「監控系統被它沒有監控的東西弄停了」**。
+這個形狀會自我隱藏，因為資源耗盡先殺掉的就是負責報告資源耗盡的那個程序。
+
+現在有三條規則（[`host-capacity.yml`](platform/observability/prometheus/alerts/host-capacity.yml)）：
+
+| 規則 | 條件 | 嚴重度 |
+|---|---|---|
+| `HostDiskLow` | 剩餘 < 10%，持續 15m | warning |
+| `HostDiskCritical` | 剩餘 < 4%，持續 5m | critical |
+
+另外三條在 [`exporter-freshness.yml`](platform/observability/prometheus/alerts/exporter-freshness.yml)，
+守的是**上面兩條的輸入**：磁碟真的滿的時候匯出器寫不出檔案，node-exporter 照樣供應舊檔，
+前兩條於是在它們存在的理由發生的那一刻保持綠色。`absent()` 救不了（序列還在），
+只有**年齡**會露餡。同一個失效模式適用於全部六個 `.prom`，
+`dag.prom` 這塊狀態板凍結尤其貴——一塊凍結的綠燈是代價最高的謊。
+
+| 規則 | 條件 |
+|---|---|
+| `TextfileExporterStale` | 任一 `.prom` 超過其寫入 job 週期的 3 倍沒更新 |
+| `TextfileExporterMissing` | `host_disk.prom` 或 `dag.prom` 從未出現 |
+| `TextfileCollectorErrored` | 有檔案格式壞掉——node-exporter 會丟掉**整個目錄**的指標 |
+
+**「守衛的守衛」這個遞迴停在哪裡，是一個性質不是一個約定。**
+判準是：這個檢查失敗時，是**安靜地**失敗還是**大聲地**失敗？
+凍結的 `.prom` 安靜地失敗（停止更新的值和穩定的值從下游分不出來），所以需要外部見證者；
+新規則以 `time()` 為軸而 `time()` 是 Prometheus 自己產的，
+Prometheus 停了它不會安靜變綠、而是連同整組規則消失，
+`PlatformNodeFailed` 與排程器的新鮮度探針會從外部變紅。**鏈長是二，不是無限。**
+
+唯一剩下的縫——「新增一個 `.prom` 卻沒人給它門檻」——放在測試裡而不是第三條告警：
+那是**組態**的性質，只在有人改檔案時變動。**執行期的問題給告警，組態的問題給測試。**
+
+指標由跑在 macOS 上的 [`host_disk_metrics.sh`](platform/observability/host_disk_metrics.sh)
+產生，不是用 node-exporter 的 filesystem collector——它是關的，
+而且就算打開，在 Linux VM 裡量到的是 `Docker.raw` **內部**那顆磁碟，不是實際填滿的那顆。
+細節與量測見 [ADR-0014](docs/decisions/0014-host-disk-was-unmeasured.md)。
 
 ### 已知缺一半：Email 從來沒有接上
 
@@ -110,8 +158,19 @@ Prometheus 規則 → Alertmanager → Telegram      已送出 52 則、失敗 0
 | 告警在燒 | 條件成立 | 有沒有人收到 |
 | Telegram 已送出 | 通道活著 | 有沒有人讀 |
 | 排程器 FAIL → 告警 | **某個 job 停了** | **某個 job 從來沒被建立**（2026-08-20 那次斷流就是這個形狀，見 [ADR-0013](docs/decisions/0013-pilot-loop-was-open.md)） |
+| 磁碟規則 | 合成資料下會紅、健康時會綠、突變後測試會失敗；**真實資料上 `HostDiskMetricsStale` 燒過並解除** | **哪一則 Telegram 對應哪一個告警**——一次就成功的通知不留日誌 |
 
-最後一列是這條鏈的真實邊界：**排程器偵測得到停掉的 job，偵測不到不存在的 job。**
+倒數第二列是這條鏈的真實邊界：**排程器偵測得到停掉的 job，偵測不到不存在的 job。**
+
+**規則在真實資料上燒過一次，而且不是刻意製造的。**
+`disk` job 登記後，launchd 的第一次觸發還沒到，指標因此真的超過 30 分鐘沒更新——
+`HostDiskMetricsStale` 自己燒了起來，Alertmanager 的 telegram 計數器同步上升
+（本 session 1 → 5，失敗 0）；launchd 於 15:2x 首次觸發（`runs=1`, `exit 0`）後
+指標轉新，告警回到 inactive。**守衛的守衛抓到的是真實缺口，不是合成故障。**
+
+能證到的：規則會燒、會解除、Alertmanager 有送出、零失敗。
+證不到的：**哪一則訊息對應哪一個告警**——Alertmanager 只在重試過的通知上寫
+`Notify success` 日誌，一次就成功的不留紀錄。逐則對應要看使用者自己的 Telegram。
 
 ## 二、紀錄放在哪裡
 

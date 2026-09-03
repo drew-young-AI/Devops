@@ -3,27 +3,27 @@
 # for why this exists rather than a retention policy.
 # HELP devops_health_rollup_snapshots_total Health snapshots aggregated.
 # TYPE devops_health_rollup_snapshots_total gauge
-devops_health_rollup_snapshots_total 1689
+devops_health_rollup_snapshots_total 1711
 # HELP devops_health_rollup_generated_seconds Unix time the rollup was built.
 # TYPE devops_health_rollup_generated_seconds gauge
-devops_health_rollup_generated_seconds 1788407460
+devops_health_rollup_generated_seconds 1788421874
 # HELP devops_health_rollup_coverage_ratio Snapshots present divided by snapshots expected across the recorded span.
 # TYPE devops_health_rollup_coverage_ratio gauge
-devops_health_rollup_coverage_ratio 0.8458
+devops_health_rollup_coverage_ratio 0.8491
 # HELP devops_health_verdict_samples_total Snapshots recording each verdict.
 # TYPE devops_health_verdict_samples_total gauge
 devops_health_verdict_samples_total{verdict="CRITICAL"} 1
-devops_health_verdict_samples_total{verdict="DEGRADED"} 389
+devops_health_verdict_samples_total{verdict="DEGRADED"} 400
 devops_health_verdict_samples_total{verdict="HEALTHY"} 1035
-devops_health_verdict_samples_total{verdict="UNKNOWN"} 264
+devops_health_verdict_samples_total{verdict="UNKNOWN"} 275
 # HELP devops_health_check_failed_total Snapshots in which an integrity check was not ok.
 # TYPE devops_health_check_failed_total gauge
 devops_health_check_failed_total{check="alert_rules_evaluating"} 58
 devops_health_check_failed_total{check="alert_rules_loaded"} 0
-devops_health_check_failed_total{check="alertmanager_reachable"} 206
-devops_health_check_failed_total{check="alertmanager_wired"} 207
-devops_health_check_failed_total{check="prometheus_reachable"} 206
-devops_health_check_failed_total{check="scrape_targets_visible"} 207
+devops_health_check_failed_total{check="alertmanager_reachable"} 217
+devops_health_check_failed_total{check="alertmanager_wired"} 218
+devops_health_check_failed_total{check="prometheus_reachable"} 217
+devops_health_check_failed_total{check="scrape_targets_visible"} 218
 # HELP devops_health_longest_episode_seconds Longest unbroken run of consecutive not-ok snapshots.
 # TYPE devops_health_longest_episode_seconds gauge
 devops_health_longest_episode_seconds{check="alert_rules_evaluating"} 38638

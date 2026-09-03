@@ -99,6 +99,41 @@ assert_output_not_contains() {
   fi
 }
 
+# The Prometheus image the platform ACTUALLY RUNS, read out of compose rather
+# than pinned a second time here.
+#
+# It was pinned twice, and the two copies had drifted: compose ran v3.5.0 while
+# every promtool check in this suite ran v3.6.0. So the rules were being
+# validated by a version that does not evaluate them, which is the same shape
+# as validating a deployment against a config file the server never reads --
+# a green check about a different system. Reading it from the one file that
+# decides what runs makes the two impossible to disagree.
+prom_image() {
+  awk '/^  prometheus:/{f=1} f && /image:/{print $2; exit}' \
+    "$REPO_ROOT/platform/observability/compose.yaml"
+}
+
+# mutate <file> <sed-script> <description>
+#
+# Apply an in-place edit for a mutation test, and FAIL if it changed nothing.
+#
+# A mutation that does not apply is indistinguishable from a mutant that
+# survives: both end with the suite reporting a failure that reads as a defect
+# in the code under test. That happened on 2026-09-03 -- sed patterns left over
+# from an earlier spelling of a matcher silently changed nothing, and the
+# output said "mutant survived", which is a claim about the rules and was
+# actually a claim about the test. Verifying the edit landed separates the two.
+mutate() {
+  local file="$1" script="$2" desc="$3" before
+  before="$(cksum < "$file")"
+  sed -i '' "$script" "$file"
+  if [ "$before" = "$(cksum < "$file")" ]; then
+    _fail "mutation applies: $desc" "sed changed nothing -- the pattern is stale"
+    return 1
+  fi
+  return 0
+}
+
 assert_file_exists() {
   local path="$1" desc="$2"
   if [ -f "$path" ]; then _pass "$desc"; else _fail "$desc" "missing file: $path"; fi

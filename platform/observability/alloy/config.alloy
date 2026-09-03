@@ -114,6 +114,26 @@ loki.process "redact_internal" {
     expression = "\\b(ghp_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|hvs\\.[A-Za-z0-9._-]{20,})\\b"
     replace    = "[REDACTED_TOKEN]"
   }
+
+  // Telegram bot token, ADDED 2026-09-03 after finding 379 lines of it already
+  // in Loki. Alertmanager is configured with `bot_token_file` precisely so the
+  // token never appears in a config file -- and then telebot puts the full
+  // request URL, token included, into its error string, and Alertmanager logs
+  // the error. The secret escaped through the ERROR PATH, which no amount of
+  // care on the configuration path could have covered.
+  //
+  // That is the general lesson, not a Telegram quirk: a credential kept out of
+  // config still reaches the log store the first time the call fails. The three
+  // rules above were written from a list of credential FORMATS; this one exists
+  // because a real one got through, and the two ways of choosing rules find
+  // different things.
+  //
+  // Matched on the URL rather than on the bare token so the numeric bot id is
+  // kept (it is useful for telling two bots apart and is not the secret).
+  stage.replace {
+    expression = "(api\\.telegram\\.org/bot[0-9]{6,}:)[A-Za-z0-9_-]{10,}"
+    replace    = "${1}[REDACTED_TOKEN]"
+  }
 }
 
 loki.process "redact_restricted" {
@@ -132,6 +152,26 @@ loki.process "redact_restricted" {
   stage.replace {
     expression = "\\b(ghp_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|hvs\\.[A-Za-z0-9._-]{20,})\\b"
     replace    = "[REDACTED_TOKEN]"
+  }
+
+  // Telegram bot token, ADDED 2026-09-03 after finding 379 lines of it already
+  // in Loki. Alertmanager is configured with `bot_token_file` precisely so the
+  // token never appears in a config file -- and then telebot puts the full
+  // request URL, token included, into its error string, and Alertmanager logs
+  // the error. The secret escaped through the ERROR PATH, which no amount of
+  // care on the configuration path could have covered.
+  //
+  // That is the general lesson, not a Telegram quirk: a credential kept out of
+  // config still reaches the log store the first time the call fails. The three
+  // rules above were written from a list of credential FORMATS; this one exists
+  // because a real one got through, and the two ways of choosing rules find
+  // different things.
+  //
+  // Matched on the URL rather than on the bare token so the numeric bot id is
+  // kept (it is useful for telling two bots apart and is not the secret).
+  stage.replace {
+    expression = "(api\\.telegram\\.org/bot[0-9]{6,}:)[A-Za-z0-9_-]{10,}"
+    replace    = "${1}[REDACTED_TOKEN]"
   }
 }
 
