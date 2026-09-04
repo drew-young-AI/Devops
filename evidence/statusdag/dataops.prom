@@ -29,29 +29,29 @@ dataops_source_last_fetch_timestamp_seconds{source="moi-ris-village-education"} 
 dataops_source_last_fetch_timestamp_seconds{source="moi-ris-village-population"} 1788423767
 # HELP dataops_source_age_seconds How long since this source last updated. A constraint cannot see a thing that failed to happen; this can.
 # TYPE dataops_source_age_seconds gauge
-dataops_source_age_seconds{source="cdc-nhi-covid"} 17124
-dataops_source_age_seconds{source="cdc-nhi-diarrhea"} 17087
-dataops_source_age_seconds{source="cdc-nhi-enterovirus"} 17116
-dataops_source_age_seconds{source="cdc-nhi-herpangina"} 17099
-dataops_source_age_seconds{source="cdc-nhi-hfmd"} 17107
-dataops_source_age_seconds{source="cdc-nhi-ili"} 17146
-dataops_source_age_seconds{source="cdc-nhi-influenza"} 17137
-dataops_source_age_seconds{source="cdc-nhi-pneumonia"} 17128
-dataops_source_age_seconds{source="cdc-nhi-scarlet-fever"} 17069
-dataops_source_age_seconds{source="cdc-nhi-uri"} 17078
-dataops_source_age_seconds{source="cdc-nhi-varicella"} 17061
-dataops_source_age_seconds{source="cdc-rods-conjunctivitis"} 17046
-dataops_source_age_seconds{source="cdc-rods-covid"} 17041
-dataops_source_age_seconds{source="cdc-rods-diarrhea"} 17051
-dataops_source_age_seconds{source="cdc-rods-enterovirus"} 17049
-dataops_source_age_seconds{source="cdc-rods-herpangina"} 17044
-dataops_source_age_seconds{source="cdc-rods-hfmd"} 17042
-dataops_source_age_seconds{source="cdc-rods-ili"} 17056
-dataops_source_age_seconds{source="cdc-tb-caremag"} 55407
-dataops_source_age_seconds{source="cdc-tb-town"} 56006
-dataops_source_age_seconds{source="moi-admin-geography"} 55235
-dataops_source_age_seconds{source="moi-ris-village-education"} 55365
-dataops_source_age_seconds{source="moi-ris-village-population"} 55391
+dataops_source_age_seconds{source="cdc-nhi-covid"} 25918
+dataops_source_age_seconds{source="cdc-nhi-diarrhea"} 25881
+dataops_source_age_seconds{source="cdc-nhi-enterovirus"} 25910
+dataops_source_age_seconds{source="cdc-nhi-herpangina"} 25893
+dataops_source_age_seconds{source="cdc-nhi-hfmd"} 25901
+dataops_source_age_seconds{source="cdc-nhi-ili"} 25940
+dataops_source_age_seconds{source="cdc-nhi-influenza"} 25931
+dataops_source_age_seconds{source="cdc-nhi-pneumonia"} 25922
+dataops_source_age_seconds{source="cdc-nhi-scarlet-fever"} 25863
+dataops_source_age_seconds{source="cdc-nhi-uri"} 25872
+dataops_source_age_seconds{source="cdc-nhi-varicella"} 25855
+dataops_source_age_seconds{source="cdc-rods-conjunctivitis"} 25840
+dataops_source_age_seconds{source="cdc-rods-covid"} 25835
+dataops_source_age_seconds{source="cdc-rods-diarrhea"} 25845
+dataops_source_age_seconds{source="cdc-rods-enterovirus"} 25843
+dataops_source_age_seconds{source="cdc-rods-herpangina"} 25838
+dataops_source_age_seconds{source="cdc-rods-hfmd"} 25836
+dataops_source_age_seconds{source="cdc-rods-ili"} 25850
+dataops_source_age_seconds{source="cdc-tb-caremag"} 64201
+dataops_source_age_seconds{source="cdc-tb-town"} 64800
+dataops_source_age_seconds{source="moi-admin-geography"} 64029
+dataops_source_age_seconds{source="moi-ris-village-education"} 64159
+dataops_source_age_seconds{source="moi-ris-village-population"} 64185
 # HELP dataops_source_retired 1 for a source with ingest history but no fact rows; excluded from freshness because it can never become fresh.
 # TYPE dataops_source_retired gauge
 dataops_source_retired{source="cdc-rods"} 1
@@ -294,4 +294,4 @@ dataops_yoy_geo_comparable_count{disease_id="33",disease="急性腹瀉"} 21
 dataops_yoy_geo_comparable_count{disease_id="35",disease="急性出血性結膜炎"} 3
 # HELP dataops_metrics_generated_timestamp_seconds When this file was written.
 # TYPE dataops_metrics_generated_timestamp_seconds gauge
-dataops_metrics_generated_timestamp_seconds 1788479159
+dataops_metrics_generated_timestamp_seconds 1788487953

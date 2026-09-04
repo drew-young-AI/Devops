@@ -88,8 +88,16 @@ ping -c 2 192.168.1.1            # 路由器通 → 不是本機網路問題
    sudo systemctl restart systemd-logind
    ```
 
-2. **IP 需要固定。** DHCP 換約會讓 kubeconfig 的 SAN 與所有診斷失效。
-   路由器保留位址，或在 ubu 上設固定位址。**未執行，需要使用者操作路由器。**
+2. **IP 需要固定——但理由在 2026-09-04 更正過。**
+   原本寫「DHCP 換約會讓 kubeconfig 的 SAN 失效」。**前半是錯的**：
+   kubeconfig 指向 `https://ubu.local:6443`（名字，不是 IP），
+   而今天連得上本身就證明 k3s 的憑證 SAN 已涵蓋 `ubu.local`。
+   **DHCP 換約不會弄壞 kubectl。**
+
+   固定 IP 仍然要做，理由是另外兩個：本手冊第二節的診斷指令寫死
+   `192.168.1.144`（那正是機器出事時要用的東西），以及
+   **mDNS 可以單獨失效**（`70.local` 那次教訓）——沒有固定 IP 就沒有第二條路。
+   分析見 [`docs/Backlog.md`](Backlog.md) §26。**未執行，需要使用者操作路由器。**
 
 3. ~~**amd64 建置鏈還不存在。**~~ **已寫好，尚未跑過（2026-09-03）。** 目前沒有任何映像檔可以在這台上跑。
    兩條路（見 [ADR-0008](decisions/0008-two-machines-two-architectures.md)）：

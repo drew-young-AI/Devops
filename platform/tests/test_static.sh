@@ -469,6 +469,55 @@ scan_bad_dd() {  # <root...> -- basenames using a suffix GNU dd rejects
 assert_equals "" "$(scan_bad_dd "$REPO_ROOT/platform" "$REPO_ROOT/pilots")" \
   "no dd call uses a block-size suffix GNU dd rejects"
 
+# ---- a container image path must be lowercase ------------------------------
+#
+# The OCI reference grammar requires it and the client refuses before any
+# network call:
+#
+#   ERROR: invalid reference format: repository name
+#          (drew-young-AI/station2-twin) must be lowercase
+#
+# The account here is genuinely `drew-young-AI`, so `ghcr.io/${owner}/...` is
+# the natural thing to write and it is always wrong. GitHub's own expression
+# language has no lowercase function, which is why pilot-image.yml computes the
+# path in a shell step instead -- and why a literal one slipping in elsewhere
+# needs catching here.
+#
+# GitHub WEB urls are deliberately not covered: github.com/drew-young-AI/Devops
+# is the account's real spelling and works as written. Only the registry path
+# is constrained, and conflating the two would mean "fixing" correct links.
+scan_uppercase_image() {  # <root...>
+  grep -rnoE '(ghcr\.io|docker\.io|quay\.io)/[A-Za-z0-9._/-]+' "$@" \
+      --include='*.sh' --include='*.yml' --include='*.yaml' --include='*.py' \
+      --include='*.md' 2>/dev/null \
+    | grep -E '(ghcr\.io|docker\.io|quay\.io)/[A-Za-z0-9._/-]*[A-Z]' \
+    | awk -F: '{print $1}' | xargs -n1 basename 2>/dev/null \
+    | sort -u | tr '\n' ' ' | sed 's/ *$//'
+}
+
+assert_equals "" "$(scan_uppercase_image "$REPO_ROOT/platform" "$REPO_ROOT/pilots" \
+                      "$REPO_ROOT/.github" "$REPO_ROOT/docs")" \
+  "every literal container image path is lowercase"
+
+# The offending path is ASSEMBLED, so the literal never appears in this file.
+# Written out, it made this guard flag its own fixture -- the SIXTH time a
+# grep-based check here has matched its own text. Six is not a run of bad luck;
+# it is the method's defining property, and every new rule in this file should
+# be written assuming it.
+IMGFIX="$(mktemp -d)"
+UPPER_OWNER="Drew-Young-AI"
+printf 'image: ghcr.io/%s/thing:v1\n' "$UPPER_OWNER" > "$IMGFIX/bad.yaml"
+printf 'image: ghcr.io/drew-young-ai/thing:v1\n' > "$IMGFIX/good.yaml"
+IMG_CAUGHT="$(scan_uppercase_image "$IMGFIX")"
+rm -rf "$IMGFIX"
+case "$IMG_CAUGHT" in
+  *bad.yaml*) case "$IMG_CAUGHT" in
+      *good.yaml*) _fail "catches only the uppercase image path" "flagged the lowercase one too" ;;
+      *) _pass "catches: an image path containing an uppercase letter" ;;
+    esac ;;
+  *) _fail "catches: an image path containing an uppercase letter" "found: '$IMG_CAUGHT'" ;;
+esac
+
 # The control, on fixtures rather than on the tree: one spelling that must be
 # caught and one that must not, so "no findings" cannot come from a scan that
 # finds nothing ever.

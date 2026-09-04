@@ -1,0 +1,14 @@
+{
+  "environment": "develop",
+  "compose_project": "station2/station2-twin-green",
+  "commit_sha": "4b9cbb4",
+  "image_id": "k3d-registry:5111/station2-twin:v15-green",
+  "image_digest": "k3d-registry:5111/station2-twin:v15-green",
+  "deployed_at": "2026-09-04T02:17:42Z",
+  "health_status": "healthy",
+  "env_file": null,
+  "runtime": "kubernetes",
+  "kube_context": "k3d-devops-lab",
+  "color": "green",
+  "image_tag": "v15-green"
+}

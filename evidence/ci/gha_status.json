@@ -1,9 +1,17 @@
 {
   "schema": "gha-status/1",
-  "fetched_at": "2026-09-04T08:32:36+08:00",
+  "fetched_at": "2026-09-04T09:59:07+08:00",
   "fetch_state": "ok",
   "detail": "fetched main",
   "runs": [
+    {
+      "conclusion": "success",
+      "createdAt": "2026-09-04T00:34:56Z",
+      "displayTitle": "fix(tests): dd bs=1m 在 GNU dd 上直接失敗——兩天內第三個 BSD/GNU 陷阱",
+      "status": "completed",
+      "url": "https://github.com/drew-young-AI/Devops/actions/runs/33822370183",
+      "workflowName": "Platform Tests"
+    },
     {
       "conclusion": "failure",
       "createdAt": "2026-09-04T00:22:37Z",
@@ -74,14 +82,6 @@
       "displayTitle": "docs: 文件樹徹底盤點——五個孤兒、一份分岔索引、一份說反話的長官報告",
       "status": "completed",
       "url": "https://github.com/drew-young-AI/Devops/actions/runs/33600498091",
-      "workflowName": "Platform Tests"
-    },
-    {
-      "conclusion": "success",
-      "createdAt": "2026-09-02T06:27:31Z",
-      "displayTitle": "feat(report): 八張圖有了耐久網址，並列進長官會看的那張總表",
-      "status": "completed",
-      "url": "https://github.com/drew-young-AI/Devops/actions/runs/33598921243",
       "workflowName": "Platform Tests"
     }
   ]
