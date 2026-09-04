@@ -124,17 +124,37 @@ rm -rf "$LEAK"
 # Assertion 3 measures TMPDIR growth. If that measurement were broken it would
 # report 0 forever and pass on a suite leaking gigabytes. So: make TMPDIR grow
 # by a known amount and confirm the same measurement notices.
-# `dd`, NOT `mkfile -n`. mkfile -n creates a SPARSE file: it has the right
-# apparent size and occupies no blocks, so `du` reports zero growth and this
-# control failed on its first run reporting "the check is blind" -- about
-# itself. Same distinction as apparent-vs-allocated on Docker.raw, one file
-# along: du measures blocks, and a control that writes no blocks tests nothing.
+# `dd`, NOT `mkfile -n`. mkfile -n creates a SPARSE file: right apparent size,
+# zero blocks occupied, so `du` reports no growth and this control failed on
+# its first run reporting "the check is blind" -- about itself. Same
+# distinction as apparent-vs-allocated on Docker.raw, one file along: du
+# measures blocks, and a control that writes no blocks tests nothing.
+#
+# `bs=1024k`, NOT `bs=1m`. GNU dd rejects a lowercase suffix outright --
+# `dd: invalid number '1m'` -- so on the Linux CI runner nothing was written
+# and this control reported "the check is blind" about a `du` that was working
+# perfectly. Verified in an alpine container rather than assumed: `bs=1m` fails
+# there, `bs=1024k` writes 2097152 bytes on both systems.
+#
+# Third BSD-vs-GNU trap in two days, after `stat -f` and `sed -i ''`.
+# test_static.sh now forbids the lowercase suffix the same way it forbids the
+# other two.
+#
+# Measured on the PROBE DIRECTORY rather than on all of $TMPDIR: the claim
+# under test is "du -sk notices 60MB appearing", and unrelated churn elsewhere
+# in the directory is noise against that claim, not evidence.
 PROBE="$(mktemp -d)"
-B4="$(du -sk "$TMP" 2>/dev/null | awk '{print $1}')"
-dd if=/dev/zero of="$PROBE/ballast" bs=1m count=60 >/dev/null 2>&1
-AF="$(du -sk "$TMP" 2>/dev/null | awk '{print $1}')"
+B4="$(du -sk "$PROBE" 2>/dev/null | awk '{print $1}')"
+dd if=/dev/zero of="$PROBE/ballast" bs=1024k count=60 >/dev/null 2>&1
+BALLAST_KB="$(du -sk "$PROBE/ballast" 2>/dev/null | awk '{print $1}')"
+AF="$(du -sk "$PROBE" 2>/dev/null | awk '{print $1}')"
 rm -rf "$PROBE"
-if [ $(( AF - B4 )) -ge 51200 ]; then
+if [ "${BALLAST_KB:-0}" -lt 51200 ]; then
+  # Name the real cause. "The check is blind" would be a claim about du when
+  # the truth is that dd never wrote the bytes.
+  _fail "the growth measurement notices 60MB appearing" \
+        "the ballast itself is only $(( ${BALLAST_KB:-0} / 1024 ))MB -- dd did not write it"
+elif [ $(( AF - B4 )) -ge 51200 ]; then
   _pass "the growth measurement notices 60MB appearing (it can go red)"
 else
   _fail "the growth measurement notices 60MB appearing" \

@@ -445,6 +445,46 @@ BAD_TRAP="$(printf '%s' "$BAD_TRAP" | tr ' ' '\n' | sort -u | tr '\n' ' ' | sed 
 assert_equals "" "$BAD_TRAP" \
   "no lib.sh-based suite replaces its exit handler with a bare trap (use on_exit)"
 
+# ---- dd block sizes must be spelled the way BOTH dd programs accept ---------
+#
+# GNU dd rejects a lowercase multiplier outright -- `dd: invalid number '1m'`
+# -- while BSD/macOS dd accepts it. So `bs=1m` writes nothing on Linux and the
+# caller sees an empty file rather than an error, because dd's message goes to
+# a stderr that a test has usually redirected away. That is exactly how the
+# sandbox-hygiene control came to report "the check is blind" about a
+# measurement that was working: verified in an alpine container, `bs=1m` fails
+# and `bs=1024k` writes 2097152 bytes on both.
+#
+# Third instance of this shape in two days (`stat -f`, `sed -i ''`, now this).
+# Uppercase `1M` also works on both; `1024k` is used here because it is what
+# the fix landed on and either is fine.
+scan_bad_dd() {  # <root...> -- basenames using a suffix GNU dd rejects
+  grep -rnE 'dd .*bs=[0-9]+[mg]([^a-zA-Z]|$)' "$@" --include='*.sh' 2>/dev/null \
+    | sed 's/[[:space:]]*#.*$//' \
+    | grep -E 'dd .*bs=[0-9]+[mg]([^a-zA-Z]|$)' \
+    | awk -F: '{print $1}' | xargs -n1 basename 2>/dev/null \
+    | sort -u | tr '\n' ' ' | sed 's/ *$//'
+}
+
+assert_equals "" "$(scan_bad_dd "$REPO_ROOT/platform" "$REPO_ROOT/pilots")" \
+  "no dd call uses a block-size suffix GNU dd rejects"
+
+# The control, on fixtures rather than on the tree: one spelling that must be
+# caught and one that must not, so "no findings" cannot come from a scan that
+# finds nothing ever.
+DDFIX="$(mktemp -d)"
+printf '#!/usr/bin/env bash\ndd if=/dev/zero of=x bs=1m count=1\n' > "$DDFIX/bad.sh"
+printf '#!/usr/bin/env bash\ndd if=/dev/zero of=x bs=1024k count=1\n' > "$DDFIX/good.sh"
+DD_CAUGHT="$(scan_bad_dd "$DDFIX")"
+rm -rf "$DDFIX"
+case "$DD_CAUGHT" in
+  *bad.sh*) case "$DD_CAUGHT" in
+      *good.sh*) _fail "catches only the suffix GNU rejects" "flagged the portable one too" ;;
+      *) _pass "catches: a dd block size GNU dd would reject" ;;
+    esac ;;
+  *) _fail "catches: a dd block size GNU dd would reject" "found: '$DD_CAUGHT'" ;;
+esac
+
 # The control. A guard that has only ever been seen green is indistinguishable
 # from one that cannot go red -- and this particular guard nearly shipped
 # unable to fire, because the first version matched its own source and was

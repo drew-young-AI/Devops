@@ -1273,6 +1273,16 @@ lib.sh 的檔頭早就警告過這個形狀（針對斷言 helper）。**它對 
 一個寫 `X="$(run_cmd ...; cat "$LAST_STDOUT")"` 的套件就在子 shell 裡。
 改成與 sandbox 共用同一個註冊檔。
 
+**4. `dd bs=1m` 在 GNU dd 上直接失敗。** 那個 ballast 控制項推上去之後 CI 紅了，
+訊息是「這個檢查是瞎的」——關於一個運作正常的 `du`。真正的原因是
+`dd: invalid number '1m'`：GNU dd 拒絕小寫倍率，BSD/macOS 接受，
+而 dd 的錯誤訊息去了一個測試通常已經重導掉的 stderr。
+**在 alpine 容器裡實測驗證**，不是用推的：`bs=1m` 失敗、`bs=1024k` 兩邊都寫出 2097152 bytes。
+
+**兩天內第三個 BSD/GNU 陷阱**（`stat -f`、`sed -i ''`、現在 `dd bs=`）。
+三次之後這不是巧合，是這台開發機與 CI／prod 之間一條穩定的裂縫。
+`test_static.sh` 已加規則與合成控制。
+
 ### 最終量測
 
 完整套件跑完後 `$TMPDIR` **完全沒有成長**（前後都是 8,105 項 / 5.5G）。

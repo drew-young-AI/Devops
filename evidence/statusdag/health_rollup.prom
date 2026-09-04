@@ -3,18 +3,18 @@
 # for why this exists rather than a retention policy.
 # HELP devops_health_rollup_snapshots_total Health snapshots aggregated.
 # TYPE devops_health_rollup_snapshots_total gauge
-devops_health_rollup_snapshots_total 1779
+devops_health_rollup_snapshots_total 1791
 # HELP devops_health_rollup_generated_seconds Unix time the rollup was built.
 # TYPE devops_health_rollup_generated_seconds gauge
-devops_health_rollup_generated_seconds 1788477826
+devops_health_rollup_generated_seconds 1788481792
 # HELP devops_health_rollup_coverage_ratio Snapshots present divided by snapshots expected across the recorded span.
 # TYPE devops_health_rollup_coverage_ratio gauge
-devops_health_rollup_coverage_ratio 0.8565
+devops_health_rollup_coverage_ratio 0.8602
 # HELP devops_health_verdict_samples_total Snapshots recording each verdict.
 # TYPE devops_health_verdict_samples_total gauge
 devops_health_verdict_samples_total{verdict="CRITICAL"} 1
 devops_health_verdict_samples_total{verdict="DEGRADED"} 438
-devops_health_verdict_samples_total{verdict="HEALTHY"} 1065
+devops_health_verdict_samples_total{verdict="HEALTHY"} 1077
 devops_health_verdict_samples_total{verdict="UNKNOWN"} 275
 # HELP devops_health_check_failed_total Snapshots in which an integrity check was not ok.
 # TYPE devops_health_check_failed_total gauge
