@@ -105,6 +105,63 @@ groups:
       # change needs a baseline this platform does not store yet. Alerting on
       # the level instead would manufacture the permanent red that was just
       # removed. Recorded in docs/Backlog.md rather than guessed at.
+      # ---- the empty fetch (docs/Backlog.md §19) --------------------------
+      #
+      # DataSourceStale answers "did our ingest stop". It cannot answer "did
+      # the upstream stop publishing": a successful fetch of byte-identical
+      # content resets the fetch clock, so if 疾管署 stopped publishing we
+      # would keep fetching the same file every day, DataSourceStale would
+      # never fire, retrain would keep adding model_run rows on unchanged
+      # features, and every artefact on the platform would stay green.
+      #
+      # `dataops_source_unchanged_seconds` is seconds since the source last
+      # returned DIFFERENT bytes, from ingest_runs.content_sha256 -- which was
+      # being recorded from the beginning and never read.
+      #
+      # THE THRESHOLD IS THE PUBLISHER'S OWN CADENCE, NOT A CONSTANT.
+      # Measured 2026-09-04: most sources had fetched identical content 3-4
+      # times running, which is NORMAL between publication cycles. "Unchanged
+      # N times" is therefore not a signal; "unchanged for longer than the
+      # publisher's own interval" is. The interval comes from
+      # dataops_source_expected_interval_seconds, read from the publishers'
+      # catalogues (§20), so no cadence is copied into this file to drift.
+      #
+      # 3x, matching the exporter-freshness rules: two missed publications
+      # tolerated, the third alerts.
+      #
+      # GROUP_LEFT IS LOAD-BEARING. This joins two metric families, and
+      # WidespreadGeoDrift below is in this file because it shipped without
+      # one: the rule PARSED, promtool reported SUCCESS, and evaluation failed
+      # every cycle for 11 hours -- configured, and unable to fire. That is
+      # ADR-0007's origin. Verified by EVALUATION here, not by parsing:
+      # test_dataops_metrics.sh drives it through promtool's rule tests.
+      #
+      # A source with no cadence evidence emits no interval series, so the
+      # join drops it and it cannot alert. Deliberate: §20 records what a
+      # defaulted interval costs.
+      - alert: SourcePublishedNothingNew
+        expr: >-
+          dataops_source_unchanged_seconds
+            > on(source) group_left(provenance)
+              (3 * dataops_source_expected_interval_seconds)
+        for: 1h
+        labels:
+          severity: warning
+          service: dataops
+        annotations:
+          summary: "{{ $labels.source }} 抓取成功但內容沒有變過，已超過發布週期的 3 倍"
+          description: >-
+            The fetch is working and the bytes have not changed. Either the
+            upstream stopped publishing, or we are fetching a stale mirror.
+            Nothing else reports this: the fetch clock resets on every
+            successful fetch, so freshness stays green while the data stands
+            still. Cadence provenance for this source is
+            {{ $labels.provenance }} (see pilots/station2-twin/ingest/source_frequency.json).
+          runbook: >-
+            psql: SELECT fetched_at, content_sha256 FROM ingest_runs
+            WHERE source='{{ $labels.source }}' ORDER BY fetched_at DESC LIMIT 5;
+            兩份 sha 相同即為空抓取。再對照出版方頁面確認是否真的停發
+
   - name: dataops-drift
     rules:
       # A single geography moving is epidemiology. A quarter of them moving the

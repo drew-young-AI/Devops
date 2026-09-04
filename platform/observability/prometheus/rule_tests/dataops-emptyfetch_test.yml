@@ -1,0 +1,92 @@
+# Synthetic control for SourcePublishedNothingNew (docs/Backlog.md §19).
+#
+# WHY THIS FILE AND NOT JUST `promtool check rules`.
+#
+# The rule next to this one in dataops.yml, WidespreadGeoDrift, shipped on
+# 2026-08-28 without an explicit `group_left`. It PARSED, `promtool check
+# rules` reported SUCCESS, and every evaluation failed for 11 hours -- so it
+# read as configured and could never fire. That is the origin of ADR-0007:
+# verify by EVALUATION, not by parsing. SourcePublishedNothingNew joins the
+# same two metric families and would fail the same way.
+#
+# Four cases. The two that must stay silent matter as much as the one that
+# fires: a rule that alerts on any unchanged source would fire on every source
+# between publication cycles, which is normal and would make the class
+# unreadable within a week.
+
+rule_files:
+  - ../alerts/dataops.yml
+
+evaluation_interval: 1m
+
+tests:
+  # ---- past 3x the publisher's cadence: fires, and carries provenance -----
+  - interval: 1m
+    input_series:
+      # Declared daily (86400s); unchanged for 300000s, which is past 259200.
+      - series: 'dataops_source_unchanged_seconds{source="cdc-nhi-ili"}'
+        values: "300000x70"
+      - series: 'dataops_source_expected_interval_seconds{source="cdc-nhi-ili",provenance="declared"}'
+        values: "86400x70"
+    alert_rule_test:
+      - eval_time: 65m
+        alertname: SourcePublishedNothingNew
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              service: dataops
+              source: "cdc-nhi-ili"
+              provenance: "declared"
+            exp_annotations:
+              summary: "cdc-nhi-ili 抓取成功但內容沒有變過，已超過發布週期的 3 倍"
+              description: >-
+                The fetch is working and the bytes have not changed. Either the upstream stopped publishing, or we are fetching a stale mirror. Nothing else reports this: the fetch clock resets on every successful fetch, so freshness stays green while the data stands still. Cadence provenance for this source is declared (see pilots/station2-twin/ingest/source_frequency.json).
+              runbook: >-
+                psql: SELECT fetched_at, content_sha256 FROM ingest_runs WHERE source='cdc-nhi-ili' ORDER BY fetched_at DESC LIMIT 5; 兩份 sha 相同即為空抓取。再對照出版方頁面確認是否真的停發
+      # `for: 1h` is real: at 30m the condition holds and the alert must not
+      # have fired yet. Without this a dropped `for` would still pass above.
+      - eval_time: 30m
+        alertname: SourcePublishedNothingNew
+        exp_alerts: []
+
+  # ---- unchanged, but INSIDE the cadence: silent --------------------------
+  # The case that stops this rule from firing on every source. An annual
+  # source unchanged for 100 days is a healthy annual source.
+  - interval: 1m
+    input_series:
+      - series: 'dataops_source_unchanged_seconds{source="cdc-tb-town"}'
+        values: "8640000x70"       # 100 days
+      - series: 'dataops_source_expected_interval_seconds{source="cdc-tb-town",provenance="declared"}'
+        values: "31536000x70"      # yearly; 3x = 3 years
+    alert_rule_test:
+      - eval_time: 65m
+        alertname: SourcePublishedNothingNew
+        exp_alerts: []
+
+  # ---- no cadence evidence: cannot fire, and that is deliberate -----------
+  # moi-admin-geography has no declared or structural cadence, so it emits no
+  # interval series. The join drops it. Asserted so nobody later "fixes" the
+  # gap by defaulting the interval -- §20 records what a defaulted number
+  # costs when it looks like a measurement.
+  - interval: 1m
+    input_series:
+      - series: 'dataops_source_unchanged_seconds{source="moi-admin-geography"}'
+        values: "99999999x70"
+    alert_rule_test:
+      - eval_time: 65m
+        alertname: SourcePublishedNothingNew
+        exp_alerts: []
+
+  # ---- a source that just changed: silent --------------------------------
+  # The positive control on the metric itself. Without it, a rule that fired
+  # on everything would satisfy case 1 and look correct.
+  - interval: 1m
+    input_series:
+      - series: 'dataops_source_unchanged_seconds{source="cdc-nhi-hfmd"}'
+        values: "0x70"
+      - series: 'dataops_source_expected_interval_seconds{source="cdc-nhi-hfmd",provenance="declared"}'
+        values: "86400x70"
+    alert_rule_test:
+      - eval_time: 65m
+        alertname: SourcePublishedNothingNew
+        exp_alerts: []

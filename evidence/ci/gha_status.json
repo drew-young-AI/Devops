@@ -1,9 +1,17 @@
 {
   "schema": "gha-status/1",
-  "fetched_at": "2026-09-04T09:59:07+08:00",
+  "fetched_at": "2026-09-04T10:29:12+08:00",
   "fetch_state": "ok",
   "detail": "fetched main",
   "runs": [
+    {
+      "conclusion": "success",
+      "createdAt": "2026-09-04T02:19:00Z",
+      "displayTitle": "docs+test: 映像路徑大小寫巡查、DHCP 理由更正、待辦登記簿",
+      "status": "completed",
+      "url": "https://github.com/drew-young-AI/Devops/actions/runs/33829061630",
+      "workflowName": "Platform Tests"
+    },
     {
       "conclusion": "success",
       "createdAt": "2026-09-04T00:34:56Z",
@@ -74,14 +82,6 @@
       "displayTitle": "feat(ops): 接上 pilot 資料迴路，並讓未接通的告警通道自己說出來",
       "status": "completed",
       "url": "https://github.com/drew-young-AI/Devops/actions/runs/33713979071",
-      "workflowName": "Platform Tests"
-    },
-    {
-      "conclusion": "success",
-      "createdAt": "2026-09-02T06:48:10Z",
-      "displayTitle": "docs: 文件樹徹底盤點——五個孤兒、一份分岔索引、一份說反話的長官報告",
-      "status": "completed",
-      "url": "https://github.com/drew-young-AI/Devops/actions/runs/33600498091",
       "workflowName": "Platform Tests"
     }
   ]

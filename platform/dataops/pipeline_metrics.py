@@ -44,6 +44,7 @@ Usage:
 """
 from __future__ import annotations
 
+import json
 import os
 import sys
 import time
@@ -246,7 +247,101 @@ def freshness_and_execution(lines):
     for r in rows:
         src, conf = r[0], r[8]
         lines.append(f'dataops_ingest_runs_conflicted_total{{source="{esc(src)}"}} {conf}')
+
+    unchanged_and_cadence(lines)
     return len(rows)
+
+
+# --------------------------------------------------------------------------
+# THE EMPTY FETCH: a fetch that SUCCEEDS and brings nothing new.
+#
+# docs/Backlog.md §19. `dataops_source_age_seconds` is now - max(fetched_at),
+# so it answers "did our ingest stop" and nothing else. If the upstream stops
+# publishing, we keep fetching the same bytes every day, the clock keeps
+# resetting, and every artefact on the platform stays green:
+#
+#   DataSourceStale never fires        the fetch time is always fresh
+#   retrain adds a model_run row       the schedule looks healthy
+#   n_train, code_sha256, MAE          identical to four decimal places
+#
+# The signal was already being recorded and never read: ingest_runs holds
+# content_sha256 for every fetch. Measured 2026-09-04, most sources had
+# fetched byte-identical content 3-4 times in a row -- which is NORMAL between
+# publication cycles, and that is exactly why "repeated N times" cannot be the
+# threshold.
+#
+# The threshold has to be TIME UNCHANGED against the source's own PUBLICATION
+# cadence, which is why this waited for pilots/station2-twin/ingest/
+# source_frequency.json (built for §20, fetched from the publishers' own
+# catalogues rather than estimated). Both numbers are emitted and the rule
+# compares them, so no cadence is duplicated into a .yml file.
+#
+# A source with no cadence evidence emits NO expected-interval series, so the
+# comparison produces no result and cannot alert. That is deliberate: a
+# default interval here would be a guess wearing the output format of a
+# measurement, and §20 already records what that costs.
+# --------------------------------------------------------------------------
+
+FREQ_TABLE = os.path.join(REPO_ROOT, "pilots", "station2-twin", "ingest",
+                          "source_frequency.json")
+
+
+def unchanged_and_cadence(lines):
+    with pg() as conn, conn.cursor() as c:
+        # Seconds since this source last returned DIFFERENT bytes. Zero when
+        # the most recent fetch changed something.
+        c.execute("""
+            WITH r AS (
+              SELECT source, content_sha256, fetched_at,
+                     lag(content_sha256) OVER (PARTITION BY source
+                                               ORDER BY fetched_at) AS prev
+              FROM ingest_runs WHERE content_sha256 IS NOT NULL
+            ),
+            changed AS (
+              SELECT source, max(fetched_at) AS last_change
+              FROM r WHERE prev IS NULL OR content_sha256 <> prev
+              GROUP BY source
+            )
+            SELECT c.source,
+                   extract(epoch FROM (now() - c.last_change))::bigint
+            FROM changed c ORDER BY 1""")
+        unchanged = c.fetchall()
+
+    lines += [
+        "# HELP dataops_source_unchanged_seconds Seconds since this source last "
+        "returned different bytes. A successful fetch of identical content does "
+        "NOT reset this -- that is the whole point.",
+        "# TYPE dataops_source_unchanged_seconds gauge",
+    ]
+    for src, secs in unchanged:
+        if src in RETIRED_SOURCES:
+            continue
+        lines.append(f'dataops_source_unchanged_seconds{{source="{esc(src)}"}} {secs}')
+
+    # The publisher's declared cadence, emitted so the alert rule can compare
+    # two metrics instead of carrying a copy of the table.
+    try:
+        with open(FREQ_TABLE, encoding="utf-8") as fh:
+            table = json.load(fh)
+    except (OSError, ValueError) as exc:
+        print(f"warning: cannot read {FREQ_TABLE}: {exc}", file=sys.stderr)
+        return
+
+    lines += [
+        "# HELP dataops_source_expected_interval_seconds How often the PUBLISHER "
+        "says this source is updated, from their own catalogue. Absent for a "
+        "source with no evidence -- absent on purpose, so nothing thresholds "
+        "against a guess.",
+        "# TYPE dataops_source_expected_interval_seconds gauge",
+    ]
+    for src in sorted(table):
+        if src in RETIRED_SOURCES:
+            continue
+        secs = table[src].get("seconds")
+        if secs:
+            lines.append(
+                f'dataops_source_expected_interval_seconds{{source="{esc(src)}",'
+                f'provenance="{esc(table[src].get("source", "unknown"))}"}} {secs}')
 
 
 def drift(lines):

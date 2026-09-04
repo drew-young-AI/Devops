@@ -173,7 +173,10 @@ if command -v docker >/dev/null 2>&1; then
 # so it could not fire for its stated reason and did fire for another. Batch
 # failure is covered by the scheduler path (probe_scheduler ->
 # PlatformNodeFailed), which is where a run that never wrote a row shows up.
-assert_output_contains "6 rules found" "and finds all six (5 alerts + 1 recording rule)"
+# Seven since 2026-09-04: SourcePublishedNothingNew closed the empty-fetch
+# gap (§19) -- a fetch that succeeds and brings nothing new, which the
+# freshness metric cannot see because a successful fetch resets its clock.
+assert_output_contains "7 rules found" "and finds all seven (6 alerts + 1 recording rule)"
 else
   echo "  SKIP  no docker -- promtool validation UNVERIFIED"
 fi
@@ -337,5 +340,63 @@ assert_output_contains "UNWIRED_CASE ('warn', '宣告了但沒接上: email')" \
   "a declared-but-missing channel is WARN with ZERO alerts firing, and is named"
 assert_output_contains "FAILING_CASE ('warn', '送出失敗: telegram')" \
   "configured is not delivered: a channel whose sends fail is not green"
+
+# ---- the empty-fetch rule, verified by EVALUATION (docs/Backlog.md §19) ----
+#
+# ADR-0007's origin is in this very file's subject: WidespreadGeoDrift shipped
+# without an explicit group_left, PARSED, reported SUCCESS from
+# `promtool check rules`, and failed every evaluation for 11 hours.
+# SourcePublishedNothingNew joins the same two metric families, so parsing is
+# not evidence for it either.
+if command -v docker >/dev/null 2>&1 && timeout 20 docker info >/dev/null 2>&1; then
+  PROMDIR="$REPO_ROOT/platform/observability/prometheus"
+  ef_promtool() {
+    timeout 180 docker run --rm -v "$PROMDIR:/p:ro" \
+      --entrypoint promtool "$(prom_image)" "$@"
+  }
+
+  run_cmd ef_promtool test rules /p/rule_tests/dataops-emptyfetch_test.yml
+  assert_rc 0 "the empty-fetch rule fires past the cadence and stays silent inside it"
+
+  EF_RULES="$PROMDIR/alerts/dataops.yml"
+  EF_BAK="$(mktemp)"
+  cp "$EF_RULES" "$EF_BAK"
+  on_exit 'cp "$EF_BAK" "$EF_RULES"; rm -f "$EF_BAK"'
+
+  # THE mutation for this rule. Without group_left the join is many-to-many,
+  # evaluation errors, and the alert can never fire while still parsing.
+  mutate "$EF_RULES" 's| group_left(provenance)||' "remove the group_left modifier"
+  ef_promtool test rules /p/rule_tests/dataops-emptyfetch_test.yml >/dev/null 2>&1
+  EF_MUT1=$?
+  cp "$EF_BAK" "$EF_RULES"
+
+  # Collapse the cadence multiplier. An annual source unchanged for 100 days
+  # would then alert -- the behaviour that makes a whole alert class
+  # unreadable, and the reason the threshold is per-source at all.
+  mutate "$EF_RULES" 's|(3 \* dataops_source_expected_interval_seconds)|(0.001 * dataops_source_expected_interval_seconds)|' \
+    "collapse the cadence multiplier"
+  ef_promtool test rules /p/rule_tests/dataops-emptyfetch_test.yml >/dev/null 2>&1
+  EF_MUT2=$?
+  cp "$EF_BAK" "$EF_RULES"
+
+  if [ "$EF_MUT1" -ne 0 ]; then
+    _pass "the control fails when group_left is removed (the ADR-0007 defect)"
+  else
+    _fail "the control fails when group_left is removed" "mutant survived"
+  fi
+  if [ "$EF_MUT2" -ne 0 ]; then
+    _pass "the control fails when the cadence multiplier is collapsed"
+  else
+    _fail "the control fails when the cadence multiplier is collapsed" "mutant survived"
+  fi
+  if cmp -s "$EF_BAK" "$EF_RULES"; then
+    _pass "dataops.yml is byte-identical after mutation"
+  else
+    _fail "dataops.yml is byte-identical after mutation" "the restore did not"
+  fi
+else
+  echo "  SKIP  no docker -- the empty-fetch rule is UNVERIFIED by evaluation"
+fi
+
 
 suite_summary

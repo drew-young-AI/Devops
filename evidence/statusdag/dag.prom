@@ -85,9 +85,9 @@ devops_node_state{node="nginx",layer="release",state="superseded"} 0
 devops_node_state{node="nginx",layer="release",state="warn"} 0
 devops_node_state{node="nginx",layer="release",state="unknown"} 0
 devops_node_state{node="nginx",layer="release",state="fail"} 0
-devops_node_state{node="prometheus",layer="observe",state="ok"} 1
+devops_node_state{node="prometheus",layer="observe",state="ok"} 0
 devops_node_state{node="prometheus",layer="observe",state="superseded"} 0
-devops_node_state{node="prometheus",layer="observe",state="warn"} 0
+devops_node_state{node="prometheus",layer="observe",state="warn"} 1
 devops_node_state{node="prometheus",layer="observe",state="unknown"} 0
 devops_node_state{node="prometheus",layer="observe",state="fail"} 0
 devops_node_state{node="loki",layer="observe",state="ok"} 1
@@ -194,7 +194,7 @@ devops_node_state_code{node="llmreview",layer="verify"} 1
 devops_node_state_code{node="gate",layer="gate"} 0
 devops_node_state_code{node="prodlike",layer="release"} 1
 devops_node_state_code{node="nginx",layer="release"} 0
-devops_node_state_code{node="prometheus",layer="observe"} 0
+devops_node_state_code{node="prometheus",layer="observe"} 2
 devops_node_state_code{node="loki",layer="observe"} 0
 devops_node_state_code{node="alertmgr",layer="observe"} 2
 devops_node_state_code{node="grafana",layer="observe"} 0
@@ -251,4 +251,4 @@ devops_node_impacted{node="bluegreen"} 0
 devops_node_impacted{node="prodk8s"} 0
 # HELP devops_board_generated_seconds Unix time this board was built.
 # TYPE devops_board_generated_seconds gauge
-devops_board_generated_seconds 1788487761
+devops_board_generated_seconds 1788489582
