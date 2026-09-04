@@ -1,0 +1,67 @@
+{
+  "verdict": "DEGRADED",
+  "exit_code": 1,
+  "checked_at": "2026-09-04T04:50:41Z",
+  "monitoring_integrity": [
+    {
+      "check": "prometheus_reachable",
+      "ok": true,
+      "detail": "api/v1/rules responded"
+    },
+    {
+      "check": "alert_rules_loaded",
+      "ok": true,
+      "detail": "20 rules"
+    },
+    {
+      "check": "alert_rules_evaluating",
+      "ok": true,
+      "detail": "all ok"
+    },
+    {
+      "check": "alertmanager_wired",
+      "ok": true,
+      "detail": "1 active"
+    },
+    {
+      "check": "alertmanager_reachable",
+      "ok": true,
+      "detail": "api/v2/alerts responded"
+    },
+    {
+      "check": "scrape_targets_visible",
+      "ok": true,
+      "detail": "3 targets"
+    }
+  ],
+  "integrity_blockers": [],
+  "active_alerts": [
+    {
+      "alertname": "WidespreadGeoDrift",
+      "severity": "warning",
+      "environment": null,
+      "service": "dataops",
+      "summary": "猩紅熱：超過 1/4 的地區年對年down 超出 0.5–2 倍區間",
+      "runbook": "platform/dataops/run.sh 後比對 yoy_geo_drift_count 與 comparable_count；集中在單一疾病較可能是真疫情",
+      "started_at": "2026-09-04T03:13:13.198Z"
+    },
+    {
+      "alertname": "WidespreadGeoDrift",
+      "severity": "warning",
+      "environment": null,
+      "service": "dataops",
+      "summary": "COVID-19：超過 1/4 的地區年對年up 超出 0.5–2 倍區間",
+      "runbook": "platform/dataops/run.sh 後比對 yoy_geo_drift_count 與 comparable_count；集中在單一疾病較可能是真疫情",
+      "started_at": "2026-09-04T03:13:13.198Z"
+    }
+  ],
+  "scrape_targets": {
+    "platform-dag/-": "up",
+    "station2-twin/develop": "up",
+    "station2-twin-k8s/k8s": "up"
+  },
+  "sources": {
+    "prometheus": "http://127.0.0.1:19090",
+    "alertmanager": "http://127.0.0.1:19093"
+  }
+}

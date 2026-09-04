@@ -27,20 +27,34 @@ timestamp: 2026-09-04T00:00:00+08:00
 
 ---
 
-## 一、開場的四個指令（不要用讀的推測狀態）
+## 一、開場的指令（不要用讀的推測狀態）
+
+**先跑這三個，都是秒級的：**
 
 ```bash
 platform/recover.sh --check          # 什麼東西沒在跑（會不會需要 unseal）
-platform/tests/run_all.sh            # 契約是否成立（tier 1-3，約 6-7 分鐘）
-platform/scheduler/status.sh         # 排程有沒有在跑、哪些從未被觸發
-python3 platform/statusdag/dag.py --json | python3 -m json.tool | head -40
+platform/scheduler/status.sh | head -30
+python3 platform/statusdag/dag.py --json \
+  | python3 -c 'import json,sys; b=json.load(sys.stdin); print("verdict:", b["verdict"]); [print(" ", n["state"], n["id"], n.get("detail","")[:80]) for n in b["nodes"] if n["state"] in ("fail","warn","unknown")]'
 ```
 
-第四個是**平台對自己的判定**。它的 `verdict` 與每個節點的 `detail`
+第三個是**平台對自己的判定**。`verdict` 與非綠節點的 `detail`
 就是「現在哪裡是紅的」的權威答案，不需要任何人整理。
 
-**如果 Docker 沒有回應**（指令掛住而不是快速失敗）：引擎可能死了但
-socket forwarder 還在接連線。處置見下方「三、會再遇到的坑」。
+**測試套件單獨跑，而且只留摘要：**
+
+```bash
+platform/tests/run_all.sh 2>&1 | tail -20
+```
+
+約 6–7 分鐘，會印近 900 行斷言。**務必只保留結尾**——
+把整份輸出讀進 context 會吃掉大量預算換來零額外資訊：
+它要嘛 `ALL SUITES PASSED`，要嘛在結尾列出 `FAILED SUITES`。
+只有紅的時候才需要回頭看那個套件的細節。
+
+**如果任何 `docker` 指令掛住而不是快速失敗**：引擎可能死了但 socket
+forwarder 還在接連線。**先讀「三、會再遇到的坑」第 2 點再動作**，
+不要反覆重試——那會浪費數分鐘並讓後續判斷建立在逾時上。
 
 ## 二、讀的順序，以及每一份負責什麼
 
@@ -123,6 +137,18 @@ sandbox 註冊表**從來沒有清理過任何東西**（421GB 的成因）。
 **從來沒有執行過，而套件報綠**。唯一露餡的是**斷言總數沒有增加**。
 沒有工具抓得到（語法正確、在檔案裡、看起來像被執行）。
 **新增斷言後，比對套件的斷言數是否真的增加。** 登記為 T12。
+
+## 三之二、接手後不要做的三件事
+
+1. **不要開始修紅線。** 下面第四節的三條紅線都是**已知且已記錄**的狀態，
+   不是待辦。`mgate` 輸給基準尤其容易誘發「順手改一下模型」——
+   那是**新增範圍**，而 §27 的規則是「只登記，不實作」。
+
+2. **不要把 B1–B10 排進自己的工作。** 那些是使用者本人才能做的
+   （憑證、路由器、實體存取）。確認狀態可以，嘗試代勞不行。
+
+3. **不要 commit／push，除非使用者明講。** `CLAUDE.md` 的硬性禁令。
+   這個專案的習慣是：做完、驗收、報告，然後等指示。
 
 ## 四、目前的三條紅線（狀態請以指令為準，這裡只說形狀）
 
