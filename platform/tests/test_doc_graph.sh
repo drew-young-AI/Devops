@@ -73,7 +73,7 @@ rm -f "$REPORT"
 # document in the repository.
 ORPHAN="$REPO_ROOT/docs/_doc_graph_control.md"
 cleanup_orphan() { rm -f "$ORPHAN"; }
-trap cleanup_orphan EXIT
+on_exit cleanup_orphan
 cat > "$ORPHAN" <<'EOF'
 ---
 type: reference
@@ -93,7 +93,10 @@ assert_rc 1 "catches: a tracked document that nothing links to"
 assert_output_contains "_doc_graph_control.md" "names the orphan rather than just failing"
 git -C "$REPO_ROOT" rm --cached --quiet "docs/_doc_graph_control.md" >/dev/null 2>&1
 rm -f "$ORPHAN"
-trap - EXIT
+# No `trap - EXIT` any more. Deregistering would remove lib.sh's sandbox
+# cleanup along with this one, which is how a suite quietly opts out of the
+# safety net. cleanup_orphan is `rm -f` and therefore idempotent, so leaving it
+# registered costs nothing and covers an interrupt later in the file.
 
 # --- control: a broken link must be caught ---------------------------------
 #

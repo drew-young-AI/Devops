@@ -18,6 +18,12 @@ echo "== check_health.sh verdicts =="
 
 CHECK="$REPO_ROOT/platform/observability/check_health.sh"
 FIXTURES="$(mktemp -d)"
+# Registered on the NEXT line, not later. Anything between the mktemp and the
+# registration is a window in which an early exit leaks the directory -- which
+# is how three suites were still leaking one each after the sandbox registry
+# was fixed.
+on_exit 'rm -rf "$FIXTURES"'
+
 SANDBOXES+=("$FIXTURES")
 
 # Builds a fixture: healthy Prometheus + Alertmanager, with the alert list

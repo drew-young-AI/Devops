@@ -80,7 +80,7 @@ rm -rf "$(dirname "$CATALOG")"
 # --- a sandbox: the controls never touch the real tree ----------------------
 SANDBOX="$(mktemp -d)"
 cleanup() { rm -rf "$SANDBOX"; }
-trap cleanup EXIT
+on_exit cleanup
 mkdir -p "$SANDBOX/platform/docs" "$SANDBOX/platform/thing" "$SANDBOX/platform/tests"
 cp "$CAP" "$SANDBOX/platform/docs/capability_graph.py"
 git -C "$REPO_ROOT" init -q "$SANDBOX" 2>/dev/null

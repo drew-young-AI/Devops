@@ -57,7 +57,7 @@ restore() {
   [ -n "$HELD" ] && [ -f "$HELD" ] && mv "$HELD" "$MIRROR_DIR/fact.parquet"
   rm -rf "$BACKUP_DIR"
 }
-trap restore EXIT
+on_exit restore
 
 # ---- POSITIVE FIRST. A refusal proves nothing if nothing ever succeeds. ----
 run_cmd "$RUN" check

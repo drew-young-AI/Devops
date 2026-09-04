@@ -39,7 +39,7 @@ assert_file_exists "$COV" "loki_coverage.py exists"
 
 WORK="$(mktemp -d)"
 cleanup() { rm -rf "$WORK"; }
-trap cleanup EXIT
+on_exit cleanup
 
 # --- the real pipeline ------------------------------------------------------
 if curl -fsS --max-time 5 http://127.0.0.1:13100/metrics >"$WORK/live.txt" 2>/dev/null; then

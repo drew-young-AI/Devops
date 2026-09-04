@@ -86,7 +86,7 @@ fixture-open|19990|funnel|Scratch target on a closed port; nothing listens here.
 fixture-capped|19991|tailnet|Scratch target whose ceiling forbids public exposure.
 fixture-forbidden|19992|never|Scratch target that must be refused at every level.
 FIX
-trap 'rm -rf "$FIXTURE_DIR"' EXIT
+on_exit 'rm -rf "$FIXTURE_DIR"'
 
 run_cmd env INGRESS_TARGETS="$FIXTURE" "$INGRESS" --serve fixture-forbidden
 assert_rc 1 "a 'never' target is refused at --serve"

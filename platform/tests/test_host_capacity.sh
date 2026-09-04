@@ -49,7 +49,7 @@ assert_file_exists "$RULETEST" "the rules have a synthetic control file"
 # ---- 1. the exporter runs and writes atomically ---------------------------
 OUT_DIR="$(mktemp -d)"
 OUT="$OUT_DIR/host_disk.prom"
-trap 'rm -rf "$OUT_DIR"' EXIT
+on_exit 'rm -rf "$OUT_DIR"'
 
 run_cmd env HOST_DISK_PROM="$OUT" "$EXPORTER"
 assert_rc 0 "the exporter runs"
@@ -178,7 +178,7 @@ assert_rc 0 "the rules FIRE on a synthetic low disk, and stay silent on a health
 BAK="$(mktemp)"
 cp "$RULES" "$BAK"
 restore_rules() { cp "$BAK" "$RULES"; rm -f "$BAK"; }
-trap 'restore_rules; rm -rf "$OUT_DIR"' EXIT INT TERM
+on_exit restore_rules
 
 # Loosen the warning threshold by an order of magnitude. A control that cannot
 # see this is not measuring the threshold at all.

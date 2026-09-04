@@ -44,7 +44,7 @@ sed 's/^/  /' "$LAST_STDOUT"
 # a typed-in number, a missing justification, a source that appeared and was
 # never recorded, and a claim of evidence with nothing behind it.
 FIX="$(mktemp -d)"
-trap 'rm -rf "$FIX"' EXIT
+on_exit 'rm -rf "$FIX"'
 
 fixture() {  # <python expression mutating `t`> -> writes $FIX/table.json
   python3 -c "

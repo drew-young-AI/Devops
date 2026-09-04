@@ -38,7 +38,7 @@ assert_file_exists "$REPORT" "stage_report.py exists"
 # has no create-then-rename race.
 HARNESS_DIR="$(mktemp -d)"
 HARNESS="$HARNESS_DIR/stage_report_mut.py"
-trap 'rm -rf "$HARNESS_DIR"' EXIT
+on_exit 'rm -rf "$HARNESS_DIR"'
 
 cat > "$HARNESS" <<'PYEOF'
 """Break one guard, and exit 0 only if the guard notices.

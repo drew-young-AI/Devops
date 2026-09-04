@@ -25,6 +25,8 @@ REVIEW="$SANDBOX/platform/llm-review/review.sh"
 PILOT="$SANDBOX/pilots/fake-pilot"
 EVIDENCE="$SANDBOX/evidence/fake-pilot"
 FIXTURES="$(mktemp -d)"
+on_exit 'rm -rf "$FIXTURES"'
+
 SANDBOXES+=("$FIXTURES")
 
 chat_fixture() {

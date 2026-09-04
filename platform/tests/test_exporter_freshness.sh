@@ -59,7 +59,7 @@ sed 's/^/  /' "$LAST_STDOUT"
 # the same output. Three synthetic disagreements, each in a copy, none of them
 # touching the real files.
 FIX="$(mktemp -d)"
-trap 'rm -rf "$FIX"' EXIT
+on_exit 'rm -rf "$FIX"'
 
 check_fixture() {  # <description> -- expects rc 1
   python3 "$SUITE_DIR/exporter_freshness_check.py" \
@@ -132,7 +132,7 @@ assert_rc 0 "a frozen file fires, a fresh one does not, and the cadences differ"
 # ---- the control must be able to fail -------------------------------------
 BAK="$(mktemp)"
 cp "$RULES" "$BAK"
-trap 'cp "$BAK" "$RULES"; rm -f "$BAK"' EXIT INT TERM
+on_exit 'cp "$BAK" "$RULES"; rm -f "$BAK"'
 
 # Collapse the per-file thresholds onto one number. The suite must notice that
 # dag.prom, whose cadence is nine times host_disk's, now alerts nine times too

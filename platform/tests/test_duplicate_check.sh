@@ -43,7 +43,7 @@ assert_output_contains "plates.offline.html" \
 # --- a sandbox ---------------------------------------------------------------
 SANDBOX="$(mktemp -d)"
 cleanup() { rm -rf "$SANDBOX"; }
-trap cleanup EXIT
+on_exit cleanup
 mkdir -p "$SANDBOX/docs/diagrams" "$SANDBOX/docs/report" "$SANDBOX/platform/docs"
 cp "$DUP" "$SANDBOX/platform/docs/duplicate_check.py"
 git -C "$REPO_ROOT" init -q "$SANDBOX" 2>/dev/null

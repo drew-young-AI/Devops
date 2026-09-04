@@ -1,0 +1,34 @@
+{
+  "tool": "owasp-zap-baseline",
+  "scanned_at": "20260903T210001Z",
+  "target": "http://host.docker.internal:18090",
+  "scan_type": "baseline (passive rules + spider; no attack traffic)",
+  "gate_policy": "fail at MEDIUM and above; below that recorded, not blocking",
+  "fail_on": "MEDIUM",
+  "blocking_alerts": [],
+  "gate_result": "PASS",
+  "sites_scanned": [
+    "http://host.docker.internal:18090"
+  ],
+  "urls_in_alerts": 3,
+  "counts_by_risk": {
+    "HIGH": 0,
+    "MEDIUM": 0,
+    "LOW": 1,
+    "INFO": 0
+  },
+  "alerts": [
+    {
+      "risk": "LOW",
+      "confidence": 3,
+      "name": "Server Leaks Version Information via \"Server\" HTTP Response Header Field",
+      "instances": 3,
+      "example_uri": "http://host.docker.internal:18090",
+      "solution": "<p>Ensure that your web server, application server, load balancer, etc. is configured to suppress the \"Server\" header or provide generic details.</p>"
+    }
+  ],
+  "scan_integrity": {
+    "ok": true,
+    "note": "No site entry means ZAP never reached the target. That is a broken scan, not a clean result, and is treated as a gate failure. Coverage is judged by sites scanned, never by how many findings were produced."
+  }
+}

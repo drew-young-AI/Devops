@@ -42,7 +42,7 @@ fi
 # has no create-then-rename race.
 OUT_DIR="$(mktemp -d)"
 OUT="$OUT_DIR/dataops.prom"
-trap 'rm -rf "$OUT_DIR"' EXIT
+on_exit 'rm -rf "$OUT_DIR"'
 
 run_cmd env DATAOPS_PROM="$OUT" "$EXPORTER"
 assert_rc 0 "the exporter runs"

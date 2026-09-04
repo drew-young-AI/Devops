@@ -71,6 +71,9 @@ cleanup() {
   [ -n "${TRUNC_ID:-}" ] && q "DELETE FROM feature_set WHERE feature_set_id = $TRUNC_ID" >/dev/null 2>&1
   return 0
 }
+# A RAW trap: this suite does not source lib.sh (own counters), so on_exit
+# would be an undefined command that registers nothing. See the note in
+# test_backup_coverage.sh.
 trap cleanup EXIT
 
 # The truncated build. --max-seq is recorded in params, so the natural key

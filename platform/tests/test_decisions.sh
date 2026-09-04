@@ -32,7 +32,7 @@ assert_rc 0 "the real decision records validate"
 assert_output_contains "reproducible measurement" "and report how many are reproducible"
 
 TMP="$(mktemp -d -t decisions.XXXXXX)"
-trap 'rm -rf "$TMP"' EXIT
+on_exit 'rm -rf "$TMP"'
 
 # A known-good record, so every failure below is caused by the one thing changed.
 write_record() {   # write_record <filename> <decision-block-yaml>

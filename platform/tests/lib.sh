@@ -64,9 +64,23 @@ _fail() {
 
 # run_cmd <description> -- <command...>
 # Never lets a non-zero exit kill the suite; that IS the thing under test.
+# Every call leaks two temp files unless they are tracked. Individually tiny,
+# but a full run makes ~500 of them and they were never removed: 8,188 stray
+# entries had built up in $TMPDIR alongside the sandbox directories. Same
+# defect as the sandboxes, three orders of magnitude smaller, and invisible for
+# exactly that reason.
+#
+# A FILE HERE TOO, and for the same reason as the sandbox registry. The first
+# fix used an array, on the argument that run_cmd is called directly rather
+# than through command substitution. That is true of most calls and not of all:
+# a suite writing `X="$(run_cmd ...; cat "$LAST_STDOUT")"` runs run_cmd in a
+# subshell, the array append is lost with it, and the two files stay. It was
+# one leaked 20-byte file per run of test_backup_coverage.sh -- small enough to
+# dismiss, and the same defect that had just cost 421GB one directory over.
 run_cmd() {
   LAST_STDOUT="$(mktemp)"
   LAST_STDERR="$(mktemp)"
+  printf '%s\n%s\n' "$LAST_STDOUT" "$LAST_STDERR" >> "$SANDBOX_REGISTRY"
   "$@" >"$LAST_STDOUT" 2>"$LAST_STDERR"
   LAST_RC=$?
   return 0
@@ -176,16 +190,68 @@ assert_equals() {
 
 # --- sandbox ------------------------------------------------------------
 
-SANDBOXES=()
+# A FILE, NOT AN ARRAY -- and that is the whole bug this replaces.
+#
+# Every caller writes `SANDBOX="$(make_sandbox)"`. Command substitution runs in
+# a SUBSHELL, so `SANDBOXES+=("$sandbox")` appended to the subshell's copy and
+# the parent's array stayed empty forever. cleanup_sandboxes then iterated
+# nothing and deleted nothing -- not just on an abnormal exit, but on EVERY
+# run. Sandboxes were never cleaned up at all.
+#
+# This repo has the identical shape on record already: a synthetic control
+# whose counter was incremented inside `$(...)` and never reached 3. Same
+# mistake, three weeks apart, in the same file. A subshell is where state goes
+# to be forgotten.
+#
+# A file survives the subshell because the write is to the filesystem, not to
+# the shell's memory. run_cmd keeps an array on purpose: it is called directly
+# rather than through substitution, so its array IS the parent's.
+SANDBOX_REGISTRY="${SANDBOX_REGISTRY:-$(mktemp)}"
+export SANDBOX_REGISTRY
 
 # Creates an isolated repo root containing a copy of platform/ plus a fake
 # pilot, and echoes its path. Everything the scripts write (evidence, state,
 # generated nginx conf) lands inside it and is discarded on cleanup.
+# What a sandbox must NOT carry.
+#
+# `cp -R platform` copied platform/backup/archives with it -- 3.3GB of backup
+# tarballs, into every sandbox, for tests that reference none of them. Each
+# sandbox was 3.6GB where 300MB would do.
+#
+# Combined with the missing trap below, 124 of them accumulated in $TMPDIR
+# between 2026-09-01 and 2026-09-03: 427GB, the dominant consumer of a 926GB
+# volume, and the accumulation window covers the disk-full outage on
+# 2026-09-03 that stopped the entire platform. The test suite was filling the
+# disk, and nothing connected the two because nothing measured the disk --
+# which is the gap alerts/host-capacity.yml was built to close, one level up
+# from its actual cause.
+#
+# Excluded by NAME, listed here, rather than by a size threshold: a threshold
+# would silently start excluding something a test needs the day that thing
+# grows.
+SANDBOX_EXCLUDE=(
+  "backup/archives"      # 3.3GB of tarballs; no test reads one
+  "backup/snapshots"     # same shape, same reason
+  "analytics/venv"       # rebuildable by analytics/setup.sh
+  "analytics/mirror"     # rebuildable Parquet copy
+)
+
 make_sandbox() {
-  local sandbox
+  local sandbox ex args=()
   sandbox="$(mktemp -d)"
-  SANDBOXES+=("$sandbox")
-  cp -R "$REPO_ROOT/platform" "$sandbox/platform"
+  printf '%s\n' "$sandbox" >> "$SANDBOX_REGISTRY"
+  for ex in "${SANDBOX_EXCLUDE[@]}"; do
+    args+=(--exclude="$ex")
+  done
+  # rsync rather than cp -R: cp has no exclude. Falls back to cp when rsync is
+  # absent, because a missing rsync must not silently stop the suite -- but the
+  # fallback says so, since it is the expensive path.
+  if command -v rsync >/dev/null 2>&1; then
+    rsync -a "${args[@]}" "$REPO_ROOT/platform/" "$sandbox/platform/"
+  else
+    echo "  NOTE  rsync absent -- sandbox copies platform/ whole (slow, large)" >&2
+    cp -R "$REPO_ROOT/platform" "$sandbox/platform"
+  fi
   mkdir -p "$sandbox/evidence" "$sandbox/pilots/fake-pilot"
   # Minimal pilot: only needs to exist and be `cd`-able. Tests here never
   # reach docker, by design -- see test_deploy_contract.sh's header.
@@ -247,12 +313,57 @@ stop_stubs() {
   STUB_PIDS=()
 }
 
+# Cleanup on ANY exit, not just the tidy one.
+#
+# cleanup_sandboxes was called from suite_summary() alone, so a suite that took
+# an early `exit 0` on a SKIP path, or was interrupted, left its whole sandbox
+# behind. CLAUDE.md §5c already requires that a test which mutates state
+# restores it in a trap; that rule was being read as being about FILES, and a
+# multi-gigabyte directory in $TMPDIR is state too.
+#
+# Registered here, at source time, so every suite gets it without remembering.
+# suite_summary still calls cleanup_sandboxes directly: the trap is the safety
+# net, not the mechanism, and a net nobody has fallen into is cheap to keep.
+# COMPOSABLE EXIT HANDLERS.
+#
+# `trap X EXIT` REPLACES whatever was registered before it, so a suite that
+# registered its own cleanup silently discarded lib.sh's -- and ten of them
+# did. They survived only because suite_summary also calls cleanup_sandboxes
+# on the tidy path; the safety net for an early exit was gone in exactly the
+# suites that had thought about cleanup hardest.
+#
+# on_exit accumulates instead of replacing. Suites call it; nothing calls trap
+# directly, and test_static.sh enforces that.
+_EXIT_HANDLERS=()
+
+on_exit() { _EXIT_HANDLERS+=("$1"); }
+
+_run_exit_handlers() {
+  local h
+  for h in ${_EXIT_HANDLERS+"${_EXIT_HANDLERS[@]}"}; do
+    eval "$h" || true
+  done
+  cleanup_sandboxes
+}
+
+trap _run_exit_handlers EXIT INT TERM
+
 cleanup_sandboxes() {
   stop_stubs
+  # One registry for both: directories are removed with -rf, files with -f, and
+  # the entry says which by what it IS rather than by which list it came from.
   local box
-  for box in ${SANDBOXES+"${SANDBOXES[@]}"}; do
-    [ -n "$box" ] && [ -d "$box" ] && rm -rf "$box"
-  done
+  if [ -n "${SANDBOX_REGISTRY:-}" ] && [ -f "$SANDBOX_REGISTRY" ]; then
+    while IFS= read -r box; do
+      [ -z "$box" ] && continue
+      if [ -d "$box" ]; then rm -rf "$box"
+      elif [ -f "$box" ]; then rm -f "$box"
+      fi
+    done < "$SANDBOX_REGISTRY"
+    : > "$SANDBOX_REGISTRY"
+  fi
+  [ -n "${SANDBOX_REGISTRY:-}" ] && [ -f "$SANDBOX_REGISTRY" ] && rm -f "$SANDBOX_REGISTRY"
+  return 0
 }
 
 suite_summary() {

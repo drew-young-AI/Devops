@@ -32,6 +32,13 @@ SUITE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 SUITES=(
   test_static.sh
+  # The suite's own footprint. make_sandbox copied platform/backup/archives
+  # into every sandbox and the cleanup never ran (the registry was an array
+  # appended inside a command substitution -- a subshell), so 124 sandboxes
+  # and 421GB accumulated in $TMPDIR over three days. The volume was at 89%
+  # and the disk-full outage of 2026-09-03 falls inside that window: the
+  # test suite was the thing filling the disk it runs on.
+  test_sandbox_hygiene.sh
   test_deploy_contract.sh
   test_check_health.sh
   test_scheduler.sh

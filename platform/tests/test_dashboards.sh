@@ -92,7 +92,7 @@ fi
 # ---- now break each rule on purpose ---------------------------------------
 FIX="$(mktemp -d)"
 cleanup() { rm -rf "$FIX"; }
-trap cleanup EXIT
+on_exit cleanup
 
 reset_fixture() { rm -rf "${FIX:?}"/*; cp "$REAL_DIR"/*.json "$FIX/"; }
 

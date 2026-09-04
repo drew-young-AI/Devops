@@ -409,6 +409,42 @@ scan_bsd_sed() {  # <root...> -- prints the basenames that use the macOS form
 assert_equals "" "$(scan_bsd_sed "$REPO_ROOT/platform" "$REPO_ROOT/pilots")" \
   "the macOS-only in-place edit form is confined to the one helper that knows both"
 
+# ---- a suite must not REPLACE lib.sh's exit handler ------------------------
+#
+# `trap X EXIT` replaces whatever was registered before it. lib.sh registers
+# the sandbox cleanup at source time, so a suite registering its own cleanup
+# silently discarded it -- and ten of them did. They survived on the tidy path
+# only because suite_summary calls the cleanup directly; the net for an early
+# `exit` was gone in precisely the suites that had thought about cleanup most.
+#
+# lib.sh::on_exit accumulates instead. This forbids the raw form so the next
+# suite cannot re-open the hole by writing the obvious thing.
+# ONLY suites that SOURCE lib.sh. The others -- the cluster suites with their
+# own PASS/FAIL counters -- have no on_exit to call, and requiring it of them
+# is worse than allowing the raw form: applying the conversion by pattern
+# across the directory on 2026-09-04 turned `trap restore_state EXIT` into a
+# call to an undefined command in two suites, which printed "command not found"
+# to a stderr nobody reads, registered nothing, and left the platform's own
+# backup bookkeeping holding a test fixture. lib.sh's header warns about this
+# shape for assertion helpers; it applies to cleanup, and worse.
+BAD_TRAP=""
+while IFS= read -r hit; do
+  file="${hit%%:*}"
+  case "$(basename "$file")" in lib.sh) continue ;; esac
+  # The SOURCING LINE, not the string "lib.sh". Matching the string exempted
+  # the two suites whose new comments explain that they do not source it --
+  # the fifth time a grep-based check in this file has matched prose instead of
+  # a call. The method lives in the corpus it searches; at five occurrences
+  # that is a property to design around, not a lapse to apologise for.
+  grep -qE '^[[:space:]]*(source|\.)[[:space:]]+.*lib\.sh' "$file" 2>/dev/null || continue
+  BAD_TRAP="$BAD_TRAP $(basename "$file")"
+done < <(grep -rn '^[[:space:]]*trap[[:space:]]' "$REPO_ROOT/platform/tests" \
+           --include='*.sh' 2>/dev/null | sed 's/[[:space:]]*#.*$//' \
+         | grep -E '^[^:]+:[0-9]+:[[:space:]]*trap[[:space:]]')
+BAD_TRAP="$(printf '%s' "$BAD_TRAP" | tr ' ' '\n' | sort -u | tr '\n' ' ' | sed 's/^ *//; s/ *$//')"
+assert_equals "" "$BAD_TRAP" \
+  "no lib.sh-based suite replaces its exit handler with a bare trap (use on_exit)"
+
 # The control. A guard that has only ever been seen green is indistinguishable
 # from one that cannot go red -- and this particular guard nearly shipped
 # unable to fire, because the first version matched its own source and was

@@ -46,12 +46,24 @@ kubectl --context "$CTX" get --raw /readyz >/dev/null 2>&1 \
 # which is how the scheduler kills a job that overruns. A drill that leaves the
 # platform's own bookkeeping altered is worse than no drill.
 STATE_BACKUP="$(mktemp)"
+
 cp "$STATE" "$STATE_BACKUP" 2>/dev/null || : > "$STATE_BACKUP"
 restore_state() {
   cp "$STATE_BACKUP" "$STATE" 2>/dev/null
   rm -f "$STATE_BACKUP"
   kubectl --context "$CTX" delete ns "$PROBE_NS" --ignore-not-found --wait=false >/dev/null 2>&1
 }
+# A RAW trap, not lib.sh::on_exit. This suite does not source lib.sh -- it has
+# its own PASS/FAIL counters, like the other cluster suites -- so `on_exit`
+# here is an undefined command: it prints "command not found" to a stderr
+# nobody reads and registers nothing. That is exactly what happened on
+# 2026-09-04 when the on_exit conversion was applied by pattern across the
+# directory: this suite's state restore silently stopped running and left
+# evidence/backup/last_known_pvcs.txt holding the test's fixture value.
+#
+# lib.sh's own header warns about this shape for assertion helpers. It applies
+# to cleanup the same way, and worse: a missing assertion reports a check that
+# did not happen, a missing cleanup leaves the platform's bookkeeping altered.
 trap restore_state EXIT INT TERM
 
 run_gate() { "$BACKUP" --check-only 2>&1; }

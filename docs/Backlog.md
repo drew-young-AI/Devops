@@ -1178,3 +1178,107 @@ FAIL「not running: <job>」。**每個新加的 job 在它第一個週期內都
 - **prodk8s 的 DAG 邊**：目前刻意沒有邊。誘人的那條是 `registry → prodk8s`，
   但那個 registry 是 Mac 上的 k3d registry，供應 amd64 節點跑不動的 arm64 映像——
   畫下去等於斷言 ADR-0008 明確否認的依賴關係。
+
+---
+
+## §25 磁碟是被測試套件填滿的（2026-09-04 找到根因）
+
+### 事實
+
+2026-09-03 建了主機磁碟監控（[ADR-0014](decisions/0014-host-disk-was-unmeasured.md)），
+理由是「一個沒人量的數字停掉了整個平台」。**隔天那個告警要燒的時候，去找消耗者，
+發現是測試套件自己。**
+
+```
+/System/Volumes/Data          761G used / 95G free   (89%)
+  └ /private/var/folders/…/T  427G                   ← $TMPDIR
+      └ tmp.XXXXXXXX × 124    每個 3.6G，日期 09-01 21:58 → 09-03 23:11
+```
+
+每個 3.6G 的內容是 `platform/` 的完整複本——包含 **`platform/backup/archives`
+的 3.3GB 備份 tarball**，而沒有任何測試讀過其中任何一個。
+
+清掉之後：**95GiB → 516GiB**（回收 421GB，使用率 89% → 44%）。
+
+**累積視窗涵蓋 09-03 的停機。** 測試套件就是那個填滿磁碟的東西，
+而沒有東西把兩者連起來，因為沒有東西在量磁碟——
+**ADR-0014 蓋的那個洞，比它自己的成因高了一層。**
+
+### 三個疊在一起的缺陷
+
+**1. sandbox 複製了 3.3GB 沒有人要的東西。**
+`cp -R "$REPO_ROOT/platform"` 沒有排除機制。改用 `rsync --exclude`，
+排除清單以**名稱**列出（不是大小門檻——門檻會在某天某個東西長大時
+悄悄開始排除測試需要的檔案）。sandbox 從 3.6G 變成 **1.9M**。
+
+**2. 清理從來沒有執行過。** 不是「異常退出時沒執行」，是**從來沒有**。
+
+```bash
+SANDBOXES=()
+make_sandbox() { sandbox="$(mktemp -d)"; SANDBOXES+=("$sandbox"); ... }
+# 但每個呼叫端都寫：
+SANDBOX="$(make_sandbox)"     # ← 命令替換是子 shell
+```
+
+陣列在子 shell 裡被追加，父行程的永遠是空的，`cleanup_sandboxes` 迭代空集合、
+刪掉零個目錄。**這個 repo 已經記載過同一個形狀**——一個合成控制項的計數器
+`N=$((N+1))` 寫在 `$(...)` 裡，永遠到不了 3。**同一個檔案、三週之內、同一個錯誤。
+子 shell 是狀態去被遺忘的地方。**
+改用註冊檔（寫檔案，穿得過子 shell）。
+
+**3. 十個套件把 lib.sh 的 EXIT trap 覆蓋掉了。**
+`trap X EXIT` 是**取代**不是疊加。那十個套件在正常路徑上還活著，
+是因為 `suite_summary` 也會直接呼叫清理——**但異常退出的安全網，
+恰好在最認真想過清理的那些套件裡消失了。**
+新增 `lib.sh::on_exit`（累加而非取代），十個套件全部轉換，
+並加靜態規則擋住下一個人寫出那個顯而易見的寫法。
+
+### 順帶
+
+`run_cmd` 每次呼叫洩漏兩個暫存檔，一次完整執行約 500 個，從未清理——
+$TMPDIR 裡累積了 8,188 個。小到看不見，正因如此才沒人發現。現在也一起清。
+
+### 驗收
+
+`platform/tests/test_sandbox_hygiene.sh`，五個斷言，其中兩個是控制項：
+
+- 排除清單不是過期的（名稱要在樹裡真的存在）
+- sandbox 不帶 backup archives，且小於 50MB（實測 1MB）
+- 一個跑完的套件留下小於 50MB（實測 0KB）
+- **一個不呼叫 `suite_summary` 就退出的套件仍然會被清理**（trap 的證明）
+- **量測本身能紅**：塞 60MB 進 $TMPDIR，同一個量測必須看得到
+
+### 修的過程中我自己犯的兩個錯，都被同一批控制項抓到
+
+**1. 把 `on_exit` 用 pattern 套到不 source lib.sh 的套件上。**
+`test_backup_coverage.sh` 與 `test_no_lookahead.sh` 有自己的 PASS/FAIL 計數器、
+不 source lib.sh。我把它們的 `trap restore_state EXIT` 改成 `on_exit restore_state`，
+而 `on_exit` 在那裡是**未定義指令**——印一句 "command not found" 到沒人看的 stderr、
+註冊零個處理常式。結果：**該套件的狀態還原無聲停止**，
+`evidence/backup/last_known_pvcs.txt` 被留在測試 fixture 的值上。
+
+lib.sh 的檔頭早就警告過這個形狀（針對斷言 helper）。**它對 cleanup 一樣成立，而且更糟：
+少一個斷言是「有個檢查沒發生」，少一個 cleanup 是「平台的帳被改了還留著」。**
+已還原成裸 trap，靜態規則改成只對真的 source lib.sh 的套件生效。
+狀態檔用它真正的產生者 `platform/backup/backup.sh` 重新產生，不是用手填回去。
+
+**2. 靜態規則的豁免條件匹配到散文。** 我寫的豁免是 `grep -q 'lib.sh' "$file"`，
+而那兩個檔案的新註解裡正好寫著「這個套件不 source lib.sh」——於是它們被豁免了。
+**這是這個檔案第五次發生 grep 檢查匹配到自己的散文。**
+五次之後那不是疏忽，是方法的性質：**一個文字比對的守衛，活在它所搜尋的語料裡。**
+改成匹配真正的 source 行（`^\s*(source|\.)\s+.*lib\.sh`）。
+
+**3. `run_cmd` 的暫存檔陣列有同一個子 shell缺陷。** 第一版修正用陣列，
+理由是 run_cmd 是被直接呼叫的。對多數呼叫成立、對全部不成立——
+一個寫 `X="$(run_cmd ...; cat "$LAST_STDOUT")"` 的套件就在子 shell 裡。
+改成與 sandbox 共用同一個註冊檔。
+
+### 最終量測
+
+完整套件跑完後 `$TMPDIR` **完全沒有成長**（前後都是 8,105 項 / 5.5G）。
+878 assertions / 35 suites 全綠。
+
+最後一條第一次跑就失敗了，而且失敗得對：我用 `mkfile -n 60m` 造 ballast，
+那是**稀疏檔**——`du` 量的是區塊，稀疏檔佔零個區塊，所以量測回報 0MB 成長、
+控制項回報「這個檢查是瞎的」——關於它自己。改用 `dd`。
+**與 `ls -lh` 對 Docker.raw 顯示 926G 是同一個區別，只是換了一個檔案。**

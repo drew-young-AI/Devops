@@ -39,7 +39,7 @@ assert_output_not_contains "UNDECLARED" "no undeclared rendered page in the repo
 # --- a sandbox, so the controls never touch the real docs tree --------------
 SANDBOX="$(mktemp -d)"
 cleanup() { rm -rf "$SANDBOX"; }
-trap cleanup EXIT
+on_exit cleanup
 mkdir -p "$SANDBOX/docs"
 git -C "$REPO_ROOT" init -q "$SANDBOX" 2>/dev/null
 printf '<html><body>kept</body></html>\n' > "$SANDBOX/docs/keep.html"
