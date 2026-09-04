@@ -14,6 +14,11 @@ timestamp: 2026-08-11T20:05:56+08:00
 縮小版企業 DevOps／DataOps／MLOps 控制面，跑在**兩台機器、兩種 CPU 指令集**上。
 不是產品，也不是完整企業 HA 環境。
 
+> **接手這個專案（新 session／新的人）**：先讀
+> [`docs/Session-Handover.md`](docs/Session-Handover.md)。
+> 它裡面**沒有任何數字**——現況一律由指令產生，那份文件只放
+> 「去哪裡取得真相」與「讀 repo 得不到的坑」。
+
 | 環境 | 機器 | 叢集 | 架構 | 角色 |
 |---|---|---|---|---|
 | **dev / SIT / UAT** | MacBook Pro M5 (`mac.local`) | k3d `devops-lab` | `linux/arm64` | 開發、整合測試、驗收測試 |
@@ -191,6 +196,7 @@ Prometheus 停了它不會安靜變綠、而是連同整組規則消失，
 | harness 工程觀察 | [`docs/Harness-Engineering-Notes.md`](docs/Harness-Engineering-Notes.md) | 學性質，不抄程式碼 |
 | 機器可讀證據 | `evidence/` | 不放 secret、token 或完整敏感 payload |
 | 服務接入契約 | [`NEW_SERVICE_GUIDE.md`](NEW_SERVICE_GUIDE.md) | 新服務進平台的最低要求 |
+| **新 session 接手** | [`docs/Session-Handover.md`](docs/Session-Handover.md) | 讀什麼、什麼順序、哪些坑讀 repo 得不到；不含數字 |
 | 生產節點接手 | [`docs/Ubu-Prod-Bringup.md`](docs/Ubu-Prod-Bringup.md) | Ubuntu prod 已完成什麼、卡在哪、下一步順序 |
 | **歷史里程碑** | [`docs/Milestone-2026-08-25.md`](docs/Milestone-2026-08-25.md) | **2026-08-25 當時的狀態，不是現況。** 保留是為了「那天我們說了什麼」可查；現況一律看板面與本檔第一節 |
 | 簡報用八張圖 | [`docs/report/README.md`](docs/report/README.md) | 一份來源、線上與離線兩個版本；三個入口都記在那裡 |

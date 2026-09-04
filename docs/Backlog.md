@@ -1439,6 +1439,39 @@ kubectl config view -o jsonpath='{...clusters[?(@.name=="ubu")]...server}'
 
 ---
 
+## §28 新 session 的接手（2026-09-04）
+
+**問題**：context 長度耗盡了大部分 usage，`compact` 幫不上忙，所以要開新 session。
+交接文件最容易變成「讀起來很好、但下一個 session 無法據以行動」的東西。
+
+**這個 repo 已經有三個索引**（README、本檔、`docs/decisions/`），
+再加一個就是**兩份索引是分岔問題**。所以交接文件被寫成**路由器不是現況頁**：
+
+- **裡面沒有任何數字。** 現況一律由指令產生
+  （[Doc Provenance](Reachability.md)：手寫的現況會退化成信念，
+  本專案已有三個實例）。
+- 只放兩種東西：**指標**（去哪裡取得真相，都是可重跑指令）
+  與**不可推導的判斷**（讀完整個 repo 也得不到、只有踩過才知道的）。
+- **它的 `verify` 是真的**：`test_static.sh` 新增一條規則，
+  斷言該文件裡指名的每一個路徑都還存在——
+  一個指向已改名檔案的指標，會在下一個 session 最沒有 context 的時候把人送錯地方。
+
+產出：[`docs/Session-Handover.md`](Session-Handover.md)，從 README 第一段連入。
+
+**AIS 側**（跨 CLI 共用，只放與專案無關的通則）：
+
+| record | 內容 |
+|---|---|
+| `bsd-gnu-portability-traps` | 四種在 macOS 綠、Linux 靜默失敗的寫法；真正的教訓是**錯誤訊息去了沒人看的 stderr** |
+| `guard-matches-own-prose` | 文字比對的守衛活在它所搜尋的語料裡；六次之後是方法的性質不是疏忽 |
+| `subshell-loses-state` | `$(...)` 裡的陣列累積會消失；第二次的代價是 421GB |
+
+三筆都以 `docs/Backlog.md` 的實際章節為 source locator 並**釘上 digest**，
+所以來源一改動就會被 `context audit` 標記，不會變成殭屍。
+`context audit` → `active 20｜not-ready 0｜invalid 0`。
+
+---
+
 ## §27 待辦登記簿（2026-09-04 起，逐一完成）
 
 **規則：這一節只登記，不實作。** 需求不擴張，功能逐步收斂落地。

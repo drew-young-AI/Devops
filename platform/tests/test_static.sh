@@ -499,6 +499,37 @@ assert_equals "" "$(scan_uppercase_image "$REPO_ROOT/platform" "$REPO_ROOT/pilot
                       "$REPO_ROOT/.github" "$REPO_ROOT/docs")" \
   "every literal container image path is lowercase"
 
+# ---- the handover router must not name a path that has gone ----------------
+#
+# docs/Session-Handover.md is what a fresh session reads first, and it is
+# almost entirely POINTERS -- commands to run and files to open. A pointer to
+# something that has been renamed sends the next session somewhere that does
+# not exist, at the one moment it has the least context to notice.
+#
+# The document claims `verify: platform/tests/test_static.sh` in its own
+# frontmatter. This is that claim being true. A verify line naming a check
+# that does not exist is exactly the shape the document itself warns about.
+#
+# Paths are pulled from anywhere in the file -- code blocks, tables, prose --
+# because the reader does not care which of those a path appeared in.
+HANDOVER="$REPO_ROOT/docs/Session-Handover.md"
+if [ -f "$HANDOVER" ]; then
+  MISSING_PTR=""
+  for ptr in $(grep -oE '(platform|pilots|docs|evidence)/[A-Za-z0-9_./-]+' "$HANDOVER" \
+               | sed 's/[.,;)]*$//' | sort -u); do
+    case "$ptr" in
+      */) continue ;;                       # a directory written with a slash
+      *[*?]*) continue ;;                   # a glob, not a path
+    esac
+    [ -e "$REPO_ROOT/$ptr" ] || MISSING_PTR="$MISSING_PTR $ptr"
+  done
+  MISSING_PTR="$(printf '%s' "$MISSING_PTR" | sed 's/^ *//; s/ *$//')"
+  assert_equals "" "$MISSING_PTR" \
+    "every path the handover router names still exists"
+else
+  _fail "the handover router exists" "docs/Session-Handover.md is missing"
+fi
+
 # The offending path is ASSEMBLED, so the literal never appears in this file.
 # Written out, it made this guard flag its own fixture -- the SIXTH time a
 # grep-based check here has matched its own text. Six is not a run of bad luck;

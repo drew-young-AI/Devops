@@ -3,13 +3,13 @@
 host_filesystem_size_bytes{mountpoint="/System/Volumes/Data"} 994610155520
 # HELP host_filesystem_avail_bytes Space available to an unprivileged user on that volume.
 # TYPE host_filesystem_avail_bytes gauge
-host_filesystem_avail_bytes{mountpoint="/System/Volumes/Data"} 528651128832
+host_filesystem_avail_bytes{mountpoint="/System/Volumes/Data"} 529279328256
 # HELP host_docker_disk_apparent_bytes Virtual size of Docker's disk image (NOT space consumed).
 # TYPE host_docker_disk_apparent_bytes gauge
 host_docker_disk_apparent_bytes 994609987584
 # HELP host_docker_disk_allocated_bytes Blocks Docker's sparse disk image actually occupies.
 # TYPE host_docker_disk_allocated_bytes gauge
-host_docker_disk_allocated_bytes 23814688768
+host_docker_disk_allocated_bytes 23819087872
 # HELP host_disk_metrics_generated_seconds Unix time these host disk figures were taken.
 # TYPE host_disk_metrics_generated_seconds gauge
-host_disk_metrics_generated_seconds 1788489965
+host_disk_metrics_generated_seconds 1788493596

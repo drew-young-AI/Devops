@@ -1,10 +1,10 @@
 # HELP devops_loki_lines_received_total Log lines Loki has accepted, by tenant.
 # TYPE devops_loki_lines_received_total counter
-devops_loki_lines_received_total{tenant="platform"} 315384
+devops_loki_lines_received_total{tenant="platform"} 319148
 devops_loki_lines_received_total{tenant="restricted"} 0
 # HELP devops_loki_streams_total Distinct log streams per tenant.
 # TYPE devops_loki_streams_total gauge
-devops_loki_streams_total{tenant="platform"} 127
+devops_loki_streams_total{tenant="platform"} 137
 devops_loki_streams_total{tenant="restricted"} 0
 # HELP devops_loki_unrecognised_class_total Services declaring a data class the routing cannot distinguish.
 # TYPE devops_loki_unrecognised_class_total gauge
