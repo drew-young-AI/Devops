@@ -221,6 +221,63 @@ K8S_SUITES=(
 )
 K8S_CTX="${K8S_CTX:-k3d-devops-lab}"
 
+# ── WHICH SUITES, AND WHAT THEY COST ────────────────────────────────────────
+#
+# Two knobs, and they are deliberately different shapes.
+#
+#   PLATFORM_TIERS   which DEPENDENCY LEVELS may run (1,2,3). Already existed.
+#   PLATFORM_SUITES  an extended-regex over suite basenames, for iterating on
+#                    one area without paying for the whole run.
+#
+# Both are reported in the headline when set, for the same reason the tier
+# list already is: a green line from a filtered run must never be quotable as
+# "the platform passed". That sentence is the failure this repo keeps
+# rediscovering, and a filter is a much easier way to reach it than a tier.
+#
+# WHY TIMING IS RECORDED AT ALL.
+#
+# "The suite takes about eight minutes" was the only thing anyone knew about
+# its cost -- a total, with no idea which of the 30 suites owned it. That makes
+# every optimisation a guess, and it makes the opposite mistake invisible too:
+# a suite that silently grew from 4s to 90s never shows up as anything except
+# a slightly longer wait. So each suite is timed, the numbers land in
+# evidence/tests/suite_timing.json, and the five most expensive are printed
+# with their share of the total.
+#
+# A FILE, NOT AN ARRAY. lib.sh already carries this scar: a registry appended
+# inside a command substitution is appended in a subshell and lost with it,
+# which is how 421GB of sandboxes accumulated while the cleanup code "existed".
+# Nothing here runs run_suite in a subshell today. That is exactly the
+# assumption that was true last time too.
+PLATFORM_SUITES="${PLATFORM_SUITES:-}"
+# lib.sh is not sourced here (this file is a runner, not a suite), so the repo
+# root is derived rather than inherited.
+RA_REPO_ROOT="$(cd "$SUITE_DIR/../.." && pwd)"
+TIMING_FILE="$(mktemp -t suite_timing)"
+trap 'rm -f "$TIMING_FILE"' EXIT
+
+suite_selected() {
+  [ -z "$PLATFORM_SUITES" ] && return 0
+  echo "$1" | grep -qE "$PLATFORM_SUITES"
+}
+
+FILTERED_OUT=0
+run_suite() {
+  local suite="$1" tier="$2" base t0 secs rc
+  base="$(basename "$suite")"
+  if ! suite_selected "$base"; then
+    FILTERED_OUT=$((FILTERED_OUT + 1))
+    return 0
+  fi
+  echo ""
+  t0="$(date +%s)"
+  bash "$SUITE_DIR/$suite"
+  rc=$?
+  secs=$(( $(date +%s) - t0 ))
+  printf '%s|%s|%s|%s\n' "$base" "$tier" "$secs" "$rc" >> "$TIMING_FILE"
+  return $rc
+}
+
 # Default is every tier, so a developer who types run_all.sh with no arguments
 # gets the strictest run. Weakening it takes a deliberate, visible declaration.
 PLATFORM_TIERS="${PLATFORM_TIERS:-1,2,3}"
@@ -231,18 +288,12 @@ NOT_RUN_TIERS=()
 START="$(date +%s)"
 
 for suite in "${SUITES[@]}"; do
-  echo ""
-  if ! bash "$SUITE_DIR/$suite"; then
-    FAILED_SUITES+=("$suite")
-  fi
+  run_suite "$suite" 1 || FAILED_SUITES+=("$suite")
 done
 
 if tier_enabled 2; then
   for suite in "${DB_SUITES[@]}"; do
-    echo ""
-    if ! bash "$SUITE_DIR/$suite"; then
-      FAILED_SUITES+=("$suite")
-    fi
+    run_suite "$suite" 2 || FAILED_SUITES+=("$suite")
   done
 else
   NOT_RUN_TIERS+=("tier 2 (live database): ${DB_SUITES[*]}")
@@ -256,13 +307,11 @@ if ! tier_enabled 3; then
   NOT_RUN_TIERS+=("tier 3 (kubernetes): ${K8S_SUITES[*]##*/}")
   K8S_SUITES=()
 fi
-for suite in "${K8S_SUITES[@]}"; do
-  echo ""
+for suite in ${K8S_SUITES+"${K8S_SUITES[@]}"}; do
   if kubectl --context "$K8S_CTX" get --raw /readyz >/dev/null 2>&1; then
-    if ! bash "$SUITE_DIR/$suite"; then
-      FAILED_SUITES+=("$(basename "$suite")")
-    fi
-  else
+    run_suite "$suite" 3 || FAILED_SUITES+=("$(basename "$suite")")
+  elif suite_selected "$(basename "$suite")"; then
+    echo ""
     echo "=== $(basename "$suite") ==="
     echo "  SKIPPED: cluster '$K8S_CTX' does not answer /readyz."
     echo "           Start it with platform/k8s/create_cluster.sh, or accept"
@@ -271,30 +320,54 @@ for suite in "${K8S_SUITES[@]}"; do
   fi
 done
 
+TOTAL=$(( $(date +%s) - START ))
+
+# The cost record. Written before the verdict so it exists even on a red run --
+# a slow suite is most interesting on the run where something also broke.
+COST_REPORT="$(TIMING_FILE="$TIMING_FILE" TOTAL="$TOTAL" \
+  OUT="$RA_REPO_ROOT/evidence/tests/suite_timing.json" \
+  PLATFORM_TIERS="$PLATFORM_TIERS" PLATFORM_SUITES="$PLATFORM_SUITES" \
+  python3 "$SUITE_DIR/suite_timing.py" 2>/dev/null)"
+
 echo ""
 echo "========================================"
+if [ -n "$COST_REPORT" ]; then
+  echo "$COST_REPORT"
+  echo "----------------------------------------"
+fi
 # Tiers the CALLER switched off are named before any verdict, so a green run on
 # a hermetic runner can never be quoted as "the platform passed".
 if [ "${#NOT_RUN_TIERS[@]}" -gt 0 ]; then
   echo "TIERS NOT RUN (PLATFORM_TIERS=$PLATFORM_TIERS):"
-  for t in "${NOT_RUN_TIERS[@]}"; do echo "  ! $t"; done
+  # ${A+"${A[@]}"} -- macOS ships bash 3.2, where expanding an EMPTY array
+  # under `set -u` is an unbound-variable error. lib.sh already uses this form
+  # for the same reason; this file did not, and the branch that reaches an
+  # empty SKIPPED_SUITES was simply never taken until the suite filter made it
+  # reachable.
+  for t in ${NOT_RUN_TIERS+"${NOT_RUN_TIERS[@]}"}; do echo "  ! $t"; done
   echo "  -> this run says nothing about them."
   echo "----------------------------------------"
 fi
+if [ "$FILTERED_OUT" -gt 0 ]; then
+  echo "FILTERED (PLATFORM_SUITES=$PLATFORM_SUITES): $FILTERED_OUT suite(s) did not run."
+  echo "  -> this is a partial run. It cannot be quoted as a platform verdict."
+  echo "----------------------------------------"
+fi
 if [ "${#FAILED_SUITES[@]}" -eq 0 ]; then
-  if [ "${#SKIPPED_SUITES[@]}" -eq 0 ] && [ "${#NOT_RUN_TIERS[@]}" -eq 0 ]; then
-    echo "ALL SUITES PASSED  ($(( $(date +%s) - START ))s)"
+  if [ "${#SKIPPED_SUITES[@]}" -eq 0 ] && [ "${#NOT_RUN_TIERS[@]}" -eq 0 ] \
+     && [ "$FILTERED_OUT" -eq 0 ]; then
+    echo "ALL SUITES PASSED  (${TOTAL}s)"
   else
     # The skip count is in the HEADLINE, not a footnote. A summary that reads
     # "ALL SUITES PASSED" while a suite never ran is the failure this whole
     # platform keeps rediscovering.
-    echo "PASSED tiers [$PLATFORM_TIERS], ${#SKIPPED_SUITES[@]} skipped, ${#NOT_RUN_TIERS[@]} tier(s) not run  ($(( $(date +%s) - START ))s)"
-    for suite in "${SKIPPED_SUITES[@]}"; do echo "  ~ $suite (not run)"; done
+    echo "PASSED tiers [$PLATFORM_TIERS], ${#SKIPPED_SUITES[@]} skipped, ${#NOT_RUN_TIERS[@]} tier(s) not run, $FILTERED_OUT filtered  (${TOTAL}s)"
+    for suite in ${SKIPPED_SUITES+"${SKIPPED_SUITES[@]}"}; do echo "  ~ $suite (not run)"; done
   fi
   exit 0
 fi
-echo "FAILED SUITES ($(( $(date +%s) - START ))s):"
-for suite in "${FAILED_SUITES[@]}"; do
+echo "FAILED SUITES (${TOTAL}s):"
+for suite in ${FAILED_SUITES+"${FAILED_SUITES[@]}"}; do
   echo "  - $suite"
 done
 exit 1

@@ -469,6 +469,61 @@ scan_bad_dd() {  # <root...> -- basenames using a suffix GNU dd rejects
 assert_equals "" "$(scan_bad_dd "$REPO_ROOT/platform" "$REPO_ROOT/pilots")" \
   "no dd call uses a block-size suffix GNU dd rejects"
 
+# ---- a recursive grep over the repo must say what it is NOT reading --------
+#
+# platform/backup/archives holds 3.9 GB of gzipped volume dumps and grows every
+# night. A `grep -r` rooted at the repo reads all of it: measured 29 seconds
+# per call on 2026-09-08 under a UTF-8 locale, twice in one suite, 58 of that
+# suite's 60 seconds. The line reads "search the repo"; what it does is scan a
+# backup archive per call, and it gets slower every night.
+#
+# The rule is not "never grep -r". It is that a recursive grep rooted at the
+# repo (or at platform/) must carry a filter -- `--include`, `--exclude-dir`,
+# or the repo_grep helper in lib.sh, which supplies the standard exclusions.
+# The pattern is assembled from pieces so this rule does not match its own
+# prose, which has happened six times in this file.
+scan_unfiltered_repo_grep() {  # <root...> -- basenames doing an unfiltered repo-wide grep
+  local g="grep" r="-r"
+  # repo_grep, not bare grep: this rule's own implementation has to obey it,
+  # and walking the archive tree to find out whether anyone walks the archive
+  # tree would be the joke version of this check. It measured 122s as a bare
+  # grep and 3s through the helper.
+  repo_grep -n "${g} ${r}" "$@" --include='*.sh' 2>/dev/null \
+    | sed 's/[[:space:]]*#.*$//' \
+    | grep -E "${g} ${r}[a-zA-Z]* " \
+    | grep -E '\$\{?REPO_ROOT\}?(/platform)?"' \
+    | grep -v -- '--include' \
+    | grep -v -- '--exclude-dir' \
+    | awk -F: '{print $1}' | xargs -n1 basename 2>/dev/null \
+    | sort -u | tr '\n' ' ' | sed 's/ *$//'
+}
+
+assert_equals "" "$(scan_unfiltered_repo_grep "$REPO_ROOT/platform" "$REPO_ROOT/pilots")" \
+  "no recursive grep walks the repo without excluding the generated trees"
+
+# The control: one unfiltered form that must be caught, one filtered form that
+# must not, so an empty result cannot come from a scan that never finds
+# anything.
+GFIX="$(mktemp -d)"
+# Assembled, never written out literally: this file is inside the corpus its
+# own rules search, and a fixture spelled in full would make test_static.sh
+# report itself. Sixth time; see the note on scan_bsd_sed.
+G_CMD="$(printf 'gr%sp' 'e') -rl"
+{ printf '#!/usr/bin/env bash\n'
+  printf '%s "pattern" "$REPO_ROOT/platform" | wc -l\n' "$G_CMD"; } > "$GFIX/bad.sh"
+{ printf '#!/usr/bin/env bash\n'
+  printf '%s --include="*.py" "pattern" "$REPO_ROOT/platform"\n' "$G_CMD"
+  printf 'repo_grep -l "pattern" "$REPO_ROOT/platform"\n'; } > "$GFIX/good.sh"
+G_CAUGHT="$(scan_unfiltered_repo_grep "$GFIX")"
+rm -rf "$GFIX"
+case "$G_CAUGHT" in
+  *bad.sh*) case "$G_CAUGHT" in
+      *good.sh*) _fail "catches only the unfiltered form" "flagged the filtered one too" ;;
+      *) _pass "catches: a repo-wide grep with no exclusions" ;;
+    esac ;;
+  *) _fail "catches: a repo-wide grep with no exclusions" "found: '$G_CAUGHT'" ;;
+esac
+
 # ---- a container image path must be lowercase ------------------------------
 #
 # The OCI reference grammar requires it and the client refuses before any

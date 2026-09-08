@@ -51,6 +51,7 @@ import json
 import os
 import re
 import sys
+from datetime import datetime, timezone
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO_ROOT = os.path.abspath(os.path.join(HERE, "..", ".."))
@@ -251,11 +252,58 @@ def matching_asks(nodes):
     return out
 
 
-def stage_model():
+# How old a supplied board may be before rendering it is a lie. Fifteen minutes
+# is the scheduler's own interval for dag.py, so anything older than twice that
+# is a board nobody refreshed.
+BOARD_MAX_AGE_SECONDS = 1800
+
+
+def load_board(path):
+    """Read a board produced by `dag.py --json`, and refuse a stale one.
+
+    WHY THIS EXISTS. dag.build() probes the live platform: it talks to Docker,
+    Postgres, kubectl, Prometheus and the scheduler, and it takes roughly one
+    and a half minutes. Two scheduled jobs -- `dag` and `stagereport` -- each
+    called it every 15 minutes, so the platform was probed twice per cycle and
+    the two artefacts described two DIFFERENT moments. On 2026-09-08 that
+    showed up as the board saying FAILED and Stage-Report.json saying DEGRADED
+    three minutes apart, from the same underlying state.
+
+    WHY IT REFUSES A STALE FILE. A renderer that will read any JSON on disk is
+    a renderer that will happily present last week as today, and a stale status
+    page is the specific failure this repo has already paid for twice. So the
+    age is checked and the refusal names the age.
+    """
+    with open(path, encoding="utf-8") as fh:
+        board = json.load(fh)
+    for key in ("nodes", "verdict"):
+        if key not in board:
+            raise SystemExit(f"stage_report: {path} has no '{key}' -- that is "
+                             f"not a board from dag.py --json")
+    stamp = board.get("generated_at")
+    if not stamp:
+        raise SystemExit(f"stage_report: {path} carries no generated_at, so "
+                         f"its age cannot be checked. Refusing: an undatable "
+                         f"board is indistinguishable from an old one.")
+    try:
+        when = datetime.strptime(stamp, "%Y-%m-%dT%H:%M:%SZ").replace(
+            tzinfo=timezone.utc)
+    except ValueError:
+        raise SystemExit(f"stage_report: cannot parse generated_at {stamp!r}")
+    age = (datetime.now(timezone.utc) - when).total_seconds()
+    if age > BOARD_MAX_AGE_SECONDS:
+        raise SystemExit(
+            f"stage_report: {path} was generated {int(age)}s ago, over the "
+            f"{BOARD_MAX_AGE_SECONDS}s limit. Re-run dag.py --json, or drop "
+            f"--from-board and let this probe the platform itself.")
+    return board
+
+
+def stage_model(board=None):
     """Build the single source of truth. Raises rather than renders a page that
     silently omits a node -- a report missing a stage looks exactly like a
     report where that stage is fine."""
-    board = dag.build()
+    board = dag.build() if board is None else board
     by_id = {n["id"]: n for n in board["nodes"]}
 
     declared = set()
@@ -440,8 +488,12 @@ def render_json(m):
 # be wrong without anything failing, so it is the only part with a test.
 # --------------------------------------------------------------------------
 
-def selfcheck():
-    m = stage_model()            # raises on any node/stage coverage gap
+def selfcheck(board=None):
+    # board is threaded through for the same reason stage_model takes it: the
+    # metadata this validates (stages, asks, node coverage) does not depend on
+    # what the platform is doing, and probing the live platform to check a
+    # hand-written list is both slow and non-deterministic.
+    m = stage_model(board)       # raises on any node/stage coverage gap
     problems, notes = [], []
 
     node_ids = {n["id"] for l in m["lines"] for s in l["stages"] for n in s["nodes"]}
@@ -837,16 +889,21 @@ def main():
                     help="write to stdout instead of a file (single format only)")
     ap.add_argument("--selfcheck", action="store_true",
                     help="validate the hand-written stage/ask metadata and exit")
+    ap.add_argument("--from-board", metavar="PATH",
+                    help="render from a board already produced by "
+                         "`dag.py --json` instead of probing the platform "
+                         "again. Refuses a board older than "
+                         f"{BOARD_MAX_AGE_SECONDS}s.")
     args = ap.parse_args()
 
     if args.selfcheck:
-        return selfcheck()
+        return selfcheck(load_board(args.from_board) if args.from_board else None)
 
     fmts = list(RENDERERS) if args.format == "all" else [args.format]
     if args.stdout and len(fmts) != 1:
         ap.error("--stdout needs a single --format")
 
-    model = stage_model()
+    model = stage_model(load_board(args.from_board) if args.from_board else None)
     if args.stdout:
         sys.stdout.write(RENDERERS[fmts[0]][0](model))
         return 0

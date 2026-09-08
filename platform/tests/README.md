@@ -17,9 +17,30 @@ now, despite `deploy.sh` alone being 630 lines of bash that decides what
 reaches production-like.
 
 ```bash
-platform/tests/run_all.sh          # ~7s, exit 0 only if every suite passes
-
+platform/tests/run_all.sh                       # every tier; exit 0 only if all pass
+PLATFORM_TIERS=1 platform/tests/run_all.sh      # no database, no cluster
+PLATFORM_SUITES='dataops|model' platform/tests/run_all.sh   # one area, while iterating
 ```
+
+**How long it takes is not written here.** This line used to say `~7s`, which
+was true when the suite was five files and stayed on the page for weeks after
+it stopped being true -- the same hand-written-status rot the platform has a
+whole rule about. The run prints its own cost breakdown at the end and writes
+`evidence/tests/suite_timing.json`; read that:
+
+```bash
+python3 -c "import json;d=json.load(open('evidence/tests/suite_timing.json'));\
+print(d['total_seconds'],'s total');[print(f\"{r['seconds']:>4}s t{r['tier']} {r['suite']}\") for r in d['suites'][:5]]"
+```
+
+Timings are comparable **within** one run, not across runs: the same untouched
+suite measured 51s and 122s on the same machine hours apart. A number that
+moves with the machine's temperature is not evidence about the code
+(CLAUDE.md §5c).
+
+`PLATFORM_SUITES` and `PLATFORM_TIERS` both make the run partial, and a partial
+run says so in its own headline. Neither can produce a line that reads
+"ALL SUITES PASSED".
 
 Runs on push/PR touching `platform/**` via
 `.github/workflows/platform-tests.yml`.

@@ -38,6 +38,7 @@ assert_file_exists "$REPORT" "stage_report.py exists"
 # has no create-then-rename race.
 HARNESS_DIR="$(mktemp -d)"
 HARNESS="$HARNESS_DIR/stage_report_mut.py"
+BOARD_SELFCHECK="$HARNESS_DIR/board.json"
 on_exit 'rm -rf "$HARNESS_DIR"'
 
 cat > "$HARNESS" <<'PYEOF'
@@ -54,12 +55,28 @@ spec = importlib.util.spec_from_file_location(
 sr = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(sr)
 
+# EVERY CASE RUNS AGAINST A FIXTURE BOARD, NOT A LIVE PROBE.
+#
+# stage_model() with no argument calls dag.build(), which talks to Docker,
+# Postgres, kubectl, Prometheus and the scheduler. Seven cases in this harness
+# called it, so this suite probed the whole platform seven times to check
+# guards that only ever read board["nodes"] against LINES. Measured
+# 2026-09-08: 110s, 22% of the entire test run.
+#
+# It was also non-deterministic evidence (CLAUDE.md §5b): the guards passed or
+# failed on a board whose contents depended on what happened to be running.
+fspec = importlib.util.spec_from_file_location(
+    "fixture_board", os.path.join(REPO, "platform", "tests", "fixture_board.py"))
+fixture_board = importlib.util.module_from_spec(fspec)
+fspec.loader.exec_module(fixture_board)
+BOARD = fixture_board.make_board()
+
 case = sys.argv[1]
 
 def expect_exit(substr):
     """The guard must refuse, and must name the thing it refused over."""
     try:
-        sr.stage_model()
+        sr.stage_model(BOARD)
     except SystemExit as e:
         msg = str(e)
         if substr in msg:
@@ -73,7 +90,7 @@ def expect_exit(substr):
 def selfcheck_rc(expect_fail_substr=None, expect_note_substr=None):
     buf = io.StringIO()
     with contextlib.redirect_stdout(buf):
-        rc = sr.selfcheck()
+        rc = sr.selfcheck(BOARD)
     out = buf.getvalue()
     if expect_fail_substr is not None:
         if rc == 0:
@@ -131,7 +148,7 @@ if case == "ask-stale":
 
 # -- renderings ----------------------------------------------------------
 if case == "renderings":
-    m = sr.stage_model()
+    m = sr.stage_model(BOARD)
     md, js, ht = sr.render_markdown(m), sr.render_json(m), sr.render_html(m)
     problems = []
 
@@ -179,7 +196,9 @@ PYEOF
 export REPO_ROOT
 
 # ---- positive control: the metadata as it actually stands ----------------
-run_cmd python3 "$REPORT" --selfcheck
+run_cmd python3 "$SUITE_DIR/fixture_board.py" "$BOARD_SELFCHECK"
+assert_rc 0 "a fixture board for the selfcheck is generated from dag.NODES"
+run_cmd python3 "$REPORT" --selfcheck --from-board "$BOARD_SELFCHECK"
 assert_rc 0 "selfcheck passes on the real metadata"
 assert_output_contains "OK" "selfcheck says OK"
 
@@ -204,15 +223,57 @@ run_cmd python3 "$HARNESS" renderings
 assert_rc 0 "json / markdown / html render from one model and agree"
 
 # ---- the artifacts are actually produced ---------------------------------
+#
+# FROM A FIXTURE BOARD, NOT A LIVE PROBE.
+#
+# This block used to run `stage_report.py --out-dir tmp` with no arguments,
+# which calls dag.build() and probes Docker, Postgres, kubectl, Prometheus and
+# the scheduler. Measured 2026-09-08: 110 seconds, 22% of the entire test run,
+# to prove that three files get written. The rendering does not depend on any
+# of that; only on a board.
+#
+# The fixture is GENERATED from dag.NODES (fixture_board.py), never typed. A
+# hand-written node list would drift from dag.py, and then the coverage guard
+# this suite exists for would be checking the fixture against itself.
+#
 # `mktemp -d -t prefix.XXXXXX` is not portable: macOS leaves the literal
 # XXXXXX in the name and appends its own suffix, GNU rejects the template
 # outright. Plain `mktemp -d` behaves identically on both.
 OUT_DIR="$(mktemp -d)"
-run_cmd python3 "$REPORT" --out-dir "$OUT_DIR"
+BOARD_FIXTURE="$(mktemp)"
+on_exit "rm -rf '$OUT_DIR' '$BOARD_FIXTURE'"
+
+run_cmd python3 "$SUITE_DIR/fixture_board.py" "$BOARD_FIXTURE"
+assert_rc 0 "the fixture board is generated from dag.NODES"
+
+run_cmd python3 "$REPORT" --from-board "$BOARD_FIXTURE" --out-dir "$OUT_DIR"
 assert_rc 0 "stage_report.py writes all three formats"
 for f in Stage-Report.html Stage-Report.json Stage-Report.md; do
   assert_file_exists "$OUT_DIR/$f" "wrote $f"
 done
-rm -rf "$OUT_DIR"
+
+# --from-board is an optimisation, and an optimisation that can present last
+# week as today is not one. Both refusals are asserted, because a renderer
+# that reads any JSON on disk is how a stale status page gets published --
+# twice already in this repo's history.
+run_cmd python3 "$SUITE_DIR/fixture_board.py" "$BOARD_FIXTURE" --stale 7200
+assert_rc 0 "a deliberately old board can be generated"
+run_cmd python3 "$REPORT" --from-board "$BOARD_FIXTURE" --stdout --format md
+assert_rc 1 "a board older than the limit is REFUSED, not rendered"
+assert_output_contains "over the" "the refusal states the age and the limit"
+
+python3 - "$BOARD_FIXTURE" <<'STRIP'
+import json, sys
+b = json.load(open(sys.argv[1]))
+b.pop("generated_at", None)
+json.dump(b, open(sys.argv[1], "w"))
+STRIP
+run_cmd python3 "$REPORT" --from-board "$BOARD_FIXTURE" --stdout --format md
+assert_rc 1 "a board with no timestamp is REFUSED: undatable reads as fresh"
+
+# And the default path must still be the live one. If --from-board became the
+# only way in, the probe would stop being exercised and nothing would say so.
+run_cmd grep -n "dag.build() if board is None else board" "$REPORT"
+assert_rc 0 "with no --from-board, the report still probes the platform itself"
 
 suite_summary

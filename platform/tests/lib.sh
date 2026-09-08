@@ -29,6 +29,35 @@ _repo_root() {
 
 REPO_ROOT="$(_repo_root)"
 
+# ── SEARCHING THE REPO WITHOUT SEARCHING 4 GB OF ARCHIVES ───────────────────
+#
+# `grep -r "$REPO_ROOT/platform"` reads platform/backup/archives, which holds
+# 3.9 GB of gzipped volume dumps. Measured 2026-09-08 on this machine, under
+# the login shell's zh_TW.UTF-8 locale: 29 SECONDS per call. Two such calls in
+# one suite were 58 of its 60 seconds, and the suite looked like it was slow
+# because it starts containers.
+#
+# The trap is that the cost is invisible in the source. The line reads
+# "search the repo"; what it does is decompress-scan a backup set per call, and
+# it gets slower every night the backup job runs.
+#
+# repo_grep excludes the generated, gitignored, large directories -- the same
+# set .gitignore already declares is not source -- and is otherwise plain grep.
+# Callers that want a narrower net should still pass --include; this is the
+# floor, not a substitute for thinking.
+REPO_SCAN_EXCLUDES=(
+  --exclude-dir=archives    # platform/backup/archives  3.9 GB of volume dumps
+  --exclude-dir=venv        # platform/analytics/venv   55 MB, rebuildable
+  --exclude-dir=mirror      # platform/analytics/mirror 41 MB, derived Parquet
+  --exclude-dir=.git
+  --exclude-dir=__pycache__
+  --exclude-dir=node_modules
+)
+
+repo_grep() {
+  grep -r "${REPO_SCAN_EXCLUDES[@]}" "$@"
+}
+
 # --- assertions ---------------------------------------------------------
 
 _pass() {

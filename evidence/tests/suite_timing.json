@@ -1,0 +1,227 @@
+{
+  "generated_at": "2026-09-08T13:22:45Z",
+  "total_seconds": 590,
+  "measured_seconds": 588,
+  "suite_count": 36,
+  "platform_tiers": "1,2,3",
+  "platform_suites": "",
+  "partial": false,
+  "suites": [
+    {
+      "suite": "test_bluegreen.sh",
+      "tier": 3,
+      "seconds": 136,
+      "rc": 0
+    },
+    {
+      "suite": "test_static.sh",
+      "tier": 1,
+      "seconds": 122,
+      "rc": 0
+    },
+    {
+      "suite": "test_data_contract_live.sh",
+      "tier": 2,
+      "seconds": 69,
+      "rc": 0
+    },
+    {
+      "suite": "test_dataops_metrics.sh",
+      "tier": 1,
+      "seconds": 36,
+      "rc": 0
+    },
+    {
+      "suite": "test_scheduler.sh",
+      "tier": 1,
+      "seconds": 30,
+      "rc": 0
+    },
+    {
+      "suite": "test_image_arch.sh",
+      "tier": 1,
+      "seconds": 27,
+      "rc": 0
+    },
+    {
+      "suite": "test_backup_coverage.sh",
+      "tier": 3,
+      "seconds": 24,
+      "rc": 0
+    },
+    {
+      "suite": "test_analytics_mirror.sh",
+      "tier": 1,
+      "seconds": 20,
+      "rc": 0
+    },
+    {
+      "suite": "test_health_rollup.sh",
+      "tier": 1,
+      "seconds": 20,
+      "rc": 0
+    },
+    {
+      "suite": "test_model_registry.sh",
+      "tier": 1,
+      "seconds": 11,
+      "rc": 0
+    },
+    {
+      "suite": "test_evidence_contract.sh",
+      "tier": 1,
+      "seconds": 9,
+      "rc": 0
+    },
+    {
+      "suite": "verify_networkpolicy.sh",
+      "tier": 3,
+      "seconds": 9,
+      "rc": 0
+    },
+    {
+      "suite": "test_llm_review.sh",
+      "tier": 1,
+      "seconds": 8,
+      "rc": 0
+    },
+    {
+      "suite": "test_no_lookahead.sh",
+      "tier": 2,
+      "seconds": 8,
+      "rc": 0
+    },
+    {
+      "suite": "test_exporter_freshness.sh",
+      "tier": 1,
+      "seconds": 7,
+      "rc": 0
+    },
+    {
+      "suite": "test_host_capacity.sh",
+      "tier": 1,
+      "seconds": 6,
+      "rc": 0
+    },
+    {
+      "suite": "test_capability_graph.sh",
+      "tier": 1,
+      "seconds": 6,
+      "rc": 0
+    },
+    {
+      "suite": "test_check_health.sh",
+      "tier": 1,
+      "seconds": 5,
+      "rc": 0
+    },
+    {
+      "suite": "test_sandbox_hygiene.sh",
+      "tier": 1,
+      "seconds": 4,
+      "rc": 0
+    },
+    {
+      "suite": "test_stage_report.sh",
+      "tier": 1,
+      "seconds": 4,
+      "rc": 0
+    },
+    {
+      "suite": "test_deploy_contract.sh",
+      "tier": 1,
+      "seconds": 3,
+      "rc": 0
+    },
+    {
+      "suite": "test_source_frequency.sh",
+      "tier": 1,
+      "seconds": 3,
+      "rc": 0
+    },
+    {
+      "suite": "test_dashboards.sh",
+      "tier": 1,
+      "seconds": 3,
+      "rc": 0
+    },
+    {
+      "suite": "test_decisions.sh",
+      "tier": 1,
+      "seconds": 2,
+      "rc": 0
+    },
+    {
+      "suite": "test_dast_coverage.sh",
+      "tier": 1,
+      "seconds": 2,
+      "rc": 0
+    },
+    {
+      "suite": "test_offline_report.sh",
+      "tier": 1,
+      "seconds": 2,
+      "rc": 0
+    },
+    {
+      "suite": "test_doc_graph.sh",
+      "tier": 1,
+      "seconds": 2,
+      "rc": 0
+    },
+    {
+      "suite": "test_loki_coverage.sh",
+      "tier": 1,
+      "seconds": 2,
+      "rc": 0
+    },
+    {
+      "suite": "test_duplicate_check.sh",
+      "tier": 1,
+      "seconds": 2,
+      "rc": 0
+    },
+    {
+      "suite": "test_ingress.sh",
+      "tier": 1,
+      "seconds": 1,
+      "rc": 0
+    },
+    {
+      "suite": "test_network_exposure.sh",
+      "tier": 1,
+      "seconds": 1,
+      "rc": 0
+    },
+    {
+      "suite": "test_readme_index.sh",
+      "tier": 1,
+      "seconds": 1,
+      "rc": 0
+    },
+    {
+      "suite": "test_redaction.sh",
+      "tier": 1,
+      "seconds": 1,
+      "rc": 0
+    },
+    {
+      "suite": "test_doc_freshness.sh",
+      "tier": 1,
+      "seconds": 1,
+      "rc": 0
+    },
+    {
+      "suite": "test_migration_observed.sh",
+      "tier": 3,
+      "seconds": 1,
+      "rc": 0
+    },
+    {
+      "suite": "test_approle_env.sh",
+      "tier": 1,
+      "seconds": 0,
+      "rc": 0
+    }
+  ]
+}
