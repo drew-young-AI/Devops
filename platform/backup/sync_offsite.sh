@@ -178,10 +178,23 @@ if [ "$PRUNE_KEEP" -gt 0 ]; then
   # silently did nothing while reporting "pruned 0". It failed safe this
   # time -- but a prune that never prunes is a disk that fills anyway, and
   # nothing said so.
-  TOTAL_LOCAL="$(find "$LOCAL_DIR" -maxdepth 1 -mindepth 1 -type d | wc -l | tr -d ' ')"
+  # A SET IS A DIRECTORY WITH A MANIFEST, not a directory with a timestamp.
+  #
+  # Counting bare directories made "keep the N newest" arithmetic operate on
+  # whatever happened to be in the folder. 158 empty timestamped directories
+  # had accumulated there from refusal paths in --check-only (fixed in
+  # backup.sh), against 47 real sets -- so this loop would have been told to
+  # drop 158 more sets than exist, and the only thing standing between that
+  # count and real archives was the manifest check inside the loop. One guard
+  # deep is not a margin.
+  set_dirs() {
+    find "$LOCAL_DIR" -maxdepth 1 -mindepth 1 -type d \
+      -exec test -f '{}/manifest.json' ';' -print | sort
+  }
+  TOTAL_LOCAL="$(set_dirs | wc -l | tr -d ' ')"
   DROP_COUNT=$((TOTAL_LOCAL - PRUNE_KEEP))
   [ "$DROP_COUNT" -lt 1 ] && DROP_COUNT=0
-  for set_dir in $(find "$LOCAL_DIR" -maxdepth 1 -mindepth 1 -type d | sort | head -"$DROP_COUNT"); do
+  for set_dir in $(set_dirs | head -"$DROP_COUNT"); do
     [ "$DROP_COUNT" -eq 0 ] && break
     stamp="$(basename "$set_dir")"
     if [ -f "$DEST/$stamp/manifest.json" ]; then

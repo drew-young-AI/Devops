@@ -135,7 +135,22 @@ PVC_STATE_FILE="$REPO_ROOT/evidence/backup/last_known_pvcs.txt"
 
 STAMP="$(date -u '+%Y%m%dT%H%M%SZ')"
 OUT_DIR="$DEST/$STAMP"
-mkdir -p "$OUT_DIR"
+
+# ONLY A REAL BACKUP CREATES A DIRECTORY.
+#
+# This used to mkdir unconditionally and rmdir at the end of the --check-only
+# path. That works on the happy path and leaks an empty timestamped directory
+# on every REFUSAL path, because those `exit 1` before reaching the cleanup --
+# and refusal is exactly what test_backup_coverage.sh exercises, four times per
+# full test run. 158 empty sets had accumulated against 47 real ones, so
+# `ls archives | wc -l` read 205 backups where 47 existed, and any "keep the N
+# newest" arithmetic counted litter as backups.
+#
+# `if` rather than `[ ... ] && mkdir`: under `set -e` a trailing false test is
+# a non-zero exit for the whole script.
+if [ "$CHECK_ONLY" -eq 0 ]; then
+  mkdir -p "$OUT_DIR"
+fi
 
 echo "=== [backup] $STAMP -> $OUT_DIR ==="
 
@@ -421,7 +436,6 @@ if [ "${#UNCOVERED[@]}" -gt 0 ]; then
 fi
 
 if [ "$CHECK_ONLY" -eq 1 ]; then
-  rmdir "$OUT_DIR" 2>/dev/null || true
   echo "COVERAGE PASS -- every volume and PVC is in exactly one list (nothing archived)"
   exit 0
 fi
