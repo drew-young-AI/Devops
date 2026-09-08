@@ -57,6 +57,19 @@ import sys
 from pathlib import Path
 
 import numpy as np
+
+# The registry CONTRACT lives at platform/mlops/model_registry.py and is mounted
+# read-only by run.sh. It is shared because it is not about influenza: every
+# project that trains a model needs the same declaration and the same refusal.
+# What is NOT shared is MODELS below -- the entries are this pilot's, and the
+# reasons in them are about this feature set.
+try:
+    import model_registry as mreg
+except ImportError:  # pragma: no cover - environment defect, not a code path
+    sys.exit("cannot import model_registry. It is mounted at /platform/mlops "
+             "by run.sh; running this script outside that container will not "
+             "find it. Use ./run.sh backtest.py ...")
+
 # HistGradientBoostingRegressor, not GradientBoostingRegressor. The first
 # version used the latter and then fed it np.nan_to_num(X, nan=-1.0) -- which
 # directly contradicted this file's own comment about not inventing data. A
@@ -165,29 +178,66 @@ MODELS = {
     },
 }
 
-REQUIRED_KEYS = ("family", "build", "hyperparams", "handles_nan",
-                 "nan_policy", "deterministic")
+# Keys that describe the RUN, not the estimator. They are stored alongside the
+# constructor hyperparams in model_run.hyperparams -- one blob is what the
+# schema gives us -- so anything reading that blob back must separate them
+# again. Passing min_train to a constructor is a TypeError; passing
+# predict_delta silently would be worse.
+RUN_CONFIG_KEYS = ("min_train", "predict_delta")
 
 
 def model_spec(name):
-    """The registry's own guard. An unknown name is refused with the list --
-    never defaulted, because a silent default would record one algorithm's
-    name against another's numbers."""
-    if name not in MODELS:
-        sys.exit(f"unknown --algorithm {name!r}. Registered: "
-                 f"{', '.join(sorted(MODELS))}. Add an entry to MODELS in "
-                 f"this file; see docs/MLOps-Model-Extension.md.")
-    spec = MODELS[name]
-    missing = [k for k in REQUIRED_KEYS if k not in spec]
-    if missing:
-        sys.exit(f"model {name!r} is missing registry field(s): "
-                 f"{', '.join(missing)}")
-    if not spec["handles_nan"] and not spec["nan_policy"]:
-        sys.exit(f"model {name!r} declares handles_nan=False but no "
-                 f"nan_policy. This feature set is 51.8% NaN in covid_lag_1 "
-                 f"alone -- a model that cannot take NaN must say what it "
-                 f"does instead, and say it here where it is reviewable.")
-    return spec
+    """Select from MODELS through the shared contract.
+
+    sys.exit rather than a traceback: the caller is a scheduled job, and the
+    message has to be the whole diagnosis.
+    """
+    try:
+        return mreg.get(MODELS, name)
+    except mreg.RegistryError as e:
+        sys.exit(f"{e}\nSee docs/MLOps-Model-Extension.md.")
+
+
+def stored_hyperparams(spec, min_train, predict_delta):
+    """What goes into model_run.hyperparams: the constructor arguments plus the
+    run configuration that changes what the number MEANS.
+
+    predict_delta was previously recorded only as English inside `notes`. The
+    publisher refits from scratch and has to reproduce the same target
+    convention; reading it out of prose is not reading it, and a level-trained
+    run refitted as a delta model would publish a number no evaluation ever
+    covered while every artefact still looked normal.
+    """
+    return dict(spec["hyperparams"], min_train=min_train,
+                predict_delta=bool(predict_delta))
+
+
+def split_stored_hyperparams(hp):
+    """(constructor kwargs, run config) from a stored blob."""
+    cfg = {k: hp[k] for k in RUN_CONFIG_KEYS if k in hp}
+    ctor = {k: v for k, v in hp.items() if k not in RUN_CONFIG_KEYS}
+    return ctor, cfg
+
+
+def fit_one(train_rows, spec, predict_delta, index=None):
+    """Build, fit, return (model, seasonal_index). THE single fitting path.
+
+    Both the backtest fold and the final refit call this. They used to be two
+    similar blocks in two files, and they had already diverged: the publisher
+    constructed a HistGradientBoostingRegressor by name whatever the winning
+    run's algorithm was, and assumed predict_delta. A fork whose two halves
+    agree today is not the same thing as one implementation.
+    """
+    idx = seasonal_index(train_rows) if index is None else index
+    model = spec["build"](spec["hyperparams"])
+    X = vectorise(train_rows, idx)
+    if predict_delta:
+        y = np.array([(r["label"] - r["y"]) for r in train_rows], float)
+    else:
+        y = np.array([r["label"] for r in train_rows], float)
+    ok = ~np.isnan(y)
+    model.fit(X[ok], y[ok])
+    return model, idx
 
 
 def code_sha():
@@ -289,15 +339,7 @@ def run_rolling(rows, horizon, min_train, predict_delta=False, spec=None):
     persistence, seasonal = [], []
     n_train_last = 0
     for train, test in rolling_origin(rows, horizon, min_train):
-        idx = seasonal_index(train)
-        model = spec["build"](spec["hyperparams"])
-        Xtr = vectorise(train, idx)
-        if predict_delta:
-            ytr = np.array([(r["label"] - r["y"]) for r in train], float)
-        else:
-            ytr = np.array([r["label"] for r in train], float)
-        ok = ~np.isnan(ytr)
-        model.fit(Xtr[ok], ytr[ok])
+        model, idx = fit_one(train, spec, predict_delta)
         raw = float(model.predict(vectorise([test], idx))[0])
         # Add the change back onto the last observed value. test["y"] is the
         # week the forecast is MADE from, so this uses no future information.
@@ -327,11 +369,9 @@ def run_random_split(rows, horizon, min_train, spec=None):
     test = [usable[i] for i in order[cut:]]
     # The leak in one line: the index is built from a training set that is
     # scattered through the whole timeline, including weeks after the test rows.
-    idx = seasonal_index(train)
-    model = spec["build"](spec["hyperparams"])
-    Xtr, ytr = vectorise(train, idx), np.array([r["label"] for r in train], float)
-    ok = ~np.isnan(ytr)
-    model.fit(Xtr[ok], ytr[ok])
+    # Same fitting path as the honest run -- this contrast is only meaningful if
+    # the ONLY difference between the two is how the rows were split.
+    model, idx = fit_one(train, spec, predict_delta=False)
     pred = model.predict(vectorise(test, idx))
     return ([r["label"] for r in test], list(map(float, pred)),
             [r["y"] for r in test], [r["y"] for r in test],
@@ -390,18 +430,17 @@ def main():
     args = ap.parse_args()
 
     if args.list_models:
-        # Validate through the SAME guard the run path uses, not just print.
-        # A listing that shows an entry which would be refused on selection is
-        # a catalogue of things that may not exist -- the exact shape this repo
-        # keeps finding. Listing is therefore also the registry's self-test.
-        for name in sorted(MODELS):
-            model_spec(name)
-        for name, sp in sorted(MODELS.items()):
-            print(f"{name}\n  family        {sp['family']}\n"
-                  f"  hyperparams   {json.dumps(sp['hyperparams'], ensure_ascii=False)}\n"
-                  f"  handles_nan   {sp['handles_nan']}\n"
-                  f"  nan_policy    {sp['nan_policy'] or '-'}\n"
-                  f"  deterministic {sp['deterministic']}")
+        # Validate through the SAME contract the run path uses, and BUILD every
+        # entry, not just print it. A listing that shows an entry which would
+        # be refused on selection -- or whose build() raises on its own
+        # declared hyperparams -- is a catalogue of things that may not exist,
+        # the exact shape this repo keeps finding. Listing is the self-test.
+        try:
+            mreg.validate_all(MODELS)
+        except mreg.RegistryError as e:
+            sys.exit(f"{e}\nSee docs/MLOps-Model-Extension.md.")
+        print(mreg.describe(
+            MODELS, dumps=lambda d: json.dumps(d, ensure_ascii=False)))
         return
     spec = model_spec(args.algorithm)
 
@@ -455,8 +494,8 @@ def main():
                 VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
                 RETURNING model_run_id, beats_baselines
             """, (fsid, args.algorithm,
-                  json.dumps(dict(spec["hyperparams"],
-                                  min_train=args.min_train)),
+                  json.dumps(stored_hyperparams(
+                      spec, args.min_train, args.predict_delta)),
                   SEED, strategy, args.horizon, n_train, n_test,
                   m["mae"], m["mape"], m["direction"],
                   m["persistence"], m["seasonal"], code_sha(),

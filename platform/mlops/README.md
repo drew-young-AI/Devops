@@ -27,8 +27,19 @@ weekly change harder to see.
 ## The gate is the valuable part
 
 Publishing is not a separate decision made by a human afterwards. A model is
-published only if it beats the incumbent on the backtest; otherwise the run
-completes, records why, and publishes nothing.
+published only if it clears TWO gates; otherwise the run completes, records
+why, and publishes nothing.
+
+  1. **Is it a model at all?** It must beat both naive baselines on the same
+     folds. This is a fact, it is the same fact in every project, and it is
+     enforced by a database trigger that no publisher can route around.
+  2. **Is it better than what is serving?** Since 2026-09-08: a challenger must
+     beat the deployed configuration by 2% relative MAE, ON THE SAME FEATURE
+     SET, or the incumbent stays and is refit on the newest data. This is a
+     policy, not a fact, so it lives in code and in ADR-0016 rather than in a
+     trigger. Until then the sentence above ("beats the incumbent") described
+     something no code did: the publisher compared candidates to the baseline
+     and to each other, never to what was actually deployed.
 
 **The gate is currently refusing to publish, and that is the correct outcome.**
 The candidate loses to a persistence baseline (t+1 −12.31%, t+2 +0.32%). A gate
@@ -75,3 +86,5 @@ is not good enough.
 | 能力 | 什麼時候跑 | 做什麼 | 保證什麼 |
 |---|---|---|---|
 | [`retrain.sh`](retrain.sh) | 排程，每週 | 重建特徵 → 重跑回測 → **只在合格時**才發布 | 週期取自它所觀察的東西變化多快（來源是週資料），與 `jobs.conf` 每個 job 同一條規則。不合格就不發布，閘門正在正確地擋著 |
+| [`model_registry.py`](model_registry.py) | 由 pilot 的 `backtest.py` import（`run.sh` 唯讀掛載進容器） | 模型註冊表的**契約**：一筆登記合不合法、`build()` 回傳的是不是未擬合的估計器 | 專案中立，無領域知識。未登記的名稱被拒絕並列出清單；回傳已擬合估計器的條目被拒絕（守衛本身有突變測試） |
+| [`promotion_policy.py`](promotion_policy.py) | 由 pilot 的 `publish_forecast.py` import | 挑戰者何時取代現役模型：六種判定（BOOTSTRAP／REPLACE／KEEP／REFRESH／INCOMPARABLE／REFUSED） | **門檻沒有預設值**——沒想過門檻的專案會被迫想。現役只跟它在同一比較範圍內重評的分數比 |

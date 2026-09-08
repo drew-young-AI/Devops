@@ -13,6 +13,18 @@ set -euo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 IMAGE="${MLOPS_IMAGE:-station2-mlops:local}"
 
+# The model-registry CONTRACT is platform-level and shared; the model ENTRIES
+# are this pilot's. One copy, mounted read-only, rather than a copy per pilot:
+# the two live forks this repo has already found (the settle rule, and the
+# publisher's own estimator) both started as a second copy that was correct on
+# the day it was made.
+SHARED_MLOPS="$(cd "$HERE/../../.." && pwd)/platform/mlops"
+[ -f "$SHARED_MLOPS/model_registry.py" ] || {
+  echo "missing $SHARED_MLOPS/model_registry.py -- the registry contract is" >&2
+  echo "not optional; refusing to run with an unvalidated registry." >&2
+  exit 2
+}
+
 [ $# -ge 1 ] || { echo "Usage: $0 <script.py> [args...]" >&2; exit 2; }
 
 # Build only when the Dockerfile is newer than the image.
@@ -43,5 +55,7 @@ exec docker run --rm -i \
   -e PGUSER="${PGUSER:-twin}" \
   -e PGPASSWORD="${PGPASSWORD:-}" \
   -v "$HERE:/mlops" \
+  -v "$SHARED_MLOPS:/platform/mlops:ro" \
+  -e PYTHONPATH=/platform/mlops \
   -w /mlops \
   "$IMAGE" "$@"

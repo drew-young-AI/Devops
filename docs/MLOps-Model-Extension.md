@@ -82,6 +82,72 @@ Ridge 兩個 horizon 都輸，**上線閘門會直接拒絕它**——這正是�
 **未登記的名稱一律拒絕並列出清單，絕不預設回退**——
 靜默回退會把一個演算法的名字記在另一個演算法的數字上。
 
+### 登記完之後會被**真的執行一次**，不是只被印出來
+
+`--list-models` 會對每一筆呼叫 `build(hyperparams)`，並檢查回傳物件：
+有 `.fit()`／`.predict()`，而且**還沒有被擬合過**（sklearn 在 `fit` 之後才會有
+`n_features_in_`）。回傳已擬合估計器的條目會被拒絕，訊息指名是哪一筆。
+
+理由：已擬合的物件跑起來一切正常，分數是**把測試列包在擬合裡面**算出來的，
+下游沒有一個地方看得出異常。這條守衛本身用**突變測試**驗證會紅
+（`platform/tests/test_model_registry.sh`，還原後 `cmp` 逐位元比對）。
+
+---
+
+## 二之二、換到別的專案怎麼重用（這一層是中立的）
+
+```
+platform/mlops/model_registry.py     契約：一筆登記合不合法        ← 共用
+platform/mlops/promotion_policy.py   規則：挑戰者何時取代現役      ← 共用
+pilots/<專案>/mlops/backtest.py      條目：這個專案有哪些模型      ← 各專案
+pilots/<專案>/mlops/publish_forecast.py  門檻數字＋為什麼是這個數字 ← 各專案
+```
+
+**分界線是：中立層放「怎麼判斷」，專案層放「判斷什麼、門檻多少、為什麼」。**
+中立層裡沒有任何一個字提到流感、疾病、22 個縣市或 51.8% 的缺值率——
+那些理由屬於條目，要跟條目放在一起才看得懂。
+
+三條刻意的限制，都是為了**收斂**而不是為了廣泛：
+
+1. **沒有 plugin 掃描、沒有 entry points、沒有 YAML、沒有字串 import。**
+   加一個模型是一次程式碼變更，跟其他變更一樣被審。
+   「能載入一個沒人看過宣告的模型」的註冊表，是它要解決的問題的加強版。
+2. **汰換門檻沒有預設值。** `promotion_policy.choose_run()` 的 `margin`
+   是必填參數。沒想過門檻的專案應該被逼著想，不是拿到 `0.02` 和一片沉默。
+3. **六個欄位就是六個，不加第七個。** 每加一欄都是每個專案都要填的成本；
+   目前這六欄各自對應一個已經發生過的失效。
+
+新專案要接上，只要：容器掛載 `platform/mlops`（見
+`pilots/station2-twin/mlops/run.sh`）、宣告自己的 `MODELS`、
+在測試裡呼叫一次 `mreg.validate_all(MODELS)`。
+
+---
+
+## 二之三、上線之後：挑戰者什麼時候換掉現役（ADR-0016）
+
+回測贏基準只回答了「這是不是一個模型」。**「該不該換掉線上那個」是另一個問題**，
+規則寫在 `platform/mlops/promotion_policy.py`，門檻寫在 pilot：
+
+```bash
+pilots/station2-twin/mlops/run.sh publish_forecast.py --explain-gate
+```
+
+| 判定 | 情境 |
+|---|---|
+| `BOOTSTRAP` | 這個 horizon 還沒有線上模型 |
+| `REPLACE` | 挑戰者相對 MAE 好過 2% |
+| `KEEP` | 挑戰者較好但在 2% 以內 → **留任** |
+| `REFRESH` | 現役設定仍是最佳 → 用新資料重擬合 |
+| `INCOMPARABLE` | 現役在目前 feature set 上沒有分數 → 發布最佳候選並明說 |
+| `REFUSED` | 沒有通過基準閘門的候選 |
+
+**2% 的來源是量測**：同一組設定、只差兩週資料，MAE 移動 0.12%；
+不同家族之間相差 11.6%。2% 落在中間，離兩邊各約一個數量級。
+細節與已知弱點見 `docs/decisions/0016-champion-challenger-replacement-margin.md`。
+
+**候選只在同一個 feature set 內比較。** 551 折算出來的 MAE 和 553 折算出來的
+MAE 印起來一樣長、意思不一樣。
+
 ---
 
 ## 三、加之前必須先回答的問題（每一題都有量測值）
@@ -177,6 +243,11 @@ CLAUDE.md §5c：這是 MacBook Pro（被動散熱、無 ECC、非機房）。
 - **混合模態：先有來源才有模態。** 氣象／人流／疫苗接種率目前一筆都沒載入。
 - **不論加什麼，閘門不變**：贏不了持平基準就不會上線。
   這是這個 pilot 至今只發布 2 筆預測的原因，而那是機制在運作，不是機制壞了。
+- **贏了基準也不一定換掉線上模型**：要贏過現役 2% 才換，打平留任（ADR-0016）。
+  換掉服務中的模型有成本，為雜訊等級的差距付這個成本是有成本沒有效益。
+- **這一層可以搬到別的專案**：契約與汰換規則在 `platform/mlops/`，
+  各專案只帶自己的模型條目與門檻數字。
 
-相關：[`docs/Backlog.md`](Backlog.md) §31（MLOps 那條鏈）、
+相關：[`docs/Backlog.md`](Backlog.md) §31／§33（MLOps 那條鏈與第二次倒推）、
+[`docs/decisions/0016-champion-challenger-replacement-margin.md`](decisions/0016-champion-challenger-replacement-margin.md)（汰換規則）、
 [`pilots/station2-twin/README.md`](../pilots/station2-twin/README.md)（業務層的決策背景）

@@ -184,6 +184,17 @@ mlops/run.sh backtest.py --algorithm Ridge --horizon 1 --predict-delta --dry-run
 以及統計／深度學習／混合模態各自卡在哪，寫在
 [`docs/MLOps-Model-Extension.md`](../../docs/MLOps-Model-Extension.md)。
 
+**贏過基準之後還有第二道**：要取代線上模型，得在**同一個 feature set** 上
+相對 MAE 好過 2%，打平留任（ADR-0016）。六種判定各有可重跑案例：
+
+```bash
+mlops/run.sh publish_forecast.py --explain-gate
+```
+
+規則本體與註冊表契約在 `platform/mlops/`（專案中立、可被別的 pilot 重用），
+**門檻數字與它的量測依據留在這個 pilot**——2% 的理由是這份資料量出來的，
+換一份資料就要重新量。
+
 ## 這個 pilot 帶進來的兩個**業務層**問題（2026-09-08）
 
 這一節記的不是平台的問題。平台的部分（守衛怎麼寫、控制項怎麼證明會紅）在

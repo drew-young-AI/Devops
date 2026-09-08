@@ -24,5 +24,6 @@
 | 0014 | [磁碟沒有被量——14 條告警規則、91 個能力、777 個綠燈，被一個沒人量的數字停掉](0014-host-disk-was-unmeasured.md) | 已採用 | 2026-09-03 | `platform/tests/test_host_capacity.sh` |
 
 | 0015 | [睡眠期間的排程空窗算違反 SLA，不豁免](0015-sleep-window-counts-against-sla.md) | 已採用 | 2026-09-08 | `platform/scheduler/status.sh` |
+| 0016 | [上線模型的汰換規則：相對 2% 門檻，同分留任](0016-champion-challenger-replacement-margin.md) | 已採用 | 2026-09-08 | `pilots/station2-twin/mlops/run.sh publish_forecast.py --explain-gate` |
 
-共 15 筆。
+共 16 筆。
