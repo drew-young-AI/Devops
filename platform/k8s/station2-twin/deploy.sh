@@ -10,7 +10,17 @@
 set -euo pipefail
 COLOR="${1:?usage: deploy.sh <blue|green> <image-tag> [schema_version]}"
 TAG="${2:?image tag required}"
-SCHEMA="${3:-15}"
+# The default is READ from the pilot's own declaration, not typed here. It was
+# `15` as a literal, which made this a fourth copy of a number that
+# pilots/station2-twin/tests/test_contract.py keeps in agreement across the
+# other three (config.example.env, compose.yaml, app.py). Migration 016 moved
+# the database to 16 and this default stayed at 15 -- every pod deployed
+# without an explicit third argument would have come up expecting a schema the
+# database no longer has, and answered 503 forever. Which it did.
+_ENV_FILE="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)/pilots/station2-twin/config.example.env"
+_DEFAULT_SCHEMA="$(sed -n 's/^EXPECTED_SCHEMA_VERSION=\([0-9][0-9]*\)$/\1/p' "$_ENV_FILE" 2>/dev/null | head -1)"
+[ -n "$_DEFAULT_SCHEMA" ] || { echo "cannot read EXPECTED_SCHEMA_VERSION from $_ENV_FILE" >&2; exit 1; }
+SCHEMA="${3:-$_DEFAULT_SCHEMA}"
 CTX="${CTX:-k3d-devops-lab}"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 

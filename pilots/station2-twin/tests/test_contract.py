@@ -91,6 +91,27 @@ class Station2ContractTests(unittest.TestCase):
                          "compose.yaml's default overrides app.py and disagrees "
                          "with the migrations")
 
+        # AND the Kubernetes deploy path. It had a FOURTH copy -- a literal
+        # `SCHEMA="${3:-15}"` in platform/k8s/station2-twin/deploy.sh -- which
+        # this test did not look at. Migration 016 moved the database to 16,
+        # the three files above were bumped together, and every pod deployed
+        # without an explicit third argument came up expecting 15 and answered
+        # 503 forever. A test that checks three of four copies certifies a
+        # consistency that does not exist; that sentence is already in the
+        # comment above, about the copy before this one.
+        #
+        # deploy.sh now DERIVES the default from config.example.env, so this
+        # asserts the derivation is still in place rather than comparing a
+        # literal to a literal.
+        deploy_sh = (ROOT.parent.parent / "platform" / "k8s" /
+                     "station2-twin" / "deploy.sh").read_text()
+        self.assertRegex(
+            deploy_sh, r'SCHEMA="\$\{3:-\$_DEFAULT_SCHEMA\}"',
+            "deploy.sh must derive its default schema version from "
+            "config.example.env, not carry a literal")
+        self.assertIn("config.example.env", deploy_sh,
+                      "deploy.sh must read config.example.env for the default")
+
     def test_migration_versions_are_unique_and_gapless(self):
         """A duplicate version silently skips a migration: the ledger is keyed
         on version, so the second file with the same number is recorded as

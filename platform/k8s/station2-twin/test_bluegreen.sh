@@ -195,7 +195,7 @@ restore_cluster() {
   local rc=$?
   if [ "$GREEN_EXISTED" = 1 ] && ! k get deploy station2-twin-green >/dev/null 2>&1; then
     echo "  [restore] re-creating the green deployment this suite deleted"
-    "$HERE/deploy.sh" green v15-green 15 >/dev/null 2>&1 \
+    "$HERE/deploy.sh" green v15-green >/dev/null 2>&1 \
       || echo "  [restore] FAILED to re-create green -- promote.sh green will refuse" >&2
   fi
   if [ -n "$SERVING_AT_START" ]; then
@@ -214,7 +214,7 @@ trap restore_cluster EXIT INT TERM
 echo "=== blue/green on kubernetes ==="
 
 # ── scenario 1: baseline ────────────────────────────────────────────────────
-"$HERE/deploy.sh" blue v15 15 >/dev/null 2>&1
+"$HERE/deploy.sh" blue v15 >/dev/null 2>&1
 k patch svc station2-twin -p '{"spec":{"selector":{"app":"station2-twin","color":"blue"}}}' >/dev/null 2>&1
 serves blue-v15 "baseline: Service serves blue"
 
@@ -233,7 +233,7 @@ serves blue-v15 "traffic stayed on blue after the refusal"
 
 # ── scenario 3: POSITIVE -- a healthy green ────────────────────────────────
 k delete deploy station2-twin-green --wait=true >/dev/null 2>&1
-"$HERE/deploy.sh" green v15-green 15 >/dev/null 2>&1
+"$HERE/deploy.sh" green v15-green >/dev/null 2>&1
 if "$HERE/promote.sh" green >/dev/null 2>&1; then
   V=$(serving_converged green-v15-green)
   [ "$V" = "green-v15-green" ] && ok "promoted to green, Service now serves $V" \
