@@ -1195,13 +1195,48 @@ FAIL「not running: <job>」。**每個新加的 job 在它第一個週期內都
 
 ### 還沒做的（需要你操作）
 
-1. **停用 ubu 的休眠**——會休眠的筆電不是生產主機。ubu 上沒有免密碼 sudo：
+1. **停用 ubu 的休眠**——會休眠的筆電不是生產主機。ubu 上沒有免密碼 sudo。
+
+   **狀態（2026-09-05 實測，不是記載）：只做了第二半。**
+   `HandleLidSwitch=ignore` 與 `HandleLidSwitchExternalPower=ignore` 都已在
+   `/etc/systemd/logind.conf` 生效——所以闔蓋不會睡。但 `systemctl mask` 那半**從未執行**：
+   五個 sleep target 全部是 `LoadState=loaded／UnitFileState=static`（masked 會是
+   `LoadState=masked`），而 logind 自己回答 `CanSuspend="challenge"`。
+   **ubu 今天仍然會自行休眠**，因此 §27 的 T2 與 T7 的觸發條件「ubu 停用休眠之後」**尚未成立**。
+
+   **闔蓋那半是承重的，不是裝飾**：ubu `hostnamectl chassis` 回 `laptop`，
+   而 `/proc/acpi/button/lid/*/state` 此刻就是 `closed`——它現在還活著，
+   靠的正是 `HandleLidSwitch=ignore`。
+
+   指令不變（四個 target 就夠：實測 `systemd-suspend-then-hibernate.service`
+   帶 `Requires=sleep.target`，遮蔽 `sleep.target` 即連帶擋住它）：
+
    ```bash
    ssh ubu
    sudo systemctl mask sleep.target suspend.target hibernate.target hybrid-sleep.target
    sudo sed -i 's/^#\?HandleLidSwitch=.*/HandleLidSwitch=ignore/' /etc/systemd/logind.conf
    sudo systemctl restart systemd-logind
    ```
+
+   缺的不是指令是**驗收**。B1–B10 那張表只有三欄（阻塞什麼／為什麼只有你能解／解除後會怎樣），
+   沒有 verify 欄——這是表格格式，不是 B7 特有的疏漏。但這個區塊是指令區塊，
+   而一個沒有驗收方式的補救措施，「做完了」就是不可證偽的。補上：
+
+   `verify`（任何人都可重跑，**不需要 root**）：
+   ```bash
+   ssh ubu 'busctl call org.freedesktop.login1 /org/freedesktop/login1 \
+            org.freedesktop.login1.Manager CanSuspend'
+   # 期望 s "na"     ← 已停用
+   # 目前 s "challenge" ← 仍可休眠（2026-09-05 實測）
+   ```
+   用 `CanSuspend` 而不是列 unit 狀態：它問的是**行為**（這台機器還睡不睡得著），
+   不是設定檔長什麼樣。
+
+   **但要注意這個補救措施沒有涵蓋真正發生過的那件事。** 2026-09-03 ubu 兩次
+   hybrid-sleep（15:26、15:45）都是**電池耗盡**觸發的，不是閒置、不是闔蓋、不是手動。
+   遮蔽 sleep target 擋得住閒置與手動路徑，擋不住電量耗盡——那條路徑要靠
+   「插著電」或 UPS，是實體條件不是設定。所以這一項做完之後，
+   **不要把「ubu 不會再消失」當成已證明的事**。
 2. **固定 IP**（目前 `192.168.1.144`）——理由已在 §26 更正：**不是**因為 kubeconfig
    會壞（它用的是名字不是 IP），而是為了診斷路徑與 mDNS 失效時的退路。
 3. ~~**ghcr 套件的可見性**~~ **不需要處理**：實測未帶認證即可 `imagetools inspect`，
@@ -1364,7 +1399,7 @@ kubectl config view -o jsonpath='{...clusters[?(@.name=="ubu")]...server}'
 | `kubectl --context ubu`（走 `ubu.local`） | **不會** |
 | `platform/tests/run_on_ubu.sh`（走 `ssh ubu`，`~/.ssh/config`） | 看 config 寫的是名字還是 IP |
 | 手冊第二節的診斷指令（寫死 `192.168.1.144`） | **會**，而那正是機器出事時要用的東西 |
-| mDNS 本身失效時的退路 | **會**——沒有 IP 就完全沒有第二條路 |
+| mDNS 本身失效時的退路 | ~~**會**——沒有 IP 就完全沒有第二條路~~ **2026-09-05 更正：第二條路已存在**（路由器 DNS：`ubu.home` → `192.168.1.144`，且對不存在的名字 11ms 回 NXDOMAIN，正是 mDNS 缺的否定回答）。固定 IP 降級為加固：把第二條路從「靠 lease 還在」變成「永遠成立」 |
 
 `docs/Ubu-Prod-Bringup.md` 已經記過 `70.local` 那次教訓：**mDNS 可以單獨失效**。
 固定 IP 的價值是「mDNS 壞掉時還有東西可用」，不是「kubeconfig 需要它」。
@@ -1472,6 +1507,406 @@ kubectl config view -o jsonpath='{...clusters[?(@.name=="ubu")]...server}'
 
 ---
 
+## §29 2026-09-04／05 這一輪：改了什麼、還欠什麼（給接手的人）
+
+**未 commit。** 動到 6 個檔案（`git status` 為準）。三件事做完並驗收，兩件事狀態是
+`UNVERIFIED`，其餘登記在 §27。
+
+**做完的三件（都是既有東西的缺陷，不是新功能）**
+
+1. `WidespreadGeoDrift` 的分母下限（T13）→ 見上方 T13 節。
+2. 同一條規則的 `for` 在會睡的宿主上無法被滿足 → `max_over_time(...[1h])`。
+3. `probe_prod_cluster` 丟掉 kubectl 的 stderr → `run_diag()`，只具名 SAN。
+
+**兩件 `UNVERIFIED`，判準已寫好，不要當成已完成**
+
+- `max_over_time` 在**生產環境**上還沒遇過睡眠。判準：下次醒來後
+  `ALERTS_FOR_STATE{alertname="WidespreadGeoDrift"}` 的值**沒有前進**。
+- promtool 那層在 ubu 跑不到（無 docker），所以規則測試**只在 macOS 驗過**。
+  `run_on_ubu.sh` 跑的是 tier 1，會如實印出「tier 2/3 未跑」。
+
+**2026-09-05 追加：非 Claude agent 的接手管道**
+
+使用者要求 codex／agy／copilot 等也能接手。做了三件，**全部是文件與既有工具，沒有新程式**：
+
+1. **`AGENTS.md`**（repo 根目錄，vendor-neutral 慣例入口）——**薄指標**，
+   刻意不複製內容也不含數字，只指向 `docs/Session-Handover.md` ＋
+   對所有 agent 都成立的硬規則與證據要求。理由：兩份索引就是一個分岔問題。
+2. **`test_static.sh` 的路由守衛擴充成掃兩份**（Session-Handover ＋ AGENTS.md），
+   共用同一個迴圈而不是複製一份檢查。斷言數 376 → 377。
+3. **AIS 中立層兩筆知識記錄**（跨 AI 唯一共用管道）：
+   `sleeping-host-breaks-continuity`、`nondeterministic-error-strings`。
+   已補 locator（**必須是標題**，正文粗體字不算）與 digest，
+   `context audit` 由 `not-ready 2` 轉為 `active 21｜not-ready 0`；
+   並加上 `devops`／`platform` tag，讓 AGENTS.md 教的
+   `context resolve --tags devops,platform` **實測取得到**——
+   否則那份文件會教一個回傳不到東西的指令。
+
+**這一輪犯過並修掉的錯，形狀值得記住**
+
+| 錯 | 為什麼測試抓不到 |
+|---|---|
+| 分母下限放進告警而非 recording rule | 面板讀 recording rule，兩邊各持一份定義。是**敘述**與**佈局**錯，不是程式錯 |
+| 交叉引用把這台 Mac 的休眠指到講 ubu 的 B7／§13 | 引用錯機器，語法完全正確 |
+| 多加一個被 `Requires=sleep.target` 連帶擋住的 systemd target | 多做一件無害的事，沒有任何檢查會反對 |
+| 新 `run_cmd` 插進既有斷言區塊中間 | `assert_output_contains` 讀**最後一個** `run_cmd`，三個舊斷言被靜默改指 |
+
+前三個是**對抗式複審**抓到的，不是測試。**改完之後把「我剛才主張了什麼」也送去複審**，
+特別是跨檔案的引用與機器名——那是測試看不到的地方。
+
+## §30 從 Grafana 倒推回 data digest：七層逐節驗證（2026-09-08）
+
+**做法**：不是讀程式碼推論，是**從長官會打開的那個畫面出發**，一節一節往回問
+「這個數字是誰算的、他讀了什麼」，每一節都要有可重跑的指令回答，不接受「應該是」。
+中間任何一節省略，錯誤就會躲在被省略的那一節裡——這一輪找到的三個缺陷有兩個
+正好躺在平常會被跳過的兩節（textfile 掛載、settle 規則的第二份副本）。
+
+### 這條鏈長什麼樣（每一節都附當時用來確認的指令）
+
+| # | 這一節 | 怎麼確認的（可重跑） | 結果 |
+|---|---|---|---|
+| 0 | 長官打開的那個 Grafana 真的在服務這份 JSON | `docker exec observability-grafana-1 sha256sum /var/lib/grafana/dashboards/*.json` 與本機檔比對 | **三張逐位元相同**；provisioning 日誌只有 plugins／alerting 目錄不存在的良性錯誤 |
+| 1 | 三張看板共 34 個 panel target | 解析 `platform/observability/grafana/dashboards/*.json` 取出每個 `expr` | 34 個運算式，1 個是 Loki |
+| 2 | 每個運算式在 Prometheus 有沒有值 | 逐條打 `/api/v1/query` 數 result 長度 | **33/33 有值，零空面板** |
+| 3 | 指標由哪個 rule／哪支程式產生 | `grep -rl <metric> platform/` | 公衛三個指標全部收斂到 `platform/dataops/pipeline_metrics.py` |
+| 4 | `.prom` 檔怎麼進到 Prometheus | `docker inspect <node-exporter> --format '{{range .Mounts}}…'` | `evidence/statusdag` → `/textfile`，`--collector.textfile.directory=/textfile`，job `platform-dag` |
+| 5 | 產生器讀什麼 | 讀 `drift()`：`M.cmd_check()` 擋鏡像過期，之後全部在 DuckDB 上算 | parquet 鏡像，非 Postgres |
+| 6 | 鏡像從哪來 | `evidence/analytics/mirror_manifest.json` | `surveillance_fact` 等 5 表，watermark `max_ingest_id=179`、6,534,834 列 |
+| 6a | 鏡像與 Postgres 是否真的一致（不採信 manifest 的自我宣稱） | 兩邊各跑 `count(*)` 與 `sum(value)` | **6,534,834 列／453,416,484 逐值相同** |
+| 6b | 事實表的血統守恆 | `\d ingest_runs` 的 CHECK | `rows_in_file = source_rows_accepted + rows_rejected + duplicate_rows`，且每批都存 `content_sha256` |
+| 7 | 事實表從哪來 | `pilots/station2-twin/ingest/load_dimensional.py` 的 `url=` | `https://od.cdc.gov.tw/eic/*.csv`（疾管署開放資料）—— **digest 的底** |
+
+**端到端對帳（證明鏈是真的通的，不是看起來通的）**：
+Prometheus 上 `dataops_yoy_ratio{disease_id="24"}` = `4.548152`；
+直接對鏡像算 `19316/4247` = `4.548152`。`disease_id="35"` = `0.900943` = `191/212`。
+**逐位相同**，所以第 2–6 節之間沒有第二個算式在偷偷插手。
+
+### 缺陷一：長官看到 FAIL「scheduler not running」，真相是筆電睡著了
+
+`platform/scheduler/status.sh` 在 10:39 判 `board`／`dag`／`stagereport` 三個 15 分鐘
+任務停在 48–51 分鐘前，`dag.py` 據此把 `scheduler` 節點打成 **fail**，`verdict: FAILED`。
+
+實測：`sysctl -n kern.waketime` → 最後喚醒 **10:31:51**；三個任務的
+`evidence/scheduler/<job>_last.json` 顯示 09:53 之後沒有紀錄，喚醒後 10:42 陸續補跑。
+`.launchd.log` 全是 `ok (rc=0)`，**沒有任何一次失敗**。
+
+也就是說：**這個 FAIL 說的是「本機睡了 38 分鐘」，不是「排程壞了」**。
+`launchd` 的 `StartInterval` 在睡眠期間不觸發，醒來也不補齊次數——這件事
+AIS 的 `sleeping-host-breaks-continuity` 已經記過，但**寫的是告警的 `for:`，
+沒有回頭套用到 scheduler 探針**。一份記錄只修了發現它的那個地方，
+就是「登記為存在，但不執行」的變形。
+
+**本輪不修**，登記為 T19：修法要決定的是「睡眠窗要不要算進 SLA」，那是使用者的決定不是我的。
+
+### 缺陷二：`dataops_yoy_ratio` 標「全國」，而它不是全國（2026-09-08 修標示）
+
+`cur_total` 與 `prev_total` 是在 `cur JOIN prev ON disease_id AND geo_code` **之後**才加總的，
+所以**今年有回報、去年沒有的地區，會從分子分母同時消失**。而 HELP 寫的是
+"National total"，panel 標題寫的是「全國」。
+
+實測 13 支疾病：
+
+| disease | 今年真全國 | 內連後 | 地區數（今年／內連／去年） |
+|---|---|---|---|
+| 35 急性出血性結膜炎 | 193 | **191** | 21 / **20** / 20 |
+| 其餘 12 支 | — | 完全相同 | 22 / 22 / 22 |
+
+板面顯示 `0.900943`，真正的全國比值是 `193/212 = 0.910377`。今天差 1.04%，
+但**誤差沒有上界**：新增一個縣市回報，它整筆會從分子消失。
+
+**修法是改標示不是改查詢**。內連是刻意的——沒配對到的地區否則會長得像真的年對年變化，
+而那正是這個指標要偵測的東西。所以：HELP 改成寫明「只加總兩年都有回報的地區」並帶上實測數字，
+panel 標題改為「年對年比值（**可比地區**，最近一個已結算疫情週）」，description 補上受影響的疾病與筆數。
+`T14`（`prev` 側完整度守衛）**維持登記狀態**：那才是「把數字修對」的那一半，本輪只修「不要說謊」的那一半。
+
+### 缺陷三：settle 規則的 12 週視窗每年一月會塌陷（2026-09-08 修）
+
+settle 規則是「取最近一週，其地區涵蓋數 ≥ 前 12 週的中位數」。前 12 週寫成
+`p.yw >= c.yw - 12`，而 `yw = epi_year*100 + epi_week`。**這只是「同一年之內」的週算術**：
+在 2026w01，它要的是 `[202589, 202600]` 這個沒有任何一週能落在的區間。
+
+實測（真實鏡像，2026-09-08）：
+
+| 週別 | `cov` 有的 (disease,week) 組合 | 進到中位數視窗 | 遺失 |
+|---|---|---|---|
+| week = 1 | 191 | **0** | **191（全部）** |
+| week ≤ 12 | 2,291 | 2,100 | 191 |
+| week 13–52 | 7,445 | 7,444 | 1（資料集的第一週，應該的） |
+
+後果**每年一月發作一次而且不會叫**：把同一份鏡像截到 2026w01，
+舊寫法選出 `202553`、新寫法選出 `202601`。舊寫法會把**一年前的那一週**
+掛上「最近一個已結算疫情週」的標籤，然後拿它跟**兩年前**比。
+這與 §20 修掉的 `- 100` 是同一個病：結構性看不見當年，而且數字看起來完全合理。
+
+**修法**：改用 DuckDB 原生窗口框
+`MEDIAN(geos) OVER (PARTITION BY disease_id ORDER BY yw ROWS BETWEEN 12 PRECEDING AND 1 PRECEDING)`。
+`ROWS` 數的是**排序後的位置**，年界對它不存在。順帶把自連接整段移除——程式碼是變少的。
+第一列的框是空的會得到 `NULL`，等同舊寫法對第一週的丟棄，所以 `latest` 明確加了 `med_geos IS NOT NULL`。
+
+**驗收**：
+- 正控制：鏡像截到 2026w01 → 必須得到 `202601`（壞的寫法得到 `202553`）
+- 負控制：截到 2026w02 → `202602`；不截 → `202635`，**與修改前完全相同**
+- 回歸：重跑 `platform/dataops/run.sh`，`dataops.prom` 所有非時間類指標**逐行相同**
+- 突變測試：把 CTE 換回舊的自連接 → `45 passed` 變 `44 passed, 1 failed`，
+  且失敗的正是年界那一條；還原後以 `cmp` 驗證檔案逐位元相同
+
+### 缺陷四：settle 規則有兩份副本，而其中一份的註解說「只有一份」
+
+`platform/dataops/settled_week.py` 的 docstring 寫著
+「extracted from the test so the settle rule has exactly one implementation」，
+但那段 SQL 同時存在於 `pipeline_metrics.py`。測試套件跑的是 `settled_week.py`。
+
+這件事在**本輪當場發作**：缺陷三的修正先落在 `pipeline_metrics.py`，於是那一刻
+生產用的是修好的查詢、測試驗的是壞掉的副本——**套件會繼續替一段沒人執行的 SQL 背書**。
+這是本 repo 自己編目的「兩份索引是分岔問題」，加上「註解描述的機制不等於機制存在」。
+
+**修法**：規則定義成 `pipeline_metrics.SETTLE_CTE` 一份，`settled_week.py` 改成 import 它。
+新的年界控制項也是對 `SETTLE_CTE` 求值，不是對副本求值——
+**守衛如果驗的是副本，它防的就是副本而不是生產**。
+
+### 本輪之後仍然 UNVERIFIED 的事
+
+| 事項 | 為什麼還不能宣告已驗 | 什麼時候能驗 |
+|---|---|---|
+| 年界修正在**真實一月**的行為 | 控制項是把資料搬過去，不是把時間搬過去 | 2027w01 當週看 `settled_week.py` 的 `LAG_OK` |
+| `max_over_time` 抗睡眠（§29 沿用） | 載入後尚未遇到一次夠長的睡眠窗 | `ALERTS_FOR_STATE{alertname="WidespreadGeoDrift"}` 在下次喚醒後不得前進 |
+| promtool 規則測試在 Linux | ubu 無 docker，該段在 ubu 上是 SKIP 不是 PASS | ubu 裝上 docker 或改用本機 promtool 二進位 |
+
+## §31 MLOps 那條鏈，以及跨 session 的遺漏稽核（2026-09-08）
+
+§30 從 Grafana 倒推到疾管署 CSV，走的是 **devops 與 dataops** 兩條。
+使用者指出漏了 mlops，而且點名了要看的東西：
+**「model prediction's evaluation score over current model score」**。這一節補上。
+
+### 一、MLOps 這條鏈的實際樣子（同樣逐節，同樣附指令）
+
+| # | 這一節 | 怎麼確認的 | 結果 |
+|---|---|---|---|
+| 1 | 長官在看板上看得到什麼 mlops | `platform-stages.json` 的三個 mlops panel | 只有**節點燈號與歷程**，`devops_node_state_code{layer="mlops"}` |
+| 2 | Prometheus 裡有沒有任何模型指標 | `/api/v1/label/__name__/values` 全掃，正則 `model\|forecast\|mae\|baseline\|train\|predict` | **99 個指標，零筆與模型有關** |
+| 3 | 那 `-12.08%` 從哪來 | `dag.py` 的 `probe_model_gate` | 只活在**節點 detail 的字串**裡，沒有時間序列 |
+| 4 | 閘門讀什麼 | `model_run`：`mae`／`baseline_persistence_mae`／`split_strategy`／`horizon_weeks` | 14 筆 run，`code_sha256` 全部相同（`b27a652e`），自 08-20 未變 |
+| 5 | 誰決定上線 | `pilots/station2-twin/mlops/publish_forecast.py` | `WHERE beats_baselines ORDER BY mae ASC LIMIT 1` |
+| 6 | 上線了什麼 | `forecast` 表 | 2 筆，出自 run 2（2026w34）與 run 12（2026w36），**都是 t+2** |
+| 7 | 有沒有人回頭看預測準不準 | grep 全 repo：`forecast` 與 `fact/actual/observed/error/score` 同時出現的程式 | **沒有。零筆。** |
+
+### 二、找到三個問題
+
+#### 2-1 板面報的是「歷來最佳」，句子讀起來像「現在」（已修）
+
+`probe_model_gate` 取出所有 rolling-origin run，然後 `max(margin)` per horizon。
+2026-09-08 的實測是 t+1 `-12.08%`／t+2 `+0.55%`——**剛好是對的**，
+因為至今每次重訓都在進步。**會暴露它的是第一次退步的那次重訓**，
+而歷史裡已經有一筆 t+1 `-56.25%` 被這個 max 藏了從 08-20 到現在。
+
+**修法**：改取**每個 horizon 最新的那次 run**（`DISTINCT ON ... ORDER BY trained_at DESC`），
+並在旁邊加上**目前線上那個 run 的分數**。板面現在說：
+
+```
+t+1 最新 run13 -12.08%（尚未上線）／t+2 最新 run14 +0.55%（線上 run12 +0.55%）
+```
+
+**這正是使用者要的那個比較**，而且它同時讓一件事**可見**：
+閘門本身**從來沒有拿候選模型跟線上模型比過**，它只跟持平基準比。
+把兩個數字並列不會讓閘門多做那個比較，但會讓「它沒做」從看不見變成看得見。
+
+**驗收**：SQL 抽成 `dag.MODEL_GATE_SQL`，測試用 **DuckDB 對合成回歸資料求值**
+（舊 run 贏 10%、最新 run 輸 30%，線上是舊那個）——
+`max` 會報 `+10.00`，正確的要報 `-30.00`。突變測試把 `ORDER BY trained_at DESC`
+改成 `ORDER BY pct DESC`，兩層斷言同時變紅；還原以 `cmp` 驗證。
+
+#### 2-2 沒有任何東西把已發布的預測跟真實發生對帳（已補節點）
+
+mlops 那一列五個節點全綠，而**這個 pilot 從來沒有一筆預測被評分過**。
+回測不是這件事：rolling-origin 的 MAE 是拿模型去比它**被擬合圍繞的歷史**；
+事後評分是拿**真的發出去的那個數字**，比**真的到來的那一週**。
+
+這是本 repo 目錄裡「登記為存在，但不執行」的形狀，升了一層——
+**登記的是一整個 layer 的綠燈**。
+
+**第一次評分的結果（2026-09-08）**：
+
+| forecast | 目標週 | 起點觀測 | 模型預測 | 實際發生 | 模型誤差 | 持平基準誤差 | 判定 |
+|---|---|---|---|---|---|---|---|
+| 3（run 2） | 2026w34 | 0.018875 | 0.019779 | 0.021828 | **0.002048** | 0.002953 | 模型勝 30.6% |
+| 7（run 12） | 2026w36 | 0.021932 | 0.023564 | — | — | — | 目標週尚未有資料 |
+
+**n=1。這不證明任何事**，而且刻意寫進節點的 detail 裡（`n=1，尚不足以下結論`），
+因為 `1/1` 這種字串在板面上讀起來像戰績。有趣的是它跟回測不一致：
+回測說 t+2 只贏 `+0.55%`，唯一一筆能評分的實際觀測贏了 `30.6%`。
+**兩個都是真的，只是問的不是同一個問題**，而在這之前板面上只有前者。
+
+**單位是這件事最容易出錯的地方，寫進註解**：`predicted_value` 是
+`nhi_visits / denominator` 的**比率**。若把 `surveillance_fact.value` 跨 metric 加總
+當成「實際值」，會得到 `18286` 對上預測 `0.0198`——差三個數量級，
+而那個比較**在 SQL 上完全合法**。所以事後值是用
+`build_features.weekly_series` 的**同一組分子分母**重算的。
+
+**寫這個節點時當場犯的錯，以及它變成的控制項**：`actual` CTE 依
+`geo_code, visit_type` 分組卻沒 SELECT 也沒 join，LEFT JOIN 於是把 2 筆預測
+**扇開成 44 列**，節點顯示「22/44 勝過持平基準」。
+**那個字串沒有任何一處看起來不對**，n 還變得比較健康。
+抓到它的是不變量：**探針評分的筆數不可能多於 `forecast` 表的列數**。
+突變測試（拿掉 join 條件）證明這條不變量會紅。
+
+#### 2-3 概念漂移（model drift）完全不存在——這是跨 session 稽核找到的
+
+見下一小節。
+
+### 三、跨 session 稽核：方法與結果
+
+**為什麼要做**：可觀測性與可達性的對象不只是系統，也包括**我們自己的決定**。
+一件事在某次對話裡被要求過、當時沒做、後來沒人記得，
+在 repo 裡長得跟「從來沒被要求過」一模一樣。
+
+**方法（可重跑）**：
+
+```bash
+grep -rl -i 'devops' ~/.claude/projects --include='*.jsonl' | grep -v '/subagents/'
+# 逐檔抽出 type=='user' 的訊息（不含工具結果、不含 local-command），離線比對
+```
+
+7 個 session、**699 則使用者訊息**（08-11 至 09-08）。抽出後逐條對照 repo 是否有落點。
+
+| 曾經要求的事 | 落在哪裡 | 判定 |
+|---|---|---|
+| Spark 的取捨 | `docs/decisions/0002-spark-scope.md` | 有 |
+| DuckDB 分析鏡像 | `0003`／`mirror_manifest.json` | 有 |
+| 不導入 ELK，改 Loki | `0011-loki-not-elk.md` | 有 |
+| OTel 在邊界、後端延後 | `0012-otel-at-the-boundary-backend-deferred.md` | 有 |
+| 轉 K8s，k3s 為先 | `0010-kubernetes-target-runtime-k3s.md` | 有 |
+| 兩台機器兩種指令集、原生建置 amd64 | `0008-two-machines-two-architectures.md` | 有 |
+| Vault「兩台都放」 | `docs/Ubu-Prod-Bringup.md` 第五節 | 有 |
+| Docker.raw／磁碟監控 | `0014-host-disk-was-unmeasured.md` | 有 |
+| 資料迴路要真的在跑 | `0013-pilot-loop-was-open.md` | 有 |
+| 可達性樹狀圖、不要孤兒文件 | `docs/Reachability.md`／`platform/docs/doc_graph.py` | 有 |
+| email 通知（zhe0@…） | 板面 `alertmgr` 明說「宣告了但沒接上: email」 | 有（已知缺口，非遺漏） |
+| GitHub topics 生態調查 | `docs/Ecosystem-Scan-2026-08.md` | 有 |
+| **「mlops 有定期更新 model and drift detect 嗎？」** | 重訓有（`retrain` 每週）；**drift detect 沒有** | **遺漏** |
+
+**唯一的遺漏**：`grep -rilE 'concept drift\|model drift\|模型漂移\|概念漂移\|drift detect'`
+在 `docs/`、`platform/`、`pilots/` 回傳**零筆**。repo 裡所有的 "drift" 都是
+**資料漂移**（`dataops_yoy_geo_drift_*`，比較的是今年與去年的資料分布），
+沒有一處是**模型漂移**（比較的是模型在新資料上的表現與它上線時的表現）。
+
+兩者名字像、意思完全不同，而且**資料漂移的存在會讓人以為漂移這件事已經被顧到了**——
+這正是它能潛伏兩週沒被發現的原因。
+
+登記為 T20。**2-2 的事後評分節點是它的前提**：沒有「預測 vs 實際」的歷史，
+就沒有東西可以拿來判斷模型的表現有沒有隨時間退化。
+
+## §32 模型層從「一個寫死的模型」變成註冊表（2026-09-08）
+
+**要求**：模型要能多種設計、要有擴充性，而且**長官要知道怎麼擴充**。
+完整的擴充指南在 [`docs/MLOps-Model-Extension.md`](MLOps-Model-Extension.md)；
+這一節只記**改了什麼、為什麼、以及怎麼證明它沒改壞**。
+
+### 改之前的實際狀態（不是印象，是 grep）
+
+`model_run` 的 schema 從第一天就有 `algorithm`、`hyperparams`、`feature_set_id`、
+`seed`、`code_sha256`——**一個說「支援很多模型」的結構**。程式碼裡只有一個模型，
+而且它的身分被**手抄成三份**：
+
+| 位置 | 內容 |
+|---|---|
+| `run_rolling` 的建構子 | `HistGradientBoostingRegressor(max_iter=60, max_depth=3, learning_rate=0.05, ...)` |
+| `run_random_split` 的建構子 | 同上，第二份 |
+| banner 的 print | `"HistGradientBoostingRegressor(60, depth 3, lr 0.05)"` 字串 |
+| `INSERT INTO model_run` | `"HistGradientBoostingRegressor"` ＋ 重打一次的 hyperparams dict |
+
+**換模型時只要漏改一處，`model_run` 就會用上一個模型的名字記錄新模型的數字**——
+比沒有 provenance 更糟，因為之後每一次比較都繼承這個謊。
+這是「兩份索引是分岔問題」的四份版本。
+
+### 改了什麼
+
+一個 `MODELS` 註冊表，四個地方全部從它讀。一筆登記必須宣告六件事
+（`family`／`build`／`hyperparams`／`handles_nan`／`nan_policy`／`deterministic`），
+理由逐項寫在 `backtest.py` 的註解裡。加上 `--algorithm` 與 `--list-models` 兩個旗標。
+
+**未登記的名稱一律拒絕並列出清單，絕不預設回退。**
+`--list-models` 也跑同一個守衛：**列得出來的就必須是選得起來的**，
+否則那份清單又是一個「登記為存在，但不執行」的目錄。
+
+### 第二個家族是真的，不是宣稱
+
+**一個只有一筆的註冊表，跟寫死是同一件事穿上機制的外衣。** 所以加了 `Ridge`
+（統計／線性），而且**跑完寫進資料庫**（run 15／16），不是紙上數字。
+
+同一批折、同樣基準的實測：
+
+| 模型 | 家族 | t+1 | t+2 | t+2 方向準確率 |
+|---|---|---|---|---|
+| HistGradientBoosting | 梯度提升樹 | −12.1% | **+0.6%** | 63.8% |
+| Ridge | 統計／線性 | −22.0% | −11.0% | 62.0% |
+
+Ridge 兩個 horizon 都輸持平基準，`beats_baselines=False`，
+**閘門直接拒絕它**——機制在運作，而且現在有第二個模型可以示範這件事。
+
+**加第二個模型當場暴露的設計缺口**：在只有一個模型時，「最新一次 run」是明確的；
+有了第二個家族之後，樹模型與線性模型的數字會**輪流佔用同一格**，
+板面會讀成「同一個模型時好時壞」。所以 `MODEL_GATE_SQL` 一併帶出 `algorithm`：
+
+```
+t+1 最新 run15 Ridge -21.99%（尚未上線）／t+2 最新 run16 Ridge -11.01%（線上 run12 +0.55%）
+```
+
+這一行同時回答了使用者原本問的那個問題：**挑戰者的分數與線上模型的分數並列**。
+
+### 缺值：這是決定「哪些家族加得進來」的那個條件
+
+樹模型原生吃 NaN，所以現行模型從來沒碰到這題。**線性與深度模型都會碰到**，
+而這份資料的缺值不是雜訊：
+
+| 特徵 | 556 列中 NULL | 原因 |
+|---|---|---|
+| `covid_lag_1` | **288（51.8%）** | COVID 2020 才開始，序列回溯到 2015 |
+| `same_week_last_year` | 52（9.4%） | 第一年沒有去年 |
+| 其餘 | 1–4 | 序列開頭 |
+
+**丟掉不完整的列＝丟掉一半歷史且全部是 2020 以前；靜默填補＝發明一段
+2020 年以前的 COVID 訊號。** 所以 `handles_nan=False` 的登記**必須**附
+`nan_policy`，否則註冊表拒絕啟動。Ridge 的政策用 sklearn 的 `Pipeline`
+（`SimpleImputer(add_indicator=True)` → `StandardScaler` → `Ridge`），
+填補的統計量**每折只從訓練列學**——不是自己寫的迴圈，所以沒有自己寫錯 leak 的空間。
+
+### 驗收
+
+- **行為不變**：重構後以排程實際使用的旗標（`--predict-delta`）重跑，
+  t+1 `-12.1%`／t+2 `+0.6%`，與紀錄中的 `-12.08%`／`+0.55%` 相符
+- **新套件** `platform/tests/test_model_registry.sh`：13 個斷言，tier 1，需要 pilot 容器不需要資料庫
+- **突變測試（兩次，皆以 `cmp` 驗證還原）**：
+  - 拿掉 Ridge 的 `nan_policy` → 5 條斷言變紅（`--list-models` 自己就會失敗）
+  - 整筆移除 Ridge → 「a SECOND family is registered」等 4 條變紅
+
+### 這一輪自己犯的錯（記下來，因為它有形狀）
+
+把 `algorithm` 加進 `MODEL_GATE_SQL` 之後，**只驗了實機板面就往下走**——
+板面顯示正確，所以看起來沒事。但那段 SQL 有一個 DuckDB 夾具在測試裡對它求值，
+夾具的 `model_run` 沒有 `algorithm` 欄，於是 `test_dataops_metrics.sh` 六條斷言全紅，
+而我是在跑全套時才發現的。
+
+**形狀**：改了一段被兩個地方使用的東西（生產路徑與測試夾具），
+只驗了其中比較顯眼的那一個。「板面看起來對」證明的是生產路徑，
+不是「所有讀這段 SQL 的地方都還成立」。
+
+**代價**：一次 437 秒的全套。**判準**：動到被抽出來共用的常數
+（`MODEL_GATE_SQL`、`SETTLE_CTE` 這類），就要跑那個常數的**所有**消費者，
+而不是最容易看到結果的那一個。
+
+### 沒做，而且刻意沒做
+
+**沒有加深度學習模型。** 不是因為麻煩，是因為 **556 列**。
+`min_train=104` 之後可回測 451 折，特徵 12 個。
+LSTM／TCN／Transformer 在這個規模上不是「有點少」，是少兩個數量級。
+硬跑會得到一個過擬合的模型與一個好看的隨機分割分數，
+而這個 repo 已經有 `--also-wrong-split` 專門示範那個數字長什麼樣。
+
+要做深度學習，**先解決資料量，不是先解決模型**：現在的目標是
+「單一地區（66000）／單一就診別／單一疾病」的一條序列；
+22 縣市 × 13 疾病 = 286 條序列的全域模型才有話講，
+而那要重新定義 `feature_set`——是新範圍，不是這一輪。
+
 ## §27 待辦登記簿（2026-09-04 起，逐一完成）
 
 **規則：這一節只登記，不實作。** 需求不擴張，功能逐步收斂落地。
@@ -1480,7 +1915,15 @@ kubectl config view -o jsonpath='{...clusters[?(@.name=="ubu")]...server}'
 | # | 待辦 | 為什麼現在不做 | 觸發條件 |
 |---|---|---|---|
 | T1 | **備份歸檔沒有保留策略** | 見下方分析：現在不痛，但單調成長 | 磁碟告警再燒，或歸檔超過 10G |
-| T2 | **`probe_prod_cluster` 分辨三種連不上**（mDNS 失效／SAN 不符／機器睡著） | 三種目前都收斂成同一句話；分辨需要不同處置，而處置還沒定 | ubu 停用休眠之後——在那之前「睡著」會蓋掉另外兩種 |
+| T2 | **`probe_prod_cluster` 分辨三種連不上**（mDNS 失效／SAN 不符／機器睡著） | **2026-09-05 做掉了其中的缺陷那半**（見下）；剩下的「mDNS 失效 vs 機器睡著」需要第二條命名路徑與**處置決定**，而處置還沒定 | ubu 停用休眠之後——在那之前「睡著」會蓋掉另外兩種 |
+| T15 | **`probe_prod_cluster` 四條回傳路徑零測試覆蓋**（現已補兩條，仍缺 no-context 與逾時的真實誘發） | 四種故障都已證實可在秒級無損誘發，但補齊要新增誘發器與夾具 | 下次動這個探針時一併補 |
+| T16 | **覆蓋缺口記錄沒有主機狀態欄位** | 睡眠窗與「醒著但一直失敗」寫出的記錄逐欄相同；要分辨得新增採集 | 出現第一次「缺口記錄看不出原因而誤判」時 |
+| T17 | **`record_gap.py` 零測試斷言，且門檻常數與 `status.sh` 各寫一份** | 是缺陷不是新功能，但屬 scheduler 範圍，本輪未動該區 | 下次動 scheduler 時一併補 |
+| T18 | **`CTX=ubu` 部署會在 prod 機器上建出預設允許的 namespace**；部署證據檔名寫死 `deploy_develop_<sha>.json`；`sync_vault_secret.sh` 只讀一份寫死的 AppRole 檔；備份／還原演練綁死 k3d context | 四項都是 T7 的**前置缺陷**，在 pilot 真的上 ubu 之前不會造成傷害，但會在第一次上線時同時發作 | T7 動工時，**在第一次 `CTX=ubu` 部署之前** |
+| ~~T19~~ | ~~**`scheduler` 探針把「本機睡著」報成「排程沒在跑」**~~ **2026-09-08 已決定：睡眠窗算違反 SLA，維持現狀不豁免**（理由見下方 §31） | — | — |
+| T20 | **概念漂移（model drift）沒有任何偵測**——repo 裡所有 "drift" 都是資料漂移 （2026-09-08 跨 session 稽核找到：2026-09-02 曾被問「mlops 有定期更新 model and drift detect 嗎」，重訓做了，drift detect 沒做，也沒登記） | **前提還沒滿足**：模型漂移是「模型在新資料上的表現 vs 它上線時的表現」，而「預測 vs 實際」的歷史今天才開始有第一筆（§31 二之二）。用 n=1 建漂移偵測，偵測到的會是雜訊不是漂移 | 事後評分累積到能分辨訊號的筆數——**這個門檻本身要先量**，不要憑感覺挑一個 n |
+| T21 | **`forecast` 表沒有存實際值，事後評分每次都要重算** | 現在只有 2 筆，重算是毫秒級；加欄位要寫 migration，而 migration 是不可逆的 | 事後評分的筆數讓重算變慢，或 T20 動工需要穩定的歷史快照時 |
+| T22 | **閘門從不拿候選模型跟線上模型比**，只跟持平基準比（`publish_forecast.py`：`WHERE beats_baselines ORDER BY mae ASC LIMIT 1`） | 板面已把兩個數字並列（§31 二之一），**先讓它可見**；要不要改成 champion/challenger 是**業務決定**——一個略差但更穩定的模型該不該取代線上的，這個 repo 答不出來 | 使用者決定汰換規則之後 |
 | T3 | **從社群的教訓反向補守衛** | 見下方分析 | 每次遇到「本機綠、別處紅」時追加一條 |
 | T4 | **loader 寫得出失敗狀態**（§23） | `IngestRunsFailing` 才有有意義的版本可以回來 | 出現第一個「25 支來源裡 1 支失敗」的情境 |
 | T5 | **conflict 變化的基線**（§23） | 只有變化才是新聞，而基線還沒存 | T4 之後 |
@@ -1491,6 +1934,195 @@ kubectl config view -o jsonpath='{...clusters[?(@.name=="ubu")]...server}'
 | T10 | **板面內嵌 SVG**（§17） | 需 ~150MB Chromium，成本由使用者決定 | 使用者決定 |
 | T11 | **追蹤 traces**（§18） | 三個前提未到 | 服務數量到位 |
 | T12 | **偵測「被加進不會執行的分支」的檢查** | 沒有工具抓得到；唯一訊號是斷言總數沒增加，而那個數字目前沒人看 | 再發生一次，或 run_all.sh 開始記錄每個套件的斷言數基線 |
+| ~~T13~~ | ~~**`WidespreadGeoDrift` 沒有分母下限**~~ **已完成 2026-09-04**（見下方診斷與驗收） | — | — |
+| T14 | **`prev` 那一側沒有完整度守衛**（見下方診斷） | 目前只影響 1 支疾病且未造成誤報；修它要動 settle 規則，那是 §20 剛穩定下來的東西 | 第一次出現「去年同期不完整」造成的誤報，或 settle 規則因別的理由再動時 |
+
+### T2 的缺陷那半：探針把 kubectl 唯一自我描述的那行丟掉了（2026-09-05 修）
+
+T2 原本被當成一件「要新增分辨能力」的事。實際拆開之後，**其中一半根本不是新功能，
+是缺陷**：`run()` 只回傳 `(rc, stdout)`，而 `probe_prod_cluster` 又寫成 `rc, _ = run(...)`，
+於是 kubectl 寫在 stderr 的那一行——唯一會說出「到底哪裡不對」的訊息——被丟掉，
+換成一句事先寫好的固定句子。三種原因收斂成同一句話，有一半是這樣來的。
+
+**修法**：新增 `run_diag()`（保留 stderr；獨立於 `run()`，因為 `run()` 有十個呼叫者、
+其餘九個不需要第三個回傳值）。不可達分支改成**回報 kubectl 說了什麼**。
+
+**只有 SAN 不符被具名**，因為只有它的訊息是確定的
+（`x509: certificate is valid for …, not …`，實測以 `--tls-server-name` 可在秒級無損誘發）。
+逾時**刻意不分支**：同一台不可達主機實測回過四種不同字串
+（`context deadline exceeded`／`request canceled while waiting for connection`／
+`no route to host`／`Host is down`），對這些做分支等於加一條**靠運氣才對**的守衛。
+其餘情況一律把原始那行帶出來——**讀者能據以行動的證據，勝過我們猜的原因**。
+
+**驗收**：三個合成控制（stub 掉 `run`／`run_diag`）——SAN 案例必須具名、
+未具名的失效必須帶出 kubectl 自己的話、健康路徑必須仍然拒絕讀成綠。
+第三個是讓前兩個保持誠實的控制項：健康路徑若哪天開始回報錯誤，前兩個仍會過。
+斷言數 37 → 41。
+
+**過程中犯的錯，記下來**：新的 `run_cmd` 被插進既有斷言區塊的**中間**，
+而 `assert_output_contains` 讀的是**最後一個** `run_cmd` 的輸出——
+三個 alertmanager 斷言於是被靜默改指到別的輸出而變紅。已修，並在該處留下警告註解。
+這是 §28 坑 #6 的近親：**檢查放錯位置，而位置本身不會報錯**。
+
+**四種故障對真實 ubu 的實測（2026-09-05，ubu 關機前的窗口內取得；全部唯讀、秒級）**
+
+| 誘發方式 | kubectl 說了什麼 | 可否當判別依據 |
+|---|---|---|
+| `--tls-server-name=nope.invalid` | `x509: certificate is valid for …, not nope.invalid` | **可以**，字串穩定 |
+| `--server=https://ubu.local:6444`（同主機關閉的埠） | `The connection to the server ubu.local:6444 was refused` | **可以**——這是「機器醒著、服務沒在跑」，是四種裡唯一能證明主機活著的 |
+| `--server=https://ubu-nope.local:6443`（名字不存在） | `context deadline exceeded`／`…(Client.Timeout exceeded while awaiting headers)` | **不可以** |
+| `--server=https://192.168.1.253:6443`（同網段黑洞） | 三次重跑三種字串：`context deadline exceeded (…)`／`no route to host`／`host is down` | **不可以** |
+
+**最後一列是這一節的重點。** 同一個故障、同一個指令、連跑三次，得到三個不同字串。
+所以任何建立在逾時訊息上的判別分支都是**靠運氣才對的守衛**——
+它會在寫的當天通過，然後在某個沒人看的時刻悄悄給出錯誤答案。
+`probe_prod_cluster` 因此只具名 SAN 一種，其餘帶出原文不下結論。
+
+**還沒接進探針的一條**：`was refused`。它穩定，而且回答的是別的問題——
+「機器活著但 k3s 沒在跑」。接它的成本很低，但**處置未定**（要不要自動重啟 k3s？），
+所以留在 T2 而不是順手做掉。
+
+**仍未做（留在 T2）**：分辨「mDNS 失效」與「機器睡著」。這需要第二條命名路徑
+（路由器的 DHCP 主機名 DNS——實測**已經存在**且對不存在的名字會給 `NXDOMAIN`，
+正是 mDNS 缺少的否定回答），以及**處置決定**：mDNS 失效要不要自動改走另一條路？
+睡著要不要發 WoL？k3s 停了要不要自動重啟？三個都是政策，不是工程。
+
+### T13／T14 兩個正在燒的 `WidespreadGeoDrift`：診斷（2026-09-04，量測）
+
+**這兩個告警不是同一個故事，卻共用同一條規則。** 診斷前它們在板面上長得一模一樣。
+
+告警的前提寫在規則旁邊：「單一地區變動是流行病學；四分之一地區同向變動比較像管線」。
+量測顯示，兩個正在燒的實例**各自違反這個前提的不同一半**。
+
+量測（`platform/analytics/mirror`，2026w34 對 2025w34，`YOY_FLOOR=20`）：
+
+| 疾病 | 本週 | 去年同週 | join 到的地區 | 可比地區 | n_up | n_down | share |
+|---|---|---|---|---|---|---|---|
+| COVID-19 | 21,256 | 5,157 | 22 | 19 | **19** | 0 | 1.00 |
+| 猩紅熱 | 49 | 183 | 22 | **3** | 0 | **3** | 1.00 |
+| 急性出血性結膜炎 | 190 | 204 | 19 | **3** | 0 | 0 | 0.00 |
+| （對照）類流感 | 104,486 | 92,301 | 22 | 22 | 0 | 0 | 0.00 |
+
+**COVID-19 是真訊號，不是管線。** 兩側覆蓋率都是滿的 22 個地區
+（先驗證過：`cur` 與 `prev` 的 geo 數皆為 22，等於前 12 週中位數），
+19 個可比地區**全數**上升，全國 4.12 倍。這是規則的前提**接不住**的情況：
+一場真正的全國性流行，在這條規則眼裡和一次管線變更**完全同形**。
+告警文字說「比較像管線」，而這一筆不是——**訊號正確，標籤誤導**。
+
+**猩紅熱是 N=3 的假影。** 22 個地區裡只有 3 個的去年同期值過得了地板
+（46／29／23，其餘是 14 到 0），三個都跌 → 3/3 = 100% → 燒。
+「超過 1/4 的地區」字面為真，流行病學上空洞：這是一個小數目疾病，
+全國一週 49 例。**每個地區有地板（`YOY_FLOOR=20`），但 share 的分母沒有下限。**
+這是本 repo 失效形狀目錄裡「空集合上的恆真句」的鄰居——**小集合上的必然真句**。
+
+**不是只有猩紅熱。** 急性出血性結膜炎的可比地區同樣是 3。它今天 share=0，
+但那三個地區同向動的任何一週它就會燒。**缺陷是規則的，不是那支疾病的。**
+
+**被推翻的假設（記下來，免得再走一次）**：先懷疑是「拿完整週比部分週」
+——即 `cur` 有完整度守衛（覆蓋率 ≥ 前 12 週中位數）而 `prev` 沒有。
+查了：這兩支疾病的 `prev` 側都是滿的 22 地區，**假設不成立**。
+但同一個查詢找到 T14：**急性出血性結膜炎的 `prev` 側確實是 PARTIAL**
+（20 個地區，中位數 21）——`prev` 缺守衛是真的，只是不是這次的成因。
+`pipeline_metrics.py:404` 的註解說「不要靜默地拿部分週比完整週」，
+而那個保護只加在比較的一邊。
+
+**現況（如實記錄）**：這兩個告警自 2026-09-04T03:13 起 firing，
+在此之前的 evidence 檔（08-29 起）也可見同名告警。**在本次診斷之前沒有人看過它們的分母。**
+
+### T13 修法與驗收（2026-09-04 完成）
+
+**改的是分母下限，不是門檻。** `dataops_yoy_geo_comparable_count >= 11`
+加進 **recording rule `dataops:yoy_geo_drift_share`**。11 ＝ 台灣 22 個縣市的一半，
+也就是這個維度本身的一半：**低於半張地圖，「普遍」就不是資料撐得住的宣稱**，
+share 是多少都一樣。觀察到的分佈缺口很寬（3、3、8 ｜ 18、19×3、20、21×2、22×3），
+所以這個門檻不是立在刀鋒上。
+
+**同時修了誤導的文字**（不是新功能，是讓既有告警誠實）：description 現在明講
+這條規則**分辨不出**真流行與管線變更，並給出判別方式（只有一支疾病動＝較可能真疫情；
+多支同時同向＝較可能管線）。COVID-19 那一筆仍然會燒，**這是對的**——
+它 19 個可比地區全升，本來就該被看見，只是不該被貼上「像管線」的標籤。
+
+**驗收（依 [ADR-0007](decisions/0007-verify-by-evaluation.md)：以評估，不是以解析）**
+
+- 新增 `rule_tests/dataops-geodrift_test.yml`，四個案例，數值全部取自
+  2026-09-04 的真實量測而非杜撰：N=19 必燒／**N=3 必靜**／N=11 邊界必燒／
+  N=22 但 share 低於門檻必靜。最後一個是**原條件的控制項**：
+  若 `on(...)` 的標籤寫錯導致每個序列都被丟掉（就是 2026-08-28 那個缺陷重演），
+  規則會永久靜音，而那與「沒有東西在漂移」從輸出上分不出來——
+  沒有這個案例，N=3 那一項會因為錯誤的理由通過。
+- **兩個突變都被殺死**（`test_dataops_metrics.sh` 內，不是另開檔案）：
+  下限拿掉 → 猩紅熱案例重新燒 → 測試紅；下限改 12 → 邊界案例不燒 → 測試紅。
+  兩次都 `cp` 還原並以 `cmp` 斷言 byte-identical。
+- **斷言數 30 → 34**，確認新檢查落在會執行的分支
+  （§28 坑 #6：唯一會露餡的訊號就是斷言數沒有增加）。
+- **活的平台端到端**：SIGHUP 重載（`--web.enable-lifecycle` 沒開，這是刻意的），
+  expr 求值由 2 筆序列降為 1 筆，規則狀態與 Alertmanager 皆由 2 筆 firing 降為 1 筆
+  （只剩 COVID-19）。猩紅熱**沒有被靜音，是不再成立**。
+
+**沒有做、仍然登記的**：把「全國性同向大幅上升」拆成有自己名字與 runbook 的
+獨立規則。那是新增一條告警＝新增範圍，而目前 description 已經誠實說出它分辨不了。
+觸發條件：第二次出現「真流行被當成管線問題調查」的時候。
+
+#### 追記 2026-09-05：下限修好之後，才看見它擋在前面的第二個缺陷
+
+下限讓猩紅熱不再燒之後，剩下的唯一告警 COVID-19 **在板面上時有時無**。
+倒推之下，這不是資料問題，是 **`for` 的連續性假設在會睡覺的宿主上不成立**。
+
+**量測（Prometheus `query_range`，不是推論）**
+
+| | |
+|---|---|
+| COVID-19 條件 | 連續 30 小時未變（19/19 可比地區上升，share 1.0） |
+| 實際告警狀態 | firing 09-04 11:17–18:17（7.0h）→ pending → firing 21:47–00:02（2.2h）→ pending → … |
+| 抓取空洞 | 16 小時內 9 次，每次 4–14 分鐘 |
+| 最長連續清醒窗 | 269／209／131／87／75／59 分鐘 |
+
+所以 `for: 2h` 在十六小時內**只有三次機會**被滿足。機制：宿主睡眠停止求值，
+醒來後第一次求值時最後一個樣本已超過 5 分鐘 staleness 窗，瞬時向量為空，
+`for` 從零重數。**觀察到的形狀是震盪，不是靜默**——
+一開始我以為訊號完全沒進 Alertmanager，範圍查詢推翻了那個說法。
+
+**修法**：`expr: max_over_time(dataops:yoy_geo_drift_share[1h]) > 0.25`。
+1 小時是實測最大空洞（14 分鐘）的約 4 倍。代價是遲滯：條件消失後最多多燒一小時——
+**在這裡近乎為零，因為底層資料是週資料**，這個 share 一小時內不可能有意義地變動。
+
+這**不修監控空洞本身**，它修的是「空洞把已經成立的訊號抹掉」。
+空洞的來源是**這台 Mac** 的電源行為，已記載為筆電的物理限制而非程式缺陷
+（[`Plan.md`](../Plan.md):354-356、本檔 §12 第 3 項）。
+**不要引 B7／§13**——那兩處講的是 ubu，是另一台機器；
+第一版的註解就引錯了，對抗式複審抓到。
+
+**驗收**：規則測試新增第五個案例——序列存在 60 分鐘、**缺 15 分鐘**、再恢復，
+斷言 t=130m 時仍在 firing（有回看窗：activeAt 仍是 0，已累積 130 分鐘；
+無回看窗：計時器在 t=75 重數，只累積 55 分鐘，不燒）。這一個斷言就是全部差別。
+兩個突變都被殺死（拿掉回看窗／把窗縮到小於實測空洞），還原後 `cmp` 為 byte-identical。
+斷言數 34 → 37。重載後 `health: ok`／`lastError: none`——依 ADR-0007，
+解析通過不算數，要看它**求值**得動。
+
+**生產環境上仍是 `UNVERIFIED`，不要當成已證明。** 時間軸對過：
+`lastConfigTime = 2026-09-04T22:51:03Z`（本地 09-05 06:51），
+而最後一次 `activeAt` 重設是 `21:48:58Z`（本地 05:48:58，緊接 05:48:29 那次 DarkWake 之後 30 秒）
+——**重設比修正早一小時**，所以那次不是修正失效；但也代表**修正還沒遇過任何一次睡眠**。
+確定性證據（promtool ＋ 兩個突變控制）已經有了；
+「它在真實睡眠窗後仍保住計時器」這件事要等下一次睡眠才會有答案。
+判準：下次醒來後 `ALERTS_FOR_STATE{alertname="WidespreadGeoDrift"}` 的值**沒有前進**，
+就是修正在生產環境上成立。
+
+#### 第一版把下限放錯地方（同日修正，記錄下來因為它是本檔最常重演的缺陷）
+
+下限**先是只加在告警的 expr**，recording rule 沒動。當天倒推展示鏈路時發現：
+Grafana 面板「地區同向漂移比例」讀的正是 `dataops:yoy_geo_drift_share`，
+於是板上會顯示猩紅熱 100%、旁邊卻沒有任何告警——而**該面板的說明白紙黑字寫著
+「與 WidespreadGeoDrift 告警同一個定義（不是第二份副本）」**，那句話因此變成假的。
+
+這正是這個檔案開頭那段註解警告過的事（「一個定義，兩個讀者」），
+也是 Backlog 記過最多次的缺陷形狀：**閾值寫在兩個地方，今天同步，明天沒有守衛**。
+守衛存在、註解存在，仍然踩了——因為改動只看了告警那一側。
+
+修法：下限移進 recording rule，告警回到 `dataops:yoy_geo_drift_share > 0.25`。
+驗證：規則測試（4 案例）與兩個突變控制不變且仍全過；重載後 recorded series
+由 26 條降為 20 條（3 支小 N 疾病 × 2 個方向被排除），面板與告警讀同一份。
+**低於下限的疾病沒有序列，不是零**——零會宣稱「量過了，沒有在漂移」，那是另一個沒有根據的主張。
 
 ### T1 備份歸檔：現況與建議
 

@@ -24,27 +24,17 @@ FROM fact f JOIN period p ON p.period_id = f.period_id
 WHERE p.epi_year IS NOT NULL AND p.epi_week IS NOT NULL
 """
 
-# The settle rule itself: the most recent week whose geographic coverage is at
-# least the median of the 12 weeks before it. Data-driven rather than a
-# constant, so it steps back on its own if the source ever starts publishing
-# partial weeks -- and does not step back a year when it does not.
-SETTLED_SQL = """
-WITH cov AS (
-  SELECT f.disease_id,
-         CAST(p.epi_year AS INT) * 100 + CAST(p.epi_week AS INT) AS yw,
-         COUNT(DISTINCT f.geo_code) AS geos
-  FROM fact f JOIN period p ON p.period_id = f.period_id
-  WHERE p.epi_year IS NOT NULL AND p.epi_week IS NOT NULL
-  GROUP BY 1, 2
-),
-cm AS (
-  SELECT c.disease_id, c.yw, c.geos, MEDIAN(x.geos) AS med
-  FROM cov c JOIN cov x
-    ON x.disease_id = c.disease_id AND x.yw < c.yw AND x.yw >= c.yw - 12
-  GROUP BY 1, 2, 3
-)
-SELECT MAX(yw) FROM cm WHERE geos >= med
-"""
+# The settle rule itself is NOT defined here. It lives in
+# pipeline_metrics.SETTLE_CTE, which is the query production actually
+# evaluates. This file used to carry a second copy of it under a
+# docstring claiming there was exactly one implementation -- and on
+# 2026-09-08 the year-boundary fix landed in the producer while this copy
+# kept the broken form, so the suite would have kept certifying a query
+# nothing ran. Importing is what makes the docstring true.
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from pipeline_metrics import SETTLE_CTE            # noqa: E402
+
+SETTLED_SQL = f"WITH {SETTLE_CTE} SELECT MAX(ymax) FROM latest"
 
 
 def main():

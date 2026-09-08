@@ -1,0 +1,157 @@
+# Synthetic control for WidespreadGeoDrift's denominator floor
+# (docs/Backlog.md T13).
+#
+# WHY BY EVALUATION AND NOT BY READING THE EXPRESSION.
+#
+# This is the rule that shipped without an explicit `group_left` on
+# 2026-08-28: it PARSED, `promtool check rules` reported SUCCESS, and every
+# evaluation failed for 11 hours -- configured, and unable to fire. That is
+# ADR-0007's origin. The floor added on 2026-09-04 is a second vector match on
+# the same rule, so it can fail exactly the same way: a wrong label in
+# `on(...)` drops every series and the rule goes permanently silent, which
+# reads identically to "nothing is drifting".
+#
+# The silent cases carry the weight here. Case 2 is the whole point of the
+# change, and case 4 is what stops a floor that silently kills the rule from
+# passing case 2 for the wrong reason.
+#
+# Series values are the real measurement of 2026-09-04 (2026w34 vs 2025w34),
+# not invented numbers.
+
+rule_files:
+  - ../alerts/dataops.yml
+
+evaluation_interval: 1m
+
+tests:
+  # ---- COVID-19 shape: 19 comparable, all 19 up -- must fire ---------------
+  # The real signal of 2026-09-04: 21,256 vs 5,157 nationally, every comparable
+  # geography moving the same way. Above the floor, so the rule still sees it.
+  - interval: 1m
+    input_series:
+      - series: 'dataops_yoy_geo_drift_count{disease_id="24",disease="COVID-19",direction="up"}'
+        values: "19x200"
+      - series: 'dataops_yoy_geo_drift_count{disease_id="24",disease="COVID-19",direction="down"}'
+        values: "0x200"
+      - series: 'dataops_yoy_geo_comparable_count{disease_id="24",disease="COVID-19"}'
+        values: "19x200"
+    alert_rule_test:
+      - eval_time: 150m
+        alertname: WidespreadGeoDrift
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              service: dataops
+              disease_id: "24"
+              disease: "COVID-19"
+              direction: "up"
+            exp_annotations:
+              summary: "COVID-19：超過 1/4 的地區年對年up 超出 0.5–2 倍區間"
+              description: >-
+                單一地區變動是流行病學，四分之一的地區同向變動比較像管線問題 （來源改口徑、地理對照改變、單位變更）。先查該疾病最近的 ingest_runs。 但這條規則分辨不出「一場真正的全國流行」與「一次管線變更」——兩者同形。 2026-09-04 的 COVID-19 就是前者（21,256 vs 5,157，19 個可比地區全升， 兩側覆蓋率都滿）。判別方式：只有一支疾病動＝較可能是真疫情； 多支疾病同時同向動＝較可能是管線。
+              runbook: "platform/dataops/run.sh 後比對 yoy_geo_drift_count 與 comparable_count；集中在單一疾病較可能是真疫情"
+      # `for: 2h` is real: at 60m the condition holds and it must not have
+      # fired yet. Without this a dropped `for` would still pass above.
+      - eval_time: 60m
+        alertname: WidespreadGeoDrift
+        exp_alerts: []
+
+  # ---- 猩紅熱 shape: 3 comparable, all 3 down -- must stay SILENT ----------
+  # share is 3/3 = 1.0, four times the 0.25 threshold. Before the floor this
+  # fired. 49 cases nationally, seen through 3 of 22 geographies: the share is
+  # arithmetically true and says nothing about whether anything is widespread.
+  - interval: 1m
+    input_series:
+      - series: 'dataops_yoy_geo_drift_count{disease_id="7",disease="猩紅熱",direction="down"}'
+        values: "3x200"
+      - series: 'dataops_yoy_geo_drift_count{disease_id="7",disease="猩紅熱",direction="up"}'
+        values: "0x200"
+      - series: 'dataops_yoy_geo_comparable_count{disease_id="7",disease="猩紅熱"}'
+        values: "3x200"
+    alert_rule_test:
+      - eval_time: 150m
+        alertname: WidespreadGeoDrift
+        exp_alerts: []
+
+  # ---- exactly at the floor: 11 comparable, 4 up -- must fire -------------
+  # A floor written as `> 11` instead of `>= 11` would pass every other case
+  # in this file and silently move the boundary by one.
+  - interval: 1m
+    input_series:
+      - series: 'dataops_yoy_geo_drift_count{disease_id="3",disease="腸病毒",direction="up"}'
+        values: "4x200"
+      - series: 'dataops_yoy_geo_drift_count{disease_id="3",disease="腸病毒",direction="down"}'
+        values: "0x200"
+      - series: 'dataops_yoy_geo_comparable_count{disease_id="3",disease="腸病毒"}'
+        values: "11x200"
+    alert_rule_test:
+      - eval_time: 150m
+        alertname: WidespreadGeoDrift
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              service: dataops
+              disease_id: "3"
+              disease: "腸病毒"
+              direction: "up"
+            exp_annotations:
+              summary: "腸病毒：超過 1/4 的地區年對年up 超出 0.5–2 倍區間"
+              description: >-
+                單一地區變動是流行病學，四分之一的地區同向變動比較像管線問題 （來源改口徑、地理對照改變、單位變更）。先查該疾病最近的 ingest_runs。 但這條規則分辨不出「一場真正的全國流行」與「一次管線變更」——兩者同形。 2026-09-04 的 COVID-19 就是前者（21,256 vs 5,157，19 個可比地區全升， 兩側覆蓋率都滿）。判別方式：只有一支疾病動＝較可能是真疫情； 多支疾病同時同向動＝較可能是管線。
+              runbook: "platform/dataops/run.sh 後比對 yoy_geo_drift_count 與 comparable_count；集中在單一疾病較可能是真疫情"
+
+  # ---- a scrape gap must not erase an established signal ------------------
+  # THE CONTROL FOR THE max_over_time LOOKBACK.
+  #
+  # The host sleeps. Measured 2026-09-04/05: nine scrape gaps of 4-14 minutes
+  # in sixteen hours. With the bare instant vector, the first evaluation after
+  # a gap sees nothing within the 5m staleness window, the expression returns
+  # empty, and `for` restarts -- which is what made the real COVID-19 signal
+  # flap between firing and pending for thirty hours while the condition
+  # itself never changed.
+  #
+  # Here the series is present for 60 minutes, ABSENT for 15 (the `_` values),
+  # then present again. The assertion is at t=130m: with the lookback the
+  # alert has been active since t=0 and `for: 2h` is satisfied, so it fires.
+  # Without it the clock restarts at t=75 and only 55 minutes have accrued, so
+  # it does not. That single assertion is the whole difference.
+  - interval: 1m
+    input_series:
+      - series: 'dataops_yoy_geo_drift_count{disease_id="24",disease="COVID-19",direction="up"}'
+        values: "19x59 _x14 19x180"
+      - series: 'dataops_yoy_geo_drift_count{disease_id="24",disease="COVID-19",direction="down"}'
+        values: "0x59 _x14 0x180"
+      - series: 'dataops_yoy_geo_comparable_count{disease_id="24",disease="COVID-19"}'
+        values: "19x59 _x14 19x180"
+    alert_rule_test:
+      - eval_time: 130m
+        alertname: WidespreadGeoDrift
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              service: dataops
+              disease_id: "24"
+              disease: "COVID-19"
+              direction: "up"
+            exp_annotations:
+              summary: "COVID-19：超過 1/4 的地區年對年up 超出 0.5–2 倍區間"
+              description: >-
+                單一地區變動是流行病學，四分之一的地區同向變動比較像管線問題 （來源改口徑、地理對照改變、單位變更）。先查該疾病最近的 ingest_runs。 但這條規則分辨不出「一場真正的全國流行」與「一次管線變更」——兩者同形。 2026-09-04 的 COVID-19 就是前者（21,256 vs 5,157，19 個可比地區全升， 兩側覆蓋率都滿）。判別方式：只有一支疾病動＝較可能是真疫情； 多支疾病同時同向動＝較可能是管線。
+              runbook: "platform/dataops/run.sh 後比對 yoy_geo_drift_count 與 comparable_count；集中在單一疾病較可能是真疫情"
+
+  # ---- above the floor but below the share threshold -- silent ------------
+  # The control on the ORIGINAL condition. Without it, a floor that dropped
+  # every series (a wrong label in `on(...)`, the 2026-08-28 failure repeating)
+  # would satisfy the 猩紅熱 case above and read as correct.
+  - interval: 1m
+    input_series:
+      - series: 'dataops_yoy_geo_drift_count{disease_id="9",disease="類流感",direction="up"}'
+        values: "2x200"
+      - series: 'dataops_yoy_geo_drift_count{disease_id="9",disease="類流感",direction="down"}'
+        values: "0x200"
+      - series: 'dataops_yoy_geo_comparable_count{disease_id="9",disease="類流感"}'
+        values: "22x200"
+    alert_rule_test:
+      - eval_time: 150m
+        alertname: WidespreadGeoDrift
+        exp_alerts: []

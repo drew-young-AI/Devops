@@ -1,0 +1,184 @@
+{
+  "verdict": "DEGRADED",
+  "exit_code": 1,
+  "checked_at": "2026-09-06T13:09:59Z",
+  "monitoring_integrity": [
+    {
+      "check": "prometheus_reachable",
+      "ok": true,
+      "detail": "api/v1/rules responded"
+    },
+    {
+      "check": "alert_rules_loaded",
+      "ok": true,
+      "detail": "20 rules"
+    },
+    {
+      "check": "alert_rules_evaluating",
+      "ok": true,
+      "detail": "all ok"
+    },
+    {
+      "check": "alertmanager_wired",
+      "ok": true,
+      "detail": "1 active"
+    },
+    {
+      "check": "alertmanager_reachable",
+      "ok": true,
+      "detail": "api/v2/alerts responded"
+    },
+    {
+      "check": "scrape_targets_visible",
+      "ok": true,
+      "detail": "3 targets"
+    }
+  ],
+  "integrity_blockers": [],
+  "active_alerts": [
+    {
+      "alertname": "SourcePublishedNothingNew",
+      "severity": "warning",
+      "environment": null,
+      "service": "dataops",
+      "summary": "cdc-nhi-herpangina 抓取成功但內容沒有變過，已超過發布週期的 3 倍",
+      "runbook": "psql: SELECT fetched_at, content_sha256 FROM ingest_runs WHERE source='cdc-nhi-herpangina' ORDER BY fetched_at DESC LIMIT 5; 兩份 sha 相同即為空抓取。再對照出版方頁面確認是否真的停發",
+      "started_at": "2026-09-06T10:02:22.011Z"
+    },
+    {
+      "alertname": "SourcePublishedNothingNew",
+      "severity": "warning",
+      "environment": null,
+      "service": "dataops",
+      "summary": "cdc-rods-herpangina 抓取成功但內容沒有變過，已超過發布週期的 3 倍",
+      "runbook": "psql: SELECT fetched_at, content_sha256 FROM ingest_runs WHERE source='cdc-rods-herpangina' ORDER BY fetched_at DESC LIMIT 5; 兩份 sha 相同即為空抓取。再對照出版方頁面確認是否真的停發",
+      "started_at": "2026-09-06T10:02:22.011Z"
+    },
+    {
+      "alertname": "SourcePublishedNothingNew",
+      "severity": "warning",
+      "environment": null,
+      "service": "dataops",
+      "summary": "cdc-nhi-scarlet-fever 抓取成功但內容沒有變過，已超過發布週期的 3 倍",
+      "runbook": "psql: SELECT fetched_at, content_sha256 FROM ingest_runs WHERE source='cdc-nhi-scarlet-fever' ORDER BY fetched_at DESC LIMIT 5; 兩份 sha 相同即為空抓取。再對照出版方頁面確認是否真的停發",
+      "started_at": "2026-09-06T10:02:22.011Z"
+    },
+    {
+      "alertname": "SourcePublishedNothingNew",
+      "severity": "warning",
+      "environment": null,
+      "service": "dataops",
+      "summary": "cdc-nhi-influenza 抓取成功但內容沒有變過，已超過發布週期的 3 倍",
+      "runbook": "psql: SELECT fetched_at, content_sha256 FROM ingest_runs WHERE source='cdc-nhi-influenza' ORDER BY fetched_at DESC LIMIT 5; 兩份 sha 相同即為空抓取。再對照出版方頁面確認是否真的停發",
+      "started_at": "2026-09-06T10:02:22.011Z"
+    },
+    {
+      "alertname": "SourcePublishedNothingNew",
+      "severity": "warning",
+      "environment": null,
+      "service": "dataops",
+      "summary": "cdc-nhi-diarrhea 抓取成功但內容沒有變過，已超過發布週期的 3 倍",
+      "runbook": "psql: SELECT fetched_at, content_sha256 FROM ingest_runs WHERE source='cdc-nhi-diarrhea' ORDER BY fetched_at DESC LIMIT 5; 兩份 sha 相同即為空抓取。再對照出版方頁面確認是否真的停發",
+      "started_at": "2026-09-06T10:02:22.011Z"
+    },
+    {
+      "alertname": "SourcePublishedNothingNew",
+      "severity": "warning",
+      "environment": null,
+      "service": "dataops",
+      "summary": "cdc-rods-enterovirus 抓取成功但內容沒有變過，已超過發布週期的 3 倍",
+      "runbook": "psql: SELECT fetched_at, content_sha256 FROM ingest_runs WHERE source='cdc-rods-enterovirus' ORDER BY fetched_at DESC LIMIT 5; 兩份 sha 相同即為空抓取。再對照出版方頁面確認是否真的停發",
+      "started_at": "2026-09-06T10:02:22.011Z"
+    },
+    {
+      "alertname": "SourcePublishedNothingNew",
+      "severity": "warning",
+      "environment": null,
+      "service": "dataops",
+      "summary": "cdc-nhi-uri 抓取成功但內容沒有變過，已超過發布週期的 3 倍",
+      "runbook": "psql: SELECT fetched_at, content_sha256 FROM ingest_runs WHERE source='cdc-nhi-uri' ORDER BY fetched_at DESC LIMIT 5; 兩份 sha 相同即為空抓取。再對照出版方頁面確認是否真的停發",
+      "started_at": "2026-09-06T10:02:22.011Z"
+    },
+    {
+      "alertname": "SourcePublishedNothingNew",
+      "severity": "warning",
+      "environment": null,
+      "service": "dataops",
+      "summary": "cdc-rods-ili 抓取成功但內容沒有變過，已超過發布週期的 3 倍",
+      "runbook": "psql: SELECT fetched_at, content_sha256 FROM ingest_runs WHERE source='cdc-rods-ili' ORDER BY fetched_at DESC LIMIT 5; 兩份 sha 相同即為空抓取。再對照出版方頁面確認是否真的停發",
+      "started_at": "2026-09-06T10:02:22.011Z"
+    },
+    {
+      "alertname": "SourcePublishedNothingNew",
+      "severity": "warning",
+      "environment": null,
+      "service": "dataops",
+      "summary": "cdc-rods-conjunctivitis 抓取成功但內容沒有變過，已超過發布週期的 3 倍",
+      "runbook": "psql: SELECT fetched_at, content_sha256 FROM ingest_runs WHERE source='cdc-rods-conjunctivitis' ORDER BY fetched_at DESC LIMIT 5; 兩份 sha 相同即為空抓取。再對照出版方頁面確認是否真的停發",
+      "started_at": "2026-09-06T10:02:22.011Z"
+    },
+    {
+      "alertname": "SourcePublishedNothingNew",
+      "severity": "warning",
+      "environment": null,
+      "service": "dataops",
+      "summary": "cdc-nhi-pneumonia 抓取成功但內容沒有變過，已超過發布週期的 3 倍",
+      "runbook": "psql: SELECT fetched_at, content_sha256 FROM ingest_runs WHERE source='cdc-nhi-pneumonia' ORDER BY fetched_at DESC LIMIT 5; 兩份 sha 相同即為空抓取。再對照出版方頁面確認是否真的停發",
+      "started_at": "2026-09-06T10:02:22.011Z"
+    },
+    {
+      "alertname": "SourcePublishedNothingNew",
+      "severity": "warning",
+      "environment": null,
+      "service": "dataops",
+      "summary": "cdc-nhi-hfmd 抓取成功但內容沒有變過，已超過發布週期的 3 倍",
+      "runbook": "psql: SELECT fetched_at, content_sha256 FROM ingest_runs WHERE source='cdc-nhi-hfmd' ORDER BY fetched_at DESC LIMIT 5; 兩份 sha 相同即為空抓取。再對照出版方頁面確認是否真的停發",
+      "started_at": "2026-09-06T10:02:22.011Z"
+    },
+    {
+      "alertname": "SourcePublishedNothingNew",
+      "severity": "warning",
+      "environment": null,
+      "service": "dataops",
+      "summary": "cdc-nhi-varicella 抓取成功但內容沒有變過，已超過發布週期的 3 倍",
+      "runbook": "psql: SELECT fetched_at, content_sha256 FROM ingest_runs WHERE source='cdc-nhi-varicella' ORDER BY fetched_at DESC LIMIT 5; 兩份 sha 相同即為空抓取。再對照出版方頁面確認是否真的停發",
+      "started_at": "2026-09-06T10:02:22.011Z"
+    },
+    {
+      "alertname": "SourcePublishedNothingNew",
+      "severity": "warning",
+      "environment": null,
+      "service": "dataops",
+      "summary": "cdc-nhi-enterovirus 抓取成功但內容沒有變過，已超過發布週期的 3 倍",
+      "runbook": "psql: SELECT fetched_at, content_sha256 FROM ingest_runs WHERE source='cdc-nhi-enterovirus' ORDER BY fetched_at DESC LIMIT 5; 兩份 sha 相同即為空抓取。再對照出版方頁面確認是否真的停發",
+      "started_at": "2026-09-06T10:02:22.011Z"
+    },
+    {
+      "alertname": "SourcePublishedNothingNew",
+      "severity": "warning",
+      "environment": null,
+      "service": "dataops",
+      "summary": "cdc-nhi-ili 抓取成功但內容沒有變過，已超過發布週期的 3 倍",
+      "runbook": "psql: SELECT fetched_at, content_sha256 FROM ingest_runs WHERE source='cdc-nhi-ili' ORDER BY fetched_at DESC LIMIT 5; 兩份 sha 相同即為空抓取。再對照出版方頁面確認是否真的停發",
+      "started_at": "2026-09-06T10:02:22.011Z"
+    },
+    {
+      "alertname": "SourcePublishedNothingNew",
+      "severity": "warning",
+      "environment": null,
+      "service": "dataops",
+      "summary": "cdc-rods-hfmd 抓取成功但內容沒有變過，已超過發布週期的 3 倍",
+      "runbook": "psql: SELECT fetched_at, content_sha256 FROM ingest_runs WHERE source='cdc-rods-hfmd' ORDER BY fetched_at DESC LIMIT 5; 兩份 sha 相同即為空抓取。再對照出版方頁面確認是否真的停發",
+      "started_at": "2026-09-06T10:02:22.011Z"
+    }
+  ],
+  "scrape_targets": {
+    "platform-dag/-": "up",
+    "station2-twin/develop": "up",
+    "station2-twin-k8s/k8s": "up"
+  },
+  "sources": {
+    "prometheus": "http://127.0.0.1:19090",
+    "alertmanager": "http://127.0.0.1:19093"
+  }
+}

@@ -344,6 +344,68 @@ def unchanged_and_cadence(lines):
                 f'provenance="{esc(table[src].get("source", "unknown"))}"}} {secs}')
 
 
+# THE SETTLE RULE, DEFINED ONCE.
+#
+# It used to be defined twice: here, and again in settled_week.py --
+# whose own docstring said "the settle rule has exactly one
+# implementation". Two copies of a rule are a fork waiting for one of
+# them to be edited, and on 2026-09-08 exactly that happened: the
+# year-boundary fix landed in this file while the checker the test suite
+# runs kept the broken form, so the test would have gone on verifying a
+# query production no longer used.
+#
+# Consumers append their own CTEs after this one and select from `wk`
+# (per disease/week/geo values) and `latest` (the settled week per
+# disease).
+SETTLE_CTE = """\
+wk AS (
+  SELECT f.disease_id, CAST(p.epi_year AS INTEGER) AS epi_year,
+         CAST(p.epi_week AS INTEGER) AS epi_week, f.geo_code,
+         SUM(f.value) AS v
+  FROM fact f JOIN period p ON p.period_id = f.period_id
+  WHERE p.epi_year IS NOT NULL AND p.epi_week IS NOT NULL
+  GROUP BY 1,2,3,4
+),
+cov AS (
+  SELECT disease_id, epi_year * 100 + epi_week AS yw,
+         COUNT(DISTINCT geo_code) AS geos
+  FROM wk GROUP BY 1,2
+),
+-- WHY A WINDOW FRAME AND NOT `p.yw >= c.yw - 12`.
+--
+-- yw is epi_year * 100 + epi_week, so subtracting 12 from it is only
+-- week arithmetic INSIDE one year. At 2026w01 the old self-join asked
+-- for weeks in [202589, 202600] -- a range no week can occupy -- so
+-- week 1 produced no row at all and could never be chosen as the
+-- settled week. Measured on the real mirror 2026-09-08: 191 of 191
+-- week-1 rows were dropped, versus 1 of 7,445 for weeks 13-52.
+--
+-- The visible effect is annual and silent: truncating the same mirror
+-- to 2026w01 makes the old form select 202553 and the new form select
+-- 202601. For the first week of every January the board would have
+-- labelled a year-old week "the last settled epi-week" and compared it
+-- against the week two years back.
+--
+-- ROWS BETWEEN 12 PRECEDING AND 1 PRECEDING counts POSITIONS in the
+-- ordered week sequence, so year boundaries do not exist for it. The
+-- first row of each disease has an empty frame and yields NULL, which
+-- reproduces the old inner join's own dropping of the first week --
+-- hence the explicit IS NOT NULL below rather than relying on
+-- `geos >= NULL` being unknown.
+cov_med AS (
+  SELECT disease_id, yw, geos,
+         MEDIAN(geos) OVER (PARTITION BY disease_id ORDER BY yw
+                            ROWS BETWEEN 12 PRECEDING AND 1 PRECEDING)
+           AS med_geos
+  FROM cov
+),
+latest AS (
+  SELECT disease_id, MAX(yw) AS ymax
+  FROM cov_med
+  WHERE med_geos IS NOT NULL AND geos >= med_geos GROUP BY 1
+)"""
+
+
 def drift(lines):
     """Year-over-year on the same epi-week, computed on the mirror.
 
@@ -406,31 +468,7 @@ def drift(lines):
     # weeks, this steps back on its own instead of silently comparing a partial
     # week to a complete one -- and a constant tuned today would not.
     rows = d.execute(f"""
-        WITH wk AS (
-          SELECT f.disease_id, CAST(p.epi_year AS INTEGER) AS epi_year,
-                 CAST(p.epi_week AS INTEGER) AS epi_week, f.geo_code,
-                 SUM(f.value) AS v
-          FROM fact f JOIN period p ON p.period_id = f.period_id
-          WHERE p.epi_year IS NOT NULL AND p.epi_week IS NOT NULL
-          GROUP BY 1,2,3,4
-        ),
-        cov AS (
-          SELECT disease_id, epi_year * 100 + epi_week AS yw,
-                 COUNT(DISTINCT geo_code) AS geos
-          FROM wk GROUP BY 1,2
-        ),
-        cov_med AS (
-          SELECT c.disease_id, c.yw, c.geos,
-                 MEDIAN(p.geos) AS med_geos
-          FROM cov c JOIN cov p
-            ON p.disease_id = c.disease_id
-           AND p.yw < c.yw AND p.yw >= c.yw - 12
-          GROUP BY 1,2,3
-        ),
-        latest AS (
-          SELECT disease_id, MAX(yw) AS ymax
-          FROM cov_med WHERE geos >= med_geos GROUP BY 1
-        ),
+        WITH {SETTLE_CTE},
         cur AS (
           SELECT w.* FROM wk w JOIN latest l
             ON l.disease_id = w.disease_id
@@ -454,9 +492,17 @@ def drift(lines):
         GROUP BY 1 ORDER BY 1""").fetchall()
 
     lines += [
-        "# HELP dataops_yoy_ratio National total for the last settled epi-week "
-        "over the same epi-week a year earlier. Year-over-year because this data "
-        "is seasonal and a trailing window would fire every season.",
+        "# HELP dataops_yoy_ratio Last settled epi-week over the same epi-week "
+        "a year earlier, summed over the geographies present in BOTH years. "
+        "Year-over-year because this data is seasonal and a trailing window "
+        "would fire every season. NOT a national total: cur/prev are summed "
+        "after the geo-to-geo join, so a geography reporting this year but not "
+        "last year is absent from both sides. Measured 2026-09-08: this "
+        "affected 1 of 13 diseases (35 acute haemorrhagic conjunctivitis, "
+        "191 of 193 cases, 20 of 21 geographies) -- the ratio read 0.900943 "
+        "where the national ratio was 0.910377. The join is deliberate (an "
+        "unpaired geography would otherwise look like a real year-over-year "
+        "move), so the fix is this label, not the query.",
         "# TYPE dataops_yoy_ratio gauge",
     ]
     for (dis, cur, prev, _u, _dn, _n) in rows:

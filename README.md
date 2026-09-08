@@ -197,6 +197,8 @@ Prometheus 停了它不會安靜變綠、而是連同整組規則消失，
 | 機器可讀證據 | `evidence/` | 不放 secret、token 或完整敏感 payload |
 | 服務接入契約 | [`NEW_SERVICE_GUIDE.md`](NEW_SERVICE_GUIDE.md) | 新服務進平台的最低要求 |
 | **新 session 接手** | [`docs/Session-Handover.md`](docs/Session-Handover.md) | 讀什麼、什麼順序、哪些坑讀 repo 得不到；不含數字 |
+| **非 Claude 的 agent 接手** | [`AGENTS.md`](AGENTS.md) | codex／copilot／agy／gemini 依慣例讀的入口。**薄指標，不複製內容**——它只指向上一列那份，外加對所有 agent 都成立的硬規則 |
+| **模型怎麼擴充** | [`docs/MLOps-Model-Extension.md`](docs/MLOps-Model-Extension.md) | 模型註冊表：加一個模型要動什麼、動之前必須先回答什麼（缺值 51.8%、556 列、這台機器的時間上限）；統計／深度學習／混合模態各自卡在哪 |
 | 生產節點接手 | [`docs/Ubu-Prod-Bringup.md`](docs/Ubu-Prod-Bringup.md) | Ubuntu prod 已完成什麼、卡在哪、下一步順序 |
 | **歷史里程碑** | [`docs/Milestone-2026-08-25.md`](docs/Milestone-2026-08-25.md) | **2026-08-25 當時的狀態，不是現況。** 保留是為了「那天我們說了什麼」可查；現況一律看板面與本檔第一節 |
 | 簡報用八張圖 | [`docs/report/README.md`](docs/report/README.md) | 一份來源、線上與離線兩個版本；三個入口都記在那裡 |

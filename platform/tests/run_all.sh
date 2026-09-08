@@ -69,6 +69,13 @@ SUITES=(
   # and can never fire -- so the thing it claims to watch reads as permanently
   # healthy. That suite joins the rules against the exporter's actual output.
   test_dataops_metrics.sh
+  # The mlops half: a schema that says "many models" while the code had one,
+  # hardcoded, with its name retyped as a literal in three places. This suite
+  # asserts a SECOND family is registered and runnable, and that an
+  # unregistered name is refused with the list rather than silently
+  # defaulted -- a default would file one algorithm's name against another
+  # algorithm's numbers. Needs the pilot container, not the pilot database.
+  test_model_registry.sh
   # How often each source is PUBLISHED, with provenance. §20 of the backlog
   # carried a table of "actual update frequency" written from impression,
   # and one of its five rows was wrong by two orders of magnitude. An

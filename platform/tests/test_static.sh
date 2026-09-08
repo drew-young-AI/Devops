@@ -512,23 +512,30 @@ assert_equals "" "$(scan_uppercase_image "$REPO_ROOT/platform" "$REPO_ROOT/pilot
 #
 # Paths are pulled from anywhere in the file -- code blocks, tables, prose --
 # because the reader does not care which of those a path appeared in.
-HANDOVER="$REPO_ROOT/docs/Session-Handover.md"
-if [ -f "$HANDOVER" ]; then
-  MISSING_PTR=""
-  for ptr in $(grep -oE '(platform|pilots|docs|evidence)/[A-Za-z0-9_./-]+' "$HANDOVER" \
-               | sed 's/[.,;)]*$//' | sort -u); do
-    case "$ptr" in
-      */) continue ;;                       # a directory written with a slash
-      *[*?]*) continue ;;                   # a glob, not a path
-    esac
-    [ -e "$REPO_ROOT/$ptr" ] || MISSING_PTR="$MISSING_PTR $ptr"
-  done
-  MISSING_PTR="$(printf '%s' "$MISSING_PTR" | sed 's/^ *//; s/ *$//')"
-  assert_equals "" "$MISSING_PTR" \
-    "every path the handover router names still exists"
-else
-  _fail "the handover router exists" "docs/Session-Handover.md is missing"
-fi
+# TWO routers, not one: docs/Session-Handover.md is the Claude-side entry and
+# AGENTS.md is the vendor-neutral one that codex/copilot/agy read. Both are
+# thin pointers, so a path that rots in either sends the next agent somewhere
+# that does not exist. Same loop rather than a second copy of this check --
+# two checks that must agree is the divergence this repo keeps paying for.
+for ROUTER in docs/Session-Handover.md AGENTS.md; do
+  HANDOVER="$REPO_ROOT/$ROUTER"
+  if [ -f "$HANDOVER" ]; then
+    MISSING_PTR=""
+    for ptr in $(grep -oE '(platform|pilots|docs|evidence)/[A-Za-z0-9_./-]+' "$HANDOVER" \
+                 | sed 's/[.,;)]*$//' | sort -u); do
+      case "$ptr" in
+        */) continue ;;                       # a directory written with a slash
+        *[*?]*) continue ;;                   # a glob, not a path
+      esac
+      [ -e "$REPO_ROOT/$ptr" ] || MISSING_PTR="$MISSING_PTR $ptr"
+    done
+    MISSING_PTR="$(printf '%s' "$MISSING_PTR" | sed 's/^ *//; s/ *$//')"
+    assert_equals "" "$MISSING_PTR" \
+      "every path $ROUTER names still exists"
+  else
+    _fail "the router $ROUTER exists" "$ROUTER is missing"
+  fi
+done
 
 # The offending path is ASSEMBLED, so the literal never appears in this file.
 # Written out, it made this guard flag its own fixture -- the SIXTH time a

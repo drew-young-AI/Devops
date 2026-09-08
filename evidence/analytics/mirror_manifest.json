@@ -1,26 +1,26 @@
 {
   "schema": "analytics-mirror/1",
-  "built_at": "2026-09-03T19:40:16Z",
-  "build_seconds": 11.42,
+  "built_at": "2026-09-07T19:40:18Z",
+  "build_seconds": 11.2,
   "watermark": {
-    "max_ingest_id": 102,
-    "max_fetched_at": "2026-09-03 19:01:56.791038+00",
-    "fact_rows": 6528589
+    "max_ingest_id": 179,
+    "max_fetched_at": "2026-09-07 19:02:06.281812+00",
+    "fact_rows": 6534834
   },
   "tables": {
     "fact": {
       "table": "surveillance_fact",
-      "bytes": 42383822,
-      "rows": 6528589
+      "bytes": 42813028,
+      "rows": 6534834
     },
     "period": {
       "table": "time_period",
-      "bytes": 56868,
-      "rows": 4930
+      "bytes": 57192,
+      "rows": 4933
     },
     "geo": {
       "table": "geo_area",
-      "bytes": 83362,
+      "bytes": 83421,
       "rows": 8059
     },
     "disease": {
@@ -30,9 +30,9 @@
     },
     "metric": {
       "table": "metric",
-      "bytes": 2556,
+      "bytes": 2582,
       "rows": 9
     }
   },
-  "total_bytes": 42527621
+  "total_bytes": 42957236
 }

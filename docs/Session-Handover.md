@@ -62,7 +62,9 @@ forwarder 還在接連線。**先讀「三、會再遇到的坑」第 2 點再�
 |---|---|---|---|
 | 1 | [`README.md`](../README.md) | 總表：有什麼、在哪裡、怎麼跑 | 現在的狀態 |
 | 2 | [`docs/Backlog.md`](Backlog.md) **§27** | **待辦登記簿**——每筆都有「為什麼現在不做」與「什麼時候該做」 | — |
-| 3 | [`docs/Backlog.md`](Backlog.md) §19–§26 | 最近幾輪的完整推理與量測 | — |
+| 3 | [`docs/Backlog.md`](Backlog.md) §19 以後的每一節 | 最近幾輪的完整推理與量測。**不要在這裡寫死節號範圍**——這一行原本寫「§19–§26」，而 §29／§30 早已存在，於是路由把最新的兩輪指到了範圍外。節號會長，範圍不會自己更新 | — |
+| 3a | [`docs/Backlog.md`](Backlog.md) **§30／§31** | 從 Grafana 面板倒推回疾管署 CSV 的完整鏈（§30 是 devops／dataops，§31 是 mlops ＋ 跨 session 遺漏稽核），每一節都附可重跑的確認指令 | 現在的值（那些要用指令取） |
+| 3b | [`pilots/station2-twin/README.md`](../pilots/station2-twin/README.md) | **業務層**的問題與決策背景（「全國」的定義、疫情週編碼、為什麼內連是刻意的） | 平台層的守衛設計（那在 §30） |
 | 4 | [`docs/decisions/`](decisions/) | 每個決定的理由，**每筆都附 `rerun:` 指令** | — |
 | 5 | `~/.claude/projects/-Users-drew/memory/MEMORY.md` | 跨 session 的耐久事實 | 專案內的細節（那些在 repo 裡） |
 
@@ -138,6 +140,45 @@ sandbox 註冊表**從來沒有清理過任何東西**（421GB 的成因）。
 沒有工具抓得到（語法正確、在檔案裡、看起來像被執行）。
 **新增斷言後，比對套件的斷言數是否真的增加。** 登記為 T12。
 
+### 7. `run_on_ubu.sh` 測的是**快照**，不是你現在的工作目錄
+
+它先 `rsync` 一份工作目錄過去再跑。**rsync 之後才改的檔案不在那次結果裡。**
+
+2026-09-05 發生一次：新增 `AGENTS.md` 後啟動它，接著才把 `AGENTS.md` 連進
+`README.md`。ubu 於是回報 `no orphaned documents` 失敗、`['AGENTS.md']`——
+而本機全綠。**看起來完全像「本機綠、別處紅」**，實際上兩台跑的是不同的樹。
+
+判準：紅的時候先問**「這個檔案在 rsync 當下是什麼樣子」**，再問是不是平台差異。
+最省事的作法是**改完才啟動它**，不要邊改邊跑。
+
+### 8. 剛喚醒的筆電會讓開場第三個指令回報 `FAILED`，而排程沒有壞
+
+`launchd` 的 `StartInterval` **在睡眠期間不觸發，醒來也不補齊次數**。
+於是每次喚醒後的十幾分鐘裡，15 分鐘的任務看起來像停了半小時以上，
+`status.sh` 判 stale，`dag.py` 把 `scheduler` 打成 fail，`verdict` 變 `FAILED`。
+
+2026-09-08 實測：`sysctl -n kern.waketime` → 10:31:51。10:39 跑開場指令得到
+`fail scheduler not running: board, dag, stagereport`；到 10:42 三個任務陸續補跑，
+同一輪的 `docs/Stage-Report.json` 就變回 `DEGRADED`，scheduler 的 detail 裡
+再也沒有 `not running`。三個任務的 `.launchd.log` 從頭到尾全是 `ok (rc=0)`。
+
+**開場看到 `not running` 時，先跑這一行再下判斷**：
+
+```bash
+python3 -c "import subprocess,time;w=int(subprocess.run(['sysctl','-n','kern.waketime'],capture_output=True,text=True).stdout.split('=')[1].split(',')[0]);print('last wake', int(time.time()-w),'sec ago')"
+```
+
+喚醒時間 < 那個任務的兩倍間隔 → 這是睡眠造成的，**不要去修排程，也不要去修探針**。
+真的故障長得不一樣：`.launchd.log` 會有非零 rc，或者機器一直醒著而任務仍然沒動。
+
+**這個紅燈是刻意留的，不是誤報。** 2026-09-08 已決定
+（[ADR-0015](decisions/0015-sleep-window-counts-against-sla.md)）：睡眠空窗**算違反 SLA**。
+這台筆電站在未來那台 server 的位置上，伺服器不會睡；豁免它等於讓守衛去適應
+一個移植後就不存在的特性，而且會**連真正死掉的排程一起放行**——
+兩者在 `evidence/scheduler/<job>_last.json` 裡逐欄相同（要分辨得先做 §27 的 T16）。
+
+所以接手時要做的**只有判別，不是修復**：確認是睡眠，就照常往下做事。
+
 ## 三之二、接手後不要做的三件事
 
 1. **不要開始修紅線。** 下面第四節的三條紅線都是**已知且已記錄**的狀態，
@@ -149,6 +190,26 @@ sandbox 註冊表**從來沒有清理過任何東西**（421GB 的成因）。
 
 3. **不要 commit／push，除非使用者明講。** `CLAUDE.md` 的硬性禁令。
    這個專案的習慣是：做完、驗收、報告，然後等指示。
+
+## 三之三、使用者定下的約束：**用工具，不要堆程式**（2026-09-05）
+
+使用者的原話：**「平台工程師 SRE 或架構工程師也沒有這麼多程式，都是利用工具完成，
+我怕你堆疊，我很難維護。」**
+
+這是**維護成本**的約束，不是風格偏好。套用方式：
+
+1. **先問「這個工具本身能不能表達」**，再考慮寫程式。
+   本輪的實例：告警在宿主睡眠後計時器歸零，修法是 PromQL 的 `max_over_time(...)`
+   ——**一行，用 Prometheus 自己**；不是寫一個外部監看器去補償。
+2. **測試要用工具原生的測試機制。** 規則測試走 `promtool test rules`，
+   不要自己造斷言框架。本輪 289 行測試全部是 promtool 與既有 `lib.sh`。
+3. **寫程式之前先數行數。** 本輪動到生產程式碼 109 行，扣掉註解後**實際邏輯 30 行**。
+   若某個修法的邏輯行數遠超過這個量級，那通常表示**選錯層**了——
+   回頭找工具原生的表達方式。
+4. **自研的東西已經夠多了**（`dag.py`、`stage_report.py`、`record_gap.py`…）。
+   新增一個自研元件的門檻要高於修好一個既有的。
+5. **例外**：工具真的表達不了時可以寫，但要在註解裡寫明「為什麼工具做不到」，
+   讓下一個人能在工具長出該能力時把它刪掉。
 
 ## 四、目前的三條紅線（狀態請以指令為準，這裡只說形狀）
 
@@ -183,3 +244,19 @@ sandbox 註冊表**從來沒有清理過任何東西**（421GB 的成因）。
    沒有被證明能失敗的守衛，和不能失敗的守衛，從輸出上分不出來
 
 **接手時如果只記得一件事：不要用讀的推測狀態，跑第一節那四個指令。**
+
+---
+
+## 七、不是 Claude 的 agent
+
+codex／copilot／agy／gemini 依慣例讀 repo 根目錄的 [`AGENTS.md`](../AGENTS.md)。
+那份是**薄指標**：它指回這裡，加上對所有 agent 都成立的硬規則與證據要求，
+刻意不複製任何說明與任何數字——兩份索引就是一個分岔問題。
+
+跨 AI 的耐久教訓在中立層，任何 agent 都取得到：
+
+```bash
+/Users/drew/Apps/AIS/capabilities/scripts/context resolve --tags devops,platform --budget-bytes 8192
+```
+
+`test_static.sh` 會同時掃這兩份路由檔的路徑，所以其中一份爛掉會被抓到。

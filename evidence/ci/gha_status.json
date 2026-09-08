@@ -1,9 +1,17 @@
 {
   "schema": "gha-status/1",
-  "fetched_at": "2026-09-04T12:29:25+08:00",
+  "fetched_at": "2026-09-08T16:07:19+08:00",
   "fetch_state": "ok",
   "detail": "fetched main",
   "runs": [
+    {
+      "conclusion": "success",
+      "createdAt": "2026-09-04T04:54:35Z",
+      "displayTitle": "docs(handover): 加上輸出紀律與「接手後不要做的三件事」",
+      "status": "completed",
+      "url": "https://github.com/drew-young-AI/Devops/actions/runs/33838539573",
+      "workflowName": "Platform Tests"
+    },
     {
       "conclusion": "success",
       "createdAt": "2026-09-04T03:47:49Z",
@@ -74,14 +82,6 @@
       "displayTitle": "fix(dataops): 移除一條只可能因為「不是失敗」而燒的告警",
       "status": "completed",
       "url": "https://github.com/drew-young-AI/Devops/actions/runs/33752874734",
-      "workflowName": "Platform Tests"
-    },
-    {
-      "conclusion": "failure",
-      "createdAt": "2026-09-03T11:43:39Z",
-      "displayTitle": "fix(dataops,k8s): 五支永久紅的來源不是門檻訂錯，是沒有東西在抓它們",
-      "status": "completed",
-      "url": "https://github.com/drew-young-AI/Devops/actions/runs/33751264002",
       "workflowName": "Platform Tests"
     }
   ]

@@ -200,6 +200,51 @@ else
   echo "  SKIP  no mirror -- the drift window is UNVERIFIED"
 fi
 
+# ---- ...and it must survive the year boundary ------------------------------
+#
+# LAG_OK above can only go red for about one week a year. The settle rule
+# picked "the most recent week whose coverage is at least the median of the 12
+# weeks before it", and expressed those 12 weeks as `yw >= c.yw - 12` where yw
+# is epi_year*100 + epi_week. That is week arithmetic INSIDE one year: at
+# 2026w01 it asked for weeks in [202589, 202600], a range no week can occupy,
+# so week 1 produced no row and could never be selected. Measured on the real
+# mirror 2026-09-08: 191 of 191 week-1 rows dropped, versus 1 of 7,445 for
+# weeks 13-52.
+#
+# Running the suite in September proves nothing about January, so the control
+# MOVES THE DATA rather than waiting for the calendar: the same mirror is
+# truncated at 2026w01 and the rule must still name 202601. The broken form
+# named 202553 -- a year behind, wearing this week's label.
+#
+# It evaluates pipeline_metrics.SETTLE_CTE itself, not a copy. A copy is what
+# this check is guarding against; see the comment on that constant.
+if [ -x "$VENVPY" ] && [ -f "$REPO_ROOT/platform/analytics/mirror/fact.parquet" ]; then
+  run_cmd "$VENVPY" -c "
+import sys, duckdb
+sys.path.insert(0, '$REPO_ROOT/platform/dataops')
+from pipeline_metrics import SETTLE_CTE
+M = '$REPO_ROOT/platform/analytics/mirror'
+def settled(cut=None):
+    d = duckdb.connect()
+    d.execute(\"CREATE VIEW fact AS SELECT * FROM '%s/fact.parquet'\" % M)
+    w = ('WHERE CAST(epi_year AS INTEGER)*100+CAST(epi_week AS INTEGER) <= %d' % cut) if cut else ''
+    d.execute(\"CREATE VIEW period AS SELECT * FROM '%s/period.parquet' %s\" % (M, w))
+    return d.execute('WITH ' + SETTLE_CTE + ' SELECT MAX(ymax) FROM latest').fetchone()[0]
+print('TRUNCATED_TO_W01', settled(202601))
+print('TRUNCATED_TO_W02', settled(202602))
+print('UNTRUNCATED_UNCHANGED', settled() == $(cd "$REPO_ROOT" && "$VENVPY" "$REPO_ROOT/platform/dataops/settled_week.py" | sed -n 's/.*SETTLED=\([0-9]*\).*/\1/p'))
+"
+  assert_rc 0 "the settle rule evaluates across a year boundary"
+  assert_output_contains "TRUNCATED_TO_W01 202601" \
+    "at 2026w01 the settled week is w01, not 2025w53 (the year-arithmetic bug)"
+  assert_output_contains "TRUNCATED_TO_W02 202602" \
+    "the week after a year boundary is unaffected"
+  assert_output_contains "UNTRUNCATED_UNCHANGED True" \
+    "the fix changes nothing about the week selected today"
+else
+  echo "  SKIP  no mirror -- the year boundary is UNVERIFIED"
+fi
+
 # ---- the SECOND way a rule can be a lie: it parses but cannot evaluate ------
 #
 # The join above proves every metric a rule names is produced. It does NOT
@@ -341,6 +386,173 @@ assert_output_contains "UNWIRED_CASE ('warn', '宣告了但沒接上: email')" \
 assert_output_contains "FAILING_CASE ('warn', '送出失敗: telegram')" \
   "configured is not delivered: a channel whose sends fail is not green"
 
+# ── probe_prod_cluster: report what kubectl said, not a sentence we chose ───
+#
+# NOTE FOR WHOEVER ADDS THE NEXT PROBE TEST HERE: assert_output_contains reads
+# the output of the LAST run_cmd. Inserting a run_cmd between an assert_rc and
+# the assert_output_contains lines that belong to it silently retargets them --
+# which is exactly what happened when this block was first added, and the three
+# alertmanager assertions above went red. Add new blocks AFTER a complete
+# assertion group, never inside one.
+#
+# Co-located with the probe_alertmanager stub above rather than in a suite of
+# its own: both stub one dependency and assert on what the probe says.
+#
+# Until 2026-09-05 the unreachable branch was `rc, _ = run(...)` followed by a
+# fixed string, so a TLS name mismatch, a dead machine and a broken route all
+# printed the same sentence -- docs/Backlog.md T2. kubectl does say which one
+# it is; the probe threw the line away.
+#
+# Only the SAN case is branched on, because only its message is deterministic.
+# The same unreachable host was measured returning four different timeout
+# strings, so the generic case must carry the raw line rather than name a
+# cause. The third case is the control that keeps the first two honest: if the
+# healthy path ever started reporting an error, the two above would still pass.
+run_cmd python3 -c "
+import sys
+sys.path.insert(0, '$REPO_ROOT/platform/statusdag')
+import dag
+
+SAN = ('Unable to connect to the server: tls: failed to verify certificate: '
+       'x509: certificate is valid for kubernetes, ubu, ubu.local, '
+       'not not-in-the-san.invalid')
+TIMEOUT = 'Unable to connect to the server: context deadline exceeded'
+
+dag.run = lambda cmd, timeout=25: (0, 'k3d-devops-lab\nubu\n')
+dag.run_diag = lambda cmd, timeout=25: (1, '', SAN)
+print('SAN_CASE', dag.probe_prod_cluster())
+dag.run_diag = lambda cmd, timeout=25: (1, '', TIMEOUT)
+print('TIMEOUT_CASE', dag.probe_prod_cluster())
+
+def _run(cmd, timeout=25):
+    if 'get-contexts' in cmd: return (0, 'k3d-devops-lab\nubu\n')
+    return (0, '')          # no deployments -> ready-but-empty
+dag.run = _run
+dag.run_diag = lambda cmd, timeout=25: (0, 'ok', '')
+print('READY_CASE', dag.probe_prod_cluster())
+"
+assert_rc 0 "probe_prod_cluster runs against a stubbed kubectl"
+assert_output_contains "SAN_CASE ('warn', 'prod 叢集連不上：憑證 SAN 不符" \
+  "a TLS name mismatch is named, because that message is deterministic"
+assert_output_contains "context deadline exceeded" \
+  "an unnamed failure carries kubectl's own line instead of a guessed cause"
+assert_output_contains "READY_CASE ('warn', '叢集就緒但沒有任何工作負載" \
+  "a reachable empty cluster still refuses to read as green"
+
+# ---- MLOps: the board must report the CURRENT model, not the best one ever --
+#
+# probe_model_gate used to select every rolling-origin run and take max(margin)
+# per horizon, under a sentence that reads as the present tense. On 2026-09-08
+# that reported -12.08% / +0.55% -- which happened to be correct, because every
+# retrain so far had improved. The run that would expose it is the first one
+# that REGRESSES, and history already holds a -56.25% run at t+1 that the max
+# had been hiding since 2026-08-20.
+#
+# Two layers, because the defect lived in the SQL and a stubbed psql() would
+# have certified it happily:
+#
+#   1. the SQL itself, EVALUATED on DuckDB against a synthetic regression
+#   2. the Python that turns its rows into the sentence on the board
+if [ -x "$VENVPY" ]; then
+  run_cmd "$VENVPY" -c "
+import sys, duckdb
+sys.path.insert(0, '$REPO_ROOT/platform/statusdag')
+import dag
+d = duckdb.connect()
+d.execute('CREATE TABLE model_run(model_run_id INT, horizon_weeks INT, '
+          'split_strategy VARCHAR, trained_at TIMESTAMP, mae DOUBLE, '
+          'baseline_persistence_mae DOUBLE, algorithm VARCHAR)')
+# t+1: an older run BEATS persistence by 10%, the newest LOSES by 30%.
+# max() would report +10.00; the current state is -30.00.
+d.execute(chr(73)+'NSERT INTO model_run VALUES '
+          \"(1,1,'rolling_origin','2026-08-20',0.90,1.00,'HistGradientBoostingRegressor'),\"
+          \"(2,1,'rolling_origin','2026-09-05',1.30,1.00,'Ridge'),\"
+          \"(3,2,'rolling_origin','2026-09-05',0.95,1.00,'Ridge')\")
+d.execute('CREATE TABLE forecast(forecast_id INT, model_run_id INT, horizon_weeks INT)')
+d.execute('INSERT INTO forecast VALUES (1,1,1)')
+rows = d.execute(dag.MODEL_GATE_SQL).fetchall()
+print('SQL_ROWS', [(int(a), float(b), str(c), str(e), str(f)) for a,b,c,e,f in rows])
+dag.psql = lambda sql, timeout=20: chr(10).join('|'.join(str(x) for x in r) for r in rows)
+print('REGRESSION_CASE', dag.probe_model_gate())
+dag.psql = lambda sql, timeout=20: '2|5.00|3||'
+print('WINNING_CASE', dag.probe_model_gate())
+dag.psql = lambda sql, timeout=20: None
+print('NO_DB_CASE', dag.probe_model_gate())
+"
+  assert_rc 0 "probe_model_gate's SQL evaluates and the probe formats its rows"
+  assert_output_contains "SQL_ROWS [(1, -30.0, '2 Ridge', '10.00', '1')" \
+    "the SQL names the LATEST run at t+1 (-30.00), not the best ever (+10.00)"
+  assert_output_contains "t+1 最新 run2 Ridge -30.00%（線上 run1 +10.00%）" \
+    "the challenger's score, its family, and the score of the model actually serving"
+  assert_output_contains "t+2 最新 run3 Ridge" \
+    "carrying the algorithm is what stops two families sharing one slot unlabelled"
+  assert_output_contains "尚未上線" \
+    "a horizon with no published forecast says so instead of comparing to nothing"
+  assert_output_contains "WINNING_CASE ('ok', '全數勝過持平基準" \
+    "the amber is a fact about the numbers, not a permanent colour"
+  assert_output_contains "NO_DB_CASE ('unknown'" \
+    "no answer from the database is not the same claim as a losing model"
+else
+  echo "  SKIP  no venv -- probe_model_gate is UNVERIFIED"
+fi
+
+# ---- MLOps: a published forecast must be scored against what happened -------
+#
+# The mlops row read 5/5 green while nothing had ever compared a published
+# number to the week that arrived. Backtest MAE is not that measurement: a
+# rolling-origin fold scores a model against history it was fitted around.
+#
+# Two controls, and the second one exists because of a defect made while
+# writing this node: the `actual` CTE grouped by geo_code and visit_type
+# without selecting or joining on them, so the LEFT JOIN fanned 2 forecasts
+# out to 44 rows. It reported "22/44 勝過持平基準" -- a healthy-looking sample
+# size assembled entirely from duplicates. Nothing about that string looks
+# wrong; only the invariant catches it.
+run_cmd python3 -c "
+import sys
+sys.path.insert(0, '$REPO_ROOT/platform/statusdag')
+import dag
+dag.psql = lambda sql, timeout=20: '1|1|1'
+print('WIN_CASE', dag.probe_forecast_score())
+dag.psql = lambda sql, timeout=20: '2|0|1'
+print('LOSS_CASE', dag.probe_forecast_score())
+dag.psql = lambda sql, timeout=20: '0|2|0'
+print('PENDING_CASE', dag.probe_forecast_score())
+dag.psql = lambda sql, timeout=20: None
+print('NO_DB_CASE', dag.probe_forecast_score())
+"
+assert_rc 0 "probe_forecast_score classifies scored, pending and no-answer"
+assert_output_contains "WIN_CASE ('ok', '已發布預測事後評分：1/1 勝過持平基準（n=1" \
+  "a scored win reports n, so 1/1 cannot be read as a track record"
+assert_output_contains "LOSS_CASE ('warn'" \
+  "a published forecast that lost to persistence is amber, not green"
+assert_output_contains "PENDING_CASE ('ok', '2 筆已發布預測的目標週尚未到" \
+  "a t+2 forecast that cannot be scored yet is not a failure"
+assert_output_contains "NO_DB_CASE ('unknown'" \
+  "no answer from the database is not the same claim as an unscored forecast"
+
+# The invariant, against the real database: the probe cannot score more
+# forecasts than exist. This is what a fan-out looks like from the outside.
+if docker exec station2-twin-db-1 true 2>/dev/null; then
+  run_cmd python3 -c "
+import sys
+sys.path.insert(0, '$REPO_ROOT/platform/statusdag')
+import dag
+n = int(dag.psql('SELECT count(*) FROM forecast;'))
+state, detail = dag.probe_forecast_score()
+import re
+got = sum(int(x) for x in re.findall(r'n=(\d+)|另 (\d+) 筆', detail) for x in x if x)
+print('FORECAST_ROWS', n)
+print('PROBE_ACCOUNTS_FOR', got)
+print('NO_FANOUT', got <= n)
+"
+  assert_rc 0 "the scoring probe runs against the live pilot database"
+  assert_output_contains "NO_FANOUT True" \
+    "the probe accounts for no more rows than the forecast table holds"
+else
+  echo "  SKIP  pilot database not running -- the fan-out invariant is UNVERIFIED"
+fi
+
 # ---- the empty-fetch rule, verified by EVALUATION (docs/Backlog.md §19) ----
 #
 # ADR-0007's origin is in this very file's subject: WidespreadGeoDrift shipped
@@ -393,6 +605,85 @@ if command -v docker >/dev/null 2>&1 && timeout 20 docker info >/dev/null 2>&1; 
     _pass "dataops.yml is byte-identical after mutation"
   else
     _fail "dataops.yml is byte-identical after mutation" "the restore did not"
+  fi
+
+  # ---- the drift rule's denominator floor (docs/Backlog.md T13) -----------
+  #
+  # The floor is a SECOND vector match on the rule that already shipped a
+  # broken first one. A wrong label in `on(...)` drops every series, the rule
+  # goes permanently silent, and silence reads exactly like "nothing is
+  # drifting". Parsing cannot tell those apart; evaluation can.
+  run_cmd ef_promtool test rules /p/rule_tests/dataops-geodrift_test.yml
+  assert_rc 0 "the drift rule fires at N=19, stays silent at N=3, and survives a scrape gap"
+
+  # Drop the floor: the 猩紅熱 shape (3 comparable geographies, share 1.0)
+  # alerts again. This is the defect the floor exists for, measured
+  # 2026-09-04.
+  mutate "$EF_RULES" 's|comparable_count >= 11|comparable_count >= 0|' \
+    "drop the denominator floor"
+  ef_promtool test rules /p/rule_tests/dataops-geodrift_test.yml >/dev/null 2>&1
+  GD_MUT1=$?
+  cp "$EF_BAK" "$EF_RULES"
+
+  # Move the floor by one. `> 11` written where `>= 11` was meant passes every
+  # other case in the control file and silently loses the boundary disease.
+  mutate "$EF_RULES" 's|comparable_count >= 11|comparable_count >= 12|' \
+    "move the floor off the boundary"
+  ef_promtool test rules /p/rule_tests/dataops-geodrift_test.yml >/dev/null 2>&1
+  GD_MUT2=$?
+  cp "$EF_BAK" "$EF_RULES"
+
+  if [ "$GD_MUT1" -ne 0 ]; then
+    _pass "the control fails when the denominator floor is dropped"
+  else
+    _fail "the control fails when the denominator floor is dropped" "mutant survived"
+  fi
+  if [ "$GD_MUT2" -ne 0 ]; then
+    _pass "the control fails when the floor moves off the boundary"
+  else
+    _fail "the control fails when the floor moves off the boundary" "mutant survived"
+  fi
+  if cmp -s "$EF_BAK" "$EF_RULES"; then
+    _pass "dataops.yml is byte-identical after the floor mutations"
+  else
+    _fail "dataops.yml is byte-identical after the floor mutations" "the restore did not"
+  fi
+
+  # ---- the lookback that survives a scrape gap ---------------------------
+  #
+  # `for` needs the condition true at EVERY evaluation, and this host sleeps.
+  # Measured 2026-09-04/05: nine gaps of 4-14 minutes in sixteen hours, and
+  # the one real signal this rule has caught flapped firing/pending for thirty
+  # hours while the condition never changed. A bare instant vector cannot
+  # express "still true" across a gap.
+  mutate "$EF_RULES" 's|max_over_time(dataops:yoy_geo_drift_share\[1h\])|dataops:yoy_geo_drift_share|' \
+    "drop the lookback"
+  ef_promtool test rules /p/rule_tests/dataops-geodrift_test.yml >/dev/null 2>&1
+  GD_MUT3=$?
+  cp "$EF_BAK" "$EF_RULES"
+
+  # A window shorter than the measured gaps is the same defect wearing a
+  # number, and it would pass every other case in the control file.
+  mutate "$EF_RULES" 's|dataops:yoy_geo_drift_share\[1h\]|dataops:yoy_geo_drift_share[10m]|' \
+    "shrink the lookback below the measured gap"
+  ef_promtool test rules /p/rule_tests/dataops-geodrift_test.yml >/dev/null 2>&1
+  GD_MUT4=$?
+  cp "$EF_BAK" "$EF_RULES"
+
+  if [ "$GD_MUT3" -ne 0 ]; then
+    _pass "the control fails when the lookback is dropped"
+  else
+    _fail "the control fails when the lookback is dropped" "mutant survived"
+  fi
+  if [ "$GD_MUT4" -ne 0 ]; then
+    _pass "the control fails when the lookback is shorter than the gap"
+  else
+    _fail "the control fails when the lookback is shorter than the gap" "mutant survived"
+  fi
+  if cmp -s "$EF_BAK" "$EF_RULES"; then
+    _pass "dataops.yml is byte-identical after the lookback mutations"
+  else
+    _fail "dataops.yml is byte-identical after the lookback mutations" "the restore did not"
   fi
 else
   echo "  SKIP  no docker -- the empty-fetch rule is UNVERIFIED by evaluation"

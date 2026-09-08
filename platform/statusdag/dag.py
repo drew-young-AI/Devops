@@ -115,6 +115,24 @@ def run(cmd, timeout=25):
         return None, str(e)[:60]
 
 
+def run_diag(cmd, timeout=25):
+    """run(), but keeps stderr -- for probes whose failure message is the
+    diagnosis rather than noise.
+
+    Separate from run() rather than a wider return tuple because run() has ten
+    callers and none of the others want a third value. kubectl writes its one
+    self-describing line ("certificate is valid for X, not Y") to stderr, and
+    probe_prod_cluster discarded it for a fixed sentence, so three different
+    causes read identically on the board -- docs/Backlog.md T2.
+    """
+    try:
+        p = subprocess.run(cmd, cwd=REPO_ROOT, capture_output=True,
+                           text=True, timeout=timeout)
+        return p.returncode, p.stdout, p.stderr
+    except (subprocess.TimeoutExpired, OSError) as e:
+        return None, "", str(e)[:120]
+
+
 def probe_docker(name):
     rc, out = run(["docker", "inspect", "--format",
                    "{{.State.Status}}|{{if .State.Health}}{{.State.Health.Status}}{{else}}none{{end}}",
@@ -723,6 +741,42 @@ def probe_backtest():
     return OK, f"{n} 次 rolling-origin 回測"
 
 
+# Kept as a module constant so the suite can EVALUATE it -- against DuckDB
+# with a synthetic regression -- rather than only exercise the Python that
+# formats its output. The defect this replaced was entirely in the SQL
+# (a max() where the sentence said "current"), and a stub of psql() would
+# have certified it happily.
+MODEL_GATE_SQL = """
+        WITH m AS (
+          SELECT horizon_weeks, model_run_id, trained_at, algorithm,
+                 (baseline_persistence_mae - mae)
+                   / baseline_persistence_mae * 100 AS pct
+          FROM model_run WHERE split_strategy = 'rolling_origin'
+        ),
+        -- ALGORITHM IS PART OF THE ANSWER ONCE A SECOND FAMILY EXISTS.
+        -- "the latest run at t+1" stopped being a single thing the moment the
+        -- registry admitted Ridge: without the name, a tree-ensemble number
+        -- and a linear-model number take turns in the same slot and the board
+        -- reads as one model getting better and worse.
+        latest AS (
+          SELECT DISTINCT ON (horizon_weeks)
+                 horizon_weeks, model_run_id, pct, algorithm
+          FROM m ORDER BY horizon_weeks, trained_at DESC, model_run_id DESC
+        ),
+        deployed AS (
+          SELECT DISTINCT ON (f.horizon_weeks)
+                 f.horizon_weeks, f.model_run_id, m.pct
+          FROM forecast f JOIN m ON m.model_run_id = f.model_run_id
+          ORDER BY f.horizon_weeks, f.forecast_id DESC
+        )
+        SELECT l.horizon_weeks, round(l.pct::numeric, 2),
+               l.model_run_id || ' ' || l.algorithm,
+               coalesce(round(d.pct::numeric, 2)::text, ''),
+               coalesce(d.model_run_id::text, '')
+        FROM latest l LEFT JOIN deployed d USING (horizon_weeks)
+        ORDER BY 1;"""
+
+
 def probe_model_gate():
     """Does the model actually beat its baselines? This is C8, and it is the
     one node on the board that is allowed to be amber while everything around
@@ -737,28 +791,48 @@ def probe_model_gate():
     # The amber condition is a FACT, not a threshold somebody chose: it turns
     # amber when any horizon loses to persistence. No invented significance
     # cutoff, nothing to argue about.
-    rows = psql("SELECT horizon_weeks, "
-                "round((((baseline_persistence_mae - mae) / "
-                "baseline_persistence_mae) * 100)::numeric, 2) "
-                "FROM model_run WHERE split_strategy = 'rolling_origin' "
-                "GROUP BY horizon_weeks, mae, baseline_persistence_mae "
-                "ORDER BY horizon_weeks;")
+    # LATEST, NOT BEST-EVER -- and the deployed run beside it.
+    #
+    # The first version selected every rolling-origin run and then took
+    # `max(margin)` per horizon. That reports THE BEST MARGIN EVER RECORDED
+    # while the sentence around it reads as the current state. The two agree
+    # today (2026-09-08: t+1 latest -12.08 = best -12.08; t+2 latest +0.55 =
+    # best +0.55) purely because every retrain so far has improved, so the
+    # defect is latent -- the first retrain that regresses is the one nobody
+    # would see. History already contains a -56.25% run at t+1 that the max
+    # has been hiding since 2026-08-20.
+    #
+    # The second column answers the question a reviewer actually asks, and
+    # which nothing on this board could answer before: HOW DOES THE NEW MODEL
+    # COMPARE TO THE ONE CURRENTLY SERVING? The gate itself only ever compares
+    # a candidate against the persistence baseline (publish_forecast.py:
+    # `ORDER BY mae ASC LIMIT 1` over every qualifying run in history), never
+    # against the deployed run. Naming both here does not add that comparison
+    # to the gate -- it makes its absence visible instead of invisible.
+    rows = psql(MODEL_GATE_SQL)
     if rows is None:
         return UNKNOWN, "資料庫無回應"
-    best = {}
+    cur = {}
     for line in rows.splitlines():
         parts = line.split("|")
-        if len(parts) != 2:
+        if len(parts) != 5:
             continue
         try:
-            h, margin = int(parts[0]), float(parts[1])
+            h, margin, run_id = int(parts[0]), float(parts[1]), parts[2]
         except ValueError:
             continue
-        best[h] = max(best.get(h, margin), margin)
-    if not best:
+        cur[h] = (margin, run_id, parts[3], parts[4])
+    if not cur:
         return WARN, "沒有 rolling-origin 回測可判定"
-    detail = "／".join(f"t+{h} {m:+.2f}%" for h, m in sorted(best.items()))
-    if any(m <= 0 for m in best.values()):
+    bits = []
+    for h, (margin, run_id, dep_pct, dep_run) in sorted(cur.items()):
+        # "no deployed run" is not the same claim as "deployed and equal", so
+        # it gets its own words rather than an empty comparison.
+        served = (f"線上 run{dep_run} {float(dep_pct):+.2f}%"
+                  if dep_pct else "尚未上線")
+        bits.append(f"t+{h} 最新 run{run_id} {margin:+.2f}%（{served}）")
+    detail = "／".join(bits)
+    if any(m <= 0 for m, _r, _dp, _dr in cur.values()):
         return WARN, f"閘門運作中（贏才准上線），但仍輸給持平基準：{detail}"
     return OK, f"全數勝過持平基準：{detail}"
 
@@ -770,6 +844,76 @@ def probe_forecast():
     if n == 0:
         return WARN, "尚無已發布預測（閘門拒絕即為此結果）"
     return OK, f"{n} 筆已發布預測"
+
+
+def probe_forecast_score():
+    """Did the published forecasts turn out to be right?
+
+    WHY THIS NODE DID NOT EXIST UNTIL 2026-09-08, AND WHY THAT MATTERED.
+
+    Everything else on the mlops row is about the model BEFORE it is used:
+    features built, backtests run, gate refused or allowed, forecast written.
+    All five were green while nothing had ever compared a published number to
+    what actually happened. The row read "MLOps 5/5" about a pilot whose
+    predictions had never been scored -- the platform's own catalogued shape,
+    「登記為存在，但不執行」, one layer up.
+
+    Backtest MAE is not this measurement. A rolling-origin fold scores a model
+    against history it was fitted around; this scores the number that was
+    actually published, against the week that actually arrived.
+
+    THE TARGET IS A RATE, NOT A COUNT. `predicted_value` is
+    nhi_visits / denominator for one disease, geo and visit_type. Summing
+    `surveillance_fact.value` across metrics to get an "actual" produces 18286
+    against a prediction of 0.0198 -- a number three orders of magnitude out
+    that still looks like a valid comparison. So the actual is recomputed with
+    the SAME numerator/denominator as build_features.weekly_series, filtered
+    by disease code, metric code, geo and visit_type.
+    """
+    rows = psql("""
+        WITH actual AS (
+          -- geo_code and visit_type are in the GROUP BY, so they must also be
+          -- SELECTed and joined on. Omitting them left one row per geography
+          -- per week, and the LEFT JOIN fanned 2 forecasts out to 44 -- a
+          -- plausible-looking sample size built entirely from duplicates.
+          SELECT tp.epi_year, tp.epi_week, f.geo_code, f.visit_type,
+                 SUM(f.value)::float / NULLIF(SUM(f.denominator), 0) AS rate
+          FROM surveillance_fact f
+          JOIN time_period tp ON tp.period_id = f.period_id
+          JOIN disease d ON d.disease_id = f.disease_id
+          JOIN metric  m ON m.metric_id  = f.metric_id
+          WHERE d.code = 'influenza_like_illness' AND m.code = 'nhi_visits'
+            AND tp.time_level = 'epi_week'
+          GROUP BY 1, 2, 3, 4
+        )
+        SELECT count(*) FILTER (WHERE a.rate IS NOT NULL),
+               count(*) FILTER (WHERE a.rate IS NULL),
+               count(*) FILTER (WHERE a.rate IS NOT NULL
+                 AND abs(fc.predicted_value - a.rate)
+                   < abs(fc.observed_at_origin - a.rate))
+        FROM forecast fc LEFT JOIN actual a
+          ON a.epi_year = fc.target_epi_year
+         AND a.epi_week = fc.target_epi_week
+         AND a.geo_code = fc.geo_code
+         AND a.visit_type = fc.visit_type;""")
+    if rows is None:
+        return UNKNOWN, "資料庫無回應"
+    try:
+        scored, pending, won = (int(x) for x in rows.strip().split("|"))
+    except ValueError:
+        return UNKNOWN, f"無法解析評分結果：{rows[:60]}"
+    if scored == 0:
+        # Not a failure. A t+2 forecast cannot be scored for two weeks, and
+        # calling that red would make the node permanently red by design.
+        return OK, f"{pending} 筆已發布預測的目標週尚未到，無可評分者（正常）"
+    tail = f"，另 {pending} 筆目標週未到" if pending else ""
+    # n is tiny by construction -- the gate publishes rarely on purpose. The
+    # detail carries n so nobody reads 1/1 as a track record.
+    if won < scored:
+        return WARN, (f"已發布預測事後評分：{won}/{scored} 勝過持平基準"
+                      f"（n={scored}，尚不足以下結論）{tail}")
+    return OK, (f"已發布預測事後評分：{won}/{scored} 勝過持平基準"
+                f"（n={scored}，尚不足以下結論）{tail}")
 
 
 def probe_retrain():
@@ -823,10 +967,24 @@ def probe_prod_cluster():
     if "ubu" not in (out or "").split():
         return UNKNOWN, "kubeconfig 裡沒有 ubu context（bootstrap_k3s.sh 尚未跑過）"
 
-    rc, _ = run(["kubectl", "--context", "ubu", "--request-timeout=8s",
-                 "get", "--raw", "/readyz"], timeout=15)
+    rc, _, err = run_diag(["kubectl", "--context", "ubu", "--request-timeout=8s",
+                           "get", "--raw", "/readyz"], timeout=15)
     if rc != 0:
-        return WARN, "prod 叢集連不上（尚無工作負載，服務不受影響）"
+        # Report WHAT KUBECTL SAID, not a sentence we chose in advance.
+        #
+        # Only one cause is named here, and only because its message is
+        # deterministic: a SAN mismatch always prints "certificate is valid
+        # for". The timeout path is NOT branched on, deliberately -- the same
+        # unreachable host was measured returning four different strings
+        # ("context deadline exceeded", "request canceled while waiting for
+        # connection", "no route to host", "Host is down"), so a branch on
+        # those would be a guard that is right by luck. For everything else
+        # the raw line is carried through: evidence the reader can act on
+        # beats a cause we guessed.
+        line = " ".join((err or "").split())[:110] or "無錯誤訊息"
+        if "certificate is valid for" in (err or ""):
+            return WARN, f"prod 叢集連不上：憑證 SAN 不符——{line}"
+        return WARN, f"prod 叢集連不上（尚無工作負載，服務不受影響）：{line}"
 
     rc, out = run(["kubectl", "--context", "ubu", "get", "deploy", "-A",
                    "--request-timeout=8s", "-o",
@@ -901,6 +1059,7 @@ NODES = [
     ("backtest",   "回測（rolling-origin）", "mlops",     probe_backtest),
     ("mgate",      "上線閘門",            "mlops",       probe_model_gate),
     ("forecast",   "已發布預測",          "mlops",       probe_forecast),
+    ("fcscore",    "預測事後評分",        "mlops",       probe_forecast_score),
     ("retrain",    "排程重訓",            "mlops",       probe_retrain),
 
     # --- Kubernetes（藍，A9/A10）-----------------------------------------
@@ -956,6 +1115,7 @@ EDGES = [
     ("features", "backtest"),
     ("backtest", "mgate"),
     ("mgate", "forecast"),
+    ("forecast", "fcscore"),
     ("scheduler", "retrain"),
     ("retrain", "backtest"),
 

@@ -64,7 +64,6 @@ import numpy as np
 # placeholder; it is an extreme outlier that a tree will happily split on, so
 # "missing" became a strong fabricated signal. Hist* supports NaN natively and
 # routes missing values down whichever branch the training data supports.
-from sklearn.ensemble import HistGradientBoostingRegressor
 
 HERE = Path(__file__).resolve().parent
 SEED = 42
@@ -79,6 +78,116 @@ BASE_FEATURES = [
 ]
 DERIVED_FEATURES = ["seasonal_index"]   # computed per fold, never stored
 FEATURES = BASE_FEATURES + DERIVED_FEATURES
+
+
+# ---------------------------------------------------------------------------
+# THE MODEL REGISTRY
+#
+# WHY A REGISTRY AND NOT JUST A DIFFERENT CONSTRUCTOR CALL.
+#
+# The algorithm used to be three literals that had to agree by hand: the banner
+# line, the constructor in run_rolling (and again in run_random_split), and the
+# INSERT into model_run. Changing the model in one place would have left
+# `model_run.algorithm` and `hyperparams` describing the PREVIOUS model, which
+# is worse than no provenance -- every downstream comparison would silently be
+# between two things wearing the same name. Everything now reads from here.
+#
+# WHAT AN ENTRY MUST DECLARE, AND WHY EACH FIELD IS NOT OPTIONAL.
+#
+#   family        what class of model this is. On the board and in the report,
+#                 so a reviewer can see whether two runs are even comparable.
+#   build(hp)     returns an UNFITTED estimator. Fitting happens per fold, on
+#                 training rows only; an entry that returns a fitted object, or
+#                 that peeks at the full frame, breaks rolling-origin silently.
+#   hyperparams   recorded verbatim into model_run.hyperparams. Not a copy of
+#                 what build() uses -- the SAME dict is passed to build().
+#   handles_nan   whether the estimator accepts NaN features. This is the field
+#                 that decides whether a family can be added at all here; see
+#                 nan_policy.
+#   nan_policy    required when handles_nan is False. NaN in this feature set is
+#                 not noise: covid_lag_1 is NULL in 288 of 556 rows (51.8%)
+#                 because COVID did not exist before 2020, and
+#                 same_week_last_year is NULL in 52 (9.4%). Dropping incomplete
+#                 rows would discard half the history; imputing silently would
+#                 invent a pre-2020 COVID signal. So a non-NaN model must SAY
+#                 what it does, in the pipeline, where it is reviewable.
+#   deterministic whether the same seed and the same rows give the same numbers.
+#                 False is allowed but must be declared -- CLAUDE.md §5b treats
+#                 a non-reproducible result as UNVERIFIED, and the gate compares
+#                 MAE to four decimal places.
+#
+# HOW TO ADD ONE: append an entry, run
+#   ./run.sh backtest.py --algorithm <name> --horizon 1 --dry-run
+# and the guide in docs/MLOps-Model-Extension.md.
+
+def _build_hgb(hp):
+    from sklearn.ensemble import HistGradientBoostingRegressor
+    return HistGradientBoostingRegressor(random_state=SEED, **hp)
+
+
+def _build_ridge(hp):
+    """Linear model + an explicit, leak-free missing-value policy.
+
+    SimpleImputer(add_indicator=True) learns the medians INSIDE the pipeline,
+    so Pipeline.fit on a training fold never sees the test row -- the same
+    property rolling_origin exists to protect. The indicator columns are the
+    honest half: "this value was missing" is itself a feature here, because
+    for covid_lag_1 it means "before 2020", which is a real distinction and not
+    a defect in the data.
+    """
+    from sklearn.impute import SimpleImputer
+    from sklearn.linear_model import Ridge
+    from sklearn.pipeline import make_pipeline
+    from sklearn.preprocessing import StandardScaler
+    return make_pipeline(
+        SimpleImputer(strategy="median", add_indicator=True),
+        StandardScaler(),
+        Ridge(**hp))
+
+
+MODELS = {
+    "HistGradientBoostingRegressor": {
+        "family": "梯度提升樹（tree ensemble）",
+        "build": _build_hgb,
+        "hyperparams": {"max_iter": 60, "max_depth": 3, "learning_rate": 0.05},
+        "handles_nan": True,
+        "nan_policy": None,
+        "deterministic": True,
+    },
+    "Ridge": {
+        "family": "統計／線性（L2 正則化）",
+        "build": _build_ridge,
+        "hyperparams": {"alpha": 1.0},
+        "handles_nan": False,
+        "nan_policy": "median-impute + missing indicator, fitted per fold "
+                      "inside the pipeline (never on test rows)",
+        "deterministic": True,
+    },
+}
+
+REQUIRED_KEYS = ("family", "build", "hyperparams", "handles_nan",
+                 "nan_policy", "deterministic")
+
+
+def model_spec(name):
+    """The registry's own guard. An unknown name is refused with the list --
+    never defaulted, because a silent default would record one algorithm's
+    name against another's numbers."""
+    if name not in MODELS:
+        sys.exit(f"unknown --algorithm {name!r}. Registered: "
+                 f"{', '.join(sorted(MODELS))}. Add an entry to MODELS in "
+                 f"this file; see docs/MLOps-Model-Extension.md.")
+    spec = MODELS[name]
+    missing = [k for k in REQUIRED_KEYS if k not in spec]
+    if missing:
+        sys.exit(f"model {name!r} is missing registry field(s): "
+                 f"{', '.join(missing)}")
+    if not spec["handles_nan"] and not spec["nan_policy"]:
+        sys.exit(f"model {name!r} declares handles_nan=False but no "
+                 f"nan_policy. This feature set is 51.8% NaN in covid_lag_1 "
+                 f"alone -- a model that cannot take NaN must say what it "
+                 f"does instead, and say it here where it is reviewable.")
+    return spec
 
 
 def code_sha():
@@ -175,14 +284,13 @@ def rolling_origin(rows, horizon, min_train):
 # This is ONE change, made for a stated structural reason, and both results are
 # recorded. It is not a search for a configuration that wins -- that search is
 # how a backtest becomes a slide with no predictive content behind it.
-def run_rolling(rows, horizon, min_train, predict_delta=False):
+def run_rolling(rows, horizon, min_train, predict_delta=False, spec=None):
     actual, pred, last_obs = [], [], []
     persistence, seasonal = [], []
     n_train_last = 0
     for train, test in rolling_origin(rows, horizon, min_train):
         idx = seasonal_index(train)
-        model = HistGradientBoostingRegressor(
-            max_iter=60, max_depth=3, learning_rate=0.05, random_state=SEED)
+        model = spec["build"](spec["hyperparams"])
         Xtr = vectorise(train, idx)
         if predict_delta:
             ytr = np.array([(r["label"] - r["y"]) for r in train], float)
@@ -208,7 +316,7 @@ def run_rolling(rows, horizon, min_train, predict_delta=False):
     return actual, pred, last_obs, persistence, seasonal, n_train_last
 
 
-def run_random_split(rows, horizon, min_train):
+def run_random_split(rows, horizon, min_train, spec=None):
     """THE MISTAKE, ON PURPOSE. Shuffles time away and reports the flattering
     number so it can sit next to the honest one."""
     usable = [r for r in rows if r["label"] is not None and r["y"] is not None]
@@ -220,8 +328,7 @@ def run_random_split(rows, horizon, min_train):
     # The leak in one line: the index is built from a training set that is
     # scattered through the whole timeline, including weeks after the test rows.
     idx = seasonal_index(train)
-    model = HistGradientBoostingRegressor(
-        max_iter=60, max_depth=3, learning_rate=0.05, random_state=SEED)
+    model = spec["build"](spec["hyperparams"])
     Xtr, ytr = vectorise(train, idx), np.array([r["label"] for r in train], float)
     ok = ~np.isnan(ytr)
     model.fit(Xtr[ok], ytr[ok])
@@ -273,8 +380,30 @@ def main():
     ap.add_argument("--predict-delta", action="store_true",
                     help="model the change from the last observed week instead "
                          "of the level; persistence becomes the zero prediction")
+    ap.add_argument("--algorithm", default="HistGradientBoostingRegressor",
+                    help="a key of MODELS in this file. Unknown names are "
+                         "refused with the list, never defaulted -- see "
+                         "docs/MLOps-Model-Extension.md")
+    ap.add_argument("--list-models", action="store_true",
+                    help="print the registry and exit")
     ap.add_argument("--dry-run", action="store_true")
     args = ap.parse_args()
+
+    if args.list_models:
+        # Validate through the SAME guard the run path uses, not just print.
+        # A listing that shows an entry which would be refused on selection is
+        # a catalogue of things that may not exist -- the exact shape this repo
+        # keeps finding. Listing is therefore also the registry's self-test.
+        for name in sorted(MODELS):
+            model_spec(name)
+        for name, sp in sorted(MODELS.items()):
+            print(f"{name}\n  family        {sp['family']}\n"
+                  f"  hyperparams   {json.dumps(sp['hyperparams'], ensure_ascii=False)}\n"
+                  f"  handles_nan   {sp['handles_nan']}\n"
+                  f"  nan_policy    {sp['nan_policy'] or '-'}\n"
+                  f"  deterministic {sp['deterministic']}")
+        return
+    spec = model_spec(args.algorithm)
 
     import psycopg
     dsn = os.environ.get("DATABASE_URL") or (
@@ -294,15 +423,21 @@ def main():
         fsid, name, n_rows = row
         rows = load_rows(cur, fsid, args.horizon)
         print(f"feature_set {fsid} '{name}'  {n_rows:,} rows  horizon t+{args.horizon}")
-        print(f"  seed {SEED}, HistGradientBoostingRegressor(60, depth 3, lr 0.05)")
+        # Read from the registry, not retyped: this line used to be a third
+        # hand-maintained copy of the model's identity.
+        print(f"  seed {SEED}, {args.algorithm}"
+              f"({json.dumps(spec['hyperparams'], ensure_ascii=False)})"
+              f"  family={spec['family']}"
+              + ("" if spec["deterministic"] else "  [NON-DETERMINISTIC]"))
 
         runs = []
         label = ("rolling origin, predicting the CHANGE" if args.predict_delta
                  else "rolling origin, predicting the LEVEL")
-        r = run_rolling(rows, args.horizon, args.min_train, args.predict_delta)
+        r = run_rolling(rows, args.horizon, args.min_train, args.predict_delta,
+                        spec=spec)
         runs.append(("rolling_origin", summarise(label, *r[:5]), r[5], len(r[0])))
         if args.also_wrong_split:
-            w = run_random_split(rows, args.horizon, args.min_train)
+            w = run_random_split(rows, args.horizon, args.min_train, spec=spec)
             runs.append(("random", summarise("random split (LEAKS -- not a result)",
                                              *w[:5]), w[5], len(w[0])))
 
@@ -319,9 +454,9 @@ def main():
                     code_sha256, notes)
                 VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
                 RETURNING model_run_id, beats_baselines
-            """, (fsid, "HistGradientBoostingRegressor",
-                  json.dumps({"max_iter": 60, "max_depth": 3,
-                              "learning_rate": 0.05, "min_train": args.min_train}),
+            """, (fsid, args.algorithm,
+                  json.dumps(dict(spec["hyperparams"],
+                                  min_train=args.min_train)),
                   SEED, strategy, args.horizon, n_train, n_test,
                   m["mae"], m["mape"], m["direction"],
                   m["persistence"], m["seasonal"], code_sha(),

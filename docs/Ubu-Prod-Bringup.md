@@ -76,17 +76,26 @@ ping -c 2 192.168.1.1            # 路由器通 → 不是本機網路問題
 ## 三、在它成為 prod 之前必須解決的三件事
 
 1. **會休眠的機器不是生產主機。**
-   需要停用 suspend／hibernate：`systemctl mask sleep.target suspend.target
-   hibernate.target hybrid-sleep.target`，筆電還要處理闔蓋行為
-   （`/etc/systemd/logind.conf` 的 `HandleLidSwitch=ignore`）。
-   **未執行——需要你操作，ubu 上沒有免密碼 sudo。** 指令：
+   這是**兩件**事，不是一件：停用 suspend／hibernate，以及處理筆電闔蓋行為。
+   分開記，因為 2026-09-05 實測發現**只做了其中一件**，
+   而這一段原本用一句「未執行」蓋住兩者——正是上一節剛點名的那個形狀。
+
+   **不要讀這裡的狀態，跑這個**（不需要 root）：
 
    ```bash
-   ssh ubu
-   sudo systemctl mask sleep.target suspend.target hibernate.target hybrid-sleep.target
-   sudo sed -i 's/^#\?HandleLidSwitch=.*/HandleLidSwitch=ignore/' /etc/systemd/logind.conf
-   sudo systemctl restart systemd-logind
+   ssh ubu 'busctl call org.freedesktop.login1 /org/freedesktop/login1 \
+            org.freedesktop.login1.Manager CanSuspend'
+   #  s "na"        -> 已停用
+   #  s "challenge" -> 仍會休眠
    ```
+
+   問 `CanSuspend` 而不是列 unit 狀態：它問的是這台機器**還睡不睡得著**，
+   不是設定檔長什麼樣。2026-09-05 的答案是 `challenge`。
+
+   闔蓋那半已經生效（`HandleLidSwitch=ignore` 與 `HandleLidSwitchExternalPower=ignore`
+   都在 `/etc/systemd/logind.conf` 裡）。mask 那半沒有：五個 target 全是
+   `LoadState=loaded／UnitFileState=static`。**需要你操作，ubu 上沒有免密碼 sudo。**
+   指令與補上的第五個 target 見 [`Backlog.md`](Backlog.md) §13「還沒做的」第 1 項。
 
 2. **IP 需要固定——但理由在 2026-09-04 更正過。**
    原本寫「DHCP 換約會讓 kubeconfig 的 SAN 失效」。**前半是錯的**：
@@ -96,7 +105,13 @@ ping -c 2 192.168.1.1            # 路由器通 → 不是本機網路問題
 
    固定 IP 仍然要做，理由是另外兩個：本手冊第二節的診斷指令寫死
    `192.168.1.144`（那正是機器出事時要用的東西），以及
-   **mDNS 可以單獨失效**（`70.local` 那次教訓）——沒有固定 IP 就沒有第二條路。
+   **mDNS 可以單獨失效**（`70.local` 那次教訓）。~~沒有固定 IP 就沒有第二條路。~~
+   **2026-09-05 更正：第二條路已經存在。** 路由器自己就是一台 DNS，
+   `dig +short @$(ipconfig getoption en0 router) ubu.$(ipconfig getoption en0 domain_name)`
+   實測回 `192.168.1.144`；而且對不存在的名字它 11 毫秒回 **NXDOMAIN**——
+   那正是 mDNS 沒有的性質（mDNS 只能卡滿 5 秒逾時，所以「查不到」與「沒人回答」同形）。
+   固定 IP 仍該做，但理由降級為**加固**：把第二條路從「依賴 DHCP lease 還在」
+   變成「永遠成立」。它不再是分辨 mDNS 失效的前提。
    分析見 [`docs/Backlog.md`](Backlog.md) §26。**未執行，需要使用者操作路由器。**
 
 3. ~~**amd64 建置鏈還不存在。**~~ **已寫好，尚未跑過（2026-09-03）。** 目前沒有任何映像檔可以在這台上跑。

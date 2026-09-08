@@ -30,10 +30,34 @@ groups:
   # readers.
   - name: dataops-derived
     rules:
+      # THE DENOMINATOR FLOOR LIVES HERE, NOT IN THE ALERT.
+      #
+      # It was added to the alert alone on 2026-09-04 and that was wrong for
+      # exactly the reason written above: the dashboard panel 地區同向漂移比例
+      # reads this recorded series, so a floor in the alert only meant the
+      # board showed 猩紅熱 at 100% with no alert beside it, and the panel's
+      # own description -- "與 WidespreadGeoDrift 告警同一個定義（不是第二份
+      # 副本）" -- became false in writing. One definition, two readers, or the
+      # two drift apart on the day nobody is looking.
+      #
+      # 11 = half of Taiwan's 22 counties and cities, which is what this
+      # dimension is. Measured 2026-09-04: 猩紅熱 had 3 comparable geographies
+      # (prior-year 46/29/23, the rest 14 down to 0), all three fell, share
+      # 3/3 = 1.0 -- 49 cases nationally seen through 14% of the map. Below
+      # half the map "widespread" is not a claim the data can support,
+      # whatever the share says. 急性出血性結膜炎 has the same 3 and would
+      # read the same way on any week those three move together.
+      #
+      # A disease below the floor has NO series here rather than a zero: a
+      # zero would assert "measured, and nothing is drifting", which is a
+      # different and unearned claim. The count it was excluded on stays
+      # visible as dataops_yoy_geo_comparable_count.
       - record: dataops:yoy_geo_drift_share
         expr: >-
-          dataops_yoy_geo_drift_count / ignoring(direction) group_left
-          dataops_yoy_geo_comparable_count
+          (dataops_yoy_geo_drift_count / ignoring(direction) group_left
+           dataops_yoy_geo_comparable_count)
+            and on(disease_id, disease)
+              (dataops_yoy_geo_comparable_count >= 11)
 
   - name: dataops-freshness
     rules:
@@ -175,7 +199,48 @@ groups:
         # and evaluation fails every single cycle -- so the rule reads as
         # "configured" and can never fire. That shipped here on 2026-08-28 and
         # stood for 11 hours; see the note in test_dataops_metrics.sh.
-        expr: dataops:yoy_geo_drift_share > 0.25
+        #
+        # There is a per-geography floor already (YOY_FLOOR=20 in
+        # pipeline_metrics.py: one case becoming four is not a 400% shift). It
+        # protects each ratio; it does not protect the share built from them.
+        # That second floor is in the RECORDING RULE above, so this alert and
+        # the dashboard panel cannot disagree about which diseases are even
+        # eligible to drift. See the note there for the measurement.
+        #
+        # Verified by EVALUATION, not by parsing: rule_tests/dataops-geodrift_test.yml
+        # drives both shapes through promtool -- the N=19 shape must fire, the
+        # N=3 shape must not.
+        #
+        # WHY max_over_time AND NOT THE BARE SERIES.
+        #
+        # `for` requires the condition to hold at EVERY evaluation in the
+        # window. This Prometheus runs on a laptop that sleeps, and a sleep
+        # stops evaluation: on the first evaluation after waking, the last
+        # sample is older than the 5m staleness window, the instant vector is
+        # empty, and `for` restarts from zero.
+        #
+        # Measured 2026-09-04/05 over 16h: 9 scrape gaps of 4-14 minutes, and
+        # the longest continuously-scraped windows were 269, 209, 131, 87, 75
+        # and 59 minutes. So `for: 2h` had three chances to be satisfied in
+        # sixteen hours. The observed effect on the one real signal this rule
+        # has ever caught -- COVID-19, 19 of 19 comparable geographies up,
+        # unchanged for over 30 hours -- was FLAPPING, not silence: firing
+        # 09-04 11:17-18:17, pending, firing again 21:47-00:02, pending again.
+        # Alertmanager therefore saw resolve/fire churn on a condition that
+        # never actually changed.
+        #
+        # A 1h lookback is ~4x the largest observed gap. The cost is
+        # stickiness: the alert keeps firing for up to an hour after the
+        # condition stops holding. That cost is near zero here because the
+        # underlying data is WEEKLY -- this share cannot meaningfully change
+        # within an hour, so an hour of hysteresis reports nothing false.
+        #
+        # This does NOT fix the monitoring gap; it stops the gap from erasing
+        # a signal that was already established. The gap itself is THIS Mac's
+        # power behaviour, recorded as a physical limit of the laptop rather
+        # than a defect: Plan.md:354-356 and docs/Backlog.md:623. Do not cite
+        # B7 or §13 here -- those are about ubu, a different machine.
+        expr: max_over_time(dataops:yoy_geo_drift_share[1h]) > 0.25
         for: 2h
         labels:
           severity: warning
@@ -187,6 +252,10 @@ groups:
           description: >-
             單一地區變動是流行病學，四分之一的地區同向變動比較像管線問題
             （來源改口徑、地理對照改變、單位變更）。先查該疾病最近的 ingest_runs。
+            但這條規則分辨不出「一場真正的全國流行」與「一次管線變更」——兩者同形。
+            2026-09-04 的 COVID-19 就是前者（21,256 vs 5,157，19 個可比地區全升，
+            兩側覆蓋率都滿）。判別方式：只有一支疾病動＝較可能是真疫情；
+            多支疾病同時同向動＝較可能是管線。
 
           runbook: "platform/dataops/run.sh 後比對 yoy_geo_drift_count 與 comparable_count；集中在單一疾病較可能是真疫情"
       # The drift numbers come from the analytical mirror. If the mirror is

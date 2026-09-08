@@ -23,4 +23,6 @@
 | 0013 | [pilot 的資料迴路是開的——排程有 19 個 job，沒有一個抓資料](0013-pilot-loop-was-open.md) | 已採用 | 2026-09-03 | `platform/scheduler/status.sh` |
 | 0014 | [磁碟沒有被量——14 條告警規則、91 個能力、777 個綠燈，被一個沒人量的數字停掉](0014-host-disk-was-unmeasured.md) | 已採用 | 2026-09-03 | `platform/tests/test_host_capacity.sh` |
 
-共 14 筆。
+| 0015 | [睡眠期間的排程空窗算違反 SLA，不豁免](0015-sleep-window-counts-against-sla.md) | 已採用 | 2026-09-08 | `platform/scheduler/status.sh` |
+
+共 15 筆。
