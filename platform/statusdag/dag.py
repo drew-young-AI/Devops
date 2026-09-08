@@ -777,6 +777,19 @@ MODEL_GATE_SQL = """
         ORDER BY 1;"""
 
 
+def replacement_margin():
+    """The champion/challenger margin, READ from the publisher rather than
+    retyped here. A board that states a threshold it keeps its own copy of will
+    eventually state the wrong one, and it would still render."""
+    try:
+        src = open(os.path.join(
+            REPO_ROOT, "pilots/station2-twin/mlops/publish_forecast.py")).read()
+    except OSError:
+        return None
+    m = re.search(r"^REPLACEMENT_MARGIN = ([0-9.]+)", src, re.M)
+    return float(m.group(1)) if m else None
+
+
 def probe_model_gate():
     """Does the model actually beat its baselines? This is C8, and it is the
     one node on the board that is allowed to be amber while everything around
@@ -832,9 +845,16 @@ def probe_model_gate():
                   if dep_pct else "尚未上線")
         bits.append(f"t+{h} 最新 run{run_id} {margin:+.2f}%（{served}）")
     detail = "／".join(bits)
+    # The replacement rule belongs on this line because the line invites the
+    # wrong inference without it: a reader who sees a challenger with a better
+    # margin than the deployed run and no policy stated will read "should have
+    # been promoted and was not".
+    mg = replacement_margin()
+    rule = (f"；汰換門檻 {mg*100:.0f}%（同分留任，ADR-0016）" if mg is not None
+            else "；汰換門檻讀取失敗")
     if any(m <= 0 for m, _r, _dp, _dr in cur.values()):
-        return WARN, f"閘門運作中（贏才准上線），但仍輸給持平基準：{detail}"
-    return OK, f"全數勝過持平基準：{detail}"
+        return WARN, f"閘門運作中（贏才准上線），但仍輸給持平基準：{detail}{rule}"
+    return OK, f"全數勝過持平基準：{detail}{rule}"
 
 
 def probe_forecast():
@@ -986,10 +1006,21 @@ def probe_prod_cluster():
             return WARN, f"prod 叢集連不上：憑證 SAN 不符——{line}"
         return WARN, f"prod 叢集連不上（尚無工作負載，服務不受影響）：{line}"
 
+    # THE SEPARATOR HAS TO SURVIVE PYTHON BEFORE IT REACHES KUBECTL.
+    #
+    # This was written as {'\n'} inside a normal double-quoted Python string,
+    # so Python turned it into a REAL newline and kubectl received an
+    # unterminated quoted string: rc=1, empty stdout, every time. The next line
+    # then read that empty output as "no workloads" and the node reported
+    # 「叢集就緒但沒有任何工作負載」-- a sentence that is also true when the
+    # cluster genuinely has none, which is why it survived. Found 2026-09-08
+    # while fixing the identical mistake in probe_bluegreen.
     rc, out = run(["kubectl", "--context", "ubu", "get", "deploy", "-A",
                    "--request-timeout=8s", "-o",
-                   "jsonpath={range .items[*]}{.metadata.namespace}{'\n'}{end}"],
+                   'jsonpath={range .items[*]}{.metadata.namespace}{"\\n"}{end}'],
                   timeout=15)
+    if rc != 0:
+        return WARN, "prod 叢集可連線，但列舉工作負載失敗——不能當成「沒有工作負載」"
     workloads = [n for n in (out or "").split() if n not in ("kube-system",)]
     if not workloads:
         return WARN, "叢集就緒但沒有任何工作負載——這裡的綠燈證不到任何服務"
@@ -1012,7 +1043,39 @@ def probe_bluegreen():
         return UNKNOWN, "kubectl 無法執行"
     if rc != 0 or not out.strip():
         return WARN, "叢集未啟動或服務未部署"
-    return OK, f"目前流量指向 {out.strip()}"
+    colour = out.strip()
+
+    # THE SELECTOR IS A POINTER, NOT A SERVICE.
+    #
+    # Reading it answers "which colour is traffic addressed to" and nothing
+    # else. On 2026-09-08 migration 016 moved the database to schema 16 while
+    # both colours were still deployed expecting 15; every pod answered 503,
+    # the Service had no ready endpoint at all, and this node stayed GREEN
+    # saying "traffic points at blue". It did point at blue. Blue was serving
+    # nothing.
+    #
+    # Same shape as the model gate one layer up: a guard that refuses the bad
+    # case is not a measurement that the good case is happening.
+    rc2, pods = run(["kubectl", "--context", "k3d-devops-lab", "-n", "station2",
+                     "get", "pods", "-l", f"app=station2-twin,color={colour}",
+                     # Double quotes inside the jsonpath: kubectl's parser
+                     # rejects the single-quoted form and exits non-zero, which
+                     # this probe would have reported as "cannot tell".
+                     "-o", 'jsonpath={range .items[*]}'
+                     '{.status.containerStatuses[0].ready}{"\\n"}{end}'],
+                    timeout=15)
+    if rc2 is None or rc2 != 0:
+        return WARN, f"目前流量指向 {colour}，但無法確認該顏色是否有就緒的 pod"
+    states = [ln.strip() for ln in pods.splitlines() if ln.strip()]
+    ready = sum(1 for st in states if st == "true")
+    if not states:
+        return WARN, f"Service 指向 {colour}，但該顏色一個 pod 都沒有"
+    if ready == 0:
+        return FAIL, (f"Service 指向 {colour}，但該顏色 {len(states)} 個 pod "
+                      f"全部未就緒——流量有去處，沒有服務")
+    if ready < len(states):
+        return WARN, (f"目前流量指向 {colour}（{ready}/{len(states)} pod 就緒）")
+    return OK, f"目前流量指向 {colour}（{ready}/{len(states)} pod 就緒）"
 
 
 NODES = [
