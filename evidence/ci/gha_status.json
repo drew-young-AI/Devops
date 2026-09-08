@@ -1,9 +1,17 @@
 {
   "schema": "gha-status/1",
-  "fetched_at": "2026-09-08T16:07:19+08:00",
+  "fetched_at": "2026-09-08T23:23:00+08:00",
   "fetch_state": "ok",
   "detail": "fetched main",
   "runs": [
+    {
+      "conclusion": "failure",
+      "createdAt": "2026-09-08T08:09:18Z",
+      "displayTitle": "feat(mlops)+fix(dataops): 從看板倒推回 CSV 找到四個缺陷；模型層改成註冊表",
+      "status": "completed",
+      "url": "https://github.com/drew-young-AI/Devops/actions/runs/34202974499",
+      "workflowName": "Platform Tests"
+    },
     {
       "conclusion": "success",
       "createdAt": "2026-09-04T04:54:35Z",
@@ -74,14 +82,6 @@
       "displayTitle": "fix(portability,k8s): 第二台機器一開機，就找到四個「Mac 上全綠」的缺陷",
       "status": "completed",
       "url": "https://github.com/drew-young-AI/Devops/actions/runs/33770464364",
-      "workflowName": "Platform Tests"
-    },
-    {
-      "conclusion": "failure",
-      "createdAt": "2026-09-03T12:01:22Z",
-      "displayTitle": "fix(dataops): 移除一條只可能因為「不是失敗」而燒的告警",
-      "status": "completed",
-      "url": "https://github.com/drew-young-AI/Devops/actions/runs/33752874734",
       "workflowName": "Platform Tests"
     }
   ]

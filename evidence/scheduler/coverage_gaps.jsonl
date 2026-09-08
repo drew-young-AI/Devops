@@ -436,3 +436,4 @@
 {"job": "stagereport", "gap_seconds": 3119, "gap_minutes": 52.0, "expected_interval_seconds": 900, "missed_runs": 2, "from": "2026-09-08T01:50:42Z", "to": "2026-09-08T02:42:41Z"}
 {"job": "dag", "gap_seconds": 3119, "gap_minutes": 52.0, "expected_interval_seconds": 900, "missed_runs": 2, "from": "2026-09-08T01:50:44Z", "to": "2026-09-08T02:42:43Z"}
 {"job": "board", "gap_seconds": 3112, "gap_minutes": 51.9, "expected_interval_seconds": 900, "missed_runs": 2, "from": "2026-09-08T01:53:20Z", "to": "2026-09-08T02:45:12Z"}
+{"job": "disk", "gap_seconds": 1114, "gap_minutes": 18.6, "expected_interval_seconds": 300, "missed_runs": 2, "from": "2026-09-08T09:31:53Z", "to": "2026-09-08T09:50:27Z"}
