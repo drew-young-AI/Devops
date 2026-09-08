@@ -1907,6 +1907,273 @@ LSTM／TCN／Transformer 在這個規模上不是「有點少」，是少兩個�
 22 縣市 × 13 疾病 = 286 條序列的全域模型才有話講，
 而那要重新定義 `feature_set`——是新範圍，不是這一輪。
 
+## §33 MLOps 那條鏈的第二次倒推：這次走進「寫這張表的那支程式」（2026-09-08 下半場）
+
+### 一、先講為什麼上一輪會漏
+
+§31 補上了 `fcscore`（預測事後評分），那是真的缺口。但**倒推在 `forecast`
+這張表就停了**：確認了表裡有兩筆、確認了 trigger 會擋輸掉的模型、確認了
+API 只做 SELECT。沒有做的是**打開寫這張表的那支程式**。
+
+倒推法的規則是「每一跳都要有可重跑指令」。`forecast` 那一跳我拿到的是
+「trigger 存在且會擋」——那證明了**沒有輸家被寫進來**，
+沒有證明**寫進來的贏家就是被評分的那一個**。
+
+> 這是目錄裡「可達不等於還是真的」的一個新變體：
+> **「擋住壞的」不等於「放進來的是對的」。**
+> 閘門是必要條件不是充分條件，而必要條件在看板上長得跟充分條件一樣。
+
+### 二、逐節點重問一次：這個節點量的是什麼，不量什麼
+
+| 節點 | 它證明 | 它**不**證明 | 本輪處置 |
+|---|---|---|---|
+| `features` | 特徵表建出來了、列數 | 特徵值對不對 | 未動（既有 no-lookahead 守衛） |
+| `backtest` | 有 rolling-origin 評分 | 評的是哪個模型（家族已上板，設定沒有） | `predict_delta` 進 `hyperparams` |
+| `mgate` | 閘門會拒絕輸家 | **放行的那個是不是最該放行的** | T22 做掉，見下 |
+| `forecast` | 表裡有列、trigger 沒被繞過 | **列裡的數字是不是那個 model_run 產生的** | 發布路徑改走註冊表 |
+| `fcscore` | 發出去的數字對不對 | n=1，還不能下結論 | 未動（T20 等資料） |
+
+### 三、找到的三個缺陷（都已修）
+
+**（1）發布時重建的永遠是 HGB，不管贏的是誰。**
+
+`publish_forecast.py` 直接 `from sklearn.ensemble import
+HistGradientBoostingRegressor`，然後用**贏家 run 的 `hyperparams`**
+去餵它，而且是 `hyper.get("max_iter", 60)` 這種讀法。所以如果 Ridge 贏了
+某個 horizon，發布出去的會是：**一個 HGB 的擬合結果，掛著 Ridge run 的
+`model_run_id`，帶著 Ridge run 的 MAE**。`alpha` 被無聲丟棄，
+三個 HGB 超參用預設值補上。
+
+資料庫裡 Ridge（run 15/16）和 HGB 都在。**只是因為 Ridge 兩個 horizon 都輸，
+這件事今天還沒發生過。**
+
+這是 §32 剛做完註冊表之後**立刻**存在的分岔：註冊表只覆蓋訓練端，
+發布端是第二份實作。跟 settle 規則那次一模一樣的形狀，隔了半天又長一次。
+
+修法：`backtest.fit_one()` 成為**唯一**的擬合路徑，折內與最終重擬合共用；
+`publish_forecast.py` **一行 sklearn import 都沒有**，只能透過註冊表建模型；
+測試斷言這兩件事（`grep -c '\.fit('` == 1、publisher 不得 import sklearn）。
+
+**（2）跨 feature set 比 MAE。**
+
+`ORDER BY mae ASC LIMIT 1` 掃的是**所有** feature set 的 run。
+migration 013 自己寫過一句話：
+
+> a baseline evaluated on different folds is not a comparison, and that
+> mismatch is invisible in a single reported number
+
+——然後隔壁那張表的 publisher 就是這樣寫的。**同一個錯誤，隔一張表。**
+551 折的 0.001682 和 553 折的 0.001680，印出來一樣長，意思不一樣。
+
+今天剛好是新 feature set 的 run 較低，所以線上是對的。**那是運氣不是規則。**
+
+修法：候選只取**目前 feature set**；現役模型拿它**在目前 feature set 上
+重新評的分數**來比，而不是把舊分數搬過來。現役在目前 feature set 上
+沒有分數時，判 `INCOMPARABLE`——**被命名的狀態，不是靜默當它輸。**
+
+**（3）target convention 只存在散文裡。**
+
+`--predict-delta` 決定模型學的是「下週的值」還是「下週的變化」，
+而它只被記在 `notes` 的句尾（`target = level` / `target = change ...`）。
+`publish_forecast.py` 從來沒讀 `notes`，**無條件當成 delta**。
+
+run 3 是 level run。它輸了，所以沒事。**贏了的那天，發布出去的會是一個
+沒有任何評分涵蓋過的數字，而每一件產物看起來都正常。**
+
+修法：migration 016 把 `predict_delta` 從散文搬進 `hyperparams`
+（依 `notes` 一次性回填，並 `CHECK` 強制往後每一列都要有），
+發布端讀不到就拒絕發布。
+
+> 回填讀了散文——那是**一次性、在審查下、寫在 migration 裡**的讀。
+> 和「讓程式長期依賴散文」是兩件事。
+
+### 四、機制上的改進（不只修這三個）
+
+1. **註冊表契約上移到 `platform/mlops/model_registry.py`**，pilot 的容器
+   以唯讀掛載取得。契約與條目分離：契約無領域知識，條目帶 pilot 的理由。
+2. **`check_buildable()`**：`--list-models` 現在會**真的呼叫每個 `build()`**，
+   並拒絕回傳「已擬合估計器」的條目。用**突變測試**驗證這條守衛會紅，
+   還原後以 `cmp` 逐位元比對（§5c）。
+3. **汰換規則抽成 `platform/mlops/promotion_policy.py`**，
+   **不給預設門檻**——沒想過門檻的專案應該被逼著想，不是拿到 0.02 和一片沉默。
+4. **看板那行門檻是讀出來的**（`dag.py` 的 `replacement_margin()` regex 讀
+   `publish_forecast.py`），不是第二份手抄。
+
+### 五、重構沒有改變行為的證據
+
+| 檢查 | 期望 | 實測 |
+|---|---|---|
+| t+1 delta rolling MAE（feature_set 55） | run 13 = 0.001319 | `0.1319 pp` 逐位相同 |
+| t+2 delta rolling MAE（feature_set 55） | run 12/14 = 0.001680 | `0.1680 pp` 逐位相同 |
+| t+2 重擬合後的預測值 | forecast 7 = 0.023564 | `2.3564 pp` 逐位相同 |
+| `test_model_registry.sh` | — | 31 passed, 0 failed |
+
+第三列是最有意義的一列：**整條擬合路徑換掉之後，發布端算出來的數字和舊路徑
+逐位相同。**
+
+### 六、migration 016 連帶掀出來的三個東西（不是預期中的收穫）
+
+套用 migration 016 之後，Kubernetes 上的兩個顏色**全部 503**——
+`EXPECTED_SCHEMA_VERSION` 在四個地方各寫一份，
+`pilots/station2-twin/tests/test_contract.py` 只檢查其中三個：
+
+| 副本 | 之前 | 被誰檢查 |
+|---|---|---|
+| `config.example.env` | 15 → 16 | ✅ test_contract |
+| `compose.yaml` | 15 → 16 | ✅ test_contract |
+| `app/app.py` | 15 → 16 | ✅ test_contract |
+| `platform/k8s/station2-twin/deploy.sh` 的 `${3:-15}` | **15，沒人動** | ❌ **沒有** |
+
+那段程式的註解自己寫著：「版本住在三個檔案裡；只檢查兩個的測試，
+certifies a consistency that does not exist」——**然後它自己就是第四份。**
+
+修法：`deploy.sh` 改成從 `config.example.env` **讀**預設值，
+`test_contract.py` 斷言這條推導還在（不是比對兩個字面值），
+`test_bluegreen.sh` 三處寫死的 `15` 拿掉改用推導值。
+守衛以突變測試驗證會紅（改回字面值 → 紅；還原後 `cmp` 逐位元相同）。
+
+**（2）板面的「藍綠切換」在兩個顏色都 503 的時候是綠的。**
+
+它讀的是 Service selector——那回答「流量被定址到哪個顏色」，
+不回答「那個顏色有沒有在服務」。**流量有去處，沒有服務，板面說 ok。**
+和上面 mgate 那件事同一個形狀，只是換一層：
+**指標存在不等於指標後面有東西。**
+已改成同時數該顏色的就緒 pod：0 個就緒 → `fail`，部分就緒 → `warn`。
+
+**（3）`probe_prod_cluster` 的 jsonpath 從來沒有成功執行過。**
+
+```python
+"jsonpath=...{'\n'}{end}"     # Python 先把 \n 變成真的換行
+```
+
+kubectl 收到的是「未終結的引號字串」，rc=1、stdout 空。
+下一行把空輸出讀成「沒有工作負載」，於是節點永遠顯示
+**「叢集就緒但沒有任何工作負載」——而這句話在真的沒有工作負載時也是對的**，
+所以它躲過了每一次檢視。是在修 `probe_bluegreen` 時踩到同一個坑才發現的。
+
+已修（改用 `{"\\n"}`），並以本機 k3d 叢集實測同一個 jsonpath 形式
+回傳 5 個 namespace（rc=0）。**ubu 關機中，端到端仍為 `UNVERIFIED`。**
+
+**復原過程本身又長出第四個**：我用 `docker compose up -d twin` 重啟 compose 那份，
+而正確的入口是 `platform/recover.sh`——它會先寫 `.env.vault` 再帶 `--env-file` 起。
+少了那一步，app 走**靜態密碼**回來，Kubernetes 那份走 Vault，
+兩份副本的憑證模型分岔。`test_migration_observed.sh` 當場抓到
+（`develop='static' but k8s='vault'`）。**這個守衛是 2026-09-01 同一件事發生後加的，
+這次它做了它該做的事。** 復原方式：`write_pilot_approle_env.sh` ＋ `--env-file` 重起，
+`/health/ready` 回 `"mode": "vault"`。
+
+> 這三個都不是這一輪原本要做的事。它們是**動一個共用常數**之後掉出來的——
+> §32 記過的那條判斷規則（「動到被抽出來共用的常數就要跑那個常數的所有消費者」）
+> 這次是對的，而消費者比預期多一個：**資料庫的 schema 版本也是一個共用常數。**
+
+### 七、這一輪還是沒做的
+
+- **T23**：2% 是政策不是統計。同折配對檢定需要逐折誤差，`model_run` 只有彙總值。
+- **T20**：模型漂移仍然等資料（`fcscore` 目前 n=1）。
+- **深度學習**：仍然卡在 556 列，不是卡在模型（見 `docs/MLOps-Model-Extension.md`）。
+
+## §34 「重」在哪裡：先量，再決定要不要修（2026-09-08）
+
+問題是「哪些 `sh` 或資料夾 loading 很重」。分兩種重，量法不同，處置也不同。
+
+### 一、量測機制本身（這才是可以一直用下去的東西）
+
+在這之前，整套測試的成本知識只有一句「大約八分鐘」——**一個總數，沒有歸屬**。
+那讓每個優化決定都是猜的，也讓反向的錯誤完全隱形：一支從 4 秒長到 90 秒的套件，
+表現出來只是「等久一點」。
+
+`run_all.sh` 現在每支套件計時，寫進 `evidence/tests/suite_timing.json`，
+並在結尾印出最貴的五支與各自佔比：
+
+```
+COST  500s measured across 36 suites
+  24.4%  122s  tier 3  test_bluegreen.sh
+  22.0%  110s  tier 1  test_stage_report.sh
+  12.4%   62s  tier 1  test_model_registry.sh
+  10.2%   51s  tier 1  test_static.sh
+   5.2%   26s  tier 2  test_data_contract_live.sh
+  25.8%  129s  the other 31
+```
+
+**五支佔 74%。**
+
+**跨執行的總數不可比，同一次執行內的分佈才可比。** 同一天稍晚的第二次完整執行，
+`test_static` 從 51s 變 122s、`test_data_contract_live` 從 26s 變 67s——
+**每一支都變慢，包括完全沒動過的**。那是機器狀態（快取／溫度／背景負載），
+不是程式碼。這正是 CLAUDE.md §5c 那條：結果取決於當下硬體狀態時，
+它就不是 deterministic 證據。所以下面那張表的「之後」欄位都是**單獨重跑的實測**，
+不是從兩次總表相減得來的。
+
+另外新增 `PLATFORM_SUITES`（basename 的 regex），
+可以只跑某一區——但**任何被過濾的執行都會在結尾大聲說「這是部分執行，
+不能當成平台判定」**，和既有的 `PLATFORM_TIERS` 同一條紀律。
+
+### 二、跑起來重的四個，以及每一個「重」的真正原因
+
+| 套件 | 之前 | 之後 | 真正的原因 |
+|---|---|---|---|
+| `test_stage_report.sh` | 110s | **1.3s** | `stage_model()` 每次呼叫都對整個平台做一次即時探測；harness 有七個 case，等於探測七次 |
+| `test_model_registry.sh` | 62s | **11s** | 兩次 `grep -r` 掃到 `platform/backup/archives` 的 3.9GB |
+| `test_static.sh` | 51s | 51s | 未動（既有的 `--include` 已經正確） |
+| `test_bluegreen.sh` | 122s | 122s | **這個重是應該的**——它真的部署兩個顏色、等就緒、切流量、再切回來 |
+
+**（1）探測一次，渲染多次。** `stage_report.py` 新增 `--from-board`，
+吃 `dag.py --json` 產出的看板，而不是自己再探一次。
+順帶關掉一個真實的分岔：排程裡 `dag` 與 `stagereport` 是**兩個各 15 分鐘的 job，
+各自完整探測一次**，所以兩份產物描述的是兩個不同的時刻——
+2026-09-08 就出現過看板說 FAILED、`Stage-Report.json` 說 DEGRADED，相差三分鐘。
+
+安全設計：`--from-board` **拒絕超過 1800 秒的看板**，也拒絕沒有 `generated_at` 的檔案。
+一個什麼 JSON 都肯讀的渲染器，就是把上週當成今天發布出去的那個機制。
+
+測試改用 `fixture_board.py` 產生的合成看板，而它的節點清單是**從 `dag.NODES` 讀的**，
+不是手抄——手抄的 fixture 會和 `dag.py` 分岔，然後這套件存在的理由
+（「dag.py 有而報告沒有的節點」）就變成拿 fixture 檢查 fixture。
+副作用：這些斷言從此是 deterministic 的（CLAUDE.md §5b），
+以前它們的通過與否取決於當下有什麼在跑。
+
+**（2）`grep -r` 讀了 3.9GB 的備份。** 實測單次 29 秒
+（zh_TW.UTF-8 locale、BSD grep），一支套件裡兩次就是 58 秒。
+**成本在原始碼裡完全看不出來**：那一行讀起來是「搜尋整個 repo」，
+實際做的是每次呼叫解壓掃過一份備份，而且**每天晚上備份跑完就更慢一點**。
+
+處置：`lib.sh` 新增 `repo_grep`（排除 `archives`／`venv`／`mirror`／`.git`／
+`__pycache__`／`node_modules`），並在 `test_static.sh` 加一條規則：
+**根在 repo 或 `platform/` 的遞迴 grep 必須帶過濾**，附正負合成控制項。
+29s → 0.19s。
+
+### 三、放著重的三個（磁碟）
+
+| 路徑 | 大小 | 進 git？ | 現況 |
+|---|---|---|---|
+| `platform/backup/archives` | **3.9 GB**／47 組 | 否 | 有保留策略但**從未執行** |
+| `platform/analytics/{venv,mirror}` | 96 MB | 否 | 可重建（mirror 9 秒） |
+| `evidence/` | 17 MB／2,514 檔 | **是** | 健康快照已有彙總（ADR-0009） |
+
+**備份那 3.9GB 不是失控，是被擋住的**：`sync_offsite.sh --prune-local N`
+只會刪掉「異地已有經過驗證副本」的組，而異地同步還沒接上（B 項，使用者自己來）。
+在那之前不刪是對的——**因為對方「應該有」就刪掉唯一一份，是備份變成小說的方式。**
+
+順手修掉兩個和它連在一起的缺陷：
+
+1. **158 個空的封存目錄。** `backup.sh` 先 `mkdir` 再判斷 `--check-only`，
+   happy path 結尾會 `rmdir`，但**拒絕路徑會先 `exit 1`**——而拒絕正是
+   `test_backup_coverage.sh` 每輪跑四次的東西。於是
+   `ls archives | wc -l` 讀作 205 份備份，實際只有 47 份。已改成
+   check-only 根本不建目錄，並清掉那 158 個（全部確認為空）。
+2. **`--prune-local` 的算術把空目錄當成備份。** 「保留最新 N 組」的分母是
+   `find -type d`，不是「有 manifest 的組」。已改成以 manifest 認定一組備份。
+   之前擋著它的只有迴圈裡那一層 manifest 檢查——**只有一層不叫餘裕。**
+
+### 四、可以一般化的三句話
+
+1. **貴的是「一次即時探測」，不是「一支腳本」。** 找出那個單位，讓它產生一份產物，
+   其他消費者吃產物而不是重跑——但**產物要能證明自己新鮮**，否則就是把陳舊當現況。
+2. **遞迴掃描要說出自己不讀什麼。** 生成資料會長大，而 `grep -r` 的成本
+   在原始碼裡看不見；規則要能執法，不能只寫在註解裡。
+3. **成本要有歸屬才有辦法談。** 一個總數只能養成「大概八分鐘」這種印象；
+   逐項數字才能分辨「這 122 秒是真的在部署」與「那 110 秒只是在證明三個檔案有被寫出來」。
+
 ## §27 待辦登記簿（2026-09-04 起，逐一完成）
 
 **規則：這一節只登記，不實作。** 需求不擴張，功能逐步收斂落地。
@@ -1923,7 +2190,10 @@ LSTM／TCN／Transformer 在這個規模上不是「有點少」，是少兩個�
 | ~~T19~~ | ~~**`scheduler` 探針把「本機睡著」報成「排程沒在跑」**~~ **2026-09-08 已決定：睡眠窗算違反 SLA，維持現狀不豁免**（理由見下方 §31） | — | — |
 | T20 | **概念漂移（model drift）沒有任何偵測**——repo 裡所有 "drift" 都是資料漂移 （2026-09-08 跨 session 稽核找到：2026-09-02 曾被問「mlops 有定期更新 model and drift detect 嗎」，重訓做了，drift detect 沒做，也沒登記） | **前提還沒滿足**：模型漂移是「模型在新資料上的表現 vs 它上線時的表現」，而「預測 vs 實際」的歷史今天才開始有第一筆（§31 二之二）。用 n=1 建漂移偵測，偵測到的會是雜訊不是漂移 | 事後評分累積到能分辨訊號的筆數——**這個門檻本身要先量**，不要憑感覺挑一個 n |
 | T21 | **`forecast` 表沒有存實際值，事後評分每次都要重算** | 現在只有 2 筆，重算是毫秒級；加欄位要寫 migration，而 migration 是不可逆的 | 事後評分的筆數讓重算變慢，或 T20 動工需要穩定的歷史快照時 |
-| T22 | **閘門從不拿候選模型跟線上模型比**，只跟持平基準比（`publish_forecast.py`：`WHERE beats_baselines ORDER BY mae ASC LIMIT 1`） | 板面已把兩個數字並列（§31 二之一），**先讓它可見**；要不要改成 champion/challenger 是**業務決定**——一個略差但更穩定的模型該不該取代線上的，這個 repo 答不出來 | 使用者決定汰換規則之後 |
+| ~~T22~~ | ~~**閘門從不拿候選模型跟線上模型比**，只跟持平基準比~~ **2026-09-08 做掉**：規則在 `platform/mlops/promotion_policy.py`，門檻 2%（同分留任）在 `publish_forecast.py`，決策紀錄 ADR-0016，六種判定各有可重跑案例（`--explain-gate`） | 一併修掉了原本沒看見的那半：舊選法**跨 feature set 比 MAE**，551 折與 553 折算出來的數字印起來一樣意思不一樣 | — |
+| T23 | **同折配對檢定做不了，因為 `model_run` 只存彙總誤差** | ADR-0016 的 2% 是**政策**不是統計論證。要回答「這個差距是不是真的」需要逐折誤差；加逐折儲存是新 schema，且在只有兩個模型家族時收益有限 | 出現第一次「挑戰者落在 1–3% 之間、要不要換說不清楚」時；或 T20 動工需要穩定歷史時一併做 |
+| T24 | **`test_static.sh` 現在是最貴的 tier 1 套件（122s／20.7%）** | 它沒有明顯的浪費——387 條斷言、約 100 支腳本各跑 `bash -n` 與 3.2 相容性解析，成本是**真的在做事**。要再快只有兩條路（只掃改動過的檔案、或把掃描合併成單次走訪），兩條都會讓「全樹掃過」這個保證變成條件式的，而那正是它存在的理由 | 有人真的被這 2 分鐘擋住開發節奏時，或是它再長 50% 時 |
+| T25 | **`verify_networkpolicy.sh` 的前置控制項會偶發紅**（「the probe had no egress even before a policy」） | 那是控制項在做它該做的事——**沒有 egress 的探針證明不了 egress 被擋住**。但它把偶發的網路／拉映像延遲報成套件失敗，而不是 `UNMEASURED`。`test_bluegreen.sh` 早就有 3 次重試 ＋ `UNMEASURED` 判決的作法可以照抄 | 下次動 k8s 那一區時一併補；在那之前重跑一次即可分辨 |
 | T3 | **從社群的教訓反向補守衛** | 見下方分析 | 每次遇到「本機綠、別處紅」時追加一條 |
 | T4 | **loader 寫得出失敗狀態**（§23） | `IngestRunsFailing` 才有有意義的版本可以回來 | 出現第一個「25 支來源裡 1 支失敗」的情境 |
 | T5 | **conflict 變化的基線**（§23） | 只有變化才是新聞，而基線還沒存 | T4 之後 |

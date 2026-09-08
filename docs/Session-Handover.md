@@ -63,7 +63,7 @@ forwarder 還在接連線。**先讀「三、會再遇到的坑」第 2 點再�
 | 1 | [`README.md`](../README.md) | 總表：有什麼、在哪裡、怎麼跑 | 現在的狀態 |
 | 2 | [`docs/Backlog.md`](Backlog.md) **§27** | **待辦登記簿**——每筆都有「為什麼現在不做」與「什麼時候該做」 | — |
 | 3 | [`docs/Backlog.md`](Backlog.md) §19 以後的每一節 | 最近幾輪的完整推理與量測。**不要在這裡寫死節號範圍**——這一行原本寫「§19–§26」，而 §29／§30 早已存在，於是路由把最新的兩輪指到了範圍外。節號會長，範圍不會自己更新 | — |
-| 3a | [`docs/Backlog.md`](Backlog.md) **§30／§31** | 從 Grafana 面板倒推回疾管署 CSV 的完整鏈（§30 是 devops／dataops，§31 是 mlops ＋ 跨 session 遺漏稽核），每一節都附可重跑的確認指令 | 現在的值（那些要用指令取） |
+| 3a | [`docs/Backlog.md`](Backlog.md) **§30／§31／§33** | 從 Grafana 面板倒推回疾管署 CSV 的完整鏈（§30 是 devops／dataops，§31 是 mlops ＋ 跨 session 遺漏稽核，**§33 是 mlops 的第二次倒推——走進寫 `forecast` 那張表的程式**），每一節都附可重跑的確認指令 | 現在的值（那些要用指令取） |
 | 3b | [`pilots/station2-twin/README.md`](../pilots/station2-twin/README.md) | **業務層**的問題與決策背景（「全國」的定義、疫情週編碼、為什麼內連是刻意的） | 平台層的守衛設計（那在 §30） |
 | 4 | [`docs/decisions/`](decisions/) | 每個決定的理由，**每筆都附 `rerun:` 指令** | — |
 | 5 | `~/.claude/projects/-Users-drew/memory/MEMORY.md` | 跨 session 的耐久事實 | 專案內的細節（那些在 repo 裡） |
@@ -178,6 +178,32 @@ python3 -c "import subprocess,time;w=int(subprocess.run(['sysctl','-n','kern.wak
 兩者在 `evidence/scheduler/<job>_last.json` 裡逐欄相同（要分辨得先做 §27 的 T16）。
 
 所以接手時要做的**只有判別，不是修復**：確認是睡眠，就照常往下做事。
+
+
+### 9. 套 migration 之後，Kubernetes 上的兩個顏色會一起 503——那是就緒閘門在運作
+
+`migrate.sh` 跑完會告訴你「schema now at version N」，然後服務**拒絕就緒**
+直到 `EXPECTED_SCHEMA_VERSION` 也是 N。這是設計，不是故障：
+版本不合會表現成「部署起來但不接流量」，而不是壓力測試時才爆。
+
+**要動的地方有四個，`pilots/station2-twin/tests/test_contract.py` 只看三個**
+（2026-09-08 修掉：`deploy.sh` 現在從 `config.example.env` 推導，
+測試斷言推導還在）：
+
+```bash
+# 1. 三個檔案：config.example.env / compose.yaml / app/app.py
+# 2. 重啟 compose 那份
+docker compose -f pilots/station2-twin/compose.yaml up -d twin
+curl -s http://127.0.0.1:18090/health/ready          # 應為 {"status": "ready", ...}
+# 3. 重新部署 Kubernetes 那兩份（deploy.sh 現在會自己讀到新版本）
+platform/k8s/station2-twin/deploy.sh blue  v15
+platform/k8s/station2-twin/deploy.sh green v15-green
+```
+
+**沒做第 3 步的徵兆**：`kubectl -n station2 get pods` 全是 `READY false`，
+pod log 一直 `GET /health/ready 503`。板面的「藍綠切換」節點在 2026-09-08 之前
+**這種狀況下是綠的**（它只讀 Service selector，不看後面有沒有就緒的 pod），
+現在會判 `fail`：「流量有去處，沒有服務」。
 
 ## 三之二、接手後不要做的三件事
 
