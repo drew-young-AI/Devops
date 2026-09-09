@@ -89,6 +89,31 @@ def age_hours(stamp, fmt="%Y%m%dT%H%M%SZ"):
         return None
 
 
+def age_hours_iso(stamp):
+    """Age of an ISO-8601 timestamp, offset included.
+
+    WHY THIS IS SEPARATE FROM age_hours (2026-09-09).
+
+    `age_hours` takes the compact `%Y%m%dT%H%M%SZ` most of this repo's evidence
+    filenames use. `evidence/ci/gha_status.json` does not: it is written by
+    `datetime.now().astimezone().isoformat(timespec="seconds")`, which produces
+    `2026-09-09T20:31:07+08:00`. Passed to `age_hours`, that raises ValueError
+    and is caught and turned into None -- so `stale` was False on every run and
+    the staleness branch, whose docstring says "green CI information from three
+    days ago is not evidence that CI is green now", had never once been taken.
+
+    A guard that cannot fire reads exactly like a guard that has nothing to
+    report. This one was found by a fixture dated 2020 that came back OK.
+    """
+    try:
+        when = datetime.fromisoformat(stamp)
+    except (ValueError, TypeError):
+        return None
+    if when.tzinfo is None:
+        when = when.replace(tzinfo=timezone.utc)
+    return (datetime.now(timezone.utc) - when).total_seconds() / 3600
+
+
 def http_probe(url, timeout=6):
     """Returns (ok, detail). Certificate validation is off: the local vhosts
     use mkcert, and this probe is asking 'is it answering', not 'is the chain
@@ -429,7 +454,9 @@ def probe_github_actions():
         return UNKNOWN, "尚未抓取（platform/ci/fetch_gha_status.sh）"
 
     fetched = data.get("fetched_at", "")
-    hours = age_hours(fetched)
+    # ISO-8601 with an offset, not the compact evidence-filename format --
+    # see age_hours_iso for the six-week-old bug this line is fixing.
+    hours = age_hours_iso(fetched)
     # Staleness is judged before content. Green CI information from three days
     # ago is not evidence that CI is green now, and presenting it as such is
     # exactly the "wrong copy is monitored" defect in a new place.
@@ -444,9 +471,48 @@ def probe_github_actions():
     if not runs:
         return UNKNOWN, "main 上沒有執行紀錄"
 
+    # PER WORKFLOW, NOT runs[0] (2026-09-09).
+    #
+    # `gh run list` returns every workflow interleaved -- this repo pushes
+    # three (Platform Tests, IaC Validation, pilot-image) and they finish in
+    # whatever order they finish. Reading runs[0] therefore asks "was the most
+    # recently finished job of ANY workflow green", which is not a question
+    # anybody wants answered. Platform Tests had been red for three pushes
+    # while this node printed 「main 綠燈」 because IaC Validation happened to
+    # land last.
+    #
+    # That is the exact failure this node was built to prevent -- "a red CI
+    # nobody is told about is indistinguishable from no failure" -- recurring
+    # one level down, inside the guard itself. The list held the answer; the
+    # verdict looked at one element of it.
+    #
+    # The newest run of EACH workflow is the unit, because that is what "is
+    # this contract currently holding" means for each of them.
+    newest = {}
+    for x in runs:
+        wf = x.get("workflowName") or "?"
+        if wf not in newest:            # runs arrive newest-first
+            newest[wf] = x
+    age = f"（{hours:.0f}h 前抓取）" if stale else ""
+
+    running = [w for w, x in newest.items() if x.get("status") != "completed"]
+    red = sorted(w for w, x in newest.items()
+                 if x.get("status") == "completed"
+                 and x.get("conclusion") not in (None, "success"))
+    if red:
+        # Named, because "CI is red" sends someone to look at three workflows.
+        title = (newest[red[0]].get("displayTitle") or "")[:24]
+        return FAIL, (f"{len(red)}/{len(newest)} 個 workflow 紅："
+                      f"{', '.join(red)}（{title}）{age}")
+    if running:
+        return WARN, f"執行中：{', '.join(running)}{age}"
+    if newest:
+        title = (list(newest.values())[0].get("displayTitle") or "")[:26]
+        if stale:
+            return WARN, f"main 綠燈但資訊過期{age}"
+        return OK, f"main {len(newest)} 個 workflow 全綠：{title}"
     r = runs[0]
     title = (r.get("displayTitle") or "")[:30]
-    age = f"（{hours:.0f}h 前抓取）" if stale else ""
     if r.get("status") != "completed":
         return WARN, f"執行中：{title}{age}"
     concl = r.get("conclusion")

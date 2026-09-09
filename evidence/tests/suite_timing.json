@@ -1,8 +1,8 @@
 {
-  "generated_at": "2026-09-09T12:12:55Z",
-  "total_seconds": 369,
-  "measured_seconds": 367,
-  "suite_count": 37,
+  "generated_at": "2026-09-09T12:51:08Z",
+  "total_seconds": 341,
+  "measured_seconds": 341,
+  "suite_count": 38,
   "platform_tiers": "1,2,3",
   "platform_suites": "",
   "partial": false,
@@ -10,7 +10,7 @@
     {
       "suite": "test_bluegreen.sh",
       "tier": 3,
-      "seconds": 125,
+      "seconds": 124,
       "rc": 0
     },
     {
@@ -20,15 +20,9 @@
       "rc": 0
     },
     {
-      "suite": "test_image_arch.sh",
-      "tier": 1,
-      "seconds": 26,
-      "rc": 0
-    },
-    {
       "suite": "test_data_contract_live.sh",
       "tier": 2,
-      "seconds": 25,
+      "seconds": 26,
       "rc": 0
     },
     {
@@ -46,7 +40,7 @@
     {
       "suite": "test_backup_coverage.sh",
       "tier": 3,
-      "seconds": 21,
+      "seconds": 17,
       "rc": 0
     },
     {
@@ -86,6 +80,18 @@
       "rc": 0
     },
     {
+      "suite": "test_sandbox_hygiene.sh",
+      "tier": 1,
+      "seconds": 3,
+      "rc": 0
+    },
+    {
+      "suite": "test_check_health.sh",
+      "tier": 1,
+      "seconds": 3,
+      "rc": 0
+    },
+    {
       "suite": "test_evidence_contract.sh",
       "tier": 1,
       "seconds": 3,
@@ -95,30 +101,6 @@
       "suite": "test_model_registry.sh",
       "tier": 1,
       "seconds": 3,
-      "rc": 0
-    },
-    {
-      "suite": "test_capability_graph.sh",
-      "tier": 1,
-      "seconds": 3,
-      "rc": 0
-    },
-    {
-      "suite": "test_sandbox_hygiene.sh",
-      "tier": 1,
-      "seconds": 2,
-      "rc": 0
-    },
-    {
-      "suite": "test_check_health.sh",
-      "tier": 1,
-      "seconds": 2,
-      "rc": 0
-    },
-    {
-      "suite": "test_stage_report.sh",
-      "tier": 1,
-      "seconds": 2,
       "rc": 0
     },
     {
@@ -140,7 +122,19 @@
       "rc": 0
     },
     {
+      "suite": "test_capability_graph.sh",
+      "tier": 1,
+      "seconds": 2,
+      "rc": 0
+    },
+    {
       "suite": "test_deploy_contract.sh",
+      "tier": 1,
+      "seconds": 1,
+      "rc": 0
+    },
+    {
+      "suite": "test_stage_report.sh",
       "tier": 1,
       "seconds": 1,
       "rc": 0
@@ -152,19 +146,31 @@
       "rc": 0
     },
     {
+      "suite": "test_gha_status.sh",
+      "tier": 1,
+      "seconds": 1,
+      "rc": 0
+    },
+    {
       "suite": "test_source_frequency.sh",
       "tier": 1,
       "seconds": 1,
       "rc": 0
     },
     {
-      "suite": "test_redaction.sh",
+      "suite": "test_image_arch.sh",
       "tier": 1,
       "seconds": 1,
       "rc": 0
     },
     {
-      "suite": "test_doc_graph.sh",
+      "suite": "test_dast_coverage.sh",
+      "tier": 1,
+      "seconds": 1,
+      "rc": 0
+    },
+    {
+      "suite": "test_offline_report.sh",
       "tier": 1,
       "seconds": 1,
       "rc": 0
@@ -172,6 +178,18 @@
     {
       "suite": "test_loki_coverage.sh",
       "tier": 1,
+      "seconds": 1,
+      "rc": 0
+    },
+    {
+      "suite": "test_doc_freshness.sh",
+      "tier": 1,
+      "seconds": 1,
+      "rc": 0
+    },
+    {
+      "suite": "test_migration_observed.sh",
+      "tier": 3,
       "seconds": 1,
       "rc": 0
     },
@@ -194,7 +212,7 @@
       "rc": 0
     },
     {
-      "suite": "test_dast_coverage.sh",
+      "suite": "test_redaction.sh",
       "tier": 1,
       "seconds": 0,
       "rc": 0
@@ -206,13 +224,7 @@
       "rc": 0
     },
     {
-      "suite": "test_offline_report.sh",
-      "tier": 1,
-      "seconds": 0,
-      "rc": 0
-    },
-    {
-      "suite": "test_doc_freshness.sh",
+      "suite": "test_doc_graph.sh",
       "tier": 1,
       "seconds": 0,
       "rc": 0
@@ -220,12 +232,6 @@
     {
       "suite": "test_duplicate_check.sh",
       "tier": 1,
-      "seconds": 0,
-      "rc": 0
-    },
-    {
-      "suite": "test_migration_observed.sh",
-      "tier": 3,
       "seconds": 0,
       "rc": 0
     }

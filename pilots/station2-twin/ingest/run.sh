@@ -24,8 +24,22 @@ IMAGE="${INGEST_IMAGE:-station2-ingest:local}"
 # was not, and the ingest could not start despite the image being on disk.
 needs_build=1
 if img_created="$(docker image inspect "$IMAGE" --format '{{.Created}}' 2>/dev/null)"; then
-  img_epoch="$(date -j -u -f '%Y-%m-%dT%H:%M:%S' "${img_created%.*}" +%s 2>/dev/null || echo 0)"
-  dockerfile_epoch="$(stat -f %m "$HERE/Dockerfile")"
+  # GNU form FIRST, BSD as the fallback -- the same shape run_job.sh and
+  # sync_offsite.sh use, and the order test_static.sh enforces.
+  #
+  # WHY THIS MATTERS MORE THAN IT LOOKS (2026-09-09). `stat -f %m` is BSD; on
+  # GNU coreutils `-f` means "file SYSTEM status" and `%m` is not a format, so
+  # it exits non-zero -- and under `set -euo pipefail` that aborts run.sh
+  # before the container ever starts. Every assertion about what the container
+  # PRINTS then fails for a reason that has nothing to do with the container.
+  # Platform Tests was red on Linux for four consecutive pushes on exactly
+  # this, while the same suite was green on the development machine.
+  img_epoch="$(date -u -d "${img_created%.*}Z" +%s 2>/dev/null \
+               || date -j -u -f '%Y-%m-%dT%H:%M:%S' "${img_created%.*}" +%s 2>/dev/null \
+               || echo 0)"
+  # Both dialects on ONE line: test_static.sh checks that the GNU form appears
+  # earlier on the same line, and a backslash continuation hides it from that.
+  dockerfile_epoch="$(stat -c %Y "$HERE/Dockerfile" 2>/dev/null || stat -f %m "$HERE/Dockerfile" 2>/dev/null || echo 0)"
   [ "$img_epoch" -gt "$dockerfile_epoch" ] && needs_build=0
 fi
 if [ "$needs_build" -eq 1 ]; then

@@ -357,7 +357,19 @@ while IFS= read -r hit; do
 # shell parameter expansions (this guard's own implementation uses one), not
 # invocations of stat. Matching text rather than calls is how the previous two
 # guards in this file were wrong; see their notes.
-done < <(grep -rnE 'stat +-f' "$REPO_ROOT/platform" --include='*.sh' 2>/dev/null \
+# PILOTS TOO (2026-09-09). This scanned only platform/, and the two files that
+# actually broke were pilots/*/run.sh -- `stat -f %m` with no fallback at all.
+# On GNU coreutils `-f` is "file SYSTEM status" and `%m` is not a format, so it
+# exits non-zero; under `set -euo pipefail` the wrapper aborts before the
+# container starts, and every assertion about what the container prints then
+# fails for a reason unrelated to the container. Four consecutive CI runs were
+# red on Linux while this suite was green here. The rule was right; its SCOPE
+# was the defect, which is the harder kind to see -- a narrow scan and a clean
+# tree produce identical output.
+# `--include` stays on the SAME line as the recursive grep: the unfiltered-walk
+# rule below reads one line at a time, and a continuation hides the filter from
+# it. Two guards in this file, one of them tripping the other.
+done < <(grep -rnE 'stat +-f' "$REPO_ROOT/platform" "$REPO_ROOT/pilots" --include='*.sh' 2>/dev/null \
            | sed 's/[[:space:]]*#.*$//' \
            | grep -vE '[%#]{2}stat' \
            | grep -E 'stat +-f')
@@ -455,7 +467,6 @@ scan_unbraced_cjk() {  # <root...> -- basenames where $VAR touches a CJK char
 assert_equals "" "$(scan_unbraced_cjk "$REPO_ROOT/platform" "$REPO_ROOT/pilots")" \
   "no \$VAR is written directly against a CJK character (bash eats it into the name)"
 
-# ---- a suite must not REPLACE lib.sh's exit handler ------------------------
 #
 # `trap X EXIT` replaces whatever was registered before it. lib.sh registers
 # the sandbox cleanup at source time, so a suite registering its own cleanup

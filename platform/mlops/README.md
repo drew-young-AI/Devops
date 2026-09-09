@@ -131,6 +131,7 @@ platform/mlops/retrain.sh    # 兩個題目 × 兩個時程，各自建集、回
 |---|---|---|---|
 | [`retrain.sh`](retrain.sh) | 排程，每週 | 重建特徵 → 重跑回測 → **只在合格時**才發布 | 週期取自它所觀察的東西變化多快（來源是週資料），與 `jobs.conf` 每個 job 同一條規則。不合格就不發布，閘門正在正確地擋著 |
 | [`model_registry.py`](model_registry.py) | 由 pilot 的 `backtest.py` import（`run.sh` 唯讀掛載進容器） | 模型註冊表的**契約**：一筆登記合不合法、`build()` 回傳的是不是未擬合的估計器 | 專案中立，無領域知識。未登記的名稱被拒絕並列出清單；回傳已擬合估計器的條目被拒絕（守衛本身有突變測試） |
-| [`pipeline_metrics.py`](pipeline_metrics.py) | 排程，每小時（`jobs.conf` 的 `mlopsmetrics`） | 把模型層的數字寫成 Prometheus textfile：對基準的相對優勢、各時程有沒有通過過閘門、事後評分、距上次重訓 | **只出數字不下判斷**——門檻全部在 `alerts/mlops.yml`。2026-09-08 之前這一層在 Prometheus 有 0 個指標（`devops_*` 20 個、`dataops_*` 15 個），整層只有看板上的燈 |
+| [`mlops/pipeline_metrics.py`](pipeline_metrics.py) | 排程，每小時（`jobs.conf` 的 `mlopsmetrics`） | 把模型層的數字寫成 Prometheus textfile：對基準的相對優勢、各時程有沒有通過過閘門、事後評分、距上次重訓 | **只出數字不下判斷**——門檻全部在 `alerts/mlops.yml`。2026-09-08 之前這一層在 Prometheus 有 0 個指標（`devops_*` 20 個、`dataops_*` 15 個），整層只有看板上的燈 |
+| [`replay_significance.py`](replay_significance.py) | 重訓後（`retrain.sh` 步驟 5b），或手動重跑重放時 | 對重放出來的每一組（題目×時程）算配對自助法 95% CI、精確雙尾符號檢定、以及 lag-1 自相關 | **點估計永遠不單獨出現**——`margin_ratio` 一定跟著 `ci_low`／`ci_high`。固定 seed 42、10000 次重抽、純標準函式庫，兩次執行逐位元相同。自相關是**回報**不是校正：把它偷偷修掉會讓區間看起來比它應得的更窄 |
 | [`policy_backtest.py`](../../pilots/station2-twin/mlops/policy_backtest.py) | `retrain.sh` 第 5 步，每週；也可手動 | 把**發布決策**在整段歷史上逐週重放：每個原點閘門選誰、發不發、發出去的數字對上真的發生的那一週如何 | 三道洩漏門都堵住（配適走 `fit_one`、選擇只能用當時的誤差、基準只在同一組原點上算）。它是**模擬**，指標前綴 `mlops_policy_backtest_*` 與實績永不相加 |
 | [`promotion_policy.py`](promotion_policy.py) | 由 pilot 的 `publish_forecast.py` import | 挑戰者何時取代現役模型：六種判定（BOOTSTRAP／REPLACE／KEEP／REFRESH／INCOMPARABLE／REFUSED） | **門檻沒有預設值**——沒想過門檻的專案會被迫想。現役只跟它在同一比較範圍內重評的分數比 |
