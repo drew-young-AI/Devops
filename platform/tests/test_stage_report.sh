@@ -289,12 +289,20 @@ assert_rc 0 "with no --from-board, the report still probes the platform itself"
 # reason: only `eng` is work this repository can close. Driving `external` or
 # `research` green means waiting on someone else, or making a node stop
 # reporting something true.
-run_cmd python3 "$SUITE_DIR/assert_completion.py" "$REPO_ROOT"
+# READ THE REPORT THIS SUITE JUST GENERATED, not docs/Stage-Report.json.
+#
+# Those three files are gitignored build output (a committed status snapshot is
+# the stale status page the generator exists to replace), so on a fresh clone
+# they do not exist -- and asserting on them made this suite pass here and fail
+# in CI. Second time in one day for that exact confusion between "a generated
+# path" and "a missing path"; $OUT_DIR is written by the fixture run above and
+# is present everywhere.
+run_cmd python3 "$SUITE_DIR/assert_completion.py" "$OUT_DIR"
 assert_rc 0 "every line publishes a completion figure with its denominator named"
 assert_output_contains "denom=nodes" \
   "and the denominator is nodes, so 'three lines at 90 percent' means one thing"
 
-run_cmd cat "$REPO_ROOT/docs/Stage-Report.md"
+run_cmd cat "$OUT_DIR/Stage-Report.md"
 assert_output_contains "分母是節點，不是階段" \
   "the markdown says which denominator it used, next to the number"
 assert_output_contains "阻擋者" \

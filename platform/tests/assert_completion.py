@@ -10,8 +10,11 @@ import json
 import os
 import sys
 
-root = sys.argv[1]
-doc = json.load(open(os.path.join(root, "docs", "Stage-Report.json"),
+# A DIRECTORY HOLDING Stage-Report.json, not the repo root. The caller passes
+# the suite's own --out-dir, because docs/Stage-Report.json is gitignored build
+# output and does not exist in a fresh checkout.
+out_dir = sys.argv[1]
+doc = json.load(open(os.path.join(out_dir, "Stage-Report.json"),
                     encoding="utf-8"))
 for line in doc["lines"]:
     c = line["completion"]

@@ -205,6 +205,26 @@ pod log 一直 `GET /health/ready 503`。板面的「藍綠切換」節點在 20
 **這種狀況下是綠的**（它只讀 Service selector，不看後面有沒有就緒的 pod），
 現在會判 `fail`：「流量有去處，沒有服務」。
 
+### 10. 對「產生式產物」下斷言，會在你的機器上綠、在 CI 上紅
+
+`docs/Stage-Report.json`（以及它的 `.md` 與 `.html` 兩個手足）、
+`docs/Pipeline-Status.html`、`docs/Value-Stream-Board.html` 都是**產生的、而且
+gitignored**（提交一份現況
+快照，正是產生器要取代的那種過期狀態頁）。所以它們在這台跑過產生器的機器上
+一直都在，在乾淨 clone 裡一個都沒有。
+
+**2026-09-09 同一天踩兩次**：一次是 `test_static.sh` 的接手路由檢查說
+`docs/Stage-Report.json` 是死指標，一次是 `test_stage_report.sh` 的新斷言直接
+讀 `$REPO_ROOT/docs/Stage-Report.json`。兩次都是本機綠、CI 紅。
+
+**判準**：`git check-ignore -q <path>` 為真 → 它是產物。
+- **路徑存在性檢查**：跳過它（產物不存在是正常的）。
+- **內容斷言**：不要讀 repo 裡那一份，讀**測試自己產生的那一份**
+  （`stage_report.py --from-board <fixture> --out-dir "$OUT_DIR"`）。
+
+**沒有為此加靜態規則**，因為 8 個既有的合法用法都是「先檢查存在、不在就
+SKIP」，機械規則會對它們全部誤報。這一條靠讀，不靠執法。
+
 ## 三之二、接手後不要做的三件事
 
 1. **不要開始修紅線。** 下面第四節的三條紅線都是**已知且已記錄**的狀態，
