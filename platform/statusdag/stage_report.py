@@ -345,12 +345,93 @@ def stage_model(board=None):
             })
             for a in asks:
                 all_asks.append(dict(a, line=line_name, stage=st["name"], state=state))
+        # NODE-LEVEL COMPLETION, WITH ITS DENOMINATOR STATED (2026-09-09).
+        #
+        # WHY THIS IS SEPARATE FROM THE STAGE COUNTS ABOVE.
+        #
+        # `green`/`total` above count STAGES. A stage is amber if any node in it
+        # is, so DevOps reads 3/9 while its nodes read 16/24. Both are true and
+        # they are different questions -- and a reader who does not know which
+        # one they are looking at gets 33% or 67% for the same platform.
+        #
+        # The user's own landing standard is "all three lines at 90%", so the
+        # number that standard is measured against has to exist, be generated,
+        # and say what it divides by. A hand-written percentage in a document
+        # is stale the next time anything moves.
+        #
+        # SUPERSEDED IS SPLIT, because it hides two different things:
+        #   - `retired`: the node was verified and its job moved somewhere that
+        #     is itself a live node here (CI/scan/registry/production-like all
+        #     moved onto Kubernetes). Counting these as incomplete says work is
+        #     missing when it is being done by its replacement.
+        #   - `awaiting`: the node was retired and nothing replaced it yet
+        #     (`llmreview` still has no Kubernetes artefact wired in).
+        # The split is by whether the node's own detail says it is waiting.
+        # It is a heuristic, and it is stated here rather than hidden: a reader
+        # who disagrees can recount from `nodes` in this same document.
+        lnodes = [n for st in smodels for n in st["nodes"]]
+        # `or "eng"` at the read site: a stage with no declared owner yields
+        # None, and an unowned blocker is engineering work by default --
+        # never "nobody's".
+        owner_of = {n["id"]: st["owner"] for st in smodels for n in st["nodes"]}
+        sup_nodes = [n for n in lnodes if n["state"] == dag.SUPERSEDED]
+        awaiting = [n for n in sup_nodes if "待" in (n.get("detail") or "")]
+        retired = [n for n in sup_nodes if n not in awaiting]
+        n_ok = sum(1 for n in lnodes if n["state"] == dag.OK)
+        n_total = len(lnodes)
         lines.append({
             "id": line_id, "name": line_name, "subtitle": line_sub,
             "stages": smodels,
             "green": sum(1 for s in smodels if s["state"] == dag.OK),
             "superseded": sum(1 for s in smodels if s["state"] == dag.SUPERSEDED),
             "total": len(smodels),
+            "completion": {
+                "denominator": "nodes",
+                "nodes_total": n_total,
+                "nodes_ok": n_ok,
+                "nodes_superseded_retired": len(retired),
+                "nodes_superseded_awaiting": len(awaiting),
+                "nodes_actionable": n_total - n_ok - len(sup_nodes),
+                # STRICT counts only ok. GENEROUS also credits nodes whose job
+                # is demonstrably being done by a live replacement. The gap
+                # between the two IS the argument, so both are published and
+                # neither is called "the" completion.
+                "pct_strict": round(100.0 * n_ok / n_total, 1) if n_total else 0.0,
+                "pct_crediting_retired": (
+                    round(100.0 * (n_ok + len(retired)) / n_total, 1)
+                    if n_total else 0.0),
+                # THE OWNER TRAVELS WITH THE BLOCKER, and it is declared in
+                # LINES rather than judged here.
+                #
+                # This is what makes a completion target usable instead of
+                # motivating. Of the four things holding DevOps below its
+                # target, one waits on a decision, two are engineering, and one
+                # is retired-awaiting-reconnection; DataOps' single blocker is
+                # `external` (a national health agency has not published the
+                # calendar mapping) and MLOps' is `research` (the model really
+                # does lose to persistence at t+1).
+                #
+                # ONLY `eng` IS WORK THIS REPOSITORY CAN CLOSE BY ITSELF.
+                # Driving `external` or `research` green would mean either
+                # waiting on someone else or making a node stop saying a true
+                # thing -- and a board that goes green by no longer reporting
+                # the bad news is the failure this whole platform is built
+                # against. So the split is published next to the percentage.
+                "blocking": [
+                    {"id": n["id"], "state": n["state"],
+                     "owner": (owner_of.get(n["id"]) or "eng"),
+                     "detail": (n.get("detail") or "")[:70]}
+                    for n in lnodes
+                    if n["state"] != dag.OK and n not in retired],
+                "blocking_by_owner": {
+                    o: sum(1 for n in lnodes
+                           if n["state"] != dag.OK and n not in retired
+                           and (owner_of.get(n["id"]) or "eng") == o)
+                    for o in OWNER_ORDER
+                    if any(n["state"] != dag.OK and n not in retired
+                           and (owner_of.get(n["id"]) or "eng") == o
+                           for n in lnodes)},
+            },
         })
 
     attention = [(l, s) for l in lines for s in l["stages"] if s["state"] in ACTIONABLE]
@@ -446,6 +527,32 @@ def render_markdown(m):
         "",
         "每一盞燈都是本次執行的實測（查資料庫、問叢集、讀證據檔），不是文件記載。",
         "階段只有在底下每個節點都正常時才是綠的。",
+        "",
+        "## 三條線的完成度（分母是節點，不是階段）",
+        "",
+        "同一個平台會給出兩個百分比，因為分母不同：**階段**的綠燈率與**節點**的",
+        "綠燈率。上面那一行是階段；下面這張表是節點，而落地標準應該對著節點看",
+        "——階段只要有一個節點不綠就整段不綠，它答的是「哪一段要注意」，",
+        "不是「做完多少」。",
+        "",
+        "**`阻擋者` 那一欄比百分比重要。** 只有 `eng` 是這個 repo 自己關得掉的：",
+        "`external` 在等別人（例如疾管署發布對照）、`research` 是模型真的還沒贏過",
+        "基準、`decision` 在等使用者拍板。**把 `external` 或 `research` 逼成綠色，",
+        "只有兩條路：等別人，或讓某個節點不再說一句真話**——而後者正是這整個平台",
+        "存在要防的事。",
+        "",
+        "| 線 | 節點綠燈 | 計入「已被取代且有替代品」 | 阻擋者（依歸屬） |",
+        "|---|---:|---:|---|",
+    ] + [
+        (f"| {l['name']} | {l['completion']['pct_strict']}% "
+         f"({l['completion']['nodes_ok']}/{l['completion']['nodes_total']}) "
+         f"| {l['completion']['pct_crediting_retired']}% | "
+         + ("、".join(f"{OWNER_LABEL.get(o, o)} {n}"
+                      for o, n in l["completion"]["blocking_by_owner"].items())
+            or "無")
+         + " |")
+        for l in m["lines"]
+    ] + [
         "",
     ]
 

@@ -276,4 +276,28 @@ assert_rc 1 "a board with no timestamp is REFUSED: undatable reads as fresh"
 run_cmd grep -n "dag.build() if board is None else board" "$REPORT"
 assert_rc 0 "with no --from-board, the report still probes the platform itself"
 
+
+# ---- the completion figure must state its denominator ----------------------
+#
+# WHY (2026-09-09). The user set a landing standard of "all three lines at
+# 90%". The report already published two numbers that could both be called
+# completion -- DevOps read 3/9 by STAGE and 16/24 by NODE, 33% against 67% for
+# the same platform -- and neither said which it was. A target measured against
+# an unnamed denominator is not a target.
+#
+# The blocking OWNER matters more than the number and is asserted for the same
+# reason: only `eng` is work this repository can close. Driving `external` or
+# `research` green means waiting on someone else, or making a node stop
+# reporting something true.
+run_cmd python3 "$SUITE_DIR/assert_completion.py" "$REPO_ROOT"
+assert_rc 0 "every line publishes a completion figure with its denominator named"
+assert_output_contains "denom=nodes" \
+  "and the denominator is nodes, so 'three lines at 90 percent' means one thing"
+
+run_cmd cat "$REPO_ROOT/docs/Stage-Report.md"
+assert_output_contains "分母是節點，不是階段" \
+  "the markdown says which denominator it used, next to the number"
+assert_output_contains "阻擋者" \
+  "and publishes who each blocker belongs to, because only one owner is us"
+
 suite_summary

@@ -31,6 +31,23 @@ timestamp: 2026-08-11T20:05:56+08:00
 [`test_image_arch.sh`](platform/tests/test_image_arch.sh)，細節見
 [`platform/k8s/README.md`](platform/k8s/README.md)。
 
+## 出事了、或第一次接手：先看這一份
+
+**[`docs/Runbook.md`](docs/Runbook.md)** —— 必備操作手冊。前提是最壞的情況：
+**沒有 AI agent、沒有網路、只有這台機器和這個 repo**。四條指令、開機後必做的
+一件事、憑證在哪、壞掉時的三個判斷順序、以及「平台完全不見了」的復原順序。
+裡面沒有任何需要連網的連結，而且每一條指令都由
+[`platform/tests/test_runbook.sh`](platform/tests/test_runbook.sh) 驗證存在且
+可執行——指到不存在的東西時測試會紅。
+
+```bash
+platform/recover.sh                       # 起
+platform/recover.sh --check               # 查（唯讀）
+platform/observability/check_health.sh    # 判（退出碼就是答案；3 = 監控自己壞了）
+```
+
+---
+
 **這份 README 是總表。** 它只放指標（網址、位置、規則），細節一律留在各自的檔案裡——
 把內容複製過來，三個月後就會有兩份互相矛盾的說法，而讀的人分不出哪份是真的。
 `platform/tests/test_readme_index.sh` 會檢查這裡的每一個連結存在、每一個網址活著。

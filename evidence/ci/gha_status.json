@@ -1,9 +1,25 @@
 {
   "schema": "gha-status/1",
-  "fetched_at": "2026-09-09T21:16:24+08:00",
+  "fetched_at": "2026-09-09T23:16:57+08:00",
   "fetch_state": "ok",
   "detail": "fetched main",
   "runs": [
+    {
+      "conclusion": "success",
+      "createdAt": "2026-09-09T13:21:59Z",
+      "displayTitle": "chore(evidence): 09-09 收尾產物（CI 轉綠後的板面與指標）",
+      "status": "completed",
+      "url": "https://github.com/drew-young-AI/Devops/actions/runs/34356609842",
+      "workflowName": "Platform Tests"
+    },
+    {
+      "conclusion": "success",
+      "createdAt": "2026-09-09T13:18:34Z",
+      "displayTitle": "fix(test): tier 1 宣告成「無依賴」，而它整套跑在容器映像裡——ubu 上沒有 Docker",
+      "status": "completed",
+      "url": "https://github.com/drew-young-AI/Devops/actions/runs/34356256818",
+      "workflowName": "Platform Tests"
+    },
     {
       "conclusion": "success",
       "createdAt": "2026-09-09T13:03:06Z",
@@ -66,22 +82,6 @@
       "displayTitle": "chore(evidence): 09-08 排程產物（健康快照、資料契約彙總、statusdag 指標）",
       "status": "completed",
       "url": "https://github.com/drew-young-AI/Devops/actions/runs/34245762875",
-      "workflowName": "Platform Tests"
-    },
-    {
-      "conclusion": "failure",
-      "createdAt": "2026-09-08T08:09:18Z",
-      "displayTitle": "feat(mlops)+fix(dataops): 從看板倒推回 CSV 找到四個缺陷；模型層改成註冊表",
-      "status": "completed",
-      "url": "https://github.com/drew-young-AI/Devops/actions/runs/34202974499",
-      "workflowName": "Platform Tests"
-    },
-    {
-      "conclusion": "success",
-      "createdAt": "2026-09-04T04:54:35Z",
-      "displayTitle": "docs(handover): 加上輸出紀律與「接手後不要做的三件事」",
-      "status": "completed",
-      "url": "https://github.com/drew-young-AI/Devops/actions/runs/33838539573",
       "workflowName": "Platform Tests"
     }
   ]

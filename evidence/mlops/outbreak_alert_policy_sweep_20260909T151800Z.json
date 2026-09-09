@@ -1,0 +1,63 @@
+{
+ "generated_at": "2026-09-09T15:18:00Z",
+ "question": "Does the hand-set year-over-year alerting threshold select weeks that are more likely to be the START of something, or just weeks that are anomalous?",
+ "rerun": "docker exec -i station2-twin-db-1 psql -U twin -d twin -f - < platform/dataops/outbreak_alert_sweep.sql",
+ "universe": {
+  "metric": "nhi_visits",
+  "time_level": "epi_week",
+  "visit_type": "門診",
+  "diseases": 11,
+  "geos": 22,
+  "weeks": 557,
+  "span": "2016-2026",
+  "decision_points": 1041073,
+  "with_comparable_prior_year_and_floor": 84186
+ },
+ "reward_proxy": "rate_next > rate (the rate rose the following week). CRUDE ON PURPOSE: a real reward needs an epidemiological definition of outbreak onset, which is a clinical judgement and not an engineering one.",
+ "base_rate_still_rising_pct": 49.5,
+ "base_rate_n": 94302,
+ "sweep": [
+  {
+   "threshold": 1.5,
+   "alerts": 14396,
+   "pct_of_cells": 17.03,
+   "pct_still_rising": 45.8
+  },
+  {
+   "threshold": 2.0,
+   "alerts": 7805,
+   "pct_of_cells": 9.23,
+   "pct_still_rising": 46.2
+  },
+  {
+   "threshold": 2.5,
+   "alerts": 4913,
+   "pct_of_cells": 5.81,
+   "pct_still_rising": 46.0
+  },
+  {
+   "threshold": 3.0,
+   "alerts": 3480,
+   "pct_of_cells": 4.12,
+   "pct_still_rising": 47.0
+  },
+  {
+   "threshold": 4.0,
+   "alerts": 2106,
+   "pct_of_cells": 2.49,
+   "pct_still_rising": 48.8
+  },
+  {
+   "threshold": 6.0,
+   "alerts": 1206,
+   "pct_of_cells": 1.43,
+   "pct_still_rising": 52.7
+  }
+ ],
+ "finding": "The deployed threshold (2.0, DRIFT_HIGH in platform/dataops/pipeline_metrics.py) selects cells that are LESS likely to keep rising (46.2%) than a cell picked at random (49.5%). Raising it 4x cuts alert volume 6.5x and moves the outcome rate only to 52.7%. The policy is selecting the SIZE of an anomaly, and a large year-over-year jump often means the peak has already arrived -- what follows a peak is a decline. It is selecting peaks, not onsets.",
+ "what_this_does_not_show": [
+  "It does not show the alert is useless: a peak is worth knowing about, it is just not the same event as an onset, and the alert's name and thresholds imply onset.",
+  "The reward proxy is one week ahead and binary. Onset is a shape over several weeks.",
+  "The deployed alert (WidespreadGeoDrift) additionally requires the drift to be widespread across geographies; these numbers are the per-cell rate underneath that aggregation."
+ ]
+}

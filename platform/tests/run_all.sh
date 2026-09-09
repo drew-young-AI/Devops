@@ -76,6 +76,7 @@ SUITES=(
   # because the lamps were green.
   test_mlops_metrics.sh
   test_gha_status.sh
+  test_runbook.sh
   # The mlops half: a schema that says "many models" while the code had one,
   # hardcoded, with its name retyped as a literal in three places. This suite
   # asserts a SECOND family is registered and runnable, and that an
