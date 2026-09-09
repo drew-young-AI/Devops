@@ -29,8 +29,21 @@ MANIFEST="$SCRIPT_DIR/networkpolicy.yaml"
 PROBE_NS="netpol-enforce-check"
 
 PASS=0; FAIL=0
+UNMEAS=0
 ok()  { PASS=$((PASS+1)); printf '  \033[32mPASS\033[0m %s\n' "$1"; }
 bad() { FAIL=$((FAIL+1)); printf '  \033[31mFAIL\033[0m %s\n' "$1"; [ -n "${2:-}" ] && echo "       $2"; }
+# UNMEASURED is not a third colour for "probably fine". It is the verdict for
+# "the experiment did not run", which is a different claim from both "the
+# system is correct" and "the system is broken" -- and the only one of the
+# three that is true when the probe itself never got off the ground.
+#
+# WHY IT EXISTS HERE (Backlog §27 T25). The precondition control below is
+# right to refuse: a probe with no egress BEFORE any policy cannot prove that
+# a policy removed egress. But the usual cause is a slow image pull or a
+# transient DNS hiccup in the probe namespace, not a broken CNI -- and
+# reporting that as FAIL trains everyone to re-run the suite until it is
+# green, which is how a real failure gets waved through.
+unmeasured() { UNMEAS=$((UNMEAS+1)); printf '  \033[33mUNMEASURED\033[0m %s\n' "$1"; [ -n "${2:-}" ] && echo "       $2"; }
 k()   { kubectl --context "$CTX" "$@"; }
 
 k get --raw /readyz >/dev/null 2>&1 || { echo "cluster '$CTX' does not answer /readyz." >&2; exit 1; }
@@ -64,7 +77,16 @@ except Exception:
     print('closed')
 " 2>/dev/null | tr -d '\r\n'
     }
-    BEFORE="$(reach)"
+    # THREE ATTEMPTS, copied from test_bluegreen.sh's readiness probe. The
+    # first `reach` after a pod reports Ready can still lose to DNS or to the
+    # sandbox finishing its network setup; one retry loop turns a startup race
+    # into a measurement instead of a verdict.
+    BEFORE="closed"
+    for _try in 1 2 3; do
+      BEFORE="$(reach)"
+      [ "$BEFORE" = "open" ] && break
+      sleep 4
+    done
     cat <<'YAML' | sed "s/__NS__/$PROBE_NS/" | k apply -f - >/dev/null 2>&1
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
@@ -76,8 +98,11 @@ YAML
     if [ "$BEFORE" = "open" ] && [ "$AFTER" = "closed" ]; then
       ok "CNI enforces NetworkPolicy (open -> closed under deny-all)"
     elif [ "$BEFORE" != "open" ]; then
-      bad "cannot test enforcement: the probe had no egress even before a policy" \
-          "something else is blocking; every result below is unreliable"
+      unmeasured "CNI enforcement not measured: the probe had no egress even before a policy" \
+          "after 3 attempts. This is NOT evidence the CNI is broken and NOT \
+evidence it works -- the experiment needs a working 'before' to compare \
+against. Usual causes: image pull or DNS in the probe namespace. The policies \
+themselves are still checked below; only the ENFORCEMENT question is open."
     else
       bad "CNI is NOT enforcing NetworkPolicy" \
           "deny-all applied and the pod still reached the internet. Every policy \
@@ -173,5 +198,13 @@ else
 fi
 
 echo ""
-echo "  $PASS passed, $FAIL failed"
+# UNMEASURED is printed in the summary, never folded into passed. A suite that
+# reports "12 passed" while one question went unasked is making a stronger
+# claim than it measured, and the whole point of this verdict is that the
+# difference stays visible after the scrollback is gone.
+if [ "$UNMEAS" -gt 0 ]; then
+  echo "  $PASS passed, $FAIL failed, $UNMEAS unmeasured"
+else
+  echo "  $PASS passed, $FAIL failed"
+fi
 [ "$FAIL" -eq 0 ] || exit 1

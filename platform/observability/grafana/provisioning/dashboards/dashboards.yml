@@ -1,11 +1,35 @@
+# Folders are DISCIPLINES, not projects (ADR-0017).
+#
+# `foldersFromFilesStructure` maps each subdirectory of the dashboards mount to
+# a Grafana folder, so the layout on disk IS the layout in the UI and there is
+# no second list to keep in agreement. Before 2026-09-09 there was one provider
+# and one folder called "DevOps" holding four dashboards, three of which were
+# not about DevOps.
+#
+# WHY A NUMERIC PREFIX. Grafana sorts folders alphabetically and offers no
+# ordering control for provisioned folders. Without the prefix the list reads
+# DataOps, DevOps, Infra, MLOps, Overview -- alphabetical, and meaningless as a
+# sequence. With it the list reads in the order work actually flows through the
+# platform, which is the order a reviewer wants to walk it in.
+#
+# WHY `0-overview` EXISTS WHEN THE TAXONOMY HAS FOUR DISCIPLINES. It is not a
+# fifth discipline, it is the index. 三線階段燈號 spans devops, dataops and
+# mlops at once; filed under any one of them, readers of the other two cannot
+# find it.
+#
+# PROJECTS DO NOT APPEAR HERE. A second project is a value in the `$project`
+# dropdown, not a second tree of folders -- see ADR-0017 for the arithmetic
+# (four dashboards stay four, instead of becoming eight and then twenty).
+
 apiVersion: 1
 
 providers:
-  - name: DevOps
+  - name: Platform
     orgId: 1
-    folder: DevOps
     type: file
     disableDeletion: true
     updateIntervalSeconds: 10
+    allowUiUpdates: false
     options:
       path: /var/lib/grafana/dashboards
+      foldersFromFilesStructure: true

@@ -1,0 +1,834 @@
+{
+ "uid": "mlops-model",
+ "title": "MLOps 模型",
+ "tags": [
+  "mlops",
+  "platform",
+  "model"
+ ],
+ "timezone": "browser",
+ "schemaVersion": 39,
+ "version": 1,
+ "refresh": "1m",
+ "time": {
+  "from": "now-30d",
+  "to": "now"
+ },
+ "editable": true,
+ "description": "模型層的量測。來源是 platform/mlops/pipeline_metrics.py，每小時寫入 node-exporter textfile，Prometheus 每 15s 抓取。門檻在 platform/observability/prometheus/alerts/mlops.yml，汰換規則見 docs/decisions/0016-champion-challenger-replacement-margin.md。時間範圍預設 30 天：重訓是週排程，7 天只會看到一兩個點。專案與預測題目是下拉變數，不是資料夾（ADR-0017）：第二個專案在 $project 多一個選項。",
+ "panels": [
+  {
+   "type": "text",
+   "title": "這張看板看什麼，不看什麼",
+   "gridPos": {
+    "x": 0,
+    "y": 0,
+    "w": 24,
+    "h": 5
+   },
+   "description": "",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "PBFA97CFB590B2093"
+   },
+   "targets": [],
+   "options": {
+    "mode": "markdown",
+    "content": "**這一層在 2026-09-08 之前沒有任何數字。** Prometheus 有 99 個指標，`devops_*` 20 個、`dataops_*` 15 個，跟模型有關的 **0 個**——整個 mlops 只有看板上五顆綠燈，燈的背後沒有量測。\n\n**這裡量的是「模型有沒有比笨方法好」，不是「模型準不準」。** 基準是持平（persistence，假設下週跟這週一樣）。贏過它才有上線資格；贏它 0.55% 跟贏它 30% 在閘門眼中都是「贏」，所以第一排把幅度畫出來。\n\n**兩個站著不動的事實刻意不設告警**（理由見 `platform/observability/prometheus/alerts/mlops.yml`）：t+1 從來沒有贏過基準；線上模型贏基準的幅度小於汰換門檻。兩者都會從第一次評估就一直燒，而半夜被叫醒的人對它們無事可做。它們是這裡的面板，不是 pager。"
+   }
+  },
+  {
+   "type": "stat",
+   "title": "線上模型贏基準多少",
+   "gridPos": {
+    "x": 0,
+    "y": 5,
+    "w": 6,
+    "h": 6
+   },
+   "description": "唯一決定這個試點有沒有價值的數字。<=0 代表發布出去的預測比「假設下週跟這週一樣」還差，那會觸發 DeployedModelLosesToBaseline。",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "PBFA97CFB590B2093"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "mlops_deployed_margin_ratio{project=\"$project\",target=~\"$target\"}",
+     "legendFormat": "{{target}} t+{{horizon}}",
+     "instant": true,
+     "range": false,
+     "datasource": {
+      "type": "prometheus",
+      "uid": "PBFA97CFB590B2093"
+     }
+    }
+   ],
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "textMode": "auto",
+    "colorMode": "value",
+    "graphMode": "none",
+    "justifyMode": "auto"
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "percentunit",
+     "decimals": 2,
+     "color": {
+      "mode": "thresholds"
+     },
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "red",
+        "value": null
+       },
+       {
+        "color": "orange",
+        "value": 0.0001
+       },
+       {
+        "color": "green",
+        "value": 0.02
+       }
+      ]
+     }
+    },
+    "overrides": []
+   }
+  },
+  {
+   "type": "stat",
+   "title": "汰換門檻（ADR-0016）",
+   "gridPos": {
+    "x": 6,
+    "y": 5,
+    "w": 6,
+    "h": 6
+   },
+   "description": "挑戰者要贏現役這麼多才換人，同分留任。這個數字是從 publish_forecast.py 的 REPLACEMENT_MARGIN 讀出來的，不是面板自己抄一份——看板抄一份門檻，遲早會顯示一個系統並沒有在執行的數字，而且它照樣會渲染。拿它跟左邊那格比：目前線上模型贏基準的幅度，比換掉一個模型所需的幅度還小。",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "PBFA97CFB590B2093"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "mlops_replacement_margin_ratio{project=\"$project\"}",
+     "legendFormat": "門檻",
+     "instant": true,
+     "range": false,
+     "datasource": {
+      "type": "prometheus",
+      "uid": "PBFA97CFB590B2093"
+     }
+    }
+   ],
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "textMode": "auto",
+    "colorMode": "value",
+    "graphMode": "none",
+    "justifyMode": "auto"
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "percentunit",
+     "decimals": 2,
+     "color": {
+      "mode": "fixed",
+      "fixedColor": "text"
+     }
+    },
+    "overrides": []
+   }
+  },
+  {
+   "type": "stat",
+   "title": "這個時程有沒有通過過閘門",
+   "gridPos": {
+    "x": 12,
+    "y": 5,
+    "w": 6,
+    "h": 6
+   },
+   "description": "1 = 曾經有 run 贏過兩條基準。t+1 自 2026-08-20 起一直是 0：HGB 差 12.08%、Ridge 差 21.99%，所以那個時程從來沒有發布過任何東西。看板用一句話講過這件事；一句話沒辦法回答「這已經持續多久」。",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "PBFA97CFB590B2093"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "mlops_horizon_gate_passed{project=\"$project\",target=~\"$target\"}",
+     "legendFormat": "{{target}} t+{{horizon}}",
+     "instant": true,
+     "range": false,
+     "datasource": {
+      "type": "prometheus",
+      "uid": "PBFA97CFB590B2093"
+     }
+    }
+   ],
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "textMode": "auto",
+    "colorMode": "value",
+    "graphMode": "none",
+    "justifyMode": "auto"
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "decimals": 0,
+     "color": {
+      "mode": "thresholds"
+     },
+     "mappings": [
+      {
+       "type": "value",
+       "options": {
+        "0": {
+         "text": "從未通過",
+         "color": "red",
+         "index": 0
+        },
+        "1": {
+         "text": "通過過",
+         "color": "green",
+         "index": 1
+        }
+       }
+      }
+     ],
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "red",
+        "value": null
+       },
+       {
+        "color": "green",
+        "value": 1
+       }
+      ]
+     }
+    },
+    "overrides": []
+   }
+  },
+  {
+   "type": "stat",
+   "title": "可訓練的資料量",
+   "gridPos": {
+    "x": 18,
+    "y": 5,
+    "w": 6,
+    "h": 6
+   },
+   "description": "每一次「為什麼不上深度學習」的討論都停在這個數字。倉庫裡有 653 萬筆 surveillance_fact，但一個疾病的全國週率一週就是一列，所以建模表大約 555 列。卡住的是資料不是模型。",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "PBFA97CFB590B2093"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "mlops_feature_rows{project=\"$project\",target=~\"$target\"}",
+     "legendFormat": "{{target}} feature set {{feature_set}}",
+     "instant": true,
+     "range": false,
+     "datasource": {
+      "type": "prometheus",
+      "uid": "PBFA97CFB590B2093"
+     }
+    }
+   ],
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "textMode": "auto",
+    "colorMode": "value",
+    "graphMode": "none",
+    "justifyMode": "auto"
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "decimals": 0,
+     "color": {
+      "mode": "fixed",
+      "fixedColor": "text"
+     }
+    },
+    "overrides": []
+   }
+  },
+  {
+   "type": "timeseries",
+   "title": "各家族對基準的相對優勢（同一個 feature set）",
+   "gridPos": {
+    "x": 0,
+    "y": 11,
+    "w": 12,
+    "h": 10
+   },
+   "description": "0 這條線是持平基準。線在 0 以下代表那個模型比「假設下週跟這週一樣」還差。只畫當前 feature set：551 折與 553 折算出來的 MAE 印起來一樣、意思不一樣，混在一條線上會把換特徵畫成模型進步。",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "PBFA97CFB590B2093"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "mlops_run_margin_ratio{project=\"$project\",target=~\"$target\"}",
+     "legendFormat": "{{target}} t+{{horizon}} {{algorithm}}",
+     "instant": false,
+     "range": true,
+     "datasource": {
+      "type": "prometheus",
+      "uid": "PBFA97CFB590B2093"
+     }
+    }
+   ],
+   "options": {
+    "legend": {
+     "displayMode": "list",
+     "placement": "bottom",
+     "showLegend": true
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "percentunit",
+     "decimals": 3,
+     "custom": {
+      "lineWidth": 2,
+      "fillOpacity": 5,
+      "showPoints": "auto",
+      "spanNulls": true
+     },
+     "color": {
+      "mode": "palette-classic"
+     }
+    },
+    "overrides": []
+   }
+  },
+  {
+   "type": "timeseries",
+   "title": "MAE 與基準 MAE",
+   "gridPos": {
+    "x": 12,
+    "y": 11,
+    "w": 12,
+    "h": 10
+   },
+   "description": "原始值，不是比率。兩條線一起看才分得出「模型變好」與「這段時間本來就好預測」——基準跟著降的時候，比率不動而兩條線一起下移。",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "PBFA97CFB590B2093"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "mlops_run_mae{project=\"$project\",target=~\"$target\"}",
+     "legendFormat": "{{target}} MAE t+{{horizon}} {{algorithm}}",
+     "instant": false,
+     "range": true,
+     "datasource": {
+      "type": "prometheus",
+      "uid": "PBFA97CFB590B2093"
+     }
+    },
+    {
+     "refId": "B",
+     "expr": "mlops_run_baseline_mae{project=\"$project\",target=~\"$target\"}",
+     "legendFormat": "{{target}} 基準 t+{{horizon}}",
+     "instant": false,
+     "range": true,
+     "datasource": {
+      "type": "prometheus",
+      "uid": "PBFA97CFB590B2093"
+     }
+    }
+   ],
+   "options": {
+    "legend": {
+     "displayMode": "list",
+     "placement": "bottom",
+     "showLegend": true
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "decimals": 5,
+     "custom": {
+      "lineWidth": 2,
+      "fillOpacity": 5,
+      "showPoints": "auto",
+      "spanNulls": true
+     },
+     "color": {
+      "mode": "palette-classic"
+     }
+    },
+    "overrides": []
+   }
+  },
+  {
+   "type": "timeseries",
+   "title": "事後評分：發布出去的預測準不準",
+   "gridPos": {
+    "x": 0,
+    "y": 21,
+    "w": 12,
+    "h": 9
+   },
+   "description": "回測 MAE 不是這個。回測是拿模型去比對它被配適時看過的歷史；這裡比的是真的發布出去的那個數字，對上真的發生的那一週。n 很小是設計使然：閘門很少放行，而 t+1 從未放行，所以所有已評分的都是 t+2，每週大約長一筆。",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "PBFA97CFB590B2093"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "mlops_forecast_scored_total{project=\"$project\",target=~\"$target\"}",
+     "legendFormat": "已評分 {{target}} t+{{horizon}}",
+     "instant": false,
+     "range": true,
+     "datasource": {
+      "type": "prometheus",
+      "uid": "PBFA97CFB590B2093"
+     }
+    },
+    {
+     "refId": "B",
+     "expr": "mlops_forecast_beat_baseline_total{project=\"$project\",target=~\"$target\"}",
+     "legendFormat": "其中勝過基準 {{target}} t+{{horizon}}",
+     "instant": false,
+     "range": true,
+     "datasource": {
+      "type": "prometheus",
+      "uid": "PBFA97CFB590B2093"
+     }
+    },
+    {
+     "refId": "C",
+     "expr": "mlops_forecast_pending_total{project=\"$project\",target=~\"$target\"}",
+     "legendFormat": "目標週未到 {{target}} t+{{horizon}}",
+     "instant": false,
+     "range": true,
+     "datasource": {
+      "type": "prometheus",
+      "uid": "PBFA97CFB590B2093"
+     }
+    }
+   ],
+   "options": {
+    "legend": {
+     "displayMode": "list",
+     "placement": "bottom",
+     "showLegend": true
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "decimals": 0,
+     "custom": {
+      "lineWidth": 2,
+      "fillOpacity": 5,
+      "showPoints": "auto",
+      "spanNulls": true
+     },
+     "color": {
+      "mode": "palette-classic"
+     }
+    },
+    "overrides": []
+   }
+  },
+  {
+   "type": "timeseries",
+   "title": "距上次回測多久",
+   "gridPos": {
+    "x": 12,
+    "y": 21,
+    "w": 12,
+    "h": 9
+   },
+   "description": "重訓是週排程。超過兩週（ModelNotRetrained）代表已經漏掉兩次——而漏掉的時候上面每一條線都會維持最後一個值，看起來完全正常。retrain.sh 在閘門拒絕發布時也會非零結束，那是正確行為，但它讓模型跟當機一樣舊。",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "PBFA97CFB590B2093"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "time() - max by (horizon) (mlops_run_trained_timestamp_seconds{project=\"$project\",target=~\"$target\"})",
+     "legendFormat": "{{target}} t+{{horizon}}",
+     "instant": false,
+     "range": true,
+     "datasource": {
+      "type": "prometheus",
+      "uid": "PBFA97CFB590B2093"
+     }
+    }
+   ],
+   "options": {
+    "legend": {
+     "displayMode": "list",
+     "placement": "bottom",
+     "showLegend": true
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "s",
+     "decimals": 0,
+     "custom": {
+      "lineWidth": 2,
+      "fillOpacity": 5,
+      "showPoints": "auto",
+      "spanNulls": true
+     },
+     "color": {
+      "mode": "palette-classic"
+     }
+    },
+    "overrides": []
+   }
+  },
+  {
+   "type": "text",
+   "title": "以下是「重放」，不是實績",
+   "gridPos": {
+    "x": 0,
+    "y": 30,
+    "w": 24,
+    "h": 4
+   },
+   "description": "",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "PBFA97CFB590B2093"
+   },
+   "targets": [],
+   "options": {
+    "mode": "markdown",
+    "content": "上面那張「事後評分」數的是**真的發布出去**的預測（n=1，每週長一筆）。下面這一排數的是**模擬**：用今天的程式碼，把閘門與汰換規則在整段歷史上逐週重放一次，問「如果這套系統一直在跑，它發布出去的數字會不會贏過持平」。\n\n**兩者永遠不可以相加。** 一旦都變成表格裡的數字，估計值跟量測值就長得一模一樣——所以它們用不同的指標前綴（`mlops_policy_backtest_*`）、不同的說明文字，並帶一個 `mode` 標籤說明問的是哪一個問題：`policy` = 閘門可以換模型家族（測的是這套流程），`locked` = 不可以（測的是那個模型選擇）。"
+   }
+  },
+  {
+   "type": "stat",
+   "title": "重放的樣本數 n",
+   "gridPos": {
+    "x": 0,
+    "y": 34,
+    "w": 6,
+    "h": 6
+   },
+   "description": "實績是 n=1。重放把同一個問題問到 n 是好幾百——不需要等資料，因為每一週的決策所需的成分都已經在庫裡。",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "PBFA97CFB590B2093"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "mlops_policy_backtest_n{project=\"$project\",target=~\"$target\"}",
+     "legendFormat": "{{target}} t+{{horizon}} {{mode}}",
+     "instant": true,
+     "range": false,
+     "datasource": {
+      "type": "prometheus",
+      "uid": "PBFA97CFB590B2093"
+     }
+    }
+   ],
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "textMode": "auto",
+    "colorMode": "value",
+    "graphMode": "none",
+    "justifyMode": "auto"
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "decimals": 0,
+     "color": {
+      "mode": "fixed",
+      "fixedColor": "text"
+     }
+    },
+    "overrides": []
+   }
+  },
+  {
+   "type": "stat",
+   "title": "重放：贏持平多少（含 95% 區間）",
+   "gridPos": {
+    "x": 6,
+    "y": 34,
+    "w": 9,
+    "h": 6
+   },
+   "description": "點估計是負的，但配對 bootstrap 的 95% 區間**包含 0**（t+2：[−11.92%, +3.43%]，符號檢定 p=0.68）。所以可以說的話是「分不出差別」，不是「比較差」。區間如果錯是錯在太窄——週誤差的 lag-1 自相關 +0.286，而兩種程序都假設獨立。",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "PBFA97CFB590B2093"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "mlops_policy_backtest_margin_ratio{project=\"$project\",target=~\"$target\"}",
+     "legendFormat": "{{target}} t+{{horizon}} 點估計",
+     "instant": true,
+     "range": false,
+     "datasource": {
+      "type": "prometheus",
+      "uid": "PBFA97CFB590B2093"
+     }
+    },
+    {
+     "refId": "B",
+     "expr": "mlops_policy_backtest_margin_ci_low{project=\"$project\",target=~\"$target\"}",
+     "legendFormat": "{{target}} t+{{horizon}} CI 下界",
+     "instant": true,
+     "range": false,
+     "datasource": {
+      "type": "prometheus",
+      "uid": "PBFA97CFB590B2093"
+     }
+    },
+    {
+     "refId": "C",
+     "expr": "mlops_policy_backtest_margin_ci_high{project=\"$project\",target=~\"$target\"}",
+     "legendFormat": "{{target}} t+{{horizon}} CI 上界",
+     "instant": true,
+     "range": false,
+     "datasource": {
+      "type": "prometheus",
+      "uid": "PBFA97CFB590B2093"
+     }
+    }
+   ],
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "textMode": "auto",
+    "colorMode": "value",
+    "graphMode": "none",
+    "justifyMode": "auto"
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "percentunit",
+     "decimals": 2,
+     "color": {
+      "mode": "thresholds"
+     },
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "red",
+        "value": null
+       },
+       {
+        "color": "green",
+        "value": 0
+       }
+      ]
+     }
+    },
+    "overrides": []
+   }
+  },
+  {
+   "type": "stat",
+   "title": "重放：贏過持平的週數比例",
+   "gridPos": {
+    "x": 15,
+    "y": 34,
+    "w": 9,
+    "h": 6
+   },
+   "description": "50% 是擲硬幣。旁邊的 p 值是對 0.5 的雙尾精確二項檢定：t+2 是 0.68，t+1 是 0.64——兩個都遠離顯著。",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "PBFA97CFB590B2093"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "mlops_policy_backtest_win_rate{project=\"$project\",target=~\"$target\"}",
+     "legendFormat": "{{target}} t+{{horizon}} {{mode}}",
+     "instant": true,
+     "range": false,
+     "datasource": {
+      "type": "prometheus",
+      "uid": "PBFA97CFB590B2093"
+     }
+    },
+    {
+     "refId": "B",
+     "expr": "mlops_policy_backtest_sign_test_p{project=\"$project\",target=~\"$target\"}",
+     "legendFormat": "{{target}} t+{{horizon}} 符號檢定 p",
+     "instant": true,
+     "range": false,
+     "datasource": {
+      "type": "prometheus",
+      "uid": "PBFA97CFB590B2093"
+     }
+    }
+   ],
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "textMode": "auto",
+    "colorMode": "value",
+    "graphMode": "none",
+    "justifyMode": "auto"
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "percentunit",
+     "decimals": 3,
+     "color": {
+      "mode": "thresholds"
+     },
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "red",
+        "value": null
+       },
+       {
+        "color": "orange",
+        "value": 0.5
+       },
+       {
+        "color": "green",
+        "value": 0.6
+       }
+      ]
+     }
+    },
+    "overrides": []
+   }
+  }
+ ],
+ "templating": {
+  "list": [
+   {
+    "name": "project",
+    "label": "專案",
+    "type": "query",
+    "datasource": {
+     "type": "prometheus",
+     "uid": "PBFA97CFB590B2093"
+    },
+    "query": {
+     "query": "label_values(mlops_run_mae, project)",
+     "refId": "project"
+    },
+    "refresh": 1,
+    "includeAll": false,
+    "multi": false,
+    "sort": 1,
+    "current": {
+     "text": "station2-twin",
+     "value": "station2-twin",
+     "selected": true
+    },
+    "description": "ADR-0017：專案是標籤不是資料夾。第二個專案在這裡多一個選項，不是多一組看板。"
+   },
+   {
+    "name": "target",
+    "label": "預測題目",
+    "type": "query",
+    "datasource": {
+     "type": "prometheus",
+     "uid": "PBFA97CFB590B2093"
+    },
+    "query": {
+     "query": "label_values(mlops_run_mae{project=\"$project\"}, target)",
+     "refId": "target"
+    },
+    "refresh": 1,
+    "includeAll": true,
+    "multi": true,
+    "sort": 1,
+    "current": {
+     "text": "All",
+     "value": "$__all",
+     "selected": true
+    },
+    "description": "pct_ili 是類流感（syndromic，含非流感的呼吸道疾病），pct_flu 是流感本身——在這個倉庫裡是兩支不同的資料，不是同一件事的兩個名字。"
+   }
+  ]
+ }
+}

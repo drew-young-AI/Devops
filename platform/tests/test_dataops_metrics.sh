@@ -461,31 +461,44 @@ import dag
 d = duckdb.connect()
 d.execute('CREATE TABLE model_run(model_run_id INT, horizon_weeks INT, '
           'split_strategy VARCHAR, trained_at TIMESTAMP, mae DOUBLE, '
-          'baseline_persistence_mae DOUBLE, algorithm VARCHAR)')
-# t+1: an older run BEATS persistence by 10%, the newest LOSES by 30%.
+          'baseline_persistence_mae DOUBLE, algorithm VARCHAR, '
+          'feature_set_id INT)')
+# feature_set joins in from 2026-09-09: the query is keyed on the TARGET as
+# well as the horizon, because two diseases are forecast and their margins
+# differ by a factor of four. Two targets are in the fixture for that reason --
+# with one, a query that dropped the target would still pass.
+d.execute('CREATE TABLE feature_set(feature_set_id INT, target VARCHAR)')
+d.execute(chr(73)+\"NSERT INTO feature_set VALUES (10,'pct_ili'),(20,'pct_flu')\")
+# t+1 (ILI): an older run BEATS persistence by 10%, the newest LOSES by 30%.
 # max() would report +10.00; the current state is -30.00.
 d.execute(chr(73)+'NSERT INTO model_run VALUES '
-          \"(1,1,'rolling_origin','2026-08-20',0.90,1.00,'HistGradientBoostingRegressor'),\"
-          \"(2,1,'rolling_origin','2026-09-05',1.30,1.00,'Ridge'),\"
-          \"(3,2,'rolling_origin','2026-09-05',0.95,1.00,'Ridge')\")
+          \"(1,1,'rolling_origin','2026-08-20',0.90,1.00,'HistGradientBoostingRegressor',10),\"
+          \"(2,1,'rolling_origin','2026-09-05',1.30,1.00,'Ridge',10),\"
+          \"(3,2,'rolling_origin','2026-09-05',0.95,1.00,'Ridge',10),\"
+          \"(4,1,'rolling_origin','2026-09-05',0.50,1.00,'Ridge',20)\")
 d.execute('CREATE TABLE forecast(forecast_id INT, model_run_id INT, horizon_weeks INT)')
 d.execute('INSERT INTO forecast VALUES (1,1,1)')
 rows = d.execute(dag.MODEL_GATE_SQL).fetchall()
-print('SQL_ROWS', [(int(a), float(b), str(c), str(e), str(f)) for a,b,c,e,f in rows])
+print('SQL_ROWS', [(int(a), float(b), str(c), str(e), str(f), str(g))
+                  for a,b,c,e,f,g in rows])
 dag.psql = lambda sql, timeout=20: chr(10).join('|'.join(str(x) for x in r) for r in rows)
 print('REGRESSION_CASE', dag.probe_model_gate())
-dag.psql = lambda sql, timeout=20: '2|5.00|3||'
+dag.psql = lambda sql, timeout=20: '2|5.00|3|||pct_ili'
 print('WINNING_CASE', dag.probe_model_gate())
 dag.psql = lambda sql, timeout=20: None
 print('NO_DB_CASE', dag.probe_model_gate())
 "
   assert_rc 0 "probe_model_gate's SQL evaluates and the probe formats its rows"
-  assert_output_contains "SQL_ROWS [(1, -30.0, '2 Ridge', '10.00', '1')" \
+  assert_output_contains "(1, 50.0, '4 Ridge', '', '', 'pct_flu')" \
+    "the flu target gets its OWN row -- one slot per (target, horizon)"
+  assert_output_contains "(1, -30.0, '2 Ridge', '10.00', '1', 'pct_ili')" \
     "the SQL names the LATEST run at t+1 (-30.00), not the best ever (+10.00)"
-  assert_output_contains "t+1 最新 run2 Ridge -30.00%（線上 run1 +10.00%）" \
+  assert_output_contains "ili t+1 最新 run2 Ridge -30.00%（線上 run1 +10.00%）" \
     "the challenger's score, its family, and the score of the model actually serving"
-  assert_output_contains "t+2 最新 run3 Ridge" \
+  assert_output_contains "ili t+2 最新 run3 Ridge" \
     "carrying the algorithm is what stops two families sharing one slot unlabelled"
+  assert_output_contains "flu t+1 最新 run4 Ridge +50.00%" \
+    "and a healthy target does NOT mask a losing one -- both are named"
   assert_output_contains "尚未上線" \
     "a horizon with no published forecast says so instead of comparing to nothing"
   assert_output_contains "WINNING_CASE ('ok', '全數勝過持平基準" \
@@ -512,20 +525,47 @@ run_cmd python3 -c "
 import sys
 sys.path.insert(0, '$REPO_ROOT/platform/statusdag')
 import dag
-dag.psql = lambda sql, timeout=20: '1|1|1'
+# FIVE columns: horizon|target|scored|pending|won. The query gained the
+# horizon on 2026-09-08 when platform/mlops/pipeline_metrics.py became its
+# second reader, and the TARGET on 2026-09-09 when a second disease was
+# published -- until then the two targets summed into one bucket and the
+# sentence could not say which model the scored one belonged to. These stubs
+# caught BOTH changes on the day they were made, which is what a stub of a
+# query's SHAPE is for.
+dag.psql = lambda sql, timeout=20: '2|pct_ili|1|1|1'
 print('WIN_CASE', dag.probe_forecast_score())
-dag.psql = lambda sql, timeout=20: '2|0|1'
+dag.psql = lambda sql, timeout=20: '2|pct_ili|2|0|1'
 print('LOSS_CASE', dag.probe_forecast_score())
-dag.psql = lambda sql, timeout=20: '0|2|0'
+dag.psql = lambda sql, timeout=20: '2|pct_ili|0|2|0'
 print('PENDING_CASE', dag.probe_forecast_score())
 dag.psql = lambda sql, timeout=20: None
 print('NO_DB_CASE', dag.probe_forecast_score())
+# Two horizons at once: the board must SUM them, not report the first row.
+# Nothing exercised this before, because t+1 has never published anything --
+# so the summation was untested code that would first run on the day t+1
+# finally passed the gate.
+dag.psql = lambda sql, timeout=20: '1|pct_ili|3|0|2\n2|pct_ili|1|1|1'
+print('TWO_HORIZON_CASE', dag.probe_forecast_score())
+# TWO TARGETS at once. The sum is identical to the single-target case above,
+# which is the whole problem: 4 scored, 3 won reads the same whether both
+# models are mediocre or one is perfect and the other is broken. The sentence
+# must name them once more than one target has published.
+dag.psql = lambda sql, timeout=20: '2|pct_flu|2|0|2\n2|pct_ili|2|1|1'
+print('TWO_TARGET_CASE', dag.probe_forecast_score())
 "
 assert_rc 0 "probe_forecast_score classifies scored, pending and no-answer"
 assert_output_contains "WIN_CASE ('ok', '已發布預測事後評分：1/1 勝過持平基準（n=1" \
   "a scored win reports n, so 1/1 cannot be read as a track record"
 assert_output_contains "LOSS_CASE ('warn'" \
   "a published forecast that lost to persistence is amber, not green"
+assert_output_contains "TWO_HORIZON_CASE ('warn', '已發布預測事後評分：3/4 勝過持平基準" \
+  "two horizons are summed into one sentence, not reported one row deep"
+assert_output_contains "TWO_TARGET_CASE" \
+  "two targets can both publish at the same horizon"
+assert_output_contains "pct_flu t+2 2/2" \
+  "and the sentence names each target's own record, not only their sum"
+assert_output_contains "pct_ili t+2 1/2" \
+  "including the one that is doing worse, which the sum would have hidden"
 assert_output_contains "PENDING_CASE ('ok', '2 筆已發布預測的目標週尚未到" \
   "a t+2 forecast that cannot be scored yet is not a failure"
 assert_output_contains "NO_DB_CASE ('unknown'" \

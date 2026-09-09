@@ -1,0 +1,109 @@
+# Thresholds for the model layer. Judgements live here; the exporter
+# (platform/mlops/pipeline_metrics.py) emits only numbers.
+#
+# WHY THIS FILE DID NOT EXIST UNTIL 2026-09-08.
+#
+# Measured that day: Prometheus held 99 metric names, of which `devops_*` had
+# 20, `dataops_*` had 15, and anything about a model had ZERO. The mlops row on
+# the board was five green lamps and no measurement. Nothing here could have
+# fired because there was nothing to fire on.
+#
+# WHAT IS DELIBERATELY *NOT* AN ALERT, AND WHY THAT IS THE HARDER HALF.
+#
+# 1. `mlops_horizon_gate_passed{horizon="1"} == 0`.
+#    No run at t+1 has ever beaten the persistence baseline -- HGB by 12.08%,
+#    Ridge by 21.99%. That is true, important, and would fire on the first
+#    evaluation and never stop. An alert nobody can clear is a permanent red
+#    light, and this platform has already removed one of those
+#    (`IngestRunsFailing`, docs/Backlog.md §23). It belongs on the dashboard
+#    and in the board's node detail, where a standing fact reads as a standing
+#    fact.
+#
+# 2. `mlops_deployed_margin_ratio < mlops_replacement_margin_ratio`.
+#    The deployed model beats persistence by 0.55%, which is smaller than the
+#    2% a challenger must clear to REPLACE it (ADR-0016). Also true, also
+#    unclearable by an operator at 3am, also a dashboard fact rather than a
+#    page. Whether that margin is acceptable is a research question, not an
+#    incident.
+#
+# 3. Anything comparing one TARGET against another. As of 2026-09-09 the pilot
+#    forecasts influenza-like illness AND influenza, and influenza is the
+#    easier problem by a wide margin (+10.4% against persistence at t+2 versus
+#    +2.3%). That is a finding about the two diseases, not an incident about
+#    the platform.
+#
+# EVERY RULE HERE IS GROUPED BY (project, target, horizon). Aggregating the
+# target away would let a healthy influenza model mask a failing ILI one, which
+# is the most likely way this file goes quietly wrong now that there are two.
+#
+# The rule applied in both cases: alert on a TRANSITION someone can act on,
+# not on a STANDING PROPERTY of the current science. The standing properties
+# still get measured -- that is the entire point of the exporter -- they just
+# do not page.
+
+groups:
+  - name: mlops-model
+    rules:
+      # THE REGRESSION, NOT THE STATE. The deployed model beating persistence
+      # by a little is a research problem; the deployed model LOSING to
+      # persistence is an operations problem, because the published number is
+      # then worse than "assume next week looks like this week" and anyone
+      # acting on it is worse off than if the platform published nothing.
+      #
+      # 6h, not 5m: this metric only moves when the weekly retrain publishes,
+      # so a short `for` buys nothing and a scrape gap during a retrain would
+      # be the only thing it ever caught.
+      - alert: DeployedModelLosesToBaseline
+        expr: mlops_deployed_margin_ratio <= 0
+        for: 6h
+        labels:
+          severity: warning
+          service: mlops
+        annotations:
+          # The TARGET and the PROJECT are named, not just the horizon. Two
+          # diseases are forecast as of 2026-09-09 and their margins have
+          # opposite signs, so a page saying only "t+2 is losing" would leave
+          # the reader guessing which one woke them.
+          summary: "[{{ $labels.project }}] {{ $labels.target }} t+{{ $labels.horizon }} 線上模型已經輸給持平基準（margin {{ $value | humanizePercentage }}）"
+          description: >-
+            The run behind the newest published forecast no longer beats the
+            persistence baseline over its own folds. The forecast is still
+            being served: publication happened when the gate passed, and
+            nothing withdraws a published row when a later retrain gets worse.
+            Nothing else reports this -- the publish gate only runs at retrain
+            time, so between retrains a degraded champion is indistinguishable
+            from a healthy one.
+          runbook: >-
+            psql -c "SELECT model_run_id, algorithm, horizon_weeks, mae, baseline_persistence_mae FROM model_run ORDER BY model_run_id DESC LIMIT 6";
+            pilots/station2-twin/mlops/run.sh publish_forecast.py --explain-gate;
+            docs/decisions/0016-champion-challenger-replacement-margin.md
+
+      # A missed retrain is invisible from the model metrics alone: they keep
+      # their last value forever and every rule above stays green against
+      # numbers that stopped being current. The scheduler's own freshness
+      # probe covers the JOB; this covers the OUTCOME, which is not the same
+      # thing -- retrain.sh exits non-zero when the gate refuses, which is
+      # correct behaviour and leaves the model exactly as stale as a crash
+      # would.
+      #
+      # 14 days = two missed weekly retrains, matching the exporter-freshness
+      # convention of tolerating two and alerting on the third.
+      - alert: ModelNotRetrained
+        expr: >-
+          time() - max by (project, target, horizon)
+            (mlops_run_trained_timestamp_seconds) > 1209600
+        for: 1h
+        labels:
+          severity: warning
+          service: mlops
+        annotations:
+          summary: "[{{ $labels.project }}] {{ $labels.target }} t+{{ $labels.horizon }} 已經兩週沒有產生新的回測 run"
+          description: >-
+            No new rolling-origin run has been recorded at this horizon for
+            more than two weekly cycles. The published forecast and every
+            model metric keep their last values, so the board and the
+            dashboards stay green while the model ages out from under them.
+          runbook: >-
+            platform/scheduler/status.sh | grep retrain;
+            tail -40 evidence/scheduler/logs/retrain.launchd.log;
+            platform/mlops/retrain.sh

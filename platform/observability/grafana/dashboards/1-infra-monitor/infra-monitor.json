@@ -1,0 +1,563 @@
+{
+ "uid": "infra-monitor",
+ "title": "Infra 與監測",
+ "tags": [
+  "infra",
+  "monitor",
+  "platform"
+ ],
+ "timezone": "browser",
+ "schemaVersion": 39,
+ "version": 1,
+ "refresh": "1m",
+ "time": {
+  "from": "now-24h",
+  "to": "now"
+ },
+ "editable": true,
+ "description": "主機、磁碟、抓取目標、匯出器新鮮度與日誌攝入。平台層，不帶 project 標籤（ADR-0017）。門檻在 platform/observability/prometheus/alerts/ 的 host-capacity.yml 與 exporter-freshness.yml。",
+ "panels": [
+  {
+   "type": "text",
+   "title": "這一頁看什麼",
+   "gridPos": {
+    "x": 0,
+    "y": 0,
+    "w": 24,
+    "h": 4
+   },
+   "description": "",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "PBFA97CFB590B2093"
+   },
+   "targets": [],
+   "options": {
+    "mode": "markdown",
+    "content": "**這一層量的是「東西還在不在、還跑不跑得動」**，不是「上版順不順」（那在 `2-devops`）也不是「資料對不對」（那在 `3-dataops`）。\n\n**沒有 `project` 標籤，而那是刻意的**（ADR-0017）：主機只有一台、叢集只有一個，把專案標籤貼在只有一個可能值的維度上，產生的是雜訊不是資訊。換成第二個專案時這一頁不變。\n\n**這裡最重要的一格是右下的「匯出器新鮮度」。** node-exporter 會把最後一次寫成功的檔案一直供應下去，所以一個死掉的寫入器不會消失，它會**繼續回答同一個舊值**——而過期的值與穩定的值從下游看起來一模一樣。只有檔案的 mtime 會說。"
+   }
+  },
+  {
+   "type": "stat",
+   "title": "抓取目標存活",
+   "gridPos": {
+    "x": 0,
+    "y": 4,
+    "w": 6,
+    "h": 6
+   },
+   "description": "0 代表 Prometheus 抓不到那個目標。目標消失與目標健康在別的地方長得一樣，所以這一格是所有其他面板的前提：抓不到就沒有數字，而沒有數字不會變紅。",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "PBFA97CFB590B2093"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "up",
+     "legendFormat": "{{job}}",
+     "instant": true,
+     "range": false,
+     "datasource": {
+      "type": "prometheus",
+      "uid": "PBFA97CFB590B2093"
+     }
+    }
+   ],
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "textMode": "auto",
+    "colorMode": "value",
+    "graphMode": "none",
+    "justifyMode": "auto"
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "decimals": 0,
+     "custom": {
+      "lineWidth": 2,
+      "fillOpacity": 5,
+      "showPoints": "never",
+      "spanNulls": true
+     },
+     "color": {
+      "mode": "thresholds"
+     },
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "red",
+        "value": null
+       },
+       {
+        "color": "green",
+        "value": 1
+       }
+      ]
+     }
+    },
+    "overrides": []
+   }
+  },
+  {
+   "type": "stat",
+   "title": "主機磁碟可用",
+   "gridPos": {
+    "x": 6,
+    "y": 4,
+    "w": 6,
+    "h": 6
+   },
+   "description": "2026-09-03 這個數字填滿，整個平台停掉——當時有 14 條告警規則、91 個能力、777 個綠燈，沒有一個在量它（ADR-0014）。",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "PBFA97CFB590B2093"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "host_filesystem_avail_bytes",
+     "legendFormat": "{{mountpoint}}",
+     "instant": true,
+     "range": false,
+     "datasource": {
+      "type": "prometheus",
+      "uid": "PBFA97CFB590B2093"
+     }
+    }
+   ],
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "textMode": "auto",
+    "colorMode": "value",
+    "graphMode": "none",
+    "justifyMode": "auto"
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "bytes",
+     "decimals": 1,
+     "custom": {
+      "lineWidth": 2,
+      "fillOpacity": 5,
+      "showPoints": "never",
+      "spanNulls": true
+     },
+     "color": {
+      "mode": "thresholds"
+     },
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "red",
+        "value": null
+       },
+       {
+        "color": "orange",
+        "value": 20000000000.0
+       },
+       {
+        "color": "green",
+        "value": 80000000000.0
+       }
+      ]
+     }
+    },
+    "overrides": []
+   }
+  },
+  {
+   "type": "stat",
+   "title": "Docker 磁碟（配置 / 實佔）",
+   "gridPos": {
+    "x": 12,
+    "y": 4,
+    "w": 6,
+    "h": 6
+   },
+   "description": "兩個數字不一樣，而且「只增不減」這個說法在 2026-09-03 被推翻——配置量是稀疏檔的表面大小，實佔才是真的吃掉多少。",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "PBFA97CFB590B2093"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "host_docker_disk_allocated_bytes",
+     "legendFormat": "配置",
+     "instant": true,
+     "range": false,
+     "datasource": {
+      "type": "prometheus",
+      "uid": "PBFA97CFB590B2093"
+     }
+    },
+    {
+     "refId": "B",
+     "expr": "host_docker_disk_apparent_bytes",
+     "legendFormat": "實佔",
+     "instant": true,
+     "range": false,
+     "datasource": {
+      "type": "prometheus",
+      "uid": "PBFA97CFB590B2093"
+     }
+    }
+   ],
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "textMode": "auto",
+    "colorMode": "value",
+    "graphMode": "none",
+    "justifyMode": "auto"
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "bytes",
+     "decimals": 1,
+     "custom": {
+      "lineWidth": 2,
+      "fillOpacity": 5,
+      "showPoints": "never",
+      "spanNulls": true
+     },
+     "color": {
+      "mode": "fixed",
+      "fixedColor": "text"
+     }
+    },
+    "overrides": []
+   }
+  },
+  {
+   "type": "stat",
+   "title": "監測涵蓋率（全期）",
+   "gridPos": {
+    "x": 18,
+    "y": 4,
+    "w": 6,
+    "h": 6
+   },
+   "description": "有多少比例的時間我們真的在看。空窗期不會自己報告——沒有樣本的那段時間，每一條規則都是對空集合的真陳述。",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "PBFA97CFB590B2093"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "devops_health_rollup_coverage_ratio",
+     "legendFormat": "涵蓋率",
+     "instant": true,
+     "range": false,
+     "datasource": {
+      "type": "prometheus",
+      "uid": "PBFA97CFB590B2093"
+     }
+    }
+   ],
+   "options": {
+    "reduceOptions": {
+     "calcs": [
+      "lastNotNull"
+     ],
+     "fields": "",
+     "values": false
+    },
+    "textMode": "auto",
+    "colorMode": "value",
+    "graphMode": "none",
+    "justifyMode": "auto"
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "percentunit",
+     "decimals": 3,
+     "custom": {
+      "lineWidth": 2,
+      "fillOpacity": 5,
+      "showPoints": "never",
+      "spanNulls": true
+     },
+     "color": {
+      "mode": "thresholds"
+     },
+     "thresholds": {
+      "mode": "absolute",
+      "steps": [
+       {
+        "color": "red",
+        "value": null
+       },
+       {
+        "color": "orange",
+        "value": 0.9
+       },
+       {
+        "color": "green",
+        "value": 0.98
+       }
+      ]
+     }
+    },
+    "overrides": []
+   }
+  },
+  {
+   "type": "timeseries",
+   "title": "抓取目標存活歷程",
+   "gridPos": {
+    "x": 0,
+    "y": 10,
+    "w": 12,
+    "h": 9
+   },
+   "description": "掉下去再回來是重啟；掉下去不回來是目標被刪掉而規則還在——那種情況下監測看起來最健康的時刻，正是它停止監測任何東西的時刻。",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "PBFA97CFB590B2093"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "up",
+     "legendFormat": "{{job}} ({{instance}})",
+     "instant": false,
+     "range": true,
+     "datasource": {
+      "type": "prometheus",
+      "uid": "PBFA97CFB590B2093"
+     }
+    }
+   ],
+   "options": {
+    "legend": {
+     "displayMode": "list",
+     "placement": "bottom",
+     "showLegend": true
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "decimals": 0,
+     "custom": {
+      "lineWidth": 2,
+      "fillOpacity": 5,
+      "showPoints": "never",
+      "spanNulls": true
+     },
+     "color": {
+      "mode": "fixed",
+      "fixedColor": "text"
+     }
+    },
+    "overrides": []
+   }
+  },
+  {
+   "type": "timeseries",
+   "title": "主機磁碟可用歷程",
+   "gridPos": {
+    "x": 12,
+    "y": 10,
+    "w": 12,
+    "h": 9
+   },
+   "description": "斜率比絕對值重要：單調下降的線在撞到門檻之前就該處理，而單點快照永遠只會說「還有空間」。",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "PBFA97CFB590B2093"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "host_filesystem_avail_bytes",
+     "legendFormat": "{{mountpoint}}",
+     "instant": false,
+     "range": true,
+     "datasource": {
+      "type": "prometheus",
+      "uid": "PBFA97CFB590B2093"
+     }
+    }
+   ],
+   "options": {
+    "legend": {
+     "displayMode": "list",
+     "placement": "bottom",
+     "showLegend": true
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "bytes",
+     "decimals": 1,
+     "custom": {
+      "lineWidth": 2,
+      "fillOpacity": 5,
+      "showPoints": "never",
+      "spanNulls": true
+     },
+     "color": {
+      "mode": "fixed",
+      "fixedColor": "text"
+     }
+    },
+    "overrides": []
+   }
+  },
+  {
+   "type": "timeseries",
+   "title": "匯出器新鮮度（檔案幾秒沒被重寫）",
+   "gridPos": {
+    "x": 0,
+    "y": 19,
+    "w": 12,
+    "h": 9
+   },
+   "description": "node-exporter 會把最後一次寫成功的檔案一直供應下去。寫入器死了，指標不會不見，它會停在一個曾經是真的值上——而下游分不出過期與穩定。`TextfileExporterStale` 的門檻是各自寫入週期的 3 倍。",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "PBFA97CFB590B2093"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "time() - node_textfile_mtime_seconds",
+     "legendFormat": "{{file}}",
+     "instant": false,
+     "range": true,
+     "datasource": {
+      "type": "prometheus",
+      "uid": "PBFA97CFB590B2093"
+     }
+    }
+   ],
+   "options": {
+    "legend": {
+     "displayMode": "list",
+     "placement": "bottom",
+     "showLegend": true
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "s",
+     "decimals": 0,
+     "custom": {
+      "lineWidth": 2,
+      "fillOpacity": 5,
+      "showPoints": "never",
+      "spanNulls": true
+     },
+     "color": {
+      "mode": "fixed",
+      "fixedColor": "text"
+     }
+    },
+    "overrides": []
+   }
+  },
+  {
+   "type": "timeseries",
+   "title": "日誌攝入",
+   "gridPos": {
+    "x": 12,
+    "y": 19,
+    "w": 12,
+    "h": 9
+   },
+   "description": "行數停止成長代表沒有東西在送日誌，而那與「系統很安靜」在圖上一樣。串流數是另一半：串流暴增通常是標籤基數失控，不是流量變大。",
+   "datasource": {
+    "type": "prometheus",
+    "uid": "PBFA97CFB590B2093"
+   },
+   "targets": [
+    {
+     "refId": "A",
+     "expr": "rate(devops_loki_lines_received_total[15m])",
+     "legendFormat": "行/秒",
+     "instant": false,
+     "range": true,
+     "datasource": {
+      "type": "prometheus",
+      "uid": "PBFA97CFB590B2093"
+     }
+    },
+    {
+     "refId": "B",
+     "expr": "devops_loki_streams_total",
+     "legendFormat": "串流數",
+     "instant": false,
+     "range": true,
+     "datasource": {
+      "type": "prometheus",
+      "uid": "PBFA97CFB590B2093"
+     }
+    }
+   ],
+   "options": {
+    "legend": {
+     "displayMode": "list",
+     "placement": "bottom",
+     "showLegend": true
+    },
+    "tooltip": {
+     "mode": "multi",
+     "sort": "desc"
+    }
+   },
+   "fieldConfig": {
+    "defaults": {
+     "unit": "short",
+     "decimals": 2,
+     "custom": {
+      "lineWidth": 2,
+      "fillOpacity": 5,
+      "showPoints": "never",
+      "spanNulls": true
+     },
+     "color": {
+      "mode": "fixed",
+      "fixedColor": "text"
+     }
+    },
+    "overrides": []
+   }
+  }
+ ]
+}

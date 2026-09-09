@@ -80,7 +80,7 @@ if [ "$SEVERITY" != "info" ]; then
   MAILER="$REPO_ROOT/platform/notify/send_mail.sh"
   if [ -x "$MAILER" ]; then
     printf '%s\n\n%s\n' "$SUMMARY" \
-      "排程工作 $JOB 由 $OLD 轉為 $NEW（$AT）。這是一次狀態轉換，不會重送。" \
+      "排程工作 $JOB 由 $OLD 轉為 ${NEW}（${AT}）。這是一次狀態轉換，不會重送。" \
       | "$MAILER" "[DevOps] $JOB: $OLD -> $NEW" >/dev/null 2>&1 \
       || true
   fi

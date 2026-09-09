@@ -32,59 +32,42 @@ assert_rc 0 "the committed dashboards pass the audit"
 # error or empty result -- which is the only thing that would have caught the
 # datasource defect at the time it was introduced.
 GRAFANA_ENV="$REPO_ROOT/platform/observability/.grafana.env"
-if [ -f "$GRAFANA_ENV" ] && curl -s -m 5 -o /dev/null http://127.0.0.1:13000/api/health; then
-  # Credentials come from the gitignored env file and are never echoed, never
-  # passed as argv (ps(1) is readable by every process on this machine).
-  set -a; . "$GRAFANA_ENV"; set +a
-  run_cmd python3 - "$REAL_DIR" <<'PY'
-import base64, glob, json, os, sys, urllib.error, urllib.request
+RENDER="$REPO_ROOT/platform/observability/scripts/verify_dashboard_render.py"
+assert_file_exists "$RENDER" "verify_dashboard_render.py exists"
 
-auth = base64.b64encode(
-    f"{os.environ['GF_SECURITY_ADMIN_USER']}:"
-    f"{os.environ['GF_SECURITY_ADMIN_PASSWORD']}".encode()).decode()
-bad = 0
-for path in sorted(glob.glob(os.path.join(sys.argv[1], "*.json"))):
-    dash = json.load(open(path, encoding="utf-8"))
-    queries, titles = [], []
-    for panel in dash.get("panels", []):
-        for t in panel.get("targets", []):
-            if not t.get("expr"):
-                continue
-            queries.append({"refId": chr(65 + len(queries)),
-                            "datasource": t["datasource"],
-                            "expr": t["expr"], "instant": True})
-            titles.append(panel.get("title", "?"))
-    if not queries:
-        continue
-    req = urllib.request.Request(
-        "http://127.0.0.1:13000/api/ds/query",
-        data=json.dumps({"queries": queries, "from": "now-5m",
-                         "to": "now"}).encode(),
-        headers={"Content-Type": "application/json",
-                 "Authorization": "Basic " + auth})
-    try:
-        res = json.load(urllib.request.urlopen(req, timeout=25))["results"]
-    except urllib.error.HTTPError as e:
-        print(f"HTTP {e.code} querying {os.path.basename(path)}")
-        bad += 1
-        continue
-    for (ref, out), title in zip(sorted(res.items()), titles):
-        if out.get("error"):
-            print(f"ERROR {os.path.basename(path)} :: {title} :: "
-                  f"{out['error'][:90]}")
-            bad += 1
-        elif not out.get("frames"):
-            # Empty is not automatically wrong -- a panel can legitimately have
-            # no series right now -- but on THIS platform every dashboard panel
-            # is meant to describe something that always exists, so empty is
-            # reported and judged rather than ignored.
-            print(f"EMPTY {os.path.basename(path)} :: {title}")
-            bad += 1
-print(f"PANELS_FAILING={bad}")
-PY
-  assert_rc 0 "every dashboard query runs through Grafana"
-  assert_output_contains "PANELS_FAILING=0" \
-    "and every panel returns data rather than an empty frame"
+# ONE IMPLEMENTATION, NOT TWO (2026-09-09).
+#
+# This block used to carry its own copy of the live-panel check: build the
+# queries, POST them to /api/ds/query, count empty frames. It found the
+# dashboards with `glob("<dir>/*.json")`. When the dashboards moved into
+# per-discipline subdirectories (ADR-0017) that glob matched NOTHING, and the
+# check went on printing `PANELS_FAILING=0` while querying zero panels --
+# the third time this repository has hit "a scan that examined nothing reports
+# the same as one that examined everything", and the second time in this one
+# file.
+#
+# The lesson is not "fix the glob again". Two copies of one check diverge, and
+# the copy nobody looks at is the one that starts lying. The walk, the empty
+# refusal and the Prometheus/Loki endpoint split now live in ONE script, which
+# is also runnable by a human, and this suite calls it.
+if [ -f "$GRAFANA_ENV" ] && curl -s -m 5 -o /dev/null http://127.0.0.1:13000/api/health; then
+  # Credentials stay inside the script, which reads the gitignored env file
+  # itself: never echoed, never passed as argv (ps(1) is world-readable here).
+  run_cmd python3 "$RENDER"
+  assert_rc 0 "every panel query runs through Grafana's own auth and proxy"
+  assert_output_contains "0 failed" \
+    "and none of them errors -- a wrong datasource uid or an unreachable "\
+"backend shows as empty panels and no error anywhere"
+  # The denominator is asserted, not just printed. A future reorganisation that
+  # hides the dashboards again must turn this red instead of quietly passing.
+  PANELS="$(grep -oE '[0-9]+ panel quer' "$LAST_STDOUT" | grep -oE '^[0-9]+')"
+  assert_rc 0 "the render check reports how many panels it actually ran"
+  if [ "${PANELS:-0}" -ge 20 ]; then
+    assert_equals "yes" "yes" "it ran $PANELS panel queries, not zero"
+  else
+    assert_equals "at least 20 panels" "$PANELS panels" \
+      "a render check that examined almost nothing is refused, not reported clean"
+  fi
 else
   echo "  SKIP  Grafana not reachable -- live panel rendering is UNVERIFIED"
 fi
@@ -94,12 +77,17 @@ FIX="$(mktemp -d)"
 cleanup() { rm -rf "$FIX"; }
 on_exit cleanup
 
-reset_fixture() { rm -rf "${FIX:?}"/*; cp "$REAL_DIR"/*.json "$FIX/"; }
+# `cp -R "$REAL_DIR"/. ` and not `cp "$REAL_DIR"/*.json`: on 2026-09-09 the
+# dashboards moved into per-discipline subdirectories (ADR-0017) and the flat
+# glob matched nothing, so every fixture case ran against an EMPTY directory.
+# The audit's own empty-scan refusal is what surfaced it; before that guard
+# existed the cases would have gone quietly green against no input.
+reset_fixture() { rm -rf "${FIX:?}"/*; cp -R "$REAL_DIR"/. "$FIX/"; }
 
 # A mutation that the audit does NOT catch is worse than no audit: it is a
 # green light with nothing behind it.
 mutate() {   # <name> <python-snippet-on-`d`> <expected-substring> <file>
-  local label="$1" code="$2" want="$3" file="${4:-platform-stages.json}"
+  local label="$1" code="$2" want="$3" file="${4:-0-overview/platform-stages.json}"
   reset_fixture
   python3 - "$FIX/$file" <<PY
 import json, sys, pathlib
@@ -116,6 +104,35 @@ PY
     _fail "catches: $label" "audit did not report it. output: ${out:-<empty>}"
   fi
 }
+
+# ---- the audit must refuse an empty scan ----------------------------------
+#
+# This is not hypothetical. On 2026-09-09 the dashboards moved into
+# per-discipline subdirectories and the audit -- which listed one level -- went
+# from checking five dashboards to checking zero, and printed
+# "0 problem(s), 0 unverified". A clean run and a run that examined nothing are
+# the same sentence. Three separate guards on this platform have now hit that
+# shape (an empty grep, a collapsed capability walk, this), so it is asserted
+# rather than remembered.
+EMPTY_DIR="$(mktemp -d)"
+run_cmd env DASHBOARDS_DIR="$EMPTY_DIR" python3 "$AUDIT"
+assert_rc 1 "an audit that finds NO dashboards fails instead of reporting clean"
+assert_output_contains "no dashboards found" "and says that is why"
+rmdir "$EMPTY_DIR"
+
+# ---- folders are disciplines, projects are labels (ADR-0017) --------------
+#
+# The provider maps subdirectories to Grafana folders, so the directory layout
+# IS the folder layout and there is no second list to keep in agreement. What
+# a test can still catch is a dashboard dropped at the top level, which would
+# land in Grafana's General folder and be invisible to anyone browsing by
+# discipline.
+TOP_LEVEL="$(find "$REAL_DIR" -maxdepth 1 -name '*.json' | wc -l | tr -d ' ')"
+assert_equals "0" "$TOP_LEVEL" \
+  "no dashboard sits outside a discipline folder (it would land in General)"
+run_cmd grep -c 'foldersFromFilesStructure: true' \
+  "$REPO_ROOT/platform/observability/grafana/provisioning/dashboards/dashboards.yml"
+assert_rc 0 "the provider derives folders from the directory structure"
 
 mutate "a datasource uid that is not provisioned" \
   'd["panels"][0]["targets"][0]["datasource"]["uid"] = "prometheus"' \

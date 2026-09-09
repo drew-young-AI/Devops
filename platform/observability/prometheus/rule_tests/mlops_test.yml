@@ -1,0 +1,141 @@
+# Synthetic control for the two mlops alerts.
+#
+# WHY EVALUATION AND NOT `promtool check rules` (ADR-0007).
+#
+# WidespreadGeoDrift shipped on 2026-08-28 without an explicit `group_left`.
+# It PARSED, `check rules` said SUCCESS, and every evaluation failed for 11
+# hours -- configured-looking and unable to fire. `ModelNotRetrained` uses
+# `max by (horizon)`, an aggregation that silently drops every other label; if
+# the alert's annotations referred to a label the aggregation removed, it
+# would render as an empty string in the page someone reads at 3am. Only an
+# evaluation shows that.
+#
+# THE SILENT CASES CARRY THE WEIGHT HERE. Two of the five cases assert that
+# nothing fires, and they encode the two facts this platform must NOT page
+# about: t+1 has never passed the gate, and the deployed model beats
+# persistence by less than the replacement margin. Both are true today. An
+# alert that fired on either would be red from its first evaluation forever.
+
+rule_files:
+  - ../alerts/mlops.yml
+
+evaluation_interval: 1m
+
+tests:
+  # ---- the regression: deployed model drops to losing --------------------
+  - interval: 1m
+    input_series:
+      - series: 'mlops_deployed_margin_ratio{project="p1",target="pct_ili",horizon="2"}'
+        values: "-0.03x400"
+    alert_rule_test:
+      - eval_time: 361m
+        alertname: DeployedModelLosesToBaseline
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              service: mlops
+              project: "p1"
+              target: "pct_ili"
+              horizon: "2"
+            exp_annotations:
+              summary: "[p1] pct_ili t+2 線上模型已經輸給持平基準（margin -3%）"
+              description: >-
+                The run behind the newest published forecast no longer beats the persistence baseline over its own folds. The forecast is still being served: publication happened when the gate passed, and nothing withdraws a published row when a later retrain gets worse. Nothing else reports this -- the publish gate only runs at retrain time, so between retrains a degraded champion is indistinguishable from a healthy one.
+              runbook: >-
+                psql -c "SELECT model_run_id, algorithm, horizon_weeks, mae, baseline_persistence_mae FROM model_run ORDER BY model_run_id DESC LIMIT 6"; pilots/station2-twin/mlops/run.sh publish_forecast.py --explain-gate; docs/decisions/0016-champion-challenger-replacement-margin.md
+
+  # ---- exactly zero counts as losing -------------------------------------
+  # `<= 0`, not `< 0`. A model that ties persistence has bought nothing and
+  # costs a training pipeline; the boundary is the one place an off-by-one in
+  # a comparison operator never shows up in normal operation.
+  - interval: 1m
+    input_series:
+      - series: 'mlops_deployed_margin_ratio{project="p1",target="pct_ili",horizon="1"}'
+        values: "0x400"
+    alert_rule_test:
+      - eval_time: 361m
+        alertname: DeployedModelLosesToBaseline
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              service: mlops
+              project: "p1"
+              target: "pct_ili"
+              horizon: "1"
+            exp_annotations:
+              summary: "[p1] pct_ili t+1 線上模型已經輸給持平基準（margin 0%）"
+              description: >-
+                The run behind the newest published forecast no longer beats the persistence baseline over its own folds. The forecast is still being served: publication happened when the gate passed, and nothing withdraws a published row when a later retrain gets worse. Nothing else reports this -- the publish gate only runs at retrain time, so between retrains a degraded champion is indistinguishable from a healthy one.
+              runbook: >-
+                psql -c "SELECT model_run_id, algorithm, horizon_weeks, mae, baseline_persistence_mae FROM model_run ORDER BY model_run_id DESC LIMIT 6"; pilots/station2-twin/mlops/run.sh publish_forecast.py --explain-gate; docs/decisions/0016-champion-challenger-replacement-margin.md
+
+  # ---- TODAY'S REAL VALUE MUST STAY SILENT -------------------------------
+  # 0.0055 -- the deployed model beats persistence by 0.55%, which is less
+  # than the 2% replacement margin. That is a research finding, not an
+  # incident, and it is exactly the input that would make a carelessly
+  # written rule ("margin below the replacement threshold") fire forever.
+  - interval: 1m
+    input_series:
+      - series: 'mlops_deployed_margin_ratio{project="p1",target="pct_ili",horizon="2"}'
+        values: "0.00554847508365536x400"
+      - series: 'mlops_replacement_margin_ratio'
+        values: "0.02x400"
+    alert_rule_test:
+      - eval_time: 361m
+        alertname: DeployedModelLosesToBaseline
+        exp_alerts: []
+
+  # ---- t+1 has NEVER passed the gate, and that must not page -------------
+  - interval: 1m
+    input_series:
+      - series: 'mlops_horizon_gate_passed{project="p1",target="pct_ili",horizon="1"}'
+        values: "0x400"
+      - series: 'mlops_runs_total{project="p1",target="pct_ili",horizon="1"}'
+        values: "3x400"
+    alert_rule_test:
+      - eval_time: 361m
+        alertname: DeployedModelLosesToBaseline
+        exp_alerts: []
+      - eval_time: 361m
+        alertname: ModelNotRetrained
+        exp_alerts: []
+
+  # ---- staleness: two missed weekly retrains -----------------------------
+  # The series carries a FIXED timestamp while promtool's clock advances from
+  # epoch 0, so the alert must be read at an eval_time past the threshold.
+  # Written as a constant 0 (trained at the epoch) so the arithmetic is
+  # `time() - 0 > 1209600`, i.e. it fires once eval_time passes 14 days.
+  #
+  # INTERVAL 4m, NOT 1h, AND THAT IS NOT A STYLE CHOICE. Written with a
+  # one-hour interval this case produced NO alert and looked like a broken
+  # rule. The rule was fine: Prometheus's lookback is 5 minutes, so samples an
+  # hour apart make the series STALE at every evaluation that is not within
+  # five minutes of one -- the expression was evaluating against an empty
+  # vector. A synthetic control whose sample spacing exceeds the lookback
+  # tests the harness, not the rule.
+  - interval: 4m
+    input_series:
+      - series: 'mlops_run_trained_timestamp_seconds{project="p1",target="pct_ili",horizon="2",algorithm="HistGradientBoostingRegressor",feature_set="55"}'
+        values: "0x5500"
+    alert_rule_test:
+      # 13 days: still inside tolerance, one missed cycle.
+      - eval_time: 312h
+        alertname: ModelNotRetrained
+        exp_alerts: []
+      # 15 days + the 1h `for`: fires, and the aggregation must have KEPT the
+      # horizon label or this comparison fails.
+      - eval_time: 360h
+        alertname: ModelNotRetrained
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              service: mlops
+              project: "p1"
+              target: "pct_ili"
+              horizon: "2"
+            exp_annotations:
+              summary: "[p1] pct_ili t+2 已經兩週沒有產生新的回測 run"
+              description: >-
+                No new rolling-origin run has been recorded at this horizon for more than two weekly cycles. The published forecast and every model metric keep their last values, so the board and the dashboards stay green while the model ages out from under them.
+              runbook: >-
+                platform/scheduler/status.sh | grep retrain; tail -40 evidence/scheduler/logs/retrain.launchd.log; platform/mlops/retrain.sh

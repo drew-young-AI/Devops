@@ -51,6 +51,89 @@ platform/observability/check_health.sh          # deterministic verdict
 | Alertmanager | `19093` | alert grouping, dedup, silencing |
 | Alloy | — | ships Docker logs to Loki |
 
+## 看板怎麼分類：資料夾是學科，專案是標籤（2026-09-09）
+
+**磁碟上的目錄結構就是 Grafana 裡的資料夾結構。** provisioning 用
+`foldersFromFilesStructure: true`（見
+[`grafana/provisioning/dashboards/dashboards.yml`](grafana/provisioning/dashboards/dashboards.yml)），
+所以沒有第二份清單要跟磁碟對齊——**改目錄就是改 UI**。
+
+| 資料夾 | 看板 | 這一格回答什麼 |
+|---|---|---|
+| `0-overview/` | 三線階段燈號 | 索引，不是第五個學科。它同時橫跨三條線，歸在任何一條，另外兩條的讀者就找不到 |
+| `1-infra-monitor/` | Infra 與監測 | 主機、磁碟、抓取目標存活、匯出器新鮮度、日誌攝入 |
+| `2-devops/` | DevOps Overview | 上版狀況：兩份副本、schema 版本、CI／發行、錯誤率 |
+| `3-dataops/` | DataOps 管線 | 資料狀況：抓取、契約、缺口、鏡像 |
+| `4-mlops/` | MLOps 模型 | 模型評估與**事後評分**——公衛疾病預測的即時面板 |
+
+**數字前綴是刻意的。** Grafana 只能按字母排序資料夾，而且對 provisioned
+資料夾不提供排序控制。沒有前綴時清單讀起來是 DataOps／DevOps／Infra／
+MLOps／Overview——照字母排，作為一個順序毫無意義。加了前綴之後，清單的順序
+就是工作真正流過平台的順序。
+
+**專案不出現在這裡。** 第二個專案是 `$project` 下拉選單裡的一個值，不是
+第二棵資料夾樹——理由與算術見
+[ADR-0017](../../docs/decisions/0017-project-separation-is-a-label-not-a-folder.md)：
+四張看板維持四張，而不是先變八張、再變二十張。`mlops_*` 全系列都帶
+`project` 與 `target` 標籤；主機與叢集層**刻意不帶**，因為一個只有一個值的
+維度是雜訊不是資訊。
+
+### 怎麼驗這一節沒有說謊
+
+```bash
+# 磁碟上的分類
+ls platform/observability/grafana/dashboards/*/
+
+# Grafana 裡真正存在的分類（要 .grafana.env 的憑證）
+set -a && . platform/observability/.grafana.env && set +a
+curl -s -u "$GF_SECURITY_ADMIN_USER:$GF_SECURITY_ADMIN_PASSWORD" \
+  http://localhost:13000/api/search?limit=50
+
+# 每一張看板的查詢都指得到真的存在的指標與資料源（靜態，不連 Grafana）
+python3 platform/tests/dashboard_audit.py    # 會印出稽核了幾張，不只印 0 problems
+
+# 每一個面板真的畫得出東西（動態，走 Grafana 自己的認證與 proxy）
+python3 platform/observability/scripts/verify_dashboard_render.py
+```
+
+### 兩支檢查的差別，以及為什麼兩支都要
+
+| | `dashboard_audit.py` | `verify_dashboard_render.py` |
+|---|---|---|
+| 讀什麼 | 磁碟上的 JSON | **Grafana 自己** |
+| 證得到 | 指標名有人產生、datasource uid 有 provisioned、值對照與 `dag.RANK` 一致 | 認證通得過、uid 解析得到、Grafana 的容器**連得到** Prometheus／Loki、查詢真的回傳序列 |
+| 證不到 | Grafana 現在能不能用 | JSON 裡的常數有沒有過期 |
+
+**靜態那支會在一台正在拒絕每一次登入的 Grafana 上通過。** 憑證壞掉、
+datasource 連不到後端、容器網路斷掉——這三種都會產生一整面空面板而**任何
+地方都不會報錯**，而磁碟上的 JSON 完全正確。動態那支跑的是
+`/api/datasources/proxy/uid/<uid>/…`，那正是一個真的被畫出來的面板走的路；
+直接 `curl localhost:19090` 一條都證不到。
+
+實測：**5 張看板、61 個面板查詢，61 個回傳資料**。憑證取自
+`.grafana.env`（gitignored，來源是 Vault），腳本不印出其中任何內容。
+
+**它自己的第一次執行就示範了為什麼要分辨自己的缺陷與系統的缺陷**：
+`Container Logs` 是 Loki 面板，被送去 Prometheus 的 `/api/v1/query` 而得到
+一個沒有任何提示的 404，第一版把它報成壞掉的面板。Loki 的 log query 還必須
+走 `query_range`——instant 會被明確拒絕。**一支分不出這兩者的驗證程式，
+比沒有驗證程式更糟。**
+
+**稽核會印出分母。** `dashboard_audit.py` 說的是「5 dashboard(s) audited,
+0 problem(s)」而不只是「0 problem(s)」——因為這個目錄搬過一次家之後，
+`os.listdir` 只掃第一層、**稽核了零張看板、印出一模一樣的乾淨結果**。
+拒絕零已經補上（`refuse_empty()`），但 1 張和 5 張仍然印一樣，所以分母
+現在寫在句子裡。
+
+### 一個搬家留下的孤兒（2026-09-09 清掉）
+
+舊 provider 叫 `DevOps`，它在 Grafana 裡建了一個同名資料夾。改成
+`foldersFromFilesStructure` 之後，看板全部搬進五個新資料夾，**而那個空的
+`DevOps` 資料夾留在原地**——provisioning 不會刪除它自己不再管理的東西。
+UI 上看起來像第六個分類，點進去什麼都沒有。用
+`DELETE /api/folders/<uid>` 清掉。**這是 provisioning 的通則：它保證它宣告
+的東西存在，不保證它沒宣告的東西不存在。**
+
 ## Alerting — why it exists
 
 Before this, "is the service healthy" was answered by a human looking at a

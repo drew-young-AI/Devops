@@ -58,14 +58,49 @@ NAME_RE = re.compile(r"[a-zA-Z_:][a-zA-Z0-9_:]*")
 # Label matchers and string literals must be stripped first, or label VALUES
 # (e.g. state="ok") get mistaken for metric names.
 STRIP_RE = re.compile(r'"[^"]*"' r"|'[^']*'" r"|\{[^}]*\}" r"|\[[^\]]*\]")
+# GROUPING LABEL LISTS TOO. `by`, `without`, `on`, `ignoring` and the two
+# group_ modifiers are in PROMQL_WORDS, but the bare label names inside their
+# parentheses are not -- so `max by (horizon) (x)` reported `horizon` as a
+# metric that nothing produces. Found 2026-09-08 by the first dashboard that
+# aggregated: this checker had never seen a `by (...)` in a panel, so the gap
+# was invisible while it was also harmless. It is a FALSE POSITIVE, which is
+# the more corrosive kind here -- an audit that fails on correct input is one
+# people learn to argue with.
+GROUPING_RE = re.compile(
+    r"\b(?:by|without|on|ignoring|group_left|group_right)\s*\([^)]*\)")
 
 
 def dashboards():
-    for f in sorted(os.listdir(DASH_DIR)):
-        if f.endswith(".json"):
-            path = os.path.join(DASH_DIR, f)
+    """Every dashboard under the mount, at ANY depth.
+
+    It was `os.listdir` -- one level. On 2026-09-09 the dashboards moved into
+    per-discipline subdirectories (ADR-0017) and this function returned an
+    empty list: the audit reported "0 problems" while auditing NOTHING, which
+    is the most expensive possible output because it is indistinguishable from
+    a clean run. `refuse_empty()` below is why it can never do that again.
+    """
+    for root, _dirs, files in os.walk(DASH_DIR):
+        for f in sorted(files):
+            if not f.endswith(".json"):
+                continue
+            path = os.path.join(root, f)
             with open(path, encoding="utf-8") as fh:
-                yield f, json.load(fh)
+                yield os.path.relpath(path, DASH_DIR), json.load(fh)
+
+
+def refuse_empty(found):
+    """A scan that examined nothing must not report success.
+
+    This platform has hit the shape three times now -- an empty grep, a
+    collapsed capability walk, and now a directory listing that stopped
+    matching after a reorganisation. Every one of them printed a clean result.
+    """
+    if found:
+        return
+    print(f"FAIL  no dashboards found under {DASH_DIR}. An audit that examined "
+          f"nothing reports the same 'clean' as an audit that examined "
+          f"everything -- refusing rather than passing.")
+    sys.exit(1)
 
 
 def provisioned_uids():
@@ -95,15 +130,49 @@ def referenced_uids(dash):
     return out
 
 
+def template_values(dash):
+    """name -> a concrete value, from the dashboard's own templating block.
+
+    Needed because a query containing `$project` is sent to Prometheus
+    verbatim by the live check below and matches nothing -- so a correct
+    project-scoped panel (ADR-0017) would be reported as drawing no data. The
+    value comes from the dashboard's declared `current`, so the audit checks
+    the query a viewer actually gets on first open.
+    """
+    out = {}
+    for v in (dash.get("templating") or {}).get("list", []):
+        name = v.get("name")
+        cur = (v.get("current") or {}).get("value")
+        if isinstance(cur, list):
+            cur = cur[0] if cur else None
+        if name and cur:
+            out[name] = cur
+    return out
+
+
+def substitute(expr, values):
+    for name, val in values.items():
+        # Grafana's "All" is the sentinel `$__all`, which it expands to a
+        # regex matching everything. Passed through literally it matches
+        # nothing, so a correct multi-value panel would be reported as drawing
+        # no data -- the false positive being the expensive kind, because an
+        # audit that fails on correct input is one people learn to argue with.
+        text = ".*" if str(val) == "$__all" else str(val)
+        expr = expr.replace("${%s}" % name, text).replace("$" + name, text)
+    return expr
+
+
 def exprs(dash):
+    values = template_values(dash)
     for p in dash.get("panels", []):
         for t in p.get("targets", []):
             if t.get("expr"):
-                yield p.get("title", "?"), t["expr"]
+                yield p.get("title", "?"), substitute(t["expr"], values)
 
 
 def metric_names(expr):
-    return {n for n in NAME_RE.findall(STRIP_RE.sub(" ", expr))
+    cleaned = GROUPING_RE.sub(" ", STRIP_RE.sub(" ", expr))
+    return {n for n in NAME_RE.findall(cleaned)
             if n not in PROMQL_WORDS and not n.isdigit()}
 
 
@@ -173,7 +242,9 @@ def audit():
     rank = rank_from_dag()
     seen_uid = {}
 
-    for name, dash in dashboards():
+    found = list(dashboards())
+    refuse_empty(found)
+    for name, dash in found:
         duid = dash.get("uid")
         if duid in seen_uid:
             problems.append(f"{name}: dashboard uid {duid!r} also used by "
@@ -225,14 +296,19 @@ def audit():
                         "RANK reorders when a state is inserted -- SUPERSEDED "
                         "already did that once -- and a stale mapping labels "
                         "every band wrong while still rendering.")
-    return problems, unverified
+    return problems, unverified, len(found)
 
 
 if __name__ == "__main__":
-    probs, unver = audit()
+    probs, unver, n = audit()
     for p in probs:
         print("  FAIL  " + p)
     for u in unver:
         print("  UNVERIFIED  " + u)
-    print(f"{len(probs)} problem(s), {len(unver)} unverified")
+    # THE DENOMINATOR IS PART OF THE RESULT. refuse_empty() stops a scan of
+    # zero from passing, but 1 dashboard and 5 dashboards still printed the
+    # identical "0 problem(s)". A reader cannot tell a shrinking audit from a
+    # healthy one without the count, so the count is in the sentence.
+    print(f"{n} dashboard(s) audited, {len(probs)} problem(s), "
+          f"{len(unver)} unverified")
     sys.exit(1 if probs else 0)

@@ -69,6 +69,12 @@ SUITES=(
   # and can never fire -- so the thing it claims to watch reads as permanently
   # healthy. That suite joins the rules against the exporter's actual output.
   test_dataops_metrics.sh
+  # The same join for the model layer, added 2026-09-08 after a measurement:
+  # Prometheus held 99 metric names, of which devops_* had 20, dataops_* had
+  # 15, and anything about a model had ZERO. The mlops row on the board was
+  # five green lamps over nothing measured -- which is invisible precisely
+  # because the lamps were green.
+  test_mlops_metrics.sh
   # The mlops half: a schema that says "many models" while the code had one,
   # hardcoded, with its name retyped as a literal in three places. This suite
   # asserts a SECOND family is registered and runnable, and that an

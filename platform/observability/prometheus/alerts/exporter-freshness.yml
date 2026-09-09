@@ -78,6 +78,7 @@ groups:
       #   host_disk.prom        disk            300        900
       #   dag.prom              dag             900        2700
       #   dataops.prom          dataops         3600       10800
+      #   mlops.prom            mlopsmetrics    3600       10800
       #   health_rollup.prom    rollup          3600       10800
       #   loki_coverage.prom    logcov          3600       10800
       #   dast_coverage.prom    dastcov         86400      259200
@@ -86,6 +87,7 @@ groups:
           (time() - node_textfile_mtime_seconds{file=~"(.*/)?host_disk\\.prom"} > 900)
           or (time() - node_textfile_mtime_seconds{file=~"(.*/)?dag\\.prom"} > 2700)
           or (time() - node_textfile_mtime_seconds{file=~"(.*/)?dataops\\.prom"} > 10800)
+          or (time() - node_textfile_mtime_seconds{file=~"(.*/)?mlops\\.prom"} > 10800)
           or (time() - node_textfile_mtime_seconds{file=~"(.*/)?health_rollup\\.prom"} > 10800)
           or (time() - node_textfile_mtime_seconds{file=~"(.*/)?loki_coverage\\.prom"} > 10800)
           or (time() - node_textfile_mtime_seconds{file=~"(.*/)?dast_coverage\\.prom"} > 259200)

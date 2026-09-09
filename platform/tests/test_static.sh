@@ -409,6 +409,52 @@ scan_bsd_sed() {  # <root...> -- prints the basenames that use the macOS form
 assert_equals "" "$(scan_bsd_sed "$REPO_ROOT/platform" "$REPO_ROOT/pilots")" \
   "the macOS-only in-place edit form is confined to the one helper that knows both"
 
+# ---- $VAR immediately followed by a CJK character -------------------------
+#
+# WHY (2026-09-09). `platform/scheduler/notify.sh` carried
+# "由 $OLD 轉為 $NEW（$AT）". Bash parses a variable name byte by byte and does
+# not stop at a multibyte character, so `$NEW（` became a request for a
+# variable whose name starts with the first byte of the full-width bracket.
+# Under `set -u` that is an unbound-variable abort, and the error prints as
+# `NEW?: unbound variable` -- naming a variable that does exist, which sends
+# the reader looking in the wrong place entirely.
+#
+# It matters more than a cosmetic slip because of WHERE it sat: inside the
+# notification path, on the branch that only runs when a job CHANGES STATE.
+# The second hit was `retrain.sh`'s "拒絕發布（rc=$rc）", on the branch that
+# only runs when the publish gate refuses. Both are failure paths -- the code
+# that must work on the day something else is already wrong.
+#
+# The fix is `${VAR}` and the rule is mechanical, so it is a static check
+# rather than a habit.
+scan_unbraced_cjk() {  # <root...> -- basenames where $VAR touches a CJK char
+  local out=""
+  while IFS= read -r hit; do
+    local file="${hit%%:*}"
+    # This suite is exempt from its own rule, the same way scan_bsd_sed exempts
+    # lib.sh: the offending spelling has to appear here -- once in the comment
+    # that explains the bug, once in the fixture that proves the rule can go
+    # red. Exempting the file that DEFINES a rule is the narrowest exemption
+    # available; narrowing the PATTERN would disarm it everywhere.
+    case "$(basename "$file")" in test_static.sh) continue ;; esac
+    out="$out $(basename "$file")"
+  # NOT `grep -P`. BSD grep (which is what `/usr/bin/grep` is on this host)
+  # exits 2 on -P without matching anything, and with stderr discarded that
+  # reads as "no offenders" -- a vacuous pass, the fourth time this repository
+  # has hit that shape. Caught here only because the control fixture went red
+  # while the tree-wide assertion went green, which is exactly the pair a
+  # control exists to produce.
+  #
+  # LC_ALL=C makes [:print:] mean ASCII printable, so [^[:print:][:space:]]
+  # matches any byte a CJK character is made of. Portable to BSD and GNU.
+  done < <(LC_ALL=C grep -rn -E '\$[A-Za-z_][A-Za-z0-9_]*[^[:print:][:space:]]' \
+           "$@" --include='*.sh' 2>/dev/null)
+  printf '%s' "$out" | tr ' ' '\n' | sort -u | tr '\n' ' ' | sed 's/^ *//; s/ *$//'
+}
+
+assert_equals "" "$(scan_unbraced_cjk "$REPO_ROOT/platform" "$REPO_ROOT/pilots")" \
+  "no \$VAR is written directly against a CJK character (bash eats it into the name)"
+
 # ---- a suite must not REPLACE lib.sh's exit handler ------------------------
 #
 # `trap X EXIT` replaces whatever was registered before it. lib.sh registers
@@ -642,6 +688,21 @@ case "$CAUGHT" in
       *) _pass "catches: a script using the macOS-only in-place form" ;;
     esac ;;
   *) _fail "catches: a script using the macOS-only in-place form" "found: '$CAUGHT'" ;;
+esac
+
+# The control: one spelling bash mis-parses, one that is safe. Without it this
+# rule would "pass" on a grep that stopped matching.
+CJKFIX="$(mktemp -d)"
+printf '#!/usr/bin/env bash\necho "%s $NEW（$AT）"\n' "由" > "$CJKFIX/offender.sh"
+printf '#!/usr/bin/env bash\necho "%s ${NEW}（${AT}）"\n' "由" > "$CJKFIX/portable.sh"
+CJK_CAUGHT="$(scan_unbraced_cjk "$CJKFIX")"
+rm -rf "$CJKFIX"
+case "$CJK_CAUGHT" in
+  *offender.sh*) case "$CJK_CAUGHT" in
+      *portable.sh*) _fail "catches only the unbraced form" "flagged \${VAR} too" ;;
+      *) _pass "catches: \$VAR written directly against a CJK character" ;;
+    esac ;;
+  *) _fail "catches: \$VAR written directly against a CJK character" "found: '$CJK_CAUGHT'" ;;
 esac
 
 # ---- the pilot's AppRole must be delivered by the start path, not the shell -
