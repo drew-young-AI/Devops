@@ -157,6 +157,9 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--horizon", type=int, choices=(1, 2), default=None,
                     help="default: try both")
+    ap.add_argument("--feature-set", type=int, default=None,
+                    help="the comparison universe to publish from. Required "
+                         "once more than one forecasting target exists.")
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--explain-gate", action="store_true",
                     help="print the replacement rule worked through its cases "
@@ -182,10 +185,33 @@ def main():
     with psycopg.connect(dsn) as conn:
         cur = conn.cursor()
 
-        # The current feature set defines the comparison universe. Newest by
-        # built_at, which is the same row backtest.py trains against.
-        cur.execute("SELECT feature_set_id, name FROM feature_set "
-                    "ORDER BY built_at DESC LIMIT 1")
+        # The current feature set defines the comparison universe.
+        #
+        # "NEWEST BY built_at" STOPPED BEING UNAMBIGUOUS ON 2026-09-09, when a
+        # second target (influenza, separate from influenza-like illness)
+        # gained its own feature set. Whichever was rebuilt last became "the"
+        # universe, so a scheduled run would have published flu and left the
+        # ILI forecast to age -- with nothing in any artifact saying the served
+        # disease had changed. The id is now given explicitly by the caller,
+        # and the fallback is still the newest ONLY when there is exactly one.
+        if args.feature_set:
+            cur.execute("SELECT feature_set_id, name FROM feature_set "
+                        "WHERE feature_set_id = %s", (args.feature_set,))
+        else:
+            cur.execute("SELECT count(DISTINCT target) FROM feature_set")
+            n_targets = cur.fetchone()[0]
+            if n_targets > 1:
+                print(f"{n_targets} forecasting targets exist; --feature-set "
+                      f"is required so that the published disease is a choice "
+                      f"and not a side effect of which set was rebuilt last.")
+                cur.execute("SELECT DISTINCT ON (target) target, "
+                            "feature_set_id, name FROM feature_set "
+                            "ORDER BY target, built_at DESC")
+                for t, fsid, nm in cur.fetchall():
+                    print(f"  --feature-set {fsid}   {t:<10} {nm}")
+                return 2
+            cur.execute("SELECT feature_set_id, name FROM feature_set "
+                        "ORDER BY built_at DESC LIMIT 1")
         fs = cur.fetchone()
         if not fs:
             print("no feature_set -- run build_features.py first")
@@ -214,13 +240,31 @@ def main():
                     ctor=ctor, geo=geo, disease_id=did, visit_type=vtype,
                     feature_set_id=fsid))
 
+            # THE INCUMBENT IS PER TARGET, NOT PER HORIZON.
+            #
+            # Keyed on horizon alone this returned the most recent forecast at
+            # t+2 whatever disease it was for -- so publishing influenza found
+            # the influenza-LIKE-ILLNESS run as its incumbent, matched it on
+            # (algorithm, config) because both are the same HGB, and reported
+            # REFRESH. The rule then compared a flu MAE against an ILI MAE:
+            # two numbers on the same axis measuring different diseases. It
+            # printed a sentence that read exactly like a correct one.
+            #
+            # `forecast` carries disease_id directly, so the scope is one
+            # column and no join.
             cur.execute("""
                 SELECT f.model_run_id, mr.algorithm, mr.hyperparams, mr.mae,
                        mr.feature_set_id
                 FROM forecast f JOIN model_run mr USING (model_run_id)
                 WHERE f.horizon_weeks = %s
+                  AND f.disease_id = (SELECT disease_id FROM feature_set
+                                      WHERE feature_set_id = %s)
+                  AND f.geo_code = (SELECT geo_code FROM feature_set
+                                    WHERE feature_set_id = %s)
+                  AND f.visit_type = (SELECT visit_type FROM feature_set
+                                      WHERE feature_set_id = %s)
                 ORDER BY f.forecast_id DESC LIMIT 1
-            """, (h,))
+            """, (h, current_fsid, current_fsid, current_fsid))
             drow = cur.fetchone()
             deployed = None
             if drow:

@@ -51,17 +51,84 @@ import sys
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
-FEATURE_SET_NAME = "ili_outpatient_v1"
 
-# The series the target is drawn from.
-TARGET_DISEASE = "influenza_like_illness"
+# THE TARGET IS A PARAMETER, NOT A CONSTANT (2026-09-09).
+#
+# `feature_set` has carried geo_code, disease_id and visit_type since migration
+# 013, so the schema has always said "many feature sets". This builder built
+# exactly one, with the disease welded in as a module constant -- the same
+# shape the model registry had before 2026-09-08 (登記為可擴充，但只實作了一種),
+# one level up. The warehouse holds 14 diseases; the modelling table held one.
+#
+# `influenza` is a SEPARATE disease from `influenza_like_illness` in this
+# warehouse -- 188,920 facts, 2016-2026, 22 geographies -- so a second
+# forecasting task needed no new data, only a parameter.
+DEFAULT_DISEASE = "influenza_like_illness"
 TARGET_METRIC = "nhi_visits"
 
-# Cross-disease interference signals. Both are the SAME metric on a different
-# disease -- which is only expressible because migration 012 stopped encoding
+# Short names for feature-set naming. A feature set called
+# "influenza_like_illness_..." and one called "influenza_..." are one
+# substring apart, which is how the wrong one gets selected by a `LIKE`.
+DISEASE_SHORT = {
+    "influenza_like_illness": "ili",
+    "influenza": "flu",
+    "covid19": "covid",
+    "enterovirus": "entero",
+}
+
+# Cross-disease interference signals. Every one is the SAME metric on a
+# different disease -- only expressible because migration 012 stopped encoding
 # the disease in the metric name.
-COVID_DISEASE = "covid19"
-ENTERO_DISEASE = "enterovirus"
+#
+# THE TARGET IS NEVER ITS OWN COVARIATE. With a fixed target that was true by
+# construction; with a parameterised one it has to be enforced, or the flu
+# feature set would carry `flu_lag_1` next to `lag_1` -- the same column twice,
+# which a tree will happily split on and a linear model will make singular.
+COVARIATE_DISEASES = {
+    "covid_lag_1": "covid19",
+    "entero_lag_1": "enterovirus",
+    "uri_lag_1": "acute_uri",
+    "pneumonia_lag_1": "other_pneumonia",
+}
+
+# Visit types. Two DIFFERENT signals, not two spellings of one:
+#   急診 (emergency)  a TIMING signal -- people arrive earlier in a wave
+#   住院 (inpatient)  a SEVERITY signal -- people are admitted
+# Not every disease has both. influenza has no emergency series at all, which
+# is why migration 018 exists; the column is emitted NULL rather than
+# substituted, because a severity number standing in for a timing number is a
+# feature that means two things.
+EMERGENCY_VISIT = "急診"
+INPATIENT_VISIT = "住院"
+
+# WHY THE EMERGENCY SERIES IS NOT A FEATURE, AFTER TWO ATTEMPTS.
+#
+# 017 added `er_lag_1` on sound reasoning: emergency attendance leads
+# outpatient attendance in the same wave, so it is the one visit-type feature
+# with a mechanical reason to LEAD rather than merely correlate. Two
+# measurements killed it:
+#
+#   1. 急診 under `nhi_visits` is empty. The emergency data is under
+#      `rods_ed_visits` -- a different source (real-time outbreak detection)
+#      from the NHI claims the target is built from.
+#   2. `rods_ed_visits` has NO DENOMINATOR: 0 of 442,783 facts carry one. It
+#      is a raw weekly count of emergency attendances, not a rate.
+#
+# A count in a column that sits beside rates is the units error this repo has
+# already paid for once -- dag.py's scoring note records summing counts to
+# "compare" against a rate of 0.0198 and getting 18,286, a number three orders
+# of magnitude out that still looked like a valid comparison. Normalising the
+# count would mean choosing a denominator from a different source, which is a
+# modelling decision with no obvious right answer and no evidence yet that the
+# feature is worth it.
+#
+# So the visit-type dimension is carried by 住院 (inpatient) alone, which is a
+# rate, under the same metric, populated for both targets. `er_lag_1` stays as
+# a nullable documented column that this builder does not populate, and the
+# integration is registered rather than guessed at.
+#
+# Both attempts were caught immediately by the per-column fill rate the builder
+# prints, which is the entire reason that output exists.
 
 # NHI age bands that make up "young children". The bands are stored verbatim
 # from the source and never harmonised at load time, so the grouping happens
@@ -75,8 +142,14 @@ def code_sha():
     return hashlib.sha256(HERE.joinpath("build_features.py").read_bytes()).hexdigest()
 
 
-def weekly_series(cur, geo_code, visit_type, disease_code, max_seq):
+def weekly_series(cur, geo_code, visit_type, disease_code, max_seq,
+                  metric=None):
     """(seq, epi_year, epi_week, numerator, denominator) for one disease.
+
+    geo_code=None means EVERY geography, summed -- the national series. Summing
+    numerator and denominator (rather than averaging the 22 rates) is the same
+    argument as the age-band note below: a rate of sums is the national rate; a
+    mean of rates weights 連江縣 the same as 新北市.
 
     Aggregated across age bands, numerator AND denominator both SUMmed.
 
@@ -101,7 +174,7 @@ def weekly_series(cur, geo_code, visit_type, disease_code, max_seq):
         JOIN time_period tp ON tp.period_id = f.period_id
         JOIN disease d      ON d.disease_id = f.disease_id
         JOIN metric m       ON m.metric_id  = f.metric_id
-        WHERE f.geo_code = %s
+        WHERE (%s::text IS NULL OR f.geo_code = %s)
           AND f.visit_type = %s
           AND d.code = %s
           AND m.code = %s
@@ -109,12 +182,18 @@ def weekly_series(cur, geo_code, visit_type, disease_code, max_seq):
           AND (%s::int IS NULL OR tp.seq <= %s::int)
         GROUP BY tp.seq, tp.epi_year, tp.epi_week
         ORDER BY tp.seq
-    """, (geo_code, visit_type, disease_code, TARGET_METRIC, max_seq, max_seq))
+    """, (geo_code, geo_code, visit_type, disease_code,
+          metric or TARGET_METRIC, max_seq, max_seq))
     return cur.fetchall()
 
 
-def young_share_series(cur, geo_code, visit_type, max_seq):
-    """Share of ILI visits in the 0-6 age bands, per week."""
+def young_share_series(cur, geo_code, visit_type, disease_code, max_seq):
+    """Share of the target disease's visits in the 0-6 age bands, per week.
+
+    Takes the disease explicitly. It used to close over TARGET_DISEASE, which
+    was correct while there was one target and silently wrong the moment there
+    were two -- the flu feature set would have carried ILI's age mix.
+    """
     cur.execute("""
         SELECT tp.seq,
                SUM(f.value) FILTER (WHERE f.age_band = ANY(%s))::double precision
@@ -128,9 +207,22 @@ def young_share_series(cur, geo_code, visit_type, max_seq):
           AND tp.time_level = 'epi_week'
           AND (%s::int IS NULL OR tp.seq <= %s::int)
         GROUP BY tp.seq ORDER BY tp.seq
-    """, (list(YOUNG_BANDS), geo_code, visit_type, TARGET_DISEASE,
+    """, (list(YOUNG_BANDS), geo_code, visit_type, disease_code,
           TARGET_METRIC, max_seq, max_seq))
     return {r[0]: r[1] for r in cur.fetchall()}
+
+
+def _share(local, nat):
+    """This geography's rate as a multiple of the national rate.
+
+    None when either side is missing and when the national rate is zero. A
+    share computed against a zero denominator is not "very high", it is
+    undefined, and returning a large number for it would put a fabricated spike
+    into the one feature meant to say "this city is running hot".
+    """
+    if local is None or not nat:
+        return None
+    return local / nat
 
 
 def rate_by_seq(rows):
@@ -147,15 +239,26 @@ def rate_by_seq(rows):
     return out
 
 
-def build(cur, geo_code, visit_type, max_seq):
-    target = weekly_series(cur, geo_code, visit_type, TARGET_DISEASE, max_seq)
+def build(cur, geo_code, visit_type, max_seq, disease=DEFAULT_DISEASE):
+    target = weekly_series(cur, geo_code, visit_type, disease, max_seq)
     if not target:
-        sys.exit(f"no data for geo={geo_code} visit_type={visit_type}")
+        sys.exit(f"no data for geo={geo_code} visit_type={visit_type} "
+                 f"disease={disease}")
 
     rate = rate_by_seq(target)
-    covid = rate_by_seq(weekly_series(cur, geo_code, visit_type, COVID_DISEASE, max_seq))
-    entero = rate_by_seq(weekly_series(cur, geo_code, visit_type, ENTERO_DISEASE, max_seq))
-    young = young_share_series(cur, geo_code, visit_type, max_seq)
+    # The target is never its own covariate: with a parameterised disease the
+    # flu set would otherwise carry the target column twice under two names.
+    covariates = {col: rate_by_seq(weekly_series(cur, geo_code, visit_type,
+                                                 code, max_seq))
+                  for col, code in COVARIATE_DISEASES.items() if code != disease}
+    # VISIT TYPE. Inpatient only -- see the EMERGENCY note above.
+    inpatient = rate_by_seq(weekly_series(cur, geo_code, INPATIENT_VISIT,
+                                          disease, max_seq))
+    # GEOGRAPHY. geo_code=None is every geography summed, which is the national
+    # rate and not the mean of 22 city rates.
+    national = rate_by_seq(weekly_series(cur, None, visit_type, disease,
+                                         max_seq))
+    young = young_share_series(cur, geo_code, visit_type, disease, max_seq)
     denom = {seq: den for seq, _y, _w, _n, den in target}
 
     seqs = [r[0] for r in target]
@@ -213,10 +316,24 @@ def build(cur, geo_code, visit_type, max_seq):
             week_of_year=epi_week,
             denominator_lag_1=(int(other(denom, seq, 1))
                                if other(denom, seq, 1) else None),
-            covid_lag_1=other(covid, seq, 1),
-            entero_lag_1=other(entero, seq, 1),
             age_share_0_6_lag_1=other(young, seq, 1),
+            # Visit type: severity. Emergency would have been the timing
+            # half; it has no denominator in this warehouse (see above).
+            inpatient_lag_1=other(inpatient, seq, 1),
+            # Geography: the national level, and this city's position within
+            # it. The share needs both sides at the same lag or it compares two
+            # different weeks; `nat` is read once and reused for that reason.
+            national_lag_1=other(national, seq, 1),
+            geo_share_lag_1=_share(other(rate, seq, 1), other(national, seq, 1)),
+            **{col: other(series, seq, 1) for col, series in covariates.items()},
         ))
+    # Columns a feature set does not populate must still EXIST in every row, or
+    # the COPY below writes a short row and psycopg reports a type error two
+    # hundred lines from the cause. Missing covariates (the target's own
+    # disease) are filled with None here, once.
+    for r in rows:
+        for col in COVARIATE_DISEASES:
+            r.setdefault(col, None)
     return rows
 
 
@@ -224,6 +341,10 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--geo", default="66000", help="geo_code (default 台中市)")
     ap.add_argument("--visit-type", default="門診")
+    ap.add_argument("--disease", default=DEFAULT_DISEASE,
+                    help="target disease code. `influenza` is a DIFFERENT "
+                         "series from `influenza_like_illness` in this "
+                         "warehouse, not a synonym for it.")
     ap.add_argument("--max-seq", type=int, default=None,
                     help="truncate the series; used by the no-lookahead test")
     ap.add_argument("--dry-run", action="store_true")
@@ -240,33 +361,64 @@ def main():
 
     with psycopg.connect(dsn) as conn:
         cur = conn.cursor()
-        rows = build(cur, args.geo, args.visit_type, args.max_seq)
-
         cur.execute("SELECT disease_id FROM disease WHERE code = %s",
-                    (TARGET_DISEASE,))
-        did = cur.fetchone()[0]
+                    (args.disease,))
+        row = cur.fetchone()
+        if not row:
+            cur.execute("SELECT code FROM disease ORDER BY code")
+            known = ", ".join(r[0] for r in cur.fetchall())
+            sys.exit(f"unknown --disease {args.disease!r}.\nRegistered: {known}")
+        did = row[0]
+
+        rows = build(cur, args.geo, args.visit_type, args.max_seq,
+                     disease=args.disease)
         cur.execute("SELECT name FROM geo_area WHERE geo_code = %s", (args.geo,))
         geo_name = cur.fetchone()[0]
 
         usable = [r for r in rows if r["y"] is not None]
-        print(f"  {geo_name} {args.visit_type} {TARGET_DISEASE}")
+        print(f"  {geo_name} {args.visit_type} {args.disease}")
         print(f"  {len(rows):,} weeks, seq {rows[0]['seq']}..{rows[-1]['seq']}, "
               f"{len(usable):,} with a computable rate")
         if usable:
             lo = min(r["y"] for r in usable) * 100
             hi = max(r["y"] for r in usable) * 100
             print(f"  %ILI range {lo:.3f}% .. {hi:.3f}%")
-        for col in ("covid_lag_1", "entero_lag_1", "age_share_0_6_lag_1",
-                    "same_week_last_year"):
-            n = sum(1 for r in rows if r[col] is not None)
-            print(f"    {col:<22} {n:>5,} / {len(rows):,} populated")
+        # Every added column is printed with its fill rate. A feature that is
+        # 0% populated is not a feature, and the only way that shows up
+        # otherwise is as a sklearn imputer warning buried in a training log.
+        for col in ("same_week_last_year", "age_share_0_6_lag_1",
+                    "inpatient_lag_1",
+                    "national_lag_1", "geo_share_lag_1",
+                    "covid_lag_1", "entero_lag_1", "uri_lag_1",
+                    "pneumonia_lag_1"):
+            n = sum(1 for r in rows if r.get(col) is not None)
+            flag = "   <-- EMPTY" if n == 0 else ""
+            print(f"    {col:<22} {n:>5,} / {len(rows):,} populated{flag}")
 
         if args.dry_run:
             print("  (dry run, nothing written)")
             return
 
-        params = {"target_metric": TARGET_METRIC, "young_bands": list(YOUNG_BANDS),
-                  "max_seq": args.max_seq}
+        short = DISEASE_SHORT.get(args.disease, args.disease)
+        set_name = f"{short}_{args.visit_type}_v2"
+        # WHICH COLUMNS WERE MEANT TO BE POPULATED is recorded, because
+        # otherwise it is indistinguishable from which columns happened to be
+        # NULL. The flu set has no emergency series; without this, a reader six
+        # months from now cannot tell that from a builder that forgot.
+        params = {"target_metric": TARGET_METRIC,
+                  "young_bands": list(YOUNG_BANDS),
+                  "max_seq": args.max_seq,
+                  "target_disease": args.disease,
+                  "covariates": {c: d for c, d in COVARIATE_DISEASES.items()
+                                 if d != args.disease},
+                  "visit_type_features": {
+                      "inpatient_lag_1": [INPATIENT_VISIT, TARGET_METRIC]},
+                  "not_populated": {
+                      "er_lag_1": "rods_ed_visits has no denominator; a count "
+                                  "beside rates is a units error (see "
+                                  "build_features.py). Registered as T26."},
+                  "geo_features": ["national_lag_1", "geo_share_lag_1"],
+                  "schema": 18}
         cur.execute("""
             INSERT INTO feature_set (name, code_sha256, geo_code, disease_id,
                                      visit_type, target, n_rows, seq_min,
@@ -276,23 +428,25 @@ def main():
                 SET n_rows = EXCLUDED.n_rows, built_at = now(),
                     params = EXCLUDED.params
             RETURNING feature_set_id
-        """, (FEATURE_SET_NAME, code_sha(), args.geo, did, args.visit_type,
-              "pct_ili", len(rows), rows[0]["seq"], rows[-1]["seq"],
+        """, (set_name, code_sha(), args.geo, did, args.visit_type,
+              f"pct_{short}", len(rows), rows[0]["seq"], rows[-1]["seq"],
               json.dumps(params)))
         fsid = cur.fetchone()[0]
 
         cols = ["seq", "epi_year", "epi_week", "y", "y_next_1", "y_next_2",
                 "lag_1", "lag_2", "lag_3", "lag_4", "delta_1",
                 "same_week_last_year", "week_of_year", "denominator_lag_1",
-                "covid_lag_1", "entero_lag_1", "age_share_0_6_lag_1"]
+                "covid_lag_1", "entero_lag_1", "age_share_0_6_lag_1",
+                "inpatient_lag_1", "national_lag_1",
+                "geo_share_lag_1", "uri_lag_1", "pneumonia_lag_1"]
         cur.execute("DELETE FROM feature_row WHERE feature_set_id = %s", (fsid,))
         with cur.copy("COPY feature_row (feature_set_id, " + ", ".join(cols) +
                       ") FROM STDIN") as cp:
             for r in rows:
-                cp.write_row([fsid] + [r[c] for c in cols])
+                cp.write_row([fsid] + [r.get(c) for c in cols])
         conn.commit()
-        print(f"  feature_set_id={fsid}  code_sha={code_sha()[:16]}  "
-              f"{len(rows):,} rows written")
+        print(f"  feature_set_id={fsid}  name={set_name}  "
+              f"code_sha={code_sha()[:16]}  {len(rows):,} rows written")
 
 
 if __name__ == "__main__":

@@ -748,10 +748,19 @@ def probe_backtest():
 # have certified it happily.
 MODEL_GATE_SQL = """
         WITH m AS (
-          SELECT horizon_weeks, model_run_id, trained_at, algorithm,
-                 (baseline_persistence_mae - mae)
-                   / baseline_persistence_mae * 100 AS pct
-          FROM model_run WHERE split_strategy = 'rolling_origin'
+          -- TARGET IS PART OF THE KEY. From 2026-09-09 this pilot forecasts
+          -- influenza-like illness AND influenza; without the target the two
+          -- diseases' runs took turns in one slot and the board read as one
+          -- model getting better and worse on alternate retrains. The two
+          -- currently have margins of +2.3% and +10.4%, so the mixed version
+          -- would have been wrong by a factor of four and still rendered.
+          SELECT fs.target, mr.horizon_weeks, mr.model_run_id, mr.trained_at,
+                 mr.algorithm,
+                 (mr.baseline_persistence_mae - mr.mae)
+                   / mr.baseline_persistence_mae * 100 AS pct
+          FROM model_run mr
+          JOIN feature_set fs ON fs.feature_set_id = mr.feature_set_id
+          WHERE mr.split_strategy = 'rolling_origin'
         ),
         -- ALGORITHM IS PART OF THE ANSWER ONCE A SECOND FAMILY EXISTS.
         -- "the latest run at t+1" stopped being a single thing the moment the
@@ -759,22 +768,24 @@ MODEL_GATE_SQL = """
         -- and a linear-model number take turns in the same slot and the board
         -- reads as one model getting better and worse.
         latest AS (
-          SELECT DISTINCT ON (horizon_weeks)
-                 horizon_weeks, model_run_id, pct, algorithm
-          FROM m ORDER BY horizon_weeks, trained_at DESC, model_run_id DESC
+          SELECT DISTINCT ON (target, horizon_weeks)
+                 target, horizon_weeks, model_run_id, pct, algorithm
+          FROM m ORDER BY target, horizon_weeks, trained_at DESC,
+                          model_run_id DESC
         ),
         deployed AS (
-          SELECT DISTINCT ON (f.horizon_weeks)
-                 f.horizon_weeks, f.model_run_id, m.pct
+          SELECT DISTINCT ON (m.target, f.horizon_weeks)
+                 m.target, f.horizon_weeks, f.model_run_id, m.pct
           FROM forecast f JOIN m ON m.model_run_id = f.model_run_id
-          ORDER BY f.horizon_weeks, f.forecast_id DESC
+          ORDER BY m.target, f.horizon_weeks, f.forecast_id DESC
         )
         SELECT l.horizon_weeks, round(l.pct::numeric, 2),
                l.model_run_id || ' ' || l.algorithm,
                coalesce(round(d.pct::numeric, 2)::text, ''),
-               coalesce(d.model_run_id::text, '')
-        FROM latest l LEFT JOIN deployed d USING (horizon_weeks)
-        ORDER BY 1;"""
+               coalesce(d.model_run_id::text, ''),
+               l.target
+        FROM latest l LEFT JOIN deployed d USING (target, horizon_weeks)
+        ORDER BY l.target, 1;"""
 
 
 def replacement_margin():
@@ -825,25 +836,29 @@ def probe_model_gate():
     rows = psql(MODEL_GATE_SQL)
     if rows is None:
         return UNKNOWN, "資料庫無回應"
+    # KEYED ON (target, horizon). Two targets exist from 2026-09-09 and their
+    # margins differ by a factor of four, so a dict keyed on horizon alone
+    # would keep whichever row sorted last and report it as the layer's state.
     cur = {}
     for line in rows.splitlines():
         parts = line.split("|")
-        if len(parts) != 5:
+        if len(parts) != 6:
             continue
         try:
             h, margin, run_id = int(parts[0]), float(parts[1]), parts[2]
         except ValueError:
             continue
-        cur[h] = (margin, run_id, parts[3], parts[4])
+        cur[(parts[5], h)] = (margin, run_id, parts[3], parts[4])
     if not cur:
         return WARN, "沒有 rolling-origin 回測可判定"
     bits = []
-    for h, (margin, run_id, dep_pct, dep_run) in sorted(cur.items()):
+    for (target, h), (margin, run_id, dep_pct, dep_run) in sorted(cur.items()):
         # "no deployed run" is not the same claim as "deployed and equal", so
         # it gets its own words rather than an empty comparison.
         served = (f"線上 run{dep_run} {float(dep_pct):+.2f}%"
                   if dep_pct else "尚未上線")
-        bits.append(f"t+{h} 最新 run{run_id} {margin:+.2f}%（{served}）")
+        short = target.replace("pct_", "")
+        bits.append(f"{short} t+{h} 最新 run{run_id} {margin:+.2f}%（{served}）")
     detail = "／".join(bits)
     # The replacement rule belongs on this line because the line invites the
     # wrong inference without it: a reader who sees a challenger with a better
@@ -852,6 +867,9 @@ def probe_model_gate():
     mg = replacement_margin()
     rule = (f"；汰換門檻 {mg*100:.0f}%（同分留任，ADR-0016）" if mg is not None
             else "；汰換門檻讀取失敗")
+    # ANY target losing keeps the node amber. Aggregating them would let the
+    # easier disease mask the harder one, which is the same masking the alert
+    # rules avoid by grouping on the target.
     if any(m <= 0 for m, _r, _dp, _dr in cur.values()):
         return WARN, f"閘門運作中（贏才准上線），但仍輸給持平基準：{detail}{rule}"
     return OK, f"全數勝過持平基準：{detail}{rule}"
@@ -864,6 +882,108 @@ def probe_forecast():
     if n == 0:
         return WARN, "尚無已發布預測（閘門拒絕即為此結果）"
     return OK, f"{n} 筆已發布預測"
+
+
+# The post-hoc scoring query. A MODULE CONSTANT, not an inline string, because
+# it now has two readers: this probe (which turns it into a sentence for the
+# board) and platform/mlops/pipeline_metrics.py (which turns it into numbers
+# for Prometheus). Copied instead of shared, it would be the single most
+# repeated defect on this platform -- and this particular query is the worst
+# candidate for a copy that exists here: its first version omitted geo_code and
+# visit_type from the join and fanned 2 forecasts out to 44 rows, a
+# plausible-looking sample size built entirely from duplicates. A second copy
+# would be a second chance to reintroduce exactly that.
+#
+# GROUPED BY HORIZON, and summed back up by score_totals() for the board. The
+# board wants one sentence; the exporter wants a series per horizon, and the
+# horizons are not interchangeable here -- t+1 has never passed the gate, so
+# every scored forecast on this platform is a t+2 forecast. A total that hides
+# that is a true number answering the wrong question.
+FORECAST_SCORE_SQL = """
+    WITH actual AS (
+      -- geo_code and visit_type are in the GROUP BY, so they must also be
+      -- SELECTed and joined on. Omitting them left one row per geography
+      -- per week, and the LEFT JOIN fanned 2 forecasts out to 44 -- a
+      -- plausible-looking sample size built entirely from duplicates.
+      --
+      -- DISEASE IS IN THE KEY for the same reason, added 2026-09-09. The
+      -- disease was a WHERE clause fixing it to influenza-like illness while
+      -- the forecast side was unfiltered, so the moment a second target was
+      -- published every influenza forecast would have been scored against
+      -- ILI's actual rate -- a number four times larger, on the same axis,
+      -- producing a loss that says nothing about the model. Nothing about the
+      -- output would have looked wrong.
+      --
+      -- THE TARGET IS ALSO SELECTED, added 2026-09-09 after the join above.
+      -- Fixing the join stopped the wrong comparison; it did not make the
+      -- result attributable. Grouping by horizon alone collapsed both targets
+      -- into one bucket, so `1 scored, 3 pending` could not answer WHICH
+      -- target was scored -- the aggregation-masking half of
+      -- 「一個目前只有一個值的維度」. The comment in pipeline_metrics.scoring
+      -- said "there is exactly one published horizon so nothing collides";
+      -- that sentence was true when written and expired the day influenza was
+      -- published. The target travels with the count from here on.
+      SELECT tp.epi_year, tp.epi_week, f.geo_code, f.visit_type, f.disease_id,
+             SUM(f.value)::float / NULLIF(SUM(f.denominator), 0) AS rate
+      FROM surveillance_fact f
+      JOIN time_period tp ON tp.period_id = f.period_id
+      JOIN metric  m ON m.metric_id  = f.metric_id
+      WHERE m.code = 'nhi_visits'
+        AND tp.time_level = 'epi_week'
+      GROUP BY 1, 2, 3, 4, 5
+    )
+    SELECT fc.horizon_weeks,
+           coalesce(fs.target, 'unknown') AS target,
+           count(*) FILTER (WHERE a.rate IS NOT NULL),
+           count(*) FILTER (WHERE a.rate IS NULL),
+           count(*) FILTER (WHERE a.rate IS NOT NULL
+             AND abs(fc.predicted_value - a.rate)
+               < abs(fc.observed_at_origin - a.rate))
+    FROM forecast fc
+    JOIN model_run   mr ON mr.model_run_id   = fc.model_run_id
+    JOIN feature_set fs ON fs.feature_set_id = mr.feature_set_id
+    LEFT JOIN actual a
+      ON a.epi_year = fc.target_epi_year
+     AND a.epi_week = fc.target_epi_week
+     AND a.geo_code = fc.geo_code
+     AND a.visit_type = fc.visit_type
+     AND a.disease_id = fc.disease_id
+    GROUP BY 1, 2 ORDER BY 1, 2;"""
+
+
+def score_rows(raw):
+    """Parse FORECAST_SCORE_SQL into (horizon, target, scored, pending, won).
+
+    Raises ValueError on anything it cannot read, so a caller that expected
+    five fields never silently proceeds with four.
+    """
+    out = []
+    for line in (raw or "").strip().splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        parts = line.split("|")
+        if len(parts) != 5:
+            raise ValueError(f"expected 5 fields, got {len(parts)}: {line}")
+        h, target, scored, pending, won = parts
+        out.append((int(h), target, int(scored), int(pending), int(won)))
+    return out
+
+
+def score_totals(raw):
+    """The board's rollup: one number each, summed across horizon and target.
+
+    The rollup still exists because the board needs one sentence, but it
+    is now a DERIVED view of a per-target result rather than the only thing
+    the query can produce. Prometheus takes the rows; only this node sums.
+    """
+    rows = score_rows(raw)
+    if not rows:
+        # No published forecasts at all. Not an error -- the gate publishes
+        # rarely by design -- so this is the same shape as (0, 0, 0).
+        return 0, 0, 0
+    return (sum(r[2] for r in rows), sum(r[3] for r in rows),
+            sum(r[4] for r in rows))
 
 
 def probe_forecast_score():
@@ -890,50 +1010,40 @@ def probe_forecast_score():
     the SAME numerator/denominator as build_features.weekly_series, filtered
     by disease code, metric code, geo and visit_type.
     """
-    rows = psql("""
-        WITH actual AS (
-          -- geo_code and visit_type are in the GROUP BY, so they must also be
-          -- SELECTed and joined on. Omitting them left one row per geography
-          -- per week, and the LEFT JOIN fanned 2 forecasts out to 44 -- a
-          -- plausible-looking sample size built entirely from duplicates.
-          SELECT tp.epi_year, tp.epi_week, f.geo_code, f.visit_type,
-                 SUM(f.value)::float / NULLIF(SUM(f.denominator), 0) AS rate
-          FROM surveillance_fact f
-          JOIN time_period tp ON tp.period_id = f.period_id
-          JOIN disease d ON d.disease_id = f.disease_id
-          JOIN metric  m ON m.metric_id  = f.metric_id
-          WHERE d.code = 'influenza_like_illness' AND m.code = 'nhi_visits'
-            AND tp.time_level = 'epi_week'
-          GROUP BY 1, 2, 3, 4
-        )
-        SELECT count(*) FILTER (WHERE a.rate IS NOT NULL),
-               count(*) FILTER (WHERE a.rate IS NULL),
-               count(*) FILTER (WHERE a.rate IS NOT NULL
-                 AND abs(fc.predicted_value - a.rate)
-                   < abs(fc.observed_at_origin - a.rate))
-        FROM forecast fc LEFT JOIN actual a
-          ON a.epi_year = fc.target_epi_year
-         AND a.epi_week = fc.target_epi_week
-         AND a.geo_code = fc.geo_code
-         AND a.visit_type = fc.visit_type;""")
-    if rows is None:
+    rows_raw = psql(FORECAST_SCORE_SQL)
+    if rows_raw is None:
         return UNKNOWN, "資料庫無回應"
     try:
-        scored, pending, won = (int(x) for x in rows.strip().split("|"))
+        scored, pending, won = score_totals(rows_raw)
     except ValueError:
-        return UNKNOWN, f"無法解析評分結果：{rows[:60]}"
+        return UNKNOWN, f"無法解析評分結果：{rows_raw[:60]}"
     if scored == 0:
         # Not a failure. A t+2 forecast cannot be scored for two weeks, and
         # calling that red would make the node permanently red by design.
         return OK, f"{pending} 筆已發布預測的目標週尚未到，無可評分者（正常）"
     tail = f"，另 {pending} 筆目標週未到" if pending else ""
+    # THE SENTENCE NAMES THE TARGETS. The rollup "1/1 勝過持平基準" was true
+    # and unreadable the moment a second disease was published: it cannot say
+    # whether the one scored forecast was influenza or influenza-like illness,
+    # and those are different claims about different models. Per-target detail
+    # is appended whenever more than one target has published anything.
+    per = ""
+    try:
+        rows = score_rows(rows_raw)
+    except ValueError:
+        rows = []
+    targets = sorted({r[1] for r in rows})
+    if len(targets) > 1:
+        per = "；" + "／".join(
+            f"{t} t+{h} {w}/{sc}"
+            for h, t, sc, _p, w in sorted(rows, key=lambda r: (r[1], r[0]))
+            if sc
+        )
     # n is tiny by construction -- the gate publishes rarely on purpose. The
     # detail carries n so nobody reads 1/1 as a track record.
-    if won < scored:
-        return WARN, (f"已發布預測事後評分：{won}/{scored} 勝過持平基準"
-                      f"（n={scored}，尚不足以下結論）{tail}")
-    return OK, (f"已發布預測事後評分：{won}/{scored} 勝過持平基準"
-                f"（n={scored}，尚不足以下結論）{tail}")
+    status = WARN if won < scored else OK
+    return status, (f"已發布預測事後評分：{won}/{scored} 勝過持平基準"
+                    f"（n={scored}，尚不足以下結論）{tail}{per}")
 
 
 def probe_retrain():

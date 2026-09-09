@@ -41,12 +41,56 @@ why, and publishes nothing.
      something no code did: the publisher compared candidates to the baseline
      and to each other, never to what was actually deployed.
 
-**The gate is currently refusing to publish, and that is the correct outcome.**
-The candidate loses to a persistence baseline (t+1 −12.31%, t+2 +0.32%). A gate
-that has never said no is not a gate — it is a formality — so this state is
-evidence the mechanism works, not evidence that MLOps is broken. It appears on
-the board as `mgate: warn`, which is honest: the pipeline is healthy, the model
-is not good enough.
+**The gate is currently refusing to publish at t+1, and that is the correct
+outcome.** A gate that has never said no is not a gate — it is a formality — so
+this state is evidence the mechanism works, not evidence that MLOps is broken.
+It appears on the board as `mgate: warn`, which is honest: the pipeline is
+healthy, the model is not good enough.
+
+**Do not read a number out of this README.** Every margin quoted here has been
+wrong at some point, because a document written on the day of a measurement
+ages the moment the next retrain runs. Since 2026-09-08 the numbers are a
+time series:
+
+```bash
+python3 platform/mlops/pipeline_metrics.py    # writes evidence/statusdag/mlops.prom
+```
+
+and the standing shape of them — t+1 has never beaten persistence, t+2 beats it
+by well under the 2% replacement margin — is on the **MLOps 模型** Grafana
+dashboard, which reads the series rather than restating it.
+
+**And the harder finding, 2026-09-09.** Replaying the publishing decision over
+every origin in history (`policy_backtest.py`, n=383 at t+2 instead of the live
+n=1) puts the published series at −3.60% against persistence, winning 51.2% of
+weeks. But the paired bootstrap interval is **[−11.92%, +3.43%] and it includes
+zero** (sign test p=0.68), so the defensible claim is not "worse" — it is
+
+> **at n=383, indistinguishable from persistence.**
+
+Which is still decision-relevant: a model that cannot show an advantage over
+383 weeks has not earned its complexity. The point estimate is never emitted
+without its interval, for the same reason this repo separates estimates from
+measurements everywhere else. `replay_significance.py`; docs/Backlog.md §36.
+
+## 兩個預測題目（2026-09-09）
+
+`influenza` 與 `influenza_like_illness` 在這個倉庫裡是**兩支不同的資料**，不是同一件
+事的兩個名字。類流感是症候群定義（含非流感的呼吸道疾病），流感是流感本身。
+第二個題目不需要新資料，只需要 `build_features.py --disease influenza`。
+
+**流感明顯比較好預測**：對持平基準 t+2 是 +10.4%，類流感是 +2.3%。
+重放（`policy_backtest.py`，n=431）給流感 t+2 **+6.58%**，類流感 +0.01%——
+兩者的區間都還包含 0，但流感是目前唯一值得繼續的組合。詳見 docs/Backlog.md §37。
+
+每個題目有自己的 feature set，而每一個下游步驟都必須**明講要哪一個**：
+`backtest.py --feature-set`、`publish_forecast.py --feature-set`。
+「取最新的那個」在有兩個題目之後就不再是一個明確的意思，而它不會報錯——
+它會發布另一種疾病，並把數字記在第一種的名下。
+
+```bash
+platform/mlops/retrain.sh    # 兩個題目 × 兩個時程，各自建集、回測、發布、重放
+```
 
 ## Known gaps
 
@@ -87,4 +131,6 @@ is not good enough.
 |---|---|---|---|
 | [`retrain.sh`](retrain.sh) | 排程，每週 | 重建特徵 → 重跑回測 → **只在合格時**才發布 | 週期取自它所觀察的東西變化多快（來源是週資料），與 `jobs.conf` 每個 job 同一條規則。不合格就不發布，閘門正在正確地擋著 |
 | [`model_registry.py`](model_registry.py) | 由 pilot 的 `backtest.py` import（`run.sh` 唯讀掛載進容器） | 模型註冊表的**契約**：一筆登記合不合法、`build()` 回傳的是不是未擬合的估計器 | 專案中立，無領域知識。未登記的名稱被拒絕並列出清單；回傳已擬合估計器的條目被拒絕（守衛本身有突變測試） |
+| [`pipeline_metrics.py`](pipeline_metrics.py) | 排程，每小時（`jobs.conf` 的 `mlopsmetrics`） | 把模型層的數字寫成 Prometheus textfile：對基準的相對優勢、各時程有沒有通過過閘門、事後評分、距上次重訓 | **只出數字不下判斷**——門檻全部在 `alerts/mlops.yml`。2026-09-08 之前這一層在 Prometheus 有 0 個指標（`devops_*` 20 個、`dataops_*` 15 個），整層只有看板上的燈 |
+| [`policy_backtest.py`](../../pilots/station2-twin/mlops/policy_backtest.py) | `retrain.sh` 第 5 步，每週；也可手動 | 把**發布決策**在整段歷史上逐週重放：每個原點閘門選誰、發不發、發出去的數字對上真的發生的那一週如何 | 三道洩漏門都堵住（配適走 `fit_one`、選擇只能用當時的誤差、基準只在同一組原點上算）。它是**模擬**，指標前綴 `mlops_policy_backtest_*` 與實績永不相加 |
 | [`promotion_policy.py`](promotion_policy.py) | 由 pilot 的 `publish_forecast.py` import | 挑戰者何時取代現役模型：六種判定（BOOTSTRAP／REPLACE／KEEP／REFRESH／INCOMPARABLE／REFUSED） | **門檻沒有預設值**——沒想過門檻的專案會被迫想。現役只跟它在同一比較範圍內重評的分數比 |

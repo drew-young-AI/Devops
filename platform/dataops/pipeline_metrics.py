@@ -60,6 +60,30 @@ YOY_FLOOR = 20
 DRIFT_HIGH, DRIFT_LOW = 2.0, 0.5
 
 
+# PROJECT IS A LABEL, NOT A FILE (ADR-0017), same as the mlops exporter.
+#
+# Every series below is about ONE pilot's warehouse: its sources, its ingest
+# runs, its mirror, its year-over-year comparisons. Until 2026-09-09 none of
+# them said so, because there was only one pilot and a dimension with one value
+# looks exactly like no dimension at all -- which is the shape this repository
+# has now been bitten by six times in one week.
+#
+# WHY THIS IS NOT "ADD project TO EVERYTHING". The boundary from ADR-0017
+# holds: a metric about the HOST, the CLUSTER or the PLATFORM ITSELF must not
+# carry a project, because there is no project it belongs to and a constant
+# label is noise wearing the costume of information. `devops_*` is mostly that
+# kind of metric and is deliberately left alone. `dataops_*` is not: there is
+# no platform-level data pipeline, only this pilot's.
+#
+# THE ONE EXCEPTION is this file's own generation timestamp, which is about the
+# exporter run and not about any project -- the same exception mlops makes.
+PROJECT = os.environ.get("DATAOPS_PROJECT", "station2-twin")
+
+
+def base_labels():
+    return f'project="{esc(PROJECT)}"'
+
+
 
 # Sources whose ingest history is real but which will never be fetched again.
 # Each needs a reason; a source with no reason does not belong here, and the
@@ -187,7 +211,7 @@ def freshness_and_execution(lines):
         "# TYPE dataops_source_last_fetch_timestamp_seconds gauge",
     ]
     for (src, last, *_rest) in fresh_rows:
-        lines.append(f'dataops_source_last_fetch_timestamp_seconds{{source="{esc(src)}"}} {last}')
+        lines.append(f'dataops_source_last_fetch_timestamp_seconds{{{base_labels()},source="{esc(src)}"}} {last}')
 
     lines += [
         "# HELP dataops_source_age_seconds How long since this source last "
@@ -195,14 +219,14 @@ def freshness_and_execution(lines):
         "# TYPE dataops_source_age_seconds gauge",
     ]
     for (src, last, *_rest) in fresh_rows:
-        lines.append(f'dataops_source_age_seconds{{source="{esc(src)}"}} {now - int(last)}')
+        lines.append(f'dataops_source_age_seconds{{{base_labels()},source="{esc(src)}"}} {now - int(last)}')
     # Named, not silently dropped: a source that vanishes from freshness
     # without saying so is the same defect one level down.
     lines += [
         "# HELP dataops_source_retired 1 for a source with ingest history but no "
         "fact rows; excluded from freshness because it can never become fresh.",
         "# TYPE dataops_source_retired gauge",
-    ] + [f'dataops_source_retired{{source="{esc(src)}"}} 1' for src in retired]
+    ] + [f'dataops_source_retired{{{base_labels()},source="{esc(src)}"}} 1' for src in retired]
 
     lines += [
         "# HELP dataops_ingest_rows_total Cumulative rows by outcome, from "
@@ -212,7 +236,7 @@ def freshness_and_execution(lines):
     for (src, _last, _runs, in_file, acc, rej, ins, *_status_counts) in rows:
         for outcome, n in (("in_file", in_file), ("accepted", acc),
                            ("rejected", rej), ("inserted", ins)):
-            lines.append(f'dataops_ingest_rows_total{{source="{esc(src)}",'
+            lines.append(f'dataops_ingest_rows_total{{{base_labels()},source="{esc(src)}",'
                          f'outcome="{outcome}"}} {n}')
 
     lines += [
@@ -222,7 +246,7 @@ def freshness_and_execution(lines):
     ]
     for (src, _l, _r, in_file, _a, rej, _i, *_status_counts) in rows:
         ratio = (rej / in_file) if in_file else 0.0
-        lines.append(f'dataops_ingest_reject_ratio{{source="{esc(src)}"}} {ratio:.6f}')
+        lines.append(f'dataops_ingest_reject_ratio{{{base_labels()},source="{esc(src)}"}} {ratio:.6f}')
 
     lines += [
         "# HELP dataops_ingest_runs_failed_total Runs whose status is in "
@@ -232,7 +256,7 @@ def freshness_and_execution(lines):
     ]
     for r in rows:
         src, fail = r[0], r[7]
-        lines.append(f'dataops_ingest_runs_failed_total{{source="{esc(src)}"}} {fail}')
+        lines.append(f'dataops_ingest_runs_failed_total{{{base_labels()},source="{esc(src)}"}} {fail}')
     lines += [
         "# HELP dataops_ingest_runs_conflicted_total Runs that SUCCEEDED but "
         "found the source contradicting itself: same key, different values.",
@@ -246,7 +270,7 @@ def freshness_and_execution(lines):
     # class of alert stops being read.
     for r in rows:
         src, conf = r[0], r[8]
-        lines.append(f'dataops_ingest_runs_conflicted_total{{source="{esc(src)}"}} {conf}')
+        lines.append(f'dataops_ingest_runs_conflicted_total{{{base_labels()},source="{esc(src)}"}} {conf}')
 
     unchanged_and_cadence(lines)
     return len(rows)
@@ -316,7 +340,7 @@ def unchanged_and_cadence(lines):
     for src, secs in unchanged:
         if src in RETIRED_SOURCES:
             continue
-        lines.append(f'dataops_source_unchanged_seconds{{source="{esc(src)}"}} {secs}')
+        lines.append(f'dataops_source_unchanged_seconds{{{base_labels()},source="{esc(src)}"}} {secs}')
 
     # The publisher's declared cadence, emitted so the alert rule can compare
     # two metrics instead of carrying a copy of the table.
@@ -340,7 +364,7 @@ def unchanged_and_cadence(lines):
         secs = table[src].get("seconds")
         if secs:
             lines.append(
-                f'dataops_source_expected_interval_seconds{{source="{esc(src)}",'
+                f'dataops_source_expected_interval_seconds{{{base_labels()},source="{esc(src)}",'
                 f'provenance="{esc(table[src].get("source", "unknown"))}"}} {secs}')
 
 
@@ -421,7 +445,7 @@ def drift(lines):
         "# HELP dataops_mirror_stale 1 when drift could not be computed because "
         "the analytical mirror is not current.",
         "# TYPE dataops_mirror_stale gauge",
-        f"dataops_mirror_stale {0 if stale == 0 else 1}",
+        f"dataops_mirror_stale{{{base_labels()}}} {0 if stale == 0 else 1}",
     ]
     if stale != 0:
         return 0
@@ -507,7 +531,7 @@ def drift(lines):
     ]
     for (dis, cur, prev, _u, _dn, _n) in rows:
         if prev and prev >= YOY_FLOOR:
-            lines.append(f'dataops_yoy_ratio{{{lbl(dis)}}} {cur / prev:.6f}')
+            lines.append(f'dataops_yoy_ratio{{{base_labels()},{lbl(dis)}}} {cur / prev:.6f}')
 
     lines += [
         "# HELP dataops_yoy_geo_drift_count Geographies whose year-over-year "
@@ -516,9 +540,9 @@ def drift(lines):
         "# TYPE dataops_yoy_geo_drift_count gauge",
     ]
     for (dis, _c, _p, up, down, _n) in rows:
-        lines.append(f'dataops_yoy_geo_drift_count{{{lbl(dis)},'
+        lines.append(f'dataops_yoy_geo_drift_count{{{base_labels()},{lbl(dis)},'
                      f'direction="up"}} {up}')
-        lines.append(f'dataops_yoy_geo_drift_count{{{lbl(dis)},'
+        lines.append(f'dataops_yoy_geo_drift_count{{{base_labels()},{lbl(dis)},'
                      f'direction="down"}} {down}')
 
     # Its own HELP/TYPE block, not squeezed into the loop above: the drift count
@@ -531,7 +555,7 @@ def drift(lines):
         "# TYPE dataops_yoy_geo_comparable_count gauge",
     ]
     for (dis, _c, _p, _u, _d, comparable) in rows:
-        lines.append(f'dataops_yoy_geo_comparable_count{{{lbl(dis)}}} '
+        lines.append(f'dataops_yoy_geo_comparable_count{{{base_labels()},{lbl(dis)}}} '
                      f'{comparable}')
     return len(rows)
 

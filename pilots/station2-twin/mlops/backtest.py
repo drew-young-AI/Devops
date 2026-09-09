@@ -88,6 +88,21 @@ BASE_FEATURES = [
     "lag_1", "lag_2", "lag_3", "lag_4", "delta_1",
     "same_week_last_year", "week_of_year", "denominator_lag_1",
     "covid_lag_1", "entero_lag_1", "age_share_0_6_lag_1",
+    # Added 2026-09-09 with migrations 017/018. Three dimensions the schema
+    # always had and the features never used:
+    #   inpatient_lag_1  VISIT TYPE   -- severity, same disease and geography
+    #   national_lag_1   GEOGRAPHY    -- every geography summed
+    #   geo_share_lag_1  GEOGRAPHY    -- this city as a multiple of national
+    #   uri_lag_1        DISEASE      -- acute upper-respiratory infection
+    #   pneumonia_lag_1  DISEASE      -- other pneumonia
+    #
+    # Feature sets built before those migrations read NULL for all five and
+    # therefore NaN, which both registered estimators already handle. That is
+    # why adding them here does not invalidate an older feature set -- but the
+    # MAE from one is still not comparable with the MAE from another, and the
+    # publisher enforces that separately (ADR-0016).
+    "inpatient_lag_1", "national_lag_1", "geo_share_lag_1",
+    "uri_lag_1", "pneumonia_lag_1",
 ]
 DERIVED_FEATURES = ["seasonal_index"]   # computed per fold, never stored
 FEATURES = BASE_FEATURES + DERIVED_FEATURES
@@ -426,6 +441,10 @@ def main():
                          "docs/MLOps-Model-Extension.md")
     ap.add_argument("--list-models", action="store_true",
                     help="print the registry and exit")
+    ap.add_argument("--feature-set", type=int, default=None,
+                    help="feature_set_id to score. Without it the NEWEST set "
+                         "is used, which stopped being unambiguous once a "
+                         "second target existed.")
     ap.add_argument("--dry-run", action="store_true")
     args = ap.parse_args()
 
@@ -444,7 +463,7 @@ def main():
         return
     spec = model_spec(args.algorithm)
 
-    import psycopg
+    import psycopg  # noqa: E402
     dsn = os.environ.get("DATABASE_URL") or (
         f"host={os.environ.get('PGHOST', 'host.docker.internal')} "
         f"port={os.environ.get('PGPORT', '15432')} "
@@ -454,8 +473,17 @@ def main():
 
     with psycopg.connect(dsn) as conn:
         cur = conn.cursor()
-        cur.execute("SELECT feature_set_id, name, n_rows FROM feature_set "
-                    "ORDER BY built_at DESC LIMIT 1")
+        # WHICH FEATURE SET, EXPLICITLY. "the newest" was unambiguous while one
+        # existed. With a second forecasting target (influenza alongside
+        # influenza-like illness) the newest is simply whichever was rebuilt
+        # last, so a run asking for ILI would silently score flu and record it
+        # under the ILI horizon -- provenance that is worse than none.
+        if args.feature_set:
+            cur.execute("SELECT feature_set_id, name, n_rows FROM feature_set "
+                        "WHERE feature_set_id = %s", (args.feature_set,))
+        else:
+            cur.execute("SELECT feature_set_id, name, n_rows FROM feature_set "
+                        "ORDER BY built_at DESC LIMIT 1")
         row = cur.fetchone()
         if not row:
             sys.exit("no feature_set -- run build_features.py first")
