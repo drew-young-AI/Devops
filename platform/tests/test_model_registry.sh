@@ -25,6 +25,31 @@ source "$SUITE_DIR/lib.sh"
 
 MLOPS="$REPO_ROOT/pilots/station2-twin/mlops"
 
+# EVERY ASSERTION BELOW NEEDS A CONTAINER RUNTIME, so the absence of one is
+# stated rather than reported as a defect (2026-09-09).
+#
+# This suite is listed in tier 1 -- "no dependencies" -- and that was wrong the
+# day it was written: `run.sh` builds and runs the pilot image, so the registry
+# it interrogates lives inside a container. On the development machine and on
+# GitHub's runners Docker is always there, so the mis-declaration was invisible
+# for as long as those were the only two places it ran.
+#
+# The second machine has no Docker at all: ubu runs k3s over containerd. The
+# suite reported four red assertions whose real cause was
+# `docker: command not found`, which is not a statement about the registry.
+#
+# The repository's own convention for this is SKIP plus UNVERIFIED (see
+# test_dataops_metrics.sh and test_exporter_freshness.sh): a dependency that is
+# absent is a different claim from a contract that is broken, and collapsing
+# the two teaches people to ignore the colour.
+if ! command -v docker >/dev/null 2>&1 || ! timeout 20 docker info >/dev/null 2>&1; then
+  echo "  SKIP  no container runtime -- the model registry is UNVERIFIED here."
+  echo "        Every check in this suite runs inside the pilot image; without"
+  echo "        one, 'the registry admits two families' cannot be asked at all."
+  suite_summary
+  exit 0
+fi
+
 echo "== the model registry admits more than one family =="
 
 run_cmd "$MLOPS/run.sh" backtest.py --list-models
