@@ -1,0 +1,4542 @@
+{
+ "feature_set": 99,
+ "target": "pct_ili",
+ "feature_set_name": "ili_門診_v2",
+ "horizon": 2,
+ "margin": 0.02,
+ "min_train": 104,
+ "predict_delta": true,
+ "lock_family": null,
+ "limit": null,
+ "all_origins": true,
+ "summary": {
+  "n": 431,
+  "n_origins": 451,
+  "won": 228,
+  "win_rate": 0.5290023201856149,
+  "mae_published": 0.0016183671929485893,
+  "mae_persistence": 0.0016185615590332881,
+  "margin_ratio": 0.00012008569189972828,
+  "decisions": {
+   "REFUSED": 20,
+   "BOOTSTRAP": 1,
+   "REFRESH": 430
+  },
+  "families_served": {
+   "HistGradientBoostingRegressor": 431
+  }
+ },
+ "decisions": [
+  {
+   "origin_index": 0,
+   "epi_year": 2018,
+   "epi_week": 1,
+   "decision": "REFUSED",
+   "algorithm": null,
+   "published": null,
+   "actual": 0.03104569053094753,
+   "persistence": 0.02461717588597923
+  },
+  {
+   "origin_index": 1,
+   "epi_year": 2018,
+   "epi_week": 2,
+   "decision": "REFUSED",
+   "algorithm": null,
+   "published": null,
+   "actual": 0.03415162147726718,
+   "persistence": 0.025392875327794353
+  },
+  {
+   "origin_index": 2,
+   "epi_year": 2018,
+   "epi_week": 3,
+   "decision": "REFUSED",
+   "algorithm": null,
+   "published": null,
+   "actual": 0.032481158613193416,
+   "persistence": 0.03104569053094753
+  },
+  {
+   "origin_index": 3,
+   "epi_year": 2018,
+   "epi_week": 4,
+   "decision": "REFUSED",
+   "algorithm": null,
+   "published": null,
+   "actual": 0.0297684353137362,
+   "persistence": 0.03415162147726718
+  },
+  {
+   "origin_index": 4,
+   "epi_year": 2018,
+   "epi_week": 5,
+   "decision": "REFUSED",
+   "algorithm": null,
+   "published": null,
+   "actual": 0.03190440388004881,
+   "persistence": 0.032481158613193416
+  },
+  {
+   "origin_index": 5,
+   "epi_year": 2018,
+   "epi_week": 6,
+   "decision": "REFUSED",
+   "algorithm": null,
+   "published": null,
+   "actual": 0.034475506253722456,
+   "persistence": 0.0297684353137362
+  },
+  {
+   "origin_index": 6,
+   "epi_year": 2018,
+   "epi_week": 7,
+   "decision": "REFUSED",
+   "algorithm": null,
+   "published": null,
+   "actual": 0.027922136799858742,
+   "persistence": 0.03190440388004881
+  },
+  {
+   "origin_index": 7,
+   "epi_year": 2018,
+   "epi_week": 8,
+   "decision": "REFUSED",
+   "algorithm": null,
+   "published": null,
+   "actual": 0.02551219051067641,
+   "persistence": 0.034475506253722456
+  },
+  {
+   "origin_index": 8,
+   "epi_year": 2018,
+   "epi_week": 9,
+   "decision": "REFUSED",
+   "algorithm": null,
+   "published": null,
+   "actual": 0.025125651311845805,
+   "persistence": 0.027922136799858742
+  },
+  {
+   "origin_index": 9,
+   "epi_year": 2018,
+   "epi_week": 10,
+   "decision": "REFUSED",
+   "algorithm": null,
+   "published": null,
+   "actual": 0.023096497286173155,
+   "persistence": 0.02551219051067641
+  },
+  {
+   "origin_index": 10,
+   "epi_year": 2018,
+   "epi_week": 11,
+   "decision": "REFUSED",
+   "algorithm": null,
+   "published": null,
+   "actual": 0.022686539897127055,
+   "persistence": 0.025125651311845805
+  },
+  {
+   "origin_index": 11,
+   "epi_year": 2018,
+   "epi_week": 12,
+   "decision": "REFUSED",
+   "algorithm": null,
+   "published": null,
+   "actual": 0.020056654498222838,
+   "persistence": 0.023096497286173155
+  },
+  {
+   "origin_index": 12,
+   "epi_year": 2018,
+   "epi_week": 13,
+   "decision": "REFUSED",
+   "algorithm": null,
+   "published": null,
+   "actual": 0.01692990490060999,
+   "persistence": 0.022686539897127055
+  },
+  {
+   "origin_index": 13,
+   "epi_year": 2018,
+   "epi_week": 14,
+   "decision": "REFUSED",
+   "algorithm": null,
+   "published": null,
+   "actual": 0.015767802783691998,
+   "persistence": 0.020056654498222838
+  },
+  {
+   "origin_index": 14,
+   "epi_year": 2018,
+   "epi_week": 15,
+   "decision": "REFUSED",
+   "algorithm": null,
+   "published": null,
+   "actual": 0.015161937821238708,
+   "persistence": 0.01692990490060999
+  },
+  {
+   "origin_index": 15,
+   "epi_year": 2018,
+   "epi_week": 16,
+   "decision": "REFUSED",
+   "algorithm": null,
+   "published": null,
+   "actual": 0.014698740457348496,
+   "persistence": 0.015767802783691998
+  },
+  {
+   "origin_index": 16,
+   "epi_year": 2018,
+   "epi_week": 17,
+   "decision": "REFUSED",
+   "algorithm": null,
+   "published": null,
+   "actual": 0.014471291765679968,
+   "persistence": 0.015161937821238708
+  },
+  {
+   "origin_index": 17,
+   "epi_year": 2018,
+   "epi_week": 18,
+   "decision": "REFUSED",
+   "algorithm": null,
+   "published": null,
+   "actual": 0.013840798771008845,
+   "persistence": 0.014698740457348496
+  },
+  {
+   "origin_index": 18,
+   "epi_year": 2018,
+   "epi_week": 19,
+   "decision": "REFUSED",
+   "algorithm": null,
+   "published": null,
+   "actual": 0.012899349023535303,
+   "persistence": 0.014471291765679968
+  },
+  {
+   "origin_index": 19,
+   "epi_year": 2018,
+   "epi_week": 20,
+   "decision": "REFUSED",
+   "algorithm": null,
+   "published": null,
+   "actual": 0.013312614470783982,
+   "persistence": 0.013840798771008845
+  },
+  {
+   "origin_index": 20,
+   "epi_year": 2018,
+   "epi_week": 21,
+   "decision": "BOOTSTRAP",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.013296273664431302,
+   "actual": 0.013232848731099223,
+   "persistence": 0.012899349023535303
+  },
+  {
+   "origin_index": 21,
+   "epi_year": 2018,
+   "epi_week": 22,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.013503602677551015,
+   "actual": 0.01296707110246225,
+   "persistence": 0.013312614470783982
+  },
+  {
+   "origin_index": 22,
+   "epi_year": 2018,
+   "epi_week": 23,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.013385061014024776,
+   "actual": 0.01419970010704454,
+   "persistence": 0.013232848731099223
+  },
+  {
+   "origin_index": 23,
+   "epi_year": 2018,
+   "epi_week": 24,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.012873497937245341,
+   "actual": 0.01257809566899951,
+   "persistence": 0.01296707110246225
+  },
+  {
+   "origin_index": 24,
+   "epi_year": 2018,
+   "epi_week": 25,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.01406768507792726,
+   "actual": 0.014140075421396465,
+   "persistence": 0.01419970010704454
+  },
+  {
+   "origin_index": 25,
+   "epi_year": 2018,
+   "epi_week": 26,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.013566229920358466,
+   "actual": 0.014594098805822473,
+   "persistence": 0.01257809566899951
+  },
+  {
+   "origin_index": 26,
+   "epi_year": 2018,
+   "epi_week": 27,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.014155066250034314,
+   "actual": 0.014867453500587036,
+   "persistence": 0.014140075421396465
+  },
+  {
+   "origin_index": 27,
+   "epi_year": 2018,
+   "epi_week": 28,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.015500091414435108,
+   "actual": 0.015096139746485828,
+   "persistence": 0.014594098805822473
+  },
+  {
+   "origin_index": 28,
+   "epi_year": 2018,
+   "epi_week": 29,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.015146127382218637,
+   "actual": 0.015377249857173113,
+   "persistence": 0.014867453500587036
+  },
+  {
+   "origin_index": 29,
+   "epi_year": 2018,
+   "epi_week": 30,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.015562873581429553,
+   "actual": 0.015508400526674484,
+   "persistence": 0.015096139746485828
+  },
+  {
+   "origin_index": 30,
+   "epi_year": 2018,
+   "epi_week": 31,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.015931542407763066,
+   "actual": 0.016064767863588705,
+   "persistence": 0.015377249857173113
+  },
+  {
+   "origin_index": 31,
+   "epi_year": 2018,
+   "epi_week": 32,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.016028200663339733,
+   "actual": 0.01578337918832041,
+   "persistence": 0.015508400526674484
+  },
+  {
+   "origin_index": 32,
+   "epi_year": 2018,
+   "epi_week": 33,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.017144612127476422,
+   "actual": 0.01570234366060783,
+   "persistence": 0.016064767863588705
+  },
+  {
+   "origin_index": 33,
+   "epi_year": 2018,
+   "epi_week": 34,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.016431896750912004,
+   "actual": 0.015554840652721499,
+   "persistence": 0.01578337918832041
+  },
+  {
+   "origin_index": 34,
+   "epi_year": 2018,
+   "epi_week": 35,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.016580096717492235,
+   "actual": 0.016574454040001907,
+   "persistence": 0.01570234366060783
+  },
+  {
+   "origin_index": 35,
+   "epi_year": 2018,
+   "epi_week": 36,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.016268700362990506,
+   "actual": 0.01602137775322133,
+   "persistence": 0.015554840652721499
+  },
+  {
+   "origin_index": 36,
+   "epi_year": 2018,
+   "epi_week": 37,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.017144544838458033,
+   "actual": 0.016185820985852313,
+   "persistence": 0.016574454040001907
+  },
+  {
+   "origin_index": 37,
+   "epi_year": 2018,
+   "epi_week": 38,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.016709758613578388,
+   "actual": 0.015250583219370928,
+   "persistence": 0.01602137775322133
+  },
+  {
+   "origin_index": 38,
+   "epi_year": 2018,
+   "epi_week": 39,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.01622977567048379,
+   "actual": 0.015135030843520718,
+   "persistence": 0.016185820985852313
+  },
+  {
+   "origin_index": 39,
+   "epi_year": 2018,
+   "epi_week": 40,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.01566231767253114,
+   "actual": 0.014334085778781038,
+   "persistence": 0.015250583219370928
+  },
+  {
+   "origin_index": 40,
+   "epi_year": 2018,
+   "epi_week": 41,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.015396225751438019,
+   "actual": 0.01534412255540149,
+   "persistence": 0.015135030843520718
+  },
+  {
+   "origin_index": 41,
+   "epi_year": 2018,
+   "epi_week": 42,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.014871099936939162,
+   "actual": 0.015808869435510815,
+   "persistence": 0.014334085778781038
+  },
+  {
+   "origin_index": 42,
+   "epi_year": 2018,
+   "epi_week": 43,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.01576285244564728,
+   "actual": 0.015453214405040749,
+   "persistence": 0.01534412255540149
+  },
+  {
+   "origin_index": 43,
+   "epi_year": 2018,
+   "epi_week": 44,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.017109651781465993,
+   "actual": 0.015335512054413646,
+   "persistence": 0.015808869435510815
+  },
+  {
+   "origin_index": 44,
+   "epi_year": 2018,
+   "epi_week": 45,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.0163589552203246,
+   "actual": 0.01565445073125241,
+   "persistence": 0.015453214405040749
+  },
+  {
+   "origin_index": 45,
+   "epi_year": 2018,
+   "epi_week": 46,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.015919884345373975,
+   "actual": 0.015705970226137126,
+   "persistence": 0.015335512054413646
+  },
+  {
+   "origin_index": 46,
+   "epi_year": 2018,
+   "epi_week": 47,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.016176728663853196,
+   "actual": 0.016045816294406556,
+   "persistence": 0.01565445073125241
+  },
+  {
+   "origin_index": 47,
+   "epi_year": 2018,
+   "epi_week": 48,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.01619590806067838,
+   "actual": 0.016679155404501298,
+   "persistence": 0.015705970226137126
+  },
+  {
+   "origin_index": 48,
+   "epi_year": 2018,
+   "epi_week": 49,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.016640053266484475,
+   "actual": 0.017881152873057044,
+   "persistence": 0.016045816294406556
+  },
+  {
+   "origin_index": 49,
+   "epi_year": 2018,
+   "epi_week": 50,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.01755265414208238,
+   "actual": 0.019273558777628864,
+   "persistence": 0.016679155404501298
+  },
+  {
+   "origin_index": 50,
+   "epi_year": 2018,
+   "epi_week": 51,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.019582748327119707,
+   "actual": 0.021937407285760175,
+   "persistence": 0.017881152873057044
+  },
+  {
+   "origin_index": 51,
+   "epi_year": 2018,
+   "epi_week": 52,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.023020285001511827,
+   "actual": 0.021892879589972204,
+   "persistence": 0.019273558777628864
+  },
+  {
+   "origin_index": 52,
+   "epi_year": 2019,
+   "epi_week": 1,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.026452736441229273,
+   "actual": 0.024154443115706192,
+   "persistence": 0.021937407285760175
+  },
+  {
+   "origin_index": 53,
+   "epi_year": 2019,
+   "epi_week": 2,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.026871496283568903,
+   "actual": 0.0242031098384296,
+   "persistence": 0.021892879589972204
+  },
+  {
+   "origin_index": 54,
+   "epi_year": 2019,
+   "epi_week": 3,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.029523720616968802,
+   "actual": 0.02463946361942719,
+   "persistence": 0.024154443115706192
+  },
+  {
+   "origin_index": 55,
+   "epi_year": 2019,
+   "epi_week": 4,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.025750861623211496,
+   "actual": 0.043256093288624196,
+   "persistence": 0.0242031098384296
+  },
+  {
+   "origin_index": 56,
+   "epi_year": 2019,
+   "epi_week": 5,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.023800227044749475,
+   "actual": 0.021101079888109713,
+   "persistence": 0.02463946361942719
+  },
+  {
+   "origin_index": 57,
+   "epi_year": 2019,
+   "epi_week": 6,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.040778773122108675,
+   "actual": 0.021777622643904298,
+   "persistence": 0.043256093288624196
+  },
+  {
+   "origin_index": 58,
+   "epi_year": 2019,
+   "epi_week": 7,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.01805871549578478,
+   "actual": 0.022216193158138175,
+   "persistence": 0.021101079888109713
+  },
+  {
+   "origin_index": 59,
+   "epi_year": 2019,
+   "epi_week": 8,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.019580085625861172,
+   "actual": 0.021867684776870698,
+   "persistence": 0.021777622643904298
+  },
+  {
+   "origin_index": 60,
+   "epi_year": 2019,
+   "epi_week": 9,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.021330236613725583,
+   "actual": 0.02117086822234193,
+   "persistence": 0.022216193158138175
+  },
+  {
+   "origin_index": 61,
+   "epi_year": 2019,
+   "epi_week": 10,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.02086800545674102,
+   "actual": 0.02067157112681186,
+   "persistence": 0.021867684776870698
+  },
+  {
+   "origin_index": 62,
+   "epi_year": 2019,
+   "epi_week": 11,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.02063051201250993,
+   "actual": 0.02049340145660792,
+   "persistence": 0.02117086822234193
+  },
+  {
+   "origin_index": 63,
+   "epi_year": 2019,
+   "epi_week": 12,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.01950191731760035,
+   "actual": 0.02020560153012921,
+   "persistence": 0.02067157112681186
+  },
+  {
+   "origin_index": 64,
+   "epi_year": 2019,
+   "epi_week": 13,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.018311793524900914,
+   "actual": 0.017973338672382076,
+   "persistence": 0.02049340145660792
+  },
+  {
+   "origin_index": 65,
+   "epi_year": 2019,
+   "epi_week": 14,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.02017164625945533,
+   "actual": 0.018720068211715096,
+   "persistence": 0.02020560153012921
+  },
+  {
+   "origin_index": 66,
+   "epi_year": 2019,
+   "epi_week": 15,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.01527422622276016,
+   "actual": 0.018762790773520756,
+   "persistence": 0.017973338672382076
+  },
+  {
+   "origin_index": 67,
+   "epi_year": 2019,
+   "epi_week": 16,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.01808771499475349,
+   "actual": 0.020094063284992823,
+   "persistence": 0.018720068211715096
+  },
+  {
+   "origin_index": 68,
+   "epi_year": 2019,
+   "epi_week": 17,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.018552710531109722,
+   "actual": 0.02110693775109151,
+   "persistence": 0.018762790773520756
+  },
+  {
+   "origin_index": 69,
+   "epi_year": 2019,
+   "epi_week": 18,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.01901408068118843,
+   "actual": 0.021520168761146076,
+   "persistence": 0.020094063284992823
+  },
+  {
+   "origin_index": 70,
+   "epi_year": 2019,
+   "epi_week": 19,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.02312019269834799,
+   "actual": 0.021410808409727637,
+   "persistence": 0.02110693775109151
+  },
+  {
+   "origin_index": 71,
+   "epi_year": 2019,
+   "epi_week": 20,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.02226530677957758,
+   "actual": 0.022426970997801277,
+   "persistence": 0.021520168761146076
+  },
+  {
+   "origin_index": 72,
+   "epi_year": 2019,
+   "epi_week": 21,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.02163144979571516,
+   "actual": 0.022846226316340416,
+   "persistence": 0.021410808409727637
+  },
+  {
+   "origin_index": 73,
+   "epi_year": 2019,
+   "epi_week": 22,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.023485367590081893,
+   "actual": 0.02159911053187173,
+   "persistence": 0.022426970997801277
+  },
+  {
+   "origin_index": 74,
+   "epi_year": 2019,
+   "epi_week": 23,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.019290774664662988,
+   "actual": 0.02138049543912972,
+   "persistence": 0.022846226316340416
+  },
+  {
+   "origin_index": 75,
+   "epi_year": 2019,
+   "epi_week": 24,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.018683791843820526,
+   "actual": 0.020306400288685498,
+   "persistence": 0.02159911053187173
+  },
+  {
+   "origin_index": 76,
+   "epi_year": 2019,
+   "epi_week": 25,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.02048641156996704,
+   "actual": 0.020199627078243035,
+   "persistence": 0.02138049543912972
+  },
+  {
+   "origin_index": 77,
+   "epi_year": 2019,
+   "epi_week": 26,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.0195824512152828,
+   "actual": 0.019426865649934642,
+   "persistence": 0.020306400288685498
+  },
+  {
+   "origin_index": 78,
+   "epi_year": 2019,
+   "epi_week": 27,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.020073715609247596,
+   "actual": 0.019305748973888984,
+   "persistence": 0.020199627078243035
+  },
+  {
+   "origin_index": 79,
+   "epi_year": 2019,
+   "epi_week": 28,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.018289142006735034,
+   "actual": 0.019423245813270342,
+   "persistence": 0.019426865649934642
+  },
+  {
+   "origin_index": 80,
+   "epi_year": 2019,
+   "epi_week": 29,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.01874654552974031,
+   "actual": 0.018438146492484413,
+   "persistence": 0.019305748973888984
+  },
+  {
+   "origin_index": 81,
+   "epi_year": 2019,
+   "epi_week": 30,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.018990310376022012,
+   "actual": 0.018586142073249597,
+   "persistence": 0.019423245813270342
+  },
+  {
+   "origin_index": 82,
+   "epi_year": 2019,
+   "epi_week": 31,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.01890699544129157,
+   "actual": 0.019857451102724948,
+   "persistence": 0.018438146492484413
+  },
+  {
+   "origin_index": 83,
+   "epi_year": 2019,
+   "epi_week": 32,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.01958087541761988,
+   "actual": 0.019964972534506832,
+   "persistence": 0.018586142073249597
+  },
+  {
+   "origin_index": 84,
+   "epi_year": 2019,
+   "epi_week": 33,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.021145546735124726,
+   "actual": 0.02017846650998825,
+   "persistence": 0.019857451102724948
+  },
+  {
+   "origin_index": 85,
+   "epi_year": 2019,
+   "epi_week": 34,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.020728428853894663,
+   "actual": 0.020906325667163574,
+   "persistence": 0.019964972534506832
+  },
+  {
+   "origin_index": 86,
+   "epi_year": 2019,
+   "epi_week": 35,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.021284282432445793,
+   "actual": 0.02227074976306711,
+   "persistence": 0.02017846650998825
+  },
+  {
+   "origin_index": 87,
+   "epi_year": 2019,
+   "epi_week": 36,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.022365634815478277,
+   "actual": 0.020099250259512858,
+   "persistence": 0.020906325667163574
+  },
+  {
+   "origin_index": 88,
+   "epi_year": 2019,
+   "epi_week": 37,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.02255351009293504,
+   "actual": 0.01847173714014445,
+   "persistence": 0.02227074976306711
+  },
+  {
+   "origin_index": 89,
+   "epi_year": 2019,
+   "epi_week": 38,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.020257053319283767,
+   "actual": 0.01927316264086515,
+   "persistence": 0.020099250259512858
+  },
+  {
+   "origin_index": 90,
+   "epi_year": 2019,
+   "epi_week": 39,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.019062560926292833,
+   "actual": 0.02059299640329585,
+   "persistence": 0.01847173714014445
+  },
+  {
+   "origin_index": 91,
+   "epi_year": 2019,
+   "epi_week": 40,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.019401723826417003,
+   "actual": 0.018434897289238663,
+   "persistence": 0.01927316264086515
+  },
+  {
+   "origin_index": 92,
+   "epi_year": 2019,
+   "epi_week": 41,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.01958200304912725,
+   "actual": 0.01815206624411656,
+   "persistence": 0.02059299640329585
+  },
+  {
+   "origin_index": 93,
+   "epi_year": 2019,
+   "epi_week": 42,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.01808065187910918,
+   "actual": 0.017748854912586286,
+   "persistence": 0.018434897289238663
+  },
+  {
+   "origin_index": 94,
+   "epi_year": 2019,
+   "epi_week": 43,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.018549396298302306,
+   "actual": 0.019176050120937437,
+   "persistence": 0.01815206624411656
+  },
+  {
+   "origin_index": 95,
+   "epi_year": 2019,
+   "epi_week": 44,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.017785529333658377,
+   "actual": 0.019521500271296798,
+   "persistence": 0.017748854912586286
+  },
+  {
+   "origin_index": 96,
+   "epi_year": 2019,
+   "epi_week": 45,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.019112592912553066,
+   "actual": 0.019714368310585546,
+   "persistence": 0.019176050120937437
+  },
+  {
+   "origin_index": 97,
+   "epi_year": 2019,
+   "epi_week": 46,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.022630570667045633,
+   "actual": 0.01986620684467599,
+   "persistence": 0.019521500271296798
+  },
+  {
+   "origin_index": 98,
+   "epi_year": 2019,
+   "epi_week": 47,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.02052750777639934,
+   "actual": 0.02086841741856457,
+   "persistence": 0.019714368310585546
+  },
+  {
+   "origin_index": 99,
+   "epi_year": 2019,
+   "epi_week": 48,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.021129296511045843,
+   "actual": 0.0223737751879944,
+   "persistence": 0.01986620684467599
+  },
+  {
+   "origin_index": 100,
+   "epi_year": 2019,
+   "epi_week": 49,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.023238230729799397,
+   "actual": 0.024161926372272033,
+   "persistence": 0.02086841741856457
+  },
+  {
+   "origin_index": 101,
+   "epi_year": 2019,
+   "epi_week": 50,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.024737338226753374,
+   "actual": 0.026234542313189564,
+   "persistence": 0.0223737751879944
+  },
+  {
+   "origin_index": 102,
+   "epi_year": 2019,
+   "epi_week": 51,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.025449156177820703,
+   "actual": 0.028838163870542558,
+   "persistence": 0.024161926372272033
+  },
+  {
+   "origin_index": 103,
+   "epi_year": 2019,
+   "epi_week": 52,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.026553955377112737,
+   "actual": 0.029709066060127888,
+   "persistence": 0.026234542313189564
+  },
+  {
+   "origin_index": 104,
+   "epi_year": 2020,
+   "epi_week": 1,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.02737541017781356,
+   "actual": 0.027409131273540128,
+   "persistence": 0.028838163870542558
+  },
+  {
+   "origin_index": 105,
+   "epi_year": 2020,
+   "epi_week": 2,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.029094275764339473,
+   "actual": 0.027511809866165988,
+   "persistence": 0.029709066060127888
+  },
+  {
+   "origin_index": 106,
+   "epi_year": 2020,
+   "epi_week": 3,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.024710342507396794,
+   "actual": 0.03164722808648232,
+   "persistence": 0.027409131273540128
+  },
+  {
+   "origin_index": 107,
+   "epi_year": 2020,
+   "epi_week": 4,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.02587586751721742,
+   "actual": 0.020502886756141432,
+   "persistence": 0.027511809866165988
+  },
+  {
+   "origin_index": 108,
+   "epi_year": 2020,
+   "epi_week": 5,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.028179775967404553,
+   "actual": 0.01694448581234826,
+   "persistence": 0.03164722808648232
+  },
+  {
+   "origin_index": 109,
+   "epi_year": 2020,
+   "epi_week": 6,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.01802897764043429,
+   "actual": 0.014798368092376576,
+   "persistence": 0.020502886756141432
+  },
+  {
+   "origin_index": 110,
+   "epi_year": 2020,
+   "epi_week": 7,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.014686086300998484,
+   "actual": 0.014221696393118481,
+   "persistence": 0.01694448581234826
+  },
+  {
+   "origin_index": 111,
+   "epi_year": 2020,
+   "epi_week": 8,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.014088022972612838,
+   "actual": 0.012808489270259493,
+   "persistence": 0.014798368092376576
+  },
+  {
+   "origin_index": 112,
+   "epi_year": 2020,
+   "epi_week": 9,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.01360386287290709,
+   "actual": 0.011985005612196266,
+   "persistence": 0.014221696393118481
+  },
+  {
+   "origin_index": 113,
+   "epi_year": 2020,
+   "epi_week": 10,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.01321217220441088,
+   "actual": 0.012241312855787476,
+   "persistence": 0.012808489270259493
+  },
+  {
+   "origin_index": 114,
+   "epi_year": 2020,
+   "epi_week": 11,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.012488219260680215,
+   "actual": 0.011673144059051678,
+   "persistence": 0.011985005612196266
+  },
+  {
+   "origin_index": 115,
+   "epi_year": 2020,
+   "epi_week": 12,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.012783892640450656,
+   "actual": 0.011823733787953991,
+   "persistence": 0.012241312855787476
+  },
+  {
+   "origin_index": 116,
+   "epi_year": 2020,
+   "epi_week": 13,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.01174170332124266,
+   "actual": 0.011225709823365808,
+   "persistence": 0.011673144059051678
+  },
+  {
+   "origin_index": 117,
+   "epi_year": 2020,
+   "epi_week": 14,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.011510467432079109,
+   "actual": 0.010342513766901706,
+   "persistence": 0.011823733787953991
+  },
+  {
+   "origin_index": 118,
+   "epi_year": 2020,
+   "epi_week": 15,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.011546017872927004,
+   "actual": 0.009960673273556708,
+   "persistence": 0.011225709823365808
+  },
+  {
+   "origin_index": 119,
+   "epi_year": 2020,
+   "epi_week": 16,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.010261250266821348,
+   "actual": 0.009045915397796419,
+   "persistence": 0.010342513766901706
+  },
+  {
+   "origin_index": 120,
+   "epi_year": 2020,
+   "epi_week": 17,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.009645454842240532,
+   "actual": 0.007925747849816941,
+   "persistence": 0.009960673273556708
+  },
+  {
+   "origin_index": 121,
+   "epi_year": 2020,
+   "epi_week": 18,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.009250471146181435,
+   "actual": 0.007597078545065138,
+   "persistence": 0.009045915397796419
+  },
+  {
+   "origin_index": 122,
+   "epi_year": 2020,
+   "epi_week": 19,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.007322753506504283,
+   "actual": 0.008284147735016302,
+   "persistence": 0.007925747849816941
+  },
+  {
+   "origin_index": 123,
+   "epi_year": 2020,
+   "epi_week": 20,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.006984984465804606,
+   "actual": 0.008354212354782582,
+   "persistence": 0.007597078545065138
+  },
+  {
+   "origin_index": 124,
+   "epi_year": 2020,
+   "epi_week": 21,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.007782944079609173,
+   "actual": 0.008228302384999015,
+   "persistence": 0.008284147735016302
+  },
+  {
+   "origin_index": 125,
+   "epi_year": 2020,
+   "epi_week": 22,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.008424209210110474,
+   "actual": 0.00817517203454627,
+   "persistence": 0.008354212354782582
+  },
+  {
+   "origin_index": 126,
+   "epi_year": 2020,
+   "epi_week": 23,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.008287958790865224,
+   "actual": 0.008538831800770596,
+   "persistence": 0.008228302384999015
+  },
+  {
+   "origin_index": 127,
+   "epi_year": 2020,
+   "epi_week": 24,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.00824884728505234,
+   "actual": 0.009160273030319065,
+   "persistence": 0.00817517203454627
+  },
+  {
+   "origin_index": 128,
+   "epi_year": 2020,
+   "epi_week": 25,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.008678525168286294,
+   "actual": 0.008197255716669575,
+   "persistence": 0.008538831800770596
+  },
+  {
+   "origin_index": 129,
+   "epi_year": 2020,
+   "epi_week": 26,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.009270398171193892,
+   "actual": 0.008070127128367525,
+   "persistence": 0.009160273030319065
+  },
+  {
+   "origin_index": 130,
+   "epi_year": 2020,
+   "epi_week": 27,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.008256911432539536,
+   "actual": 0.008164464700357808,
+   "persistence": 0.008197255716669575
+  },
+  {
+   "origin_index": 131,
+   "epi_year": 2020,
+   "epi_week": 28,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.008081688289910401,
+   "actual": 0.008077835785476982,
+   "persistence": 0.008070127128367525
+  },
+  {
+   "origin_index": 132,
+   "epi_year": 2020,
+   "epi_week": 29,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.008224978867879087,
+   "actual": 0.008355733132810702,
+   "persistence": 0.008164464700357808
+  },
+  {
+   "origin_index": 133,
+   "epi_year": 2020,
+   "epi_week": 30,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.008139927066716427,
+   "actual": 0.008818380193335706,
+   "persistence": 0.008077835785476982
+  },
+  {
+   "origin_index": 134,
+   "epi_year": 2020,
+   "epi_week": 31,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.008442049777984162,
+   "actual": 0.009566420714664682,
+   "persistence": 0.008355733132810702
+  },
+  {
+   "origin_index": 135,
+   "epi_year": 2020,
+   "epi_week": 32,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.008910603645605445,
+   "actual": 0.010189099785958148,
+   "persistence": 0.008818380193335706
+  },
+  {
+   "origin_index": 136,
+   "epi_year": 2020,
+   "epi_week": 33,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.009753747969374133,
+   "actual": 0.009743301146543096,
+   "persistence": 0.009566420714664682
+  },
+  {
+   "origin_index": 137,
+   "epi_year": 2020,
+   "epi_week": 34,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.010331605970416448,
+   "actual": 0.0095599326094435,
+   "persistence": 0.010189099785958148
+  },
+  {
+   "origin_index": 138,
+   "epi_year": 2020,
+   "epi_week": 35,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.009861983532997123,
+   "actual": 0.01027827084018408,
+   "persistence": 0.009743301146543096
+  },
+  {
+   "origin_index": 139,
+   "epi_year": 2020,
+   "epi_week": 36,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.009630153247083998,
+   "actual": 0.009969120777204098,
+   "persistence": 0.0095599326094435
+  },
+  {
+   "origin_index": 140,
+   "epi_year": 2020,
+   "epi_week": 37,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.01041176393827163,
+   "actual": 0.010255112595938648,
+   "persistence": 0.01027827084018408
+  },
+  {
+   "origin_index": 141,
+   "epi_year": 2020,
+   "epi_week": 38,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.010204215993928196,
+   "actual": 0.011532056461555387,
+   "persistence": 0.009969120777204098
+  },
+  {
+   "origin_index": 142,
+   "epi_year": 2020,
+   "epi_week": 39,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.010434368842983493,
+   "actual": 0.010664309421752255,
+   "persistence": 0.010255112595938648
+  },
+  {
+   "origin_index": 143,
+   "epi_year": 2020,
+   "epi_week": 40,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.01182991267165002,
+   "actual": 0.010188064757193159,
+   "persistence": 0.011532056461555387
+  },
+  {
+   "origin_index": 144,
+   "epi_year": 2020,
+   "epi_week": 41,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.010797048102822943,
+   "actual": 0.01112324291505445,
+   "persistence": 0.010664309421752255
+  },
+  {
+   "origin_index": 145,
+   "epi_year": 2020,
+   "epi_week": 42,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.0105499310192864,
+   "actual": 0.011824775127856955,
+   "persistence": 0.010188064757193159
+  },
+  {
+   "origin_index": 146,
+   "epi_year": 2020,
+   "epi_week": 43,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.011532592332941086,
+   "actual": 0.012480685047993727,
+   "persistence": 0.01112324291505445
+  },
+  {
+   "origin_index": 147,
+   "epi_year": 2020,
+   "epi_week": 44,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.012393995441306392,
+   "actual": 0.012914262939594958,
+   "persistence": 0.011824775127856955
+  },
+  {
+   "origin_index": 148,
+   "epi_year": 2020,
+   "epi_week": 45,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.013103943595922903,
+   "actual": 0.012268580998955544,
+   "persistence": 0.012480685047993727
+  },
+  {
+   "origin_index": 149,
+   "epi_year": 2020,
+   "epi_week": 46,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.013382237671055484,
+   "actual": 0.01230768196358123,
+   "persistence": 0.012914262939594958
+  },
+  {
+   "origin_index": 150,
+   "epi_year": 2020,
+   "epi_week": 47,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.013611133170077937,
+   "actual": 0.012281936418140725,
+   "persistence": 0.012268580998955544
+  },
+  {
+   "origin_index": 151,
+   "epi_year": 2020,
+   "epi_week": 48,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.013803972380280888,
+   "actual": 0.012250833145428042,
+   "persistence": 0.01230768196358123
+  },
+  {
+   "origin_index": 152,
+   "epi_year": 2020,
+   "epi_week": 49,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.013718850498498457,
+   "actual": 0.011808058297440352,
+   "persistence": 0.012281936418140725
+  },
+  {
+   "origin_index": 153,
+   "epi_year": 2020,
+   "epi_week": 50,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.013421208234615784,
+   "actual": 0.011582864494857929,
+   "persistence": 0.012250833145428042
+  },
+  {
+   "origin_index": 154,
+   "epi_year": 2020,
+   "epi_week": 51,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.012882024596537894,
+   "actual": 0.012715654828087375,
+   "persistence": 0.011808058297440352
+  },
+  {
+   "origin_index": 155,
+   "epi_year": 2020,
+   "epi_week": 52,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.01222808200122613,
+   "actual": 0.011617277495741344,
+   "persistence": 0.011582864494857929
+  },
+  {
+   "origin_index": 156,
+   "epi_year": 2020,
+   "epi_week": 53,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.013256274990443422,
+   "actual": 0.012153202576438447,
+   "persistence": 0.012715654828087375
+  },
+  {
+   "origin_index": 157,
+   "epi_year": 2021,
+   "epi_week": 1,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.012393175253453667,
+   "actual": 0.01168744018575117,
+   "persistence": 0.011617277495741344
+  },
+  {
+   "origin_index": 158,
+   "epi_year": 2021,
+   "epi_week": 2,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.012743464404167095,
+   "actual": 0.011716607584776937,
+   "persistence": 0.012153202576438447
+  },
+  {
+   "origin_index": 159,
+   "epi_year": 2021,
+   "epi_week": 3,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.01210406848712238,
+   "actual": 0.011094423794102713,
+   "persistence": 0.01168744018575117
+  },
+  {
+   "origin_index": 160,
+   "epi_year": 2021,
+   "epi_week": 4,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.012059406511687088,
+   "actual": 0.012884360904395339,
+   "persistence": 0.011716607584776937
+  },
+  {
+   "origin_index": 161,
+   "epi_year": 2021,
+   "epi_week": 5,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.011167130322649054,
+   "actual": 0.011547418952025821,
+   "persistence": 0.011094423794102713
+  },
+  {
+   "origin_index": 162,
+   "epi_year": 2021,
+   "epi_week": 6,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.012863010923051909,
+   "actual": 0.009291221505931792,
+   "persistence": 0.012884360904395339
+  },
+  {
+   "origin_index": 163,
+   "epi_year": 2021,
+   "epi_week": 7,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.013394513429397145,
+   "actual": 0.008851672062347965,
+   "persistence": 0.011547418952025821
+  },
+  {
+   "origin_index": 164,
+   "epi_year": 2021,
+   "epi_week": 8,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.008829367253215165,
+   "actual": 0.00881721947048511,
+   "persistence": 0.009291221505931792
+  },
+  {
+   "origin_index": 165,
+   "epi_year": 2021,
+   "epi_week": 9,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.008567685518067122,
+   "actual": 0.009279145373839896,
+   "persistence": 0.008851672062347965
+  },
+  {
+   "origin_index": 166,
+   "epi_year": 2021,
+   "epi_week": 10,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.008406241422864258,
+   "actual": 0.009856922342126576,
+   "persistence": 0.00881721947048511
+  },
+  {
+   "origin_index": 167,
+   "epi_year": 2021,
+   "epi_week": 11,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.008626522913178112,
+   "actual": 0.009448854686929114,
+   "persistence": 0.009279145373839896
+  },
+  {
+   "origin_index": 168,
+   "epi_year": 2021,
+   "epi_week": 12,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.009159103630129235,
+   "actual": 0.010379401040007027,
+   "persistence": 0.009856922342126576
+  },
+  {
+   "origin_index": 169,
+   "epi_year": 2021,
+   "epi_week": 13,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.008375835296126857,
+   "actual": 0.009523318909265747,
+   "persistence": 0.009448854686929114
+  },
+  {
+   "origin_index": 170,
+   "epi_year": 2021,
+   "epi_week": 14,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.009575493530765143,
+   "actual": 0.009593537859346692,
+   "persistence": 0.010379401040007027
+  },
+  {
+   "origin_index": 171,
+   "epi_year": 2021,
+   "epi_week": 15,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.00962298382089306,
+   "actual": 0.009577286976244905,
+   "persistence": 0.009523318909265747
+  },
+  {
+   "origin_index": 172,
+   "epi_year": 2021,
+   "epi_week": 16,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.009664973917045986,
+   "actual": 0.009076486189993474,
+   "persistence": 0.009593537859346692
+  },
+  {
+   "origin_index": 173,
+   "epi_year": 2021,
+   "epi_week": 17,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.009630274740766448,
+   "actual": 0.00890410837124869,
+   "persistence": 0.009577286976244905
+  },
+  {
+   "origin_index": 174,
+   "epi_year": 2021,
+   "epi_week": 18,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.009131123944723282,
+   "actual": 0.009456992267530237,
+   "persistence": 0.009076486189993474
+  },
+  {
+   "origin_index": 175,
+   "epi_year": 2021,
+   "epi_week": 19,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.008958072508449004,
+   "actual": 0.008310094406367994,
+   "persistence": 0.00890410837124869
+  },
+  {
+   "origin_index": 176,
+   "epi_year": 2021,
+   "epi_week": 20,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.009567473659565062,
+   "actual": 0.006640211574639795,
+   "persistence": 0.009456992267530237
+  },
+  {
+   "origin_index": 177,
+   "epi_year": 2021,
+   "epi_week": 21,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.008515457436922436,
+   "actual": 0.006217124418859963,
+   "persistence": 0.008310094406367994
+  },
+  {
+   "origin_index": 178,
+   "epi_year": 2021,
+   "epi_week": 22,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.0072189026333040725,
+   "actual": 0.005782384332874578,
+   "persistence": 0.006640211574639795
+  },
+  {
+   "origin_index": 179,
+   "epi_year": 2021,
+   "epi_week": 23,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.006451255155568673,
+   "actual": 0.0055737226486904145,
+   "persistence": 0.006217124418859963
+  },
+  {
+   "origin_index": 180,
+   "epi_year": 2021,
+   "epi_week": 24,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.005822173431577982,
+   "actual": 0.0053766911676550065,
+   "persistence": 0.005782384332874578
+  },
+  {
+   "origin_index": 181,
+   "epi_year": 2021,
+   "epi_week": 25,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.0056054364679401425,
+   "actual": 0.004940141196481803,
+   "persistence": 0.0055737226486904145
+  },
+  {
+   "origin_index": 182,
+   "epi_year": 2021,
+   "epi_week": 26,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.005402387738605462,
+   "actual": 0.004662308902035882,
+   "persistence": 0.0053766911676550065
+  },
+  {
+   "origin_index": 183,
+   "epi_year": 2021,
+   "epi_week": 27,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.005043146698615569,
+   "actual": 0.004633683046614335,
+   "persistence": 0.004940141196481803
+  },
+  {
+   "origin_index": 184,
+   "epi_year": 2021,
+   "epi_week": 28,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.00461725561246622,
+   "actual": 0.004326125983137331,
+   "persistence": 0.004662308902035882
+  },
+  {
+   "origin_index": 185,
+   "epi_year": 2021,
+   "epi_week": 29,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.004682105477632506,
+   "actual": 0.0046657178349440095,
+   "persistence": 0.004633683046614335
+  },
+  {
+   "origin_index": 186,
+   "epi_year": 2021,
+   "epi_week": 30,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.004376874930886713,
+   "actual": 0.004425157386467819,
+   "persistence": 0.004326125983137331
+  },
+  {
+   "origin_index": 187,
+   "epi_year": 2021,
+   "epi_week": 31,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.004817740288002522,
+   "actual": 0.004210168672824661,
+   "persistence": 0.0046657178349440095
+  },
+  {
+   "origin_index": 188,
+   "epi_year": 2021,
+   "epi_week": 32,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.004506067260515948,
+   "actual": 0.004267473655595887,
+   "persistence": 0.004425157386467819
+  },
+  {
+   "origin_index": 189,
+   "epi_year": 2021,
+   "epi_week": 33,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.004273802377107961,
+   "actual": 0.004306428575615532,
+   "persistence": 0.004210168672824661
+  },
+  {
+   "origin_index": 190,
+   "epi_year": 2021,
+   "epi_week": 34,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.004303225107281794,
+   "actual": 0.004321603835049821,
+   "persistence": 0.004267473655595887
+  },
+  {
+   "origin_index": 191,
+   "epi_year": 2021,
+   "epi_week": 35,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.004472796641152432,
+   "actual": 0.004282952141096208,
+   "persistence": 0.004306428575615532
+  },
+  {
+   "origin_index": 192,
+   "epi_year": 2021,
+   "epi_week": 36,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.004361415718724198,
+   "actual": 0.004397713189141646,
+   "persistence": 0.004321603835049821
+  },
+  {
+   "origin_index": 193,
+   "epi_year": 2021,
+   "epi_week": 37,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.004371232036303448,
+   "actual": 0.004484631401156103,
+   "persistence": 0.004282952141096208
+  },
+  {
+   "origin_index": 194,
+   "epi_year": 2021,
+   "epi_week": 38,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.00443431276936995,
+   "actual": 0.004676303365368441,
+   "persistence": 0.004397713189141646
+  },
+  {
+   "origin_index": 195,
+   "epi_year": 2021,
+   "epi_week": 39,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.004492261356528848,
+   "actual": 0.005063493490793194,
+   "persistence": 0.004484631401156103
+  },
+  {
+   "origin_index": 196,
+   "epi_year": 2021,
+   "epi_week": 40,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.004780902557868858,
+   "actual": 0.005490390875188626,
+   "persistence": 0.004676303365368441
+  },
+  {
+   "origin_index": 197,
+   "epi_year": 2021,
+   "epi_week": 41,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.005150605766394014,
+   "actual": 0.006036455902061468,
+   "persistence": 0.005063493490793194
+  },
+  {
+   "origin_index": 198,
+   "epi_year": 2021,
+   "epi_week": 42,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.0057128513548975095,
+   "actual": 0.005624900728991516,
+   "persistence": 0.005490390875188626
+  },
+  {
+   "origin_index": 199,
+   "epi_year": 2021,
+   "epi_week": 43,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.006207823449697443,
+   "actual": 0.00538558098907265,
+   "persistence": 0.006036455902061468
+  },
+  {
+   "origin_index": 200,
+   "epi_year": 2021,
+   "epi_week": 44,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.005805696886368903,
+   "actual": 0.005477711609895638,
+   "persistence": 0.005624900728991516
+  },
+  {
+   "origin_index": 201,
+   "epi_year": 2021,
+   "epi_week": 45,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.005452675882405637,
+   "actual": 0.005994747273561602,
+   "persistence": 0.00538558098907265
+  },
+  {
+   "origin_index": 202,
+   "epi_year": 2021,
+   "epi_week": 46,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.005619784050357005,
+   "actual": 0.006197300431165498,
+   "persistence": 0.005477711609895638
+  },
+  {
+   "origin_index": 203,
+   "epi_year": 2021,
+   "epi_week": 47,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.006278388831447097,
+   "actual": 0.006506415078119963,
+   "persistence": 0.005994747273561602
+  },
+  {
+   "origin_index": 204,
+   "epi_year": 2021,
+   "epi_week": 48,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.006947622237933776,
+   "actual": 0.006816610196087018,
+   "persistence": 0.006197300431165498
+  },
+  {
+   "origin_index": 205,
+   "epi_year": 2021,
+   "epi_week": 49,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.007280308676301327,
+   "actual": 0.007056811683252241,
+   "persistence": 0.006506415078119963
+  },
+  {
+   "origin_index": 206,
+   "epi_year": 2021,
+   "epi_week": 50,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.007617228530127729,
+   "actual": 0.007020609077727317,
+   "persistence": 0.006816610196087018
+  },
+  {
+   "origin_index": 207,
+   "epi_year": 2021,
+   "epi_week": 51,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.007810312544313362,
+   "actual": 0.0075331460158047,
+   "persistence": 0.007056811683252241
+  },
+  {
+   "origin_index": 208,
+   "epi_year": 2021,
+   "epi_week": 52,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.007566803140092842,
+   "actual": 0.008539017917541152,
+   "persistence": 0.007020609077727317
+  },
+  {
+   "origin_index": 209,
+   "epi_year": 2022,
+   "epi_week": 1,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.008751319350999896,
+   "actual": 0.009212159440047205,
+   "persistence": 0.0075331460158047
+  },
+  {
+   "origin_index": 210,
+   "epi_year": 2022,
+   "epi_week": 2,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.009768872801792583,
+   "actual": 0.008361574949356063,
+   "persistence": 0.008539017917541152
+  },
+  {
+   "origin_index": 211,
+   "epi_year": 2022,
+   "epi_week": 3,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.010354543442101728,
+   "actual": 0.013171547598767248,
+   "persistence": 0.009212159440047205
+  },
+  {
+   "origin_index": 212,
+   "epi_year": 2022,
+   "epi_week": 4,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.009690129267869193,
+   "actual": 0.006389450262314492,
+   "persistence": 0.008361574949356063
+  },
+  {
+   "origin_index": 213,
+   "epi_year": 2022,
+   "epi_week": 5,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.011713030267172218,
+   "actual": 0.0065277719778446775,
+   "persistence": 0.013171547598767248
+  },
+  {
+   "origin_index": 214,
+   "epi_year": 2022,
+   "epi_week": 6,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.008457182729348933,
+   "actual": 0.006891966118354485,
+   "persistence": 0.006389450262314492
+  },
+  {
+   "origin_index": 215,
+   "epi_year": 2022,
+   "epi_week": 7,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.006581337597780006,
+   "actual": 0.0071836071957298775,
+   "persistence": 0.0065277719778446775
+  },
+  {
+   "origin_index": 216,
+   "epi_year": 2022,
+   "epi_week": 8,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.006114766802054226,
+   "actual": 0.007668990202844378,
+   "persistence": 0.006891966118354485
+  },
+  {
+   "origin_index": 217,
+   "epi_year": 2022,
+   "epi_week": 9,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.005560743435545216,
+   "actual": 0.00774235418187718,
+   "persistence": 0.0071836071957298775
+  },
+  {
+   "origin_index": 218,
+   "epi_year": 2022,
+   "epi_week": 10,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.007089132822848295,
+   "actual": 0.008011142943720559,
+   "persistence": 0.007668990202844378
+  },
+  {
+   "origin_index": 219,
+   "epi_year": 2022,
+   "epi_week": 11,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.007305957096864557,
+   "actual": 0.0076257664455603525,
+   "persistence": 0.00774235418187718
+  },
+  {
+   "origin_index": 220,
+   "epi_year": 2022,
+   "epi_week": 12,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.0075956269169680365,
+   "actual": 0.0080826821122185,
+   "persistence": 0.008011142943720559
+  },
+  {
+   "origin_index": 221,
+   "epi_year": 2022,
+   "epi_week": 13,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.005871314199198942,
+   "actual": 0.007078802074619374,
+   "persistence": 0.0076257664455603525
+  },
+  {
+   "origin_index": 222,
+   "epi_year": 2022,
+   "epi_week": 14,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.00725126945530995,
+   "actual": 0.007332300550224105,
+   "persistence": 0.0080826821122185
+  },
+  {
+   "origin_index": 223,
+   "epi_year": 2022,
+   "epi_week": 15,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.006485531986458153,
+   "actual": 0.0068363566376365295,
+   "persistence": 0.007078802074619374
+  },
+  {
+   "origin_index": 224,
+   "epi_year": 2022,
+   "epi_week": 16,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.0075347277805131,
+   "actual": 0.007459352800393878,
+   "persistence": 0.007332300550224105
+  },
+  {
+   "origin_index": 225,
+   "epi_year": 2022,
+   "epi_week": 17,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.0068989306939346694,
+   "actual": 0.007842445027234215,
+   "persistence": 0.0068363566376365295
+  },
+  {
+   "origin_index": 226,
+   "epi_year": 2022,
+   "epi_week": 18,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.007566718222131974,
+   "actual": 0.008431176731558855,
+   "persistence": 0.007459352800393878
+  },
+  {
+   "origin_index": 227,
+   "epi_year": 2022,
+   "epi_week": 19,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.007951646901806777,
+   "actual": 0.007877284814965194,
+   "persistence": 0.007842445027234215
+  },
+  {
+   "origin_index": 228,
+   "epi_year": 2022,
+   "epi_week": 20,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.008526156103005694,
+   "actual": 0.007068629770506124,
+   "persistence": 0.008431176731558855
+  },
+  {
+   "origin_index": 229,
+   "epi_year": 2022,
+   "epi_week": 21,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.007967058977210832,
+   "actual": 0.0070754792936758674,
+   "persistence": 0.007877284814965194
+  },
+  {
+   "origin_index": 230,
+   "epi_year": 2022,
+   "epi_week": 22,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.007179470150451871,
+   "actual": 0.007032121034699686,
+   "persistence": 0.007068629770506124
+  },
+  {
+   "origin_index": 231,
+   "epi_year": 2022,
+   "epi_week": 23,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.007174119333494594,
+   "actual": 0.007071750892733425,
+   "persistence": 0.0070754792936758674
+  },
+  {
+   "origin_index": 232,
+   "epi_year": 2022,
+   "epi_week": 24,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.007076939944571599,
+   "actual": 0.006588574753724688,
+   "persistence": 0.007032121034699686
+  },
+  {
+   "origin_index": 233,
+   "epi_year": 2022,
+   "epi_week": 25,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.006016975532129734,
+   "actual": 0.006174921922277018,
+   "persistence": 0.007071750892733425
+  },
+  {
+   "origin_index": 234,
+   "epi_year": 2022,
+   "epi_week": 26,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.006670795605561649,
+   "actual": 0.005819005513746208,
+   "persistence": 0.006588574753724688
+  },
+  {
+   "origin_index": 235,
+   "epi_year": 2022,
+   "epi_week": 27,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.006203762198428371,
+   "actual": 0.005533748956116736,
+   "persistence": 0.006174921922277018
+  },
+  {
+   "origin_index": 236,
+   "epi_year": 2022,
+   "epi_week": 28,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.005872793147893899,
+   "actual": 0.005467884576969873,
+   "persistence": 0.005819005513746208
+  },
+  {
+   "origin_index": 237,
+   "epi_year": 2022,
+   "epi_week": 29,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.005592745143557712,
+   "actual": 0.00596173263880029,
+   "persistence": 0.005533748956116736
+  },
+  {
+   "origin_index": 238,
+   "epi_year": 2022,
+   "epi_week": 30,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.0055549097955418505,
+   "actual": 0.006883300901835022,
+   "persistence": 0.005467884576969873
+  },
+  {
+   "origin_index": 239,
+   "epi_year": 2022,
+   "epi_week": 31,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.00604080180075086,
+   "actual": 0.0072400796341784,
+   "persistence": 0.00596173263880029
+  },
+  {
+   "origin_index": 240,
+   "epi_year": 2022,
+   "epi_week": 32,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.007003090480146621,
+   "actual": 0.007168494450304852,
+   "persistence": 0.006883300901835022
+  },
+  {
+   "origin_index": 241,
+   "epi_year": 2022,
+   "epi_week": 33,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.007362790642552526,
+   "actual": 0.007352680799008483,
+   "persistence": 0.0072400796341784
+  },
+  {
+   "origin_index": 242,
+   "epi_year": 2022,
+   "epi_week": 34,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.007305811890093765,
+   "actual": 0.00800041621632508,
+   "persistence": 0.007168494450304852
+  },
+  {
+   "origin_index": 243,
+   "epi_year": 2022,
+   "epi_week": 35,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.007278161379047543,
+   "actual": 0.008250674124509381,
+   "persistence": 0.007352680799008483
+  },
+  {
+   "origin_index": 244,
+   "epi_year": 2022,
+   "epi_week": 36,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.007879792577811712,
+   "actual": 0.008493746184449957,
+   "persistence": 0.00800041621632508
+  },
+  {
+   "origin_index": 245,
+   "epi_year": 2022,
+   "epi_week": 37,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.008740324159349371,
+   "actual": 0.009203220332864002,
+   "persistence": 0.008250674124509381
+  },
+  {
+   "origin_index": 246,
+   "epi_year": 2022,
+   "epi_week": 38,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.007369971990689742,
+   "actual": 0.01025557704778886,
+   "persistence": 0.008493746184449957
+  },
+  {
+   "origin_index": 247,
+   "epi_year": 2022,
+   "epi_week": 39,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.008431404984772147,
+   "actual": 0.012248170219934601,
+   "persistence": 0.009203220332864002
+  },
+  {
+   "origin_index": 248,
+   "epi_year": 2022,
+   "epi_week": 40,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.009892406780858863,
+   "actual": 0.012309114444140411,
+   "persistence": 0.01025557704778886
+  },
+  {
+   "origin_index": 249,
+   "epi_year": 2022,
+   "epi_week": 41,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.011969458771799953,
+   "actual": 0.013296111404910401,
+   "persistence": 0.012248170219934601
+  },
+  {
+   "origin_index": 250,
+   "epi_year": 2022,
+   "epi_week": 42,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.014138440646845244,
+   "actual": 0.01278491230645043,
+   "persistence": 0.012309114444140411
+  },
+  {
+   "origin_index": 251,
+   "epi_year": 2022,
+   "epi_week": 43,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.01316904266142209,
+   "actual": 0.012433128978093639,
+   "persistence": 0.013296111404910401
+  },
+  {
+   "origin_index": 252,
+   "epi_year": 2022,
+   "epi_week": 44,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.012560286078846263,
+   "actual": 0.011996399673720431,
+   "persistence": 0.01278491230645043
+  },
+  {
+   "origin_index": 253,
+   "epi_year": 2022,
+   "epi_week": 45,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.012151212547396106,
+   "actual": 0.010996708222209798,
+   "persistence": 0.012433128978093639
+  },
+  {
+   "origin_index": 254,
+   "epi_year": 2022,
+   "epi_week": 46,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.011714586596751127,
+   "actual": 0.010940081395817383,
+   "persistence": 0.011996399673720431
+  },
+  {
+   "origin_index": 255,
+   "epi_year": 2022,
+   "epi_week": 47,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.010808661811939863,
+   "actual": 0.011542050614717034,
+   "persistence": 0.010996708222209798
+  },
+  {
+   "origin_index": 256,
+   "epi_year": 2022,
+   "epi_week": 48,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.01171232914443501,
+   "actual": 0.011822096079727791,
+   "persistence": 0.010940081395817383
+  },
+  {
+   "origin_index": 257,
+   "epi_year": 2022,
+   "epi_week": 49,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.012375630406883501,
+   "actual": 0.011583462609573296,
+   "persistence": 0.011542050614717034
+  },
+  {
+   "origin_index": 258,
+   "epi_year": 2022,
+   "epi_week": 50,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.012696651226585979,
+   "actual": 0.01217735550277118,
+   "persistence": 0.011822096079727791
+  },
+  {
+   "origin_index": 259,
+   "epi_year": 2022,
+   "epi_week": 51,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.011755730976181383,
+   "actual": 0.012266869698723919,
+   "persistence": 0.011583462609573296
+  },
+  {
+   "origin_index": 260,
+   "epi_year": 2022,
+   "epi_week": 52,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.011579242150893577,
+   "actual": 0.011562178099256809,
+   "persistence": 0.01217735550277118
+  },
+  {
+   "origin_index": 261,
+   "epi_year": 2023,
+   "epi_week": 1,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.012876954482453358,
+   "actual": 0.012875090852455612,
+   "persistence": 0.012266869698723919
+  },
+  {
+   "origin_index": 262,
+   "epi_year": 2023,
+   "epi_week": 2,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.012032698445202305,
+   "actual": 0.01641469205795416,
+   "persistence": 0.011562178099256809
+  },
+  {
+   "origin_index": 263,
+   "epi_year": 2023,
+   "epi_week": 3,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.01367308184915697,
+   "actual": 0.012176992186356853,
+   "persistence": 0.012875090852455612
+  },
+  {
+   "origin_index": 264,
+   "epi_year": 2023,
+   "epi_week": 4,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.01724275040527761,
+   "actual": 0.011423559619607242,
+   "persistence": 0.01641469205795416
+  },
+  {
+   "origin_index": 265,
+   "epi_year": 2023,
+   "epi_week": 5,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.015172614615700644,
+   "actual": 0.011927087594318547,
+   "persistence": 0.012176992186356853
+  },
+  {
+   "origin_index": 266,
+   "epi_year": 2023,
+   "epi_week": 6,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.009829229490339828,
+   "actual": 0.012255057190266887,
+   "persistence": 0.011423559619607242
+  },
+  {
+   "origin_index": 267,
+   "epi_year": 2023,
+   "epi_week": 7,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.011404290436670616,
+   "actual": 0.012421738616824392,
+   "persistence": 0.011927087594318547
+  },
+  {
+   "origin_index": 268,
+   "epi_year": 2023,
+   "epi_week": 8,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.012401207419251142,
+   "actual": 0.011452223764153653,
+   "persistence": 0.012255057190266887
+  },
+  {
+   "origin_index": 269,
+   "epi_year": 2023,
+   "epi_week": 9,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.012537365063936065,
+   "actual": 0.01186404154387328,
+   "persistence": 0.012421738616824392
+  },
+  {
+   "origin_index": 270,
+   "epi_year": 2023,
+   "epi_week": 10,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.011558560082895828,
+   "actual": 0.011926090754330819,
+   "persistence": 0.011452223764153653
+  },
+  {
+   "origin_index": 271,
+   "epi_year": 2023,
+   "epi_week": 11,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.011411993028801883,
+   "actual": 0.012832684426884546,
+   "persistence": 0.01186404154387328
+  },
+  {
+   "origin_index": 272,
+   "epi_year": 2023,
+   "epi_week": 12,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.011616894899823938,
+   "actual": 0.01444554466298601,
+   "persistence": 0.011926090754330819
+  },
+  {
+   "origin_index": 273,
+   "epi_year": 2023,
+   "epi_week": 13,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.012472528660370383,
+   "actual": 0.012704847784774752,
+   "persistence": 0.012832684426884546
+  },
+  {
+   "origin_index": 274,
+   "epi_year": 2023,
+   "epi_week": 14,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.014089922346012867,
+   "actual": 0.013601781532171817,
+   "persistence": 0.01444554466298601
+  },
+  {
+   "origin_index": 275,
+   "epi_year": 2023,
+   "epi_week": 15,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.013597416249545352,
+   "actual": 0.014090357945983895,
+   "persistence": 0.012704847784774752
+  },
+  {
+   "origin_index": 276,
+   "epi_year": 2023,
+   "epi_week": 16,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.013409562588813963,
+   "actual": 0.014573200416767143,
+   "persistence": 0.013601781532171817
+  },
+  {
+   "origin_index": 277,
+   "epi_year": 2023,
+   "epi_week": 17,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.01426613740150039,
+   "actual": 0.014371031213005961,
+   "persistence": 0.014090357945983895
+  },
+  {
+   "origin_index": 278,
+   "epi_year": 2023,
+   "epi_week": 18,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.01451996443503436,
+   "actual": 0.015635694472796263,
+   "persistence": 0.014573200416767143
+  },
+  {
+   "origin_index": 279,
+   "epi_year": 2023,
+   "epi_week": 19,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.01437579949205166,
+   "actual": 0.01570378128213417,
+   "persistence": 0.014371031213005961
+  },
+  {
+   "origin_index": 280,
+   "epi_year": 2023,
+   "epi_week": 20,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.015773782542510568,
+   "actual": 0.01663917568361075,
+   "persistence": 0.015635694472796263
+  },
+  {
+   "origin_index": 281,
+   "epi_year": 2023,
+   "epi_week": 21,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.016054651423603565,
+   "actual": 0.016726376063187887,
+   "persistence": 0.01570378128213417
+  },
+  {
+   "origin_index": 282,
+   "epi_year": 2023,
+   "epi_week": 22,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.0174917975918623,
+   "actual": 0.017224904785262455,
+   "persistence": 0.01663917568361075
+  },
+  {
+   "origin_index": 283,
+   "epi_year": 2023,
+   "epi_week": 23,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.01762159030601292,
+   "actual": 0.01829128130239602,
+   "persistence": 0.016726376063187887
+  },
+  {
+   "origin_index": 284,
+   "epi_year": 2023,
+   "epi_week": 24,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.01780675854216688,
+   "actual": 0.01705418082412728,
+   "persistence": 0.017224904785262455
+  },
+  {
+   "origin_index": 285,
+   "epi_year": 2023,
+   "epi_week": 25,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.018918125210507616,
+   "actual": 0.016103939528569283,
+   "persistence": 0.01829128130239602
+  },
+  {
+   "origin_index": 286,
+   "epi_year": 2023,
+   "epi_week": 26,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.017961591251696215,
+   "actual": 0.016199172856259974,
+   "persistence": 0.01705418082412728
+  },
+  {
+   "origin_index": 287,
+   "epi_year": 2023,
+   "epi_week": 27,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.01641542387946521,
+   "actual": 0.016140254373945086,
+   "persistence": 0.016103939528569283
+  },
+  {
+   "origin_index": 288,
+   "epi_year": 2023,
+   "epi_week": 28,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.01651650141219735,
+   "actual": 0.017021305475763474,
+   "persistence": 0.016199172856259974
+  },
+  {
+   "origin_index": 289,
+   "epi_year": 2023,
+   "epi_week": 29,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.01646529436379821,
+   "actual": 0.017888782653463758,
+   "persistence": 0.016140254373945086
+  },
+  {
+   "origin_index": 290,
+   "epi_year": 2023,
+   "epi_week": 30,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.017453684545750723,
+   "actual": 0.018604204511807686,
+   "persistence": 0.017021305475763474
+  },
+  {
+   "origin_index": 291,
+   "epi_year": 2023,
+   "epi_week": 31,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.018273492448733736,
+   "actual": 0.019157932674516265,
+   "persistence": 0.017888782653463758
+  },
+  {
+   "origin_index": 292,
+   "epi_year": 2023,
+   "epi_week": 32,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.019018801682475783,
+   "actual": 0.01995447805055198,
+   "persistence": 0.018604204511807686
+  },
+  {
+   "origin_index": 293,
+   "epi_year": 2023,
+   "epi_week": 33,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.01962451737386736,
+   "actual": 0.020421704976736562,
+   "persistence": 0.019157932674516265
+  },
+  {
+   "origin_index": 294,
+   "epi_year": 2023,
+   "epi_week": 34,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.020520778340108407,
+   "actual": 0.02108984132737639,
+   "persistence": 0.01995447805055198
+  },
+  {
+   "origin_index": 295,
+   "epi_year": 2023,
+   "epi_week": 35,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.02284152678842642,
+   "actual": 0.021593314663004563,
+   "persistence": 0.020421704976736562
+  },
+  {
+   "origin_index": 296,
+   "epi_year": 2023,
+   "epi_week": 36,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.023977484787284245,
+   "actual": 0.02321761585830465,
+   "persistence": 0.02108984132737639
+  },
+  {
+   "origin_index": 297,
+   "epi_year": 2023,
+   "epi_week": 37,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.024357426052264684,
+   "actual": 0.026354992598499608,
+   "persistence": 0.021593314663004563
+  },
+  {
+   "origin_index": 298,
+   "epi_year": 2023,
+   "epi_week": 38,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.02489814628261811,
+   "actual": 0.02402767279255445,
+   "persistence": 0.02321761585830465
+  },
+  {
+   "origin_index": 299,
+   "epi_year": 2023,
+   "epi_week": 39,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.027777780894240472,
+   "actual": 0.02099437269097258,
+   "persistence": 0.026354992598499608
+  },
+  {
+   "origin_index": 300,
+   "epi_year": 2023,
+   "epi_week": 40,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.02585199691294875,
+   "actual": 0.019345203267254897,
+   "persistence": 0.02402767279255445
+  },
+  {
+   "origin_index": 301,
+   "epi_year": 2023,
+   "epi_week": 41,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.01748164707503603,
+   "actual": 0.019096484258242626,
+   "persistence": 0.02099437269097258
+  },
+  {
+   "origin_index": 302,
+   "epi_year": 2023,
+   "epi_week": 42,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.01794491405194911,
+   "actual": 0.01922627747948908,
+   "persistence": 0.019345203267254897
+  },
+  {
+   "origin_index": 303,
+   "epi_year": 2023,
+   "epi_week": 43,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.016979233740209276,
+   "actual": 0.018795653971608397,
+   "persistence": 0.019096484258242626
+  },
+  {
+   "origin_index": 304,
+   "epi_year": 2023,
+   "epi_week": 44,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.01800609473652599,
+   "actual": 0.01884223528916539,
+   "persistence": 0.01922627747948908
+  },
+  {
+   "origin_index": 305,
+   "epi_year": 2023,
+   "epi_week": 45,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.017249667915183682,
+   "actual": 0.01803978962570307,
+   "persistence": 0.018795653971608397
+  },
+  {
+   "origin_index": 306,
+   "epi_year": 2023,
+   "epi_week": 46,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.020294481566323568,
+   "actual": 0.019497435940278224,
+   "persistence": 0.01884223528916539
+  },
+  {
+   "origin_index": 307,
+   "epi_year": 2023,
+   "epi_week": 47,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.018274205894856205,
+   "actual": 0.018822847218570436,
+   "persistence": 0.01803978962570307
+  },
+  {
+   "origin_index": 308,
+   "epi_year": 2023,
+   "epi_week": 48,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.019884940600413754,
+   "actual": 0.019268444659006068,
+   "persistence": 0.019497435940278224
+  },
+  {
+   "origin_index": 309,
+   "epi_year": 2023,
+   "epi_week": 49,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.01955176294635103,
+   "actual": 0.01984404788636894,
+   "persistence": 0.018822847218570436
+  },
+  {
+   "origin_index": 310,
+   "epi_year": 2023,
+   "epi_week": 50,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.0196421867167456,
+   "actual": 0.023198330059476583,
+   "persistence": 0.019268444659006068
+  },
+  {
+   "origin_index": 311,
+   "epi_year": 2023,
+   "epi_week": 51,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.02207542714364339,
+   "actual": 0.027088959131411666,
+   "persistence": 0.01984404788636894
+  },
+  {
+   "origin_index": 312,
+   "epi_year": 2023,
+   "epi_week": 52,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.025805185886373778,
+   "actual": 0.026309532224999838,
+   "persistence": 0.023198330059476583
+  },
+  {
+   "origin_index": 313,
+   "epi_year": 2024,
+   "epi_week": 1,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.03357305997499058,
+   "actual": 0.025224188794322804,
+   "persistence": 0.027088959131411666
+  },
+  {
+   "origin_index": 314,
+   "epi_year": 2024,
+   "epi_week": 2,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.03082372623624354,
+   "actual": 0.026826305063489576,
+   "persistence": 0.026309532224999838
+  },
+  {
+   "origin_index": 315,
+   "epi_year": 2024,
+   "epi_week": 3,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.025457715156131173,
+   "actual": 0.025965774154536398,
+   "persistence": 0.025224188794322804
+  },
+  {
+   "origin_index": 316,
+   "epi_year": 2024,
+   "epi_week": 4,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.02445720738054933,
+   "actual": 0.026896490343252144,
+   "persistence": 0.026826305063489576
+  },
+  {
+   "origin_index": 317,
+   "epi_year": 2024,
+   "epi_week": 5,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.022313252477667463,
+   "actual": 0.030344701136780346,
+   "persistence": 0.025965774154536398
+  },
+  {
+   "origin_index": 318,
+   "epi_year": 2024,
+   "epi_week": 6,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.02573098264767755,
+   "actual": 0.02484955087085645,
+   "persistence": 0.026896490343252144
+  },
+  {
+   "origin_index": 319,
+   "epi_year": 2024,
+   "epi_week": 7,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.029298146199591903,
+   "actual": 0.025036670741991698,
+   "persistence": 0.030344701136780346
+  },
+  {
+   "origin_index": 320,
+   "epi_year": 2024,
+   "epi_week": 8,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.02408254348857136,
+   "actual": 0.023694773184150485,
+   "persistence": 0.02484955087085645
+  },
+  {
+   "origin_index": 321,
+   "epi_year": 2024,
+   "epi_week": 9,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.023177385679977378,
+   "actual": 0.024664610027893278,
+   "persistence": 0.025036670741991698
+  },
+  {
+   "origin_index": 322,
+   "epi_year": 2024,
+   "epi_week": 10,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.02227024457710887,
+   "actual": 0.024449009094361658,
+   "persistence": 0.023694773184150485
+  },
+  {
+   "origin_index": 323,
+   "epi_year": 2024,
+   "epi_week": 11,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.02273486391814092,
+   "actual": 0.02241717870917394,
+   "persistence": 0.024664610027893278
+  },
+  {
+   "origin_index": 324,
+   "epi_year": 2024,
+   "epi_week": 12,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.024328233662692624,
+   "actual": 0.024327982522796353,
+   "persistence": 0.024449009094361658
+  },
+  {
+   "origin_index": 325,
+   "epi_year": 2024,
+   "epi_week": 13,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.021567998164127893,
+   "actual": 0.02116613530120179,
+   "persistence": 0.02241717870917394
+  },
+  {
+   "origin_index": 326,
+   "epi_year": 2024,
+   "epi_week": 14,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.023738235521302036,
+   "actual": 0.021385938025315573,
+   "persistence": 0.024327982522796353
+  },
+  {
+   "origin_index": 327,
+   "epi_year": 2024,
+   "epi_week": 15,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.02171976005404779,
+   "actual": 0.02120515805227592,
+   "persistence": 0.02116613530120179
+  },
+  {
+   "origin_index": 328,
+   "epi_year": 2024,
+   "epi_week": 16,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.02073502790990738,
+   "actual": 0.020586450664892644,
+   "persistence": 0.021385938025315573
+  },
+  {
+   "origin_index": 329,
+   "epi_year": 2024,
+   "epi_week": 17,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.020449410381034264,
+   "actual": 0.019330680215154886,
+   "persistence": 0.02120515805227592
+  },
+  {
+   "origin_index": 330,
+   "epi_year": 2024,
+   "epi_week": 18,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.019800204587710042,
+   "actual": 0.018930715587738515,
+   "persistence": 0.020586450664892644
+  },
+  {
+   "origin_index": 331,
+   "epi_year": 2024,
+   "epi_week": 19,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.018433421455727586,
+   "actual": 0.018157571545465212,
+   "persistence": 0.019330680215154886
+  },
+  {
+   "origin_index": 332,
+   "epi_year": 2024,
+   "epi_week": 20,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.018012442700427223,
+   "actual": 0.01779100737270137,
+   "persistence": 0.018930715587738515
+  },
+  {
+   "origin_index": 333,
+   "epi_year": 2024,
+   "epi_week": 21,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.017195367730995437,
+   "actual": 0.017888596128427685,
+   "persistence": 0.018157571545465212
+  },
+  {
+   "origin_index": 334,
+   "epi_year": 2024,
+   "epi_week": 22,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.016648378064063992,
+   "actual": 0.01980776470624991,
+   "persistence": 0.01779100737270137
+  },
+  {
+   "origin_index": 335,
+   "epi_year": 2024,
+   "epi_week": 23,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.018718016204543324,
+   "actual": 0.019525127014203298,
+   "persistence": 0.017888596128427685
+  },
+  {
+   "origin_index": 336,
+   "epi_year": 2024,
+   "epi_week": 24,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.02185221569717548,
+   "actual": 0.021170352138964944,
+   "persistence": 0.01980776470624991
+  },
+  {
+   "origin_index": 337,
+   "epi_year": 2024,
+   "epi_week": 25,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.02179398792240046,
+   "actual": 0.02184304658566238,
+   "persistence": 0.019525127014203298
+  },
+  {
+   "origin_index": 338,
+   "epi_year": 2024,
+   "epi_week": 26,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.022580244202796793,
+   "actual": 0.021108337067622645,
+   "persistence": 0.021170352138964944
+  },
+  {
+   "origin_index": 339,
+   "epi_year": 2024,
+   "epi_week": 27,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.02308605833127966,
+   "actual": 0.020202136792214633,
+   "persistence": 0.02184304658566238
+  },
+  {
+   "origin_index": 340,
+   "epi_year": 2024,
+   "epi_week": 28,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.022996073105311664,
+   "actual": 0.020840338618551595,
+   "persistence": 0.021108337067622645
+  },
+  {
+   "origin_index": 341,
+   "epi_year": 2024,
+   "epi_week": 29,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.021898230073925315,
+   "actual": 0.016662990969870364,
+   "persistence": 0.020202136792214633
+  },
+  {
+   "origin_index": 342,
+   "epi_year": 2024,
+   "epi_week": 30,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.01990712396802984,
+   "actual": 0.01582309273350289,
+   "persistence": 0.020840338618551595
+  },
+  {
+   "origin_index": 343,
+   "epi_year": 2024,
+   "epi_week": 31,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.015947153525496537,
+   "actual": 0.016784352113264532,
+   "persistence": 0.016662990969870364
+  },
+  {
+   "origin_index": 344,
+   "epi_year": 2024,
+   "epi_week": 32,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.015182364107157351,
+   "actual": 0.0168703372750146,
+   "persistence": 0.01582309273350289
+  },
+  {
+   "origin_index": 345,
+   "epi_year": 2024,
+   "epi_week": 33,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.016866613855753138,
+   "actual": 0.01643255619298546,
+   "persistence": 0.016784352113264532
+  },
+  {
+   "origin_index": 346,
+   "epi_year": 2024,
+   "epi_week": 34,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.016291383285650714,
+   "actual": 0.01681775262439378,
+   "persistence": 0.0168703372750146
+  },
+  {
+   "origin_index": 347,
+   "epi_year": 2024,
+   "epi_week": 35,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.016813880731852814,
+   "actual": 0.01678521566715984,
+   "persistence": 0.01643255619298546
+  },
+  {
+   "origin_index": 348,
+   "epi_year": 2024,
+   "epi_week": 36,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.017296832855617866,
+   "actual": 0.01806440115324611,
+   "persistence": 0.01681775262439378
+  },
+  {
+   "origin_index": 349,
+   "epi_year": 2024,
+   "epi_week": 37,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.017265084038544886,
+   "actual": 0.017952453551631414,
+   "persistence": 0.01678521566715984
+  },
+  {
+   "origin_index": 350,
+   "epi_year": 2024,
+   "epi_week": 38,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.01856159950708866,
+   "actual": 0.020178748938715945,
+   "persistence": 0.01806440115324611
+  },
+  {
+   "origin_index": 351,
+   "epi_year": 2024,
+   "epi_week": 39,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.018531801875567955,
+   "actual": 0.018166122538348147,
+   "persistence": 0.017952453551631414
+  },
+  {
+   "origin_index": 352,
+   "epi_year": 2024,
+   "epi_week": 40,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.02052314539958226,
+   "actual": 0.017414136741787805,
+   "persistence": 0.020178748938715945
+  },
+  {
+   "origin_index": 353,
+   "epi_year": 2024,
+   "epi_week": 41,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.02123434130101601,
+   "actual": 0.01821696068555381,
+   "persistence": 0.018166122538348147
+  },
+  {
+   "origin_index": 354,
+   "epi_year": 2024,
+   "epi_week": 42,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.017689078478831482,
+   "actual": 0.018837207191122758,
+   "persistence": 0.017414136741787805
+  },
+  {
+   "origin_index": 355,
+   "epi_year": 2024,
+   "epi_week": 43,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.018530055135007793,
+   "actual": 0.016728970585674695,
+   "persistence": 0.01821696068555381
+  },
+  {
+   "origin_index": 356,
+   "epi_year": 2024,
+   "epi_week": 44,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.018601671200931882,
+   "actual": 0.016840762409036977,
+   "persistence": 0.018837207191122758
+  },
+  {
+   "origin_index": 357,
+   "epi_year": 2024,
+   "epi_week": 45,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.016985793543169373,
+   "actual": 0.017481765014001924,
+   "persistence": 0.016728970585674695
+  },
+  {
+   "origin_index": 358,
+   "epi_year": 2024,
+   "epi_week": 46,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.01622610870158363,
+   "actual": 0.018775428533315548,
+   "persistence": 0.016840762409036977
+  },
+  {
+   "origin_index": 359,
+   "epi_year": 2024,
+   "epi_week": 47,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.017401838388342975,
+   "actual": 0.018616334887562154,
+   "persistence": 0.017481765014001924
+  },
+  {
+   "origin_index": 360,
+   "epi_year": 2024,
+   "epi_week": 48,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.018683058474256796,
+   "actual": 0.018903790789354894,
+   "persistence": 0.018775428533315548
+  },
+  {
+   "origin_index": 361,
+   "epi_year": 2024,
+   "epi_week": 49,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.01893320835664041,
+   "actual": 0.01986107046824351,
+   "persistence": 0.018616334887562154
+  },
+  {
+   "origin_index": 362,
+   "epi_year": 2024,
+   "epi_week": 50,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.019657476792849994,
+   "actual": 0.02236961990215303,
+   "persistence": 0.018903790789354894
+  },
+  {
+   "origin_index": 363,
+   "epi_year": 2024,
+   "epi_week": 51,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.02075320571505455,
+   "actual": 0.0264332848532578,
+   "persistence": 0.01986107046824351
+  },
+  {
+   "origin_index": 364,
+   "epi_year": 2024,
+   "epi_week": 52,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.02430945789357126,
+   "actual": 0.02645298567639752,
+   "persistence": 0.02236961990215303
+  },
+  {
+   "origin_index": 365,
+   "epi_year": 2025,
+   "epi_week": 1,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.029302062101298883,
+   "actual": 0.02682742248894549,
+   "persistence": 0.0264332848532578
+  },
+  {
+   "origin_index": 366,
+   "epi_year": 2025,
+   "epi_week": 2,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.029594198177612795,
+   "actual": 0.026871377657914225,
+   "persistence": 0.02645298567639752
+  },
+  {
+   "origin_index": 367,
+   "epi_year": 2025,
+   "epi_week": 3,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.02632819237872448,
+   "actual": 0.04537922709731697,
+   "persistence": 0.02682742248894549
+  },
+  {
+   "origin_index": 368,
+   "epi_year": 2025,
+   "epi_week": 4,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.02816049081883199,
+   "actual": 0.03199598561796606,
+   "persistence": 0.026871377657914225
+  },
+  {
+   "origin_index": 369,
+   "epi_year": 2025,
+   "epi_week": 5,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.04608580488822052,
+   "actual": 0.029415420358582973,
+   "persistence": 0.04537922709731697
+  },
+  {
+   "origin_index": 370,
+   "epi_year": 2025,
+   "epi_week": 6,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.027973527247146565,
+   "actual": 0.026190259805326604,
+   "persistence": 0.03199598561796606
+  },
+  {
+   "origin_index": 371,
+   "epi_year": 2025,
+   "epi_week": 7,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.025877211610070623,
+   "actual": 0.02571444875007133,
+   "persistence": 0.029415420358582973
+  },
+  {
+   "origin_index": 372,
+   "epi_year": 2025,
+   "epi_week": 8,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.022875844688117306,
+   "actual": 0.021969419792898653,
+   "persistence": 0.026190259805326604
+  },
+  {
+   "origin_index": 373,
+   "epi_year": 2025,
+   "epi_week": 9,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.022225930137042237,
+   "actual": 0.021348918220297133,
+   "persistence": 0.02571444875007133
+  },
+  {
+   "origin_index": 374,
+   "epi_year": 2025,
+   "epi_week": 10,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.01921277194229573,
+   "actual": 0.021754306788613013,
+   "persistence": 0.021969419792898653
+  },
+  {
+   "origin_index": 375,
+   "epi_year": 2025,
+   "epi_week": 11,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.018428566288009585,
+   "actual": 0.02228435449343428,
+   "persistence": 0.021348918220297133
+  },
+  {
+   "origin_index": 376,
+   "epi_year": 2025,
+   "epi_week": 12,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.02023896726103641,
+   "actual": 0.022653735725702052,
+   "persistence": 0.021754306788613013
+  },
+  {
+   "origin_index": 377,
+   "epi_year": 2025,
+   "epi_week": 13,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.022122640452284462,
+   "actual": 0.020048440617564525,
+   "persistence": 0.02228435449343428
+  },
+  {
+   "origin_index": 378,
+   "epi_year": 2025,
+   "epi_week": 14,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.021488558903964866,
+   "actual": 0.0199201648365576,
+   "persistence": 0.022653735725702052
+  },
+  {
+   "origin_index": 379,
+   "epi_year": 2025,
+   "epi_week": 15,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.01970469420064093,
+   "actual": 0.020982261141874917,
+   "persistence": 0.020048440617564525
+  },
+  {
+   "origin_index": 380,
+   "epi_year": 2025,
+   "epi_week": 16,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.01974860960089787,
+   "actual": 0.022335922277584103,
+   "persistence": 0.0199201648365576
+  },
+  {
+   "origin_index": 381,
+   "epi_year": 2025,
+   "epi_week": 17,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.020869766046636692,
+   "actual": 0.022510626083446873,
+   "persistence": 0.020982261141874917
+  },
+  {
+   "origin_index": 382,
+   "epi_year": 2025,
+   "epi_week": 18,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.022798660603692594,
+   "actual": 0.024129038003535715,
+   "persistence": 0.022335922277584103
+  },
+  {
+   "origin_index": 383,
+   "epi_year": 2025,
+   "epi_week": 19,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.023770851339852246,
+   "actual": 0.024479635220900856,
+   "persistence": 0.022510626083446873
+  },
+  {
+   "origin_index": 384,
+   "epi_year": 2025,
+   "epi_week": 20,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.026508774498198193,
+   "actual": 0.025272689525208808,
+   "persistence": 0.024129038003535715
+  },
+  {
+   "origin_index": 385,
+   "epi_year": 2025,
+   "epi_week": 21,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.024673176099601846,
+   "actual": 0.02193955246609456,
+   "persistence": 0.024479635220900856
+  },
+  {
+   "origin_index": 386,
+   "epi_year": 2025,
+   "epi_week": 22,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.02489182929605229,
+   "actual": 0.021734143679276435,
+   "persistence": 0.025272689525208808
+  },
+  {
+   "origin_index": 387,
+   "epi_year": 2025,
+   "epi_week": 23,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.0212485279185765,
+   "actual": 0.021171871944241517,
+   "persistence": 0.02193955246609456
+  },
+  {
+   "origin_index": 388,
+   "epi_year": 2025,
+   "epi_week": 24,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.021196652602675115,
+   "actual": 0.019769350946726508,
+   "persistence": 0.021734143679276435
+  },
+  {
+   "origin_index": 389,
+   "epi_year": 2025,
+   "epi_week": 25,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.020520257654976243,
+   "actual": 0.017731525225237216,
+   "persistence": 0.021171871944241517
+  },
+  {
+   "origin_index": 390,
+   "epi_year": 2025,
+   "epi_week": 26,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.018710587670980112,
+   "actual": 0.01814184691304596,
+   "persistence": 0.019769350946726508
+  },
+  {
+   "origin_index": 391,
+   "epi_year": 2025,
+   "epi_week": 27,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.016972229776858645,
+   "actual": 0.01723656781186425,
+   "persistence": 0.017731525225237216
+  },
+  {
+   "origin_index": 392,
+   "epi_year": 2025,
+   "epi_week": 28,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.017467725633292058,
+   "actual": 0.017325434485087256,
+   "persistence": 0.01814184691304596
+  },
+  {
+   "origin_index": 393,
+   "epi_year": 2025,
+   "epi_week": 29,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.016947138437210244,
+   "actual": 0.017239110409264378,
+   "persistence": 0.01723656781186425
+  },
+  {
+   "origin_index": 394,
+   "epi_year": 2025,
+   "epi_week": 30,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.018188713828157007,
+   "actual": 0.016286831627236778,
+   "persistence": 0.017325434485087256
+  },
+  {
+   "origin_index": 395,
+   "epi_year": 2025,
+   "epi_week": 31,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.017611251470134502,
+   "actual": 0.01722535934974934,
+   "persistence": 0.017239110409264378
+  },
+  {
+   "origin_index": 396,
+   "epi_year": 2025,
+   "epi_week": 32,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.016665521065029405,
+   "actual": 0.018075562741749637,
+   "persistence": 0.016286831627236778
+  },
+  {
+   "origin_index": 397,
+   "epi_year": 2025,
+   "epi_week": 33,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.017568588942056835,
+   "actual": 0.018371603180638955,
+   "persistence": 0.01722535934974934
+  },
+  {
+   "origin_index": 398,
+   "epi_year": 2025,
+   "epi_week": 34,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.018490469876899587,
+   "actual": 0.019315918714592317,
+   "persistence": 0.018075562741749637
+  },
+  {
+   "origin_index": 399,
+   "epi_year": 2025,
+   "epi_week": 35,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.018791428805217412,
+   "actual": 0.020824057985860758,
+   "persistence": 0.018371603180638955
+  },
+  {
+   "origin_index": 400,
+   "epi_year": 2025,
+   "epi_week": 36,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.019754615305375194,
+   "actual": 0.023068462006047036,
+   "persistence": 0.019315918714592317
+  },
+  {
+   "origin_index": 401,
+   "epi_year": 2025,
+   "epi_week": 37,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.021348283052635815,
+   "actual": 0.026652266762093924,
+   "persistence": 0.020824057985860758
+  },
+  {
+   "origin_index": 402,
+   "epi_year": 2025,
+   "epi_week": 38,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.024680905228868698,
+   "actual": 0.030570825593004006,
+   "persistence": 0.023068462006047036
+  },
+  {
+   "origin_index": 403,
+   "epi_year": 2025,
+   "epi_week": 39,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.029980831792789625,
+   "actual": 0.03266187717542671,
+   "persistence": 0.026652266762093924
+  },
+  {
+   "origin_index": 404,
+   "epi_year": 2025,
+   "epi_week": 40,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.03462452086484652,
+   "actual": 0.024974526981898313,
+   "persistence": 0.030570825593004006
+  },
+  {
+   "origin_index": 405,
+   "epi_year": 2025,
+   "epi_week": 41,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.03147227185852134,
+   "actual": 0.023734524943227604,
+   "persistence": 0.03266187717542671
+  },
+  {
+   "origin_index": 406,
+   "epi_year": 2025,
+   "epi_week": 42,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.02216610231905742,
+   "actual": 0.020792197489634102,
+   "persistence": 0.024974526981898313
+  },
+  {
+   "origin_index": 407,
+   "epi_year": 2025,
+   "epi_week": 43,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.021236145437333803,
+   "actual": 0.019016557622238476,
+   "persistence": 0.023734524943227604
+  },
+  {
+   "origin_index": 408,
+   "epi_year": 2025,
+   "epi_week": 44,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.018434360840650053,
+   "actual": 0.018414228425486154,
+   "persistence": 0.020792197489634102
+  },
+  {
+   "origin_index": 409,
+   "epi_year": 2025,
+   "epi_week": 45,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.018036553452148486,
+   "actual": 0.016789459055552645,
+   "persistence": 0.019016557622238476
+  },
+  {
+   "origin_index": 410,
+   "epi_year": 2025,
+   "epi_week": 46,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.01752284957278482,
+   "actual": 0.017446379018965553,
+   "persistence": 0.018414228425486154
+  },
+  {
+   "origin_index": 411,
+   "epi_year": 2025,
+   "epi_week": 47,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.01620778340038762,
+   "actual": 0.01715989525927153,
+   "persistence": 0.016789459055552645
+  },
+  {
+   "origin_index": 412,
+   "epi_year": 2025,
+   "epi_week": 48,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.017554925864596137,
+   "actual": 0.017756237749809355,
+   "persistence": 0.017446379018965553
+  },
+  {
+   "origin_index": 413,
+   "epi_year": 2025,
+   "epi_week": 49,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.018198905939286827,
+   "actual": 0.017636657360764738,
+   "persistence": 0.01715989525927153
+  },
+  {
+   "origin_index": 414,
+   "epi_year": 2025,
+   "epi_week": 50,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.019074235877029663,
+   "actual": 0.01807473433834214,
+   "persistence": 0.017756237749809355
+  },
+  {
+   "origin_index": 415,
+   "epi_year": 2025,
+   "epi_week": 51,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.018577791863259235,
+   "actual": 0.018787517163540685,
+   "persistence": 0.017636657360764738
+  },
+  {
+   "origin_index": 416,
+   "epi_year": 2025,
+   "epi_week": 52,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.018909812028027394,
+   "actual": 0.01838553659640629,
+   "persistence": 0.01807473433834214
+  },
+  {
+   "origin_index": 417,
+   "epi_year": 2025,
+   "epi_week": 53,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.019172309434497693,
+   "actual": 0.019701064951611103,
+   "persistence": 0.018787517163540685
+  },
+  {
+   "origin_index": 418,
+   "epi_year": 2026,
+   "epi_week": 1,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.02136380676962458,
+   "actual": 0.021425220829310546,
+   "persistence": 0.01838553659640629
+  },
+  {
+   "origin_index": 419,
+   "epi_year": 2026,
+   "epi_week": 2,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.02101162524545662,
+   "actual": 0.02173486705638318,
+   "persistence": 0.019701064951611103
+  },
+  {
+   "origin_index": 420,
+   "epi_year": 2026,
+   "epi_week": 3,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.025078396627121174,
+   "actual": 0.020824599202110532,
+   "persistence": 0.021425220829310546
+  },
+  {
+   "origin_index": 421,
+   "epi_year": 2026,
+   "epi_week": 4,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.025190326902050416,
+   "actual": 0.01980586048852531,
+   "persistence": 0.02173486705638318
+  },
+  {
+   "origin_index": 422,
+   "epi_year": 2026,
+   "epi_week": 5,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.02075988218740705,
+   "actual": 0.04024045602990149,
+   "persistence": 0.020824599202110532
+  },
+  {
+   "origin_index": 423,
+   "epi_year": 2026,
+   "epi_week": 6,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.0222040501646504,
+   "actual": 0.018937950762301817,
+   "persistence": 0.01980586048852531
+  },
+  {
+   "origin_index": 424,
+   "epi_year": 2026,
+   "epi_week": 7,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.038980087396069535,
+   "actual": 0.017275947041626553,
+   "persistence": 0.04024045602990149
+  },
+  {
+   "origin_index": 425,
+   "epi_year": 2026,
+   "epi_week": 8,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.015678039828118714,
+   "actual": 0.0186392916121365,
+   "persistence": 0.018937950762301817
+  },
+  {
+   "origin_index": 426,
+   "epi_year": 2026,
+   "epi_week": 9,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.016219643252518328,
+   "actual": 0.020174270139820812,
+   "persistence": 0.017275947041626553
+  },
+  {
+   "origin_index": 427,
+   "epi_year": 2026,
+   "epi_week": 10,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.0179392398147507,
+   "actual": 0.02009572237522972,
+   "persistence": 0.0186392916121365
+  },
+  {
+   "origin_index": 428,
+   "epi_year": 2026,
+   "epi_week": 11,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.01952203670238826,
+   "actual": 0.02031296067188176,
+   "persistence": 0.020174270139820812
+  },
+  {
+   "origin_index": 429,
+   "epi_year": 2026,
+   "epi_week": 12,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.022132203409148916,
+   "actual": 0.018032657982334284,
+   "persistence": 0.02009572237522972
+  },
+  {
+   "origin_index": 430,
+   "epi_year": 2026,
+   "epi_week": 13,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.02157281214305066,
+   "actual": 0.01762375746240879,
+   "persistence": 0.02031296067188176
+  },
+  {
+   "origin_index": 431,
+   "epi_year": 2026,
+   "epi_week": 14,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.0195852226469252,
+   "actual": 0.01749077354785383,
+   "persistence": 0.018032657982334284
+  },
+  {
+   "origin_index": 432,
+   "epi_year": 2026,
+   "epi_week": 15,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.018357628203083554,
+   "actual": 0.01780945844345988,
+   "persistence": 0.01762375746240879
+  },
+  {
+   "origin_index": 433,
+   "epi_year": 2026,
+   "epi_week": 16,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.0178198875163561,
+   "actual": 0.017251651534625084,
+   "persistence": 0.01749077354785383
+  },
+  {
+   "origin_index": 434,
+   "epi_year": 2026,
+   "epi_week": 17,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.01791428464255639,
+   "actual": 0.016705110986103524,
+   "persistence": 0.01780945844345988
+  },
+  {
+   "origin_index": 435,
+   "epi_year": 2026,
+   "epi_week": 18,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.01788722375722489,
+   "actual": 0.016192024048044616,
+   "persistence": 0.017251651534625084
+  },
+  {
+   "origin_index": 436,
+   "epi_year": 2026,
+   "epi_week": 19,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.017357273577602514,
+   "actual": 0.01590100921824181,
+   "persistence": 0.016705110986103524
+  },
+  {
+   "origin_index": 437,
+   "epi_year": 2026,
+   "epi_week": 20,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.016681946978864395,
+   "actual": 0.015410389163141943,
+   "persistence": 0.016192024048044616
+  },
+  {
+   "origin_index": 438,
+   "epi_year": 2026,
+   "epi_week": 21,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.016353064114061334,
+   "actual": 0.014933478142818354,
+   "persistence": 0.01590100921824181
+  },
+  {
+   "origin_index": 439,
+   "epi_year": 2026,
+   "epi_week": 22,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.015910833395535874,
+   "actual": 0.016300557619148816,
+   "persistence": 0.015410389163141943
+  },
+  {
+   "origin_index": 440,
+   "epi_year": 2026,
+   "epi_week": 23,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.015177451065119855,
+   "actual": 0.014836189809956862,
+   "persistence": 0.014933478142818354
+  },
+  {
+   "origin_index": 441,
+   "epi_year": 2026,
+   "epi_week": 24,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.01643220511864409,
+   "actual": 0.015047980665185022,
+   "persistence": 0.016300557619148816
+  },
+  {
+   "origin_index": 442,
+   "epi_year": 2026,
+   "epi_week": 25,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.015298992541258575,
+   "actual": 0.015622219343191955,
+   "persistence": 0.014836189809956862
+  },
+  {
+   "origin_index": 443,
+   "epi_year": 2026,
+   "epi_week": 26,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.015510976854611678,
+   "actual": 0.01607928271926178,
+   "persistence": 0.015047980665185022
+  },
+  {
+   "origin_index": 444,
+   "epi_year": 2026,
+   "epi_week": 27,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.0161166347495661,
+   "actual": 0.01607016794354471,
+   "persistence": 0.015622219343191955
+  },
+  {
+   "origin_index": 445,
+   "epi_year": 2026,
+   "epi_week": 28,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.01661318545913745,
+   "actual": 0.017459908740018848,
+   "persistence": 0.01607928271926178
+  },
+  {
+   "origin_index": 446,
+   "epi_year": 2026,
+   "epi_week": 29,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.016613328192160718,
+   "actual": 0.01853066092465772,
+   "persistence": 0.01607016794354471
+  },
+  {
+   "origin_index": 447,
+   "epi_year": 2026,
+   "epi_week": 30,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.018058010679750536,
+   "actual": 0.01876739624886961,
+   "persistence": 0.017459908740018848
+  },
+  {
+   "origin_index": 448,
+   "epi_year": 2026,
+   "epi_week": 31,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.019180272827337353,
+   "actual": 0.019861483345927404,
+   "persistence": 0.01853066092465772
+  },
+  {
+   "origin_index": 449,
+   "epi_year": 2026,
+   "epi_week": 32,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.019657127371471142,
+   "actual": 0.021808498302222187,
+   "persistence": 0.01876739624886961
+  },
+  {
+   "origin_index": 450,
+   "epi_year": 2026,
+   "epi_week": 33,
+   "decision": "REFRESH",
+   "algorithm": "HistGradientBoostingRegressor",
+   "published": 0.020795170938364544,
+   "actual": 0.023895640728406744,
+   "persistence": 0.019861483345927404
+  }
+ ],
+ "generated_at": "2026-09-09T02:28:18Z"
+}

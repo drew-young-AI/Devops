@@ -1,0 +1,131 @@
+{
+ "generated_at": "2026-09-09T11:33:31Z",
+ "question": "Does REPLACEMENT_MARGIN (ADR-0016) change any decision on the real history? And is the action space wide enough for a policy to be learnable at all?",
+ "feature_set": 100,
+ "target": "pct_flu",
+ "horizon": 2,
+ "origins": 451,
+ "margin_sweep": {
+  "0.00": {
+   "n": 431,
+   "won": 224,
+   "win_rate": 0.5197215777262181,
+   "mae_published": 0.0009606032942176456,
+   "mae_persistence": 0.0010282778154349483,
+   "margin_ratio": 0.0658134603328744,
+   "decisions": {
+    "REFUSED": 20,
+    "BOOTSTRAP": 1,
+    "REFRESH": 430
+   },
+   "families_served": {
+    "HistGradientBoostingRegressor": 431
+   }
+  },
+  "0.01": {
+   "n": 431,
+   "won": 224,
+   "win_rate": 0.5197215777262181,
+   "mae_published": 0.0009606032942176456,
+   "mae_persistence": 0.0010282778154349483,
+   "margin_ratio": 0.0658134603328744,
+   "decisions": {
+    "REFUSED": 20,
+    "BOOTSTRAP": 1,
+    "REFRESH": 430
+   },
+   "families_served": {
+    "HistGradientBoostingRegressor": 431
+   }
+  },
+  "0.02": {
+   "n": 431,
+   "won": 224,
+   "win_rate": 0.5197215777262181,
+   "mae_published": 0.0009606032942176456,
+   "mae_persistence": 0.0010282778154349483,
+   "margin_ratio": 0.0658134603328744,
+   "decisions": {
+    "REFUSED": 20,
+    "BOOTSTRAP": 1,
+    "REFRESH": 430
+   },
+   "families_served": {
+    "HistGradientBoostingRegressor": 431
+   }
+  },
+  "0.05": {
+   "n": 431,
+   "won": 224,
+   "win_rate": 0.5197215777262181,
+   "mae_published": 0.0009606032942176456,
+   "mae_persistence": 0.0010282778154349483,
+   "margin_ratio": 0.0658134603328744,
+   "decisions": {
+    "REFUSED": 20,
+    "BOOTSTRAP": 1,
+    "REFRESH": 430
+   },
+   "families_served": {
+    "HistGradientBoostingRegressor": 431
+   }
+  },
+  "0.10": {
+   "n": 431,
+   "won": 224,
+   "win_rate": 0.5197215777262181,
+   "mae_published": 0.0009606032942176456,
+   "mae_persistence": 0.0010282778154349483,
+   "margin_ratio": 0.0658134603328744,
+   "decisions": {
+    "REFUSED": 20,
+    "BOOTSTRAP": 1,
+    "REFRESH": 430
+   },
+   "families_served": {
+    "HistGradientBoostingRegressor": 431
+   }
+  },
+  "0.20": {
+   "n": 431,
+   "won": 224,
+   "win_rate": 0.5197215777262181,
+   "mae_published": 0.0009606032942176456,
+   "mae_persistence": 0.0010282778154349483,
+   "margin_ratio": 0.0658134603328744,
+   "decisions": {
+    "REFUSED": 20,
+    "BOOTSTRAP": 1,
+    "REFRESH": 430
+   },
+   "families_served": {
+    "HistGradientBoostingRegressor": 431
+   }
+  }
+ },
+ "family_locked": {
+  "HistGradientBoostingRegressor": {
+   "n": 431,
+   "won": 224,
+   "win_rate": 0.5197215777262181,
+   "margin_ratio": 0.0658134603328744,
+   "decisions": {
+    "REFUSED": 20,
+    "BOOTSTRAP": 1,
+    "REFRESH": 430
+   }
+  },
+  "Ridge": {
+   "n": 151,
+   "won": 66,
+   "win_rate": 0.4370860927152318,
+   "margin_ratio": -0.07127086446059987,
+   "decisions": {
+    "REFUSED": 300,
+    "BOOTSTRAP": 1,
+    "REFRESH": 150
+   }
+  }
+ },
+ "finding": "All 6 margins produce byte-identical outcomes (1 distinct results). REPLACEMENT_MARGIN has never changed a decision in 431 published origins, because the margin arbitrates NEAR-TIES and there are none: HistGradientBoostingRegressor passes the baseline gate at 431/451 origins and beats persistence by 6.6%, while Ridge passes at 151/451 and LOSES to persistence by 7.1%."
+}

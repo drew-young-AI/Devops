@@ -1,7 +1,7 @@
 {
   "generated_by": "platform/docs/capability_graph.py --catalog",
   "root": "README.md",
-  "count": 96,
+  "count": 98,
   "capabilities": [
     {
       "path": "pilots/station2-twin/app/app.py",
@@ -450,6 +450,24 @@
       "what": "用本機 MLX（127.0.0.1:9000）對磁碟上既有的確定性證據做複審",
       "guarantee": "讀的是 build metadata、Trivy 閘門結果、SBOM 摘要、develop 部署健康——它不重新判斷事實，只複審既有事實；且不具備阻擋發布的權力",
       "run": "platform/llm-review/review.sh"
+    },
+    {
+      "path": "platform/mlops/model_registry.py",
+      "described": true,
+      "described_in": "platform/mlops/README.md",
+      "when": "由 pilot 的 backtest.py import（run.sh 唯讀掛載進容器）",
+      "what": "模型註冊表的契約：一筆登記合不合法、build() 回傳的是不是未擬合的估計器",
+      "guarantee": "專案中立，無領域知識。未登記的名稱被拒絕並列出清單；回傳已擬合估計器的條目被拒絕（守衛本身有突變測試）",
+      "run": "platform/mlops/model_registry.py"
+    },
+    {
+      "path": "platform/mlops/promotion_policy.py",
+      "described": true,
+      "described_in": "platform/mlops/README.md",
+      "when": "由 pilot 的 publish_forecast.py import",
+      "what": "挑戰者何時取代現役模型：六種判定（BOOTSTRAP／REPLACE／KEEP／REFRESH／INCOMPARABLE／REFUSED）",
+      "guarantee": "門檻沒有預設值——沒想過門檻的專案會被迫想。現役只跟它在同一比較範圍內重評的分數比",
+      "run": "platform/mlops/promotion_policy.py"
     },
     {
       "path": "platform/mlops/retrain.sh",

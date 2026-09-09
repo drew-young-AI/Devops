@@ -1,9 +1,25 @@
 {
   "schema": "gha-status/1",
-  "fetched_at": "2026-09-08T23:23:00+08:00",
+  "fetched_at": "2026-09-09T19:46:02+08:00",
   "fetch_state": "ok",
   "detail": "fetched main",
   "runs": [
+    {
+      "conclusion": "success",
+      "createdAt": "2026-09-08T15:35:46Z",
+      "displayTitle": "chore(evidence): 09-08 排程產物（健康快照、資料契約彙總、statusdag 指標）",
+      "status": "completed",
+      "url": "https://github.com/drew-young-AI/Devops/actions/runs/34245763110",
+      "workflowName": "pilot-image"
+    },
+    {
+      "conclusion": "failure",
+      "createdAt": "2026-09-08T15:35:46Z",
+      "displayTitle": "chore(evidence): 09-08 排程產物（健康快照、資料契約彙總、statusdag 指標）",
+      "status": "completed",
+      "url": "https://github.com/drew-young-AI/Devops/actions/runs/34245762875",
+      "workflowName": "Platform Tests"
+    },
     {
       "conclusion": "failure",
       "createdAt": "2026-09-08T08:09:18Z",
@@ -66,22 +82,6 @@
       "displayTitle": "docs(adr-0008): 兩機架構的正面第一次被量到",
       "status": "completed",
       "url": "https://github.com/drew-young-AI/Devops/actions/runs/33771481249",
-      "workflowName": "Platform Tests"
-    },
-    {
-      "conclusion": "success",
-      "createdAt": "2026-09-03T15:03:42Z",
-      "displayTitle": "fix(portability,k8s): 第二台機器一開機，就找到四個「Mac 上全綠」的缺陷",
-      "status": "completed",
-      "url": "https://github.com/drew-young-AI/Devops/actions/runs/33770464457",
-      "workflowName": "pilot-image"
-    },
-    {
-      "conclusion": "success",
-      "createdAt": "2026-09-03T15:03:42Z",
-      "displayTitle": "fix(portability,k8s): 第二台機器一開機，就找到四個「Mac 上全綠」的缺陷",
-      "status": "completed",
-      "url": "https://github.com/drew-young-AI/Devops/actions/runs/33770464364",
       "workflowName": "Platform Tests"
     }
   ]
