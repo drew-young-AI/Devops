@@ -12,7 +12,7 @@ timestamp: 2026-08-15T19:56:31+08:00
 
 # Vault Adapter — Secret Management
 
-Implements the "已鎖定決策" in `Plan.md`/`docs/IaC.md`: **HashiCorp Vault
+Implements the "已鎖定決策" in `Plan.md`/`platform/iac/README.md`: **HashiCorp Vault
 Community**; `.env` only as a migration source, never the real secret
 store. This closes the last still-open P0 item from `Plan.md` §6
 ("Secret migration 與硬體/resource baseline").

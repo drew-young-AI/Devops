@@ -45,15 +45,24 @@ timestamp: 2026-08-11T20:05:56+08:00
 
 | 看什麼 | 網址 | 給誰 | 需要登入 |
 |---|---|---|---|
-|| **三線階段燈號** | http://mac.local:13000/d/platform-stages/ | 長官、人類 | Grafana 帳號 (詳見 platform/observability/README.md) |
-|| **DataOps 管線** | http://mac.local:13000/d/dataops-pipeline/ | 資料負責人 | Grafana 帳號 (詳見 platform/observability/README.md) |
-|| **服務總覽** | http://mac.local:13000/d/devops-overview/ | 維運 | Grafana 帳號 (詳見 platform/observability/README.md) |
+| **三線階段燈號**（`0-overview`） | http://mac.local:13000/d/platform-stages/ | 長官、人類 | Grafana 帳號 |
+| **Infra 與監測**（`1-infra-monitor`） | http://mac.local:13000/d/infra-monitor/ | 維運 | Grafana 帳號 |
+| **DevOps Overview**（`2-devops`） | http://mac.local:13000/d/devops-overview/ | 維運 | Grafana 帳號 |
+| **DataOps 管線**（`3-dataops`） | http://mac.local:13000/d/dataops-pipeline/ | 資料負責人 | Grafana 帳號 |
+| **MLOps 模型**（`4-mlops`） | http://mac.local:13000/d/mlops-model/ | 公衛預測 | Grafana 帳號 |
 | 階段報告（靜態、可離線轉寄） | http://mac.local:18085/Stage-Report.html | 長官 | 否 |
 | **八張圖（三線平台圖譜）** | http://mac.local:18085/report/plates.offline.html | 長官、簡報 | 否 |
 | 決策紀錄索引 | http://mac.local:18085/decisions/index.md | 全部 | 否 |
 | 價值流看板 | http://mac.local:18085/Value-Stream-Board.html | 維運 | 否 |
 | 管線狀態 | http://mac.local:18085/Pipeline-Status.html | 維運 | 否 |
 | 原始指標查詢 | http://mac.local:19090/ | 工程 | **否（刻意，見 ADR-0003）** |
+
+括號裡是 Grafana 的資料夾：**資料夾是學科，專案是標籤**。磁碟上的目錄結構
+就是 UI 的結構（`foldersFromFilesStructure`），第二個專案是 `$project` 下拉
+選單裡的一個值而不是第二棵樹——分類表、驗證指令與那個算術見
+[`platform/observability/README.md`](platform/observability/README.md)
+「看板怎麼分類」與 [ADR-0017](docs/decisions/0017-project-separation-is-a-label-not-a-folder.md)。
+帳號密碼的來源同樣在那份 README。
 
 Grafana 是這裡**唯一會驗證身分**的服務，所以它是唯一適合放需要權限區隔的東西的地方。
 Prometheus 開在區網且無認證，是明示接受的取捨，不是疏漏——
@@ -190,9 +199,9 @@ Prometheus 停了它不會安靜變綠、而是連同整組規則消失，
 |---|---|---|
 | **量測與取捨** | [`docs/decisions/`](docs/decisions/index.md) | 帶量測的必須有 `rerun:` 指令，且指向存在的檔案。`platform/docs/decisions.py` 會擋 |
 | 計畫與交接 | [`Plan.md`](Plan.md) | **計畫與當時的判斷，不是現況。**現況看第一節的看板；衝突時以板面為準，因為板面是探測出來的、Plan.md 是寫下來的 |
-| 階段 review | [`STAGE_REVIEW.md`](STAGE_REVIEW.md) | 人寫的階段檢討 |
+| 階段 review（**凍結的歷史**） | [`STAGE_REVIEW.md`](STAGE_REVIEW.md) | **最後一次是 2026-08-19，K8s 轉向、資料迴路、mlops 全部在那之後。**它自己說是「目前實際建置狀態的快照」——那句話現在是假的。留著是因為 `docs/Future-DataOps.md` 引用它 §8 的 Stage 1-4 路線圖當推理依據（ADR-0018 判準二）。現況一律看板面 |
 | 待辦與遞延 | [`docs/Backlog.md`](docs/Backlog.md) | 每一項附「現在做 vs 等 K8s」判定 |
-| 生態系調查 | [`docs/Ecosystem-Scan-2026-08.md`](docs/Ecosystem-Scan-2026-08.md)、[`docs/Ecosystem-Actions-2026-08.md`](docs/Ecosystem-Actions-2026-08.md) | 判準是「解掉我們真的踩過的問題嗎」，不是星數 |
+| 刪掉了哪些文件、依什麼判準 | [`docs/decisions/0018-delete-a-document-only-when-an-adr-carries-its-reason.md`](docs/decisions/0018-delete-a-document-only-when-an-adr-carries-its-reason.md) | 2026-09-09 刪了 6 份。**判準不是「舊」，是「它的理由有沒有被 ADR 接住」**；沒接住的先遷移再刪 |
 | harness 工程觀察 | [`docs/Harness-Engineering-Notes.md`](docs/Harness-Engineering-Notes.md) | 學性質，不抄程式碼 |
 | 機器可讀證據 | `evidence/` | 不放 secret、token 或完整敏感 payload |
 | 服務接入契約 | [`NEW_SERVICE_GUIDE.md`](NEW_SERVICE_GUIDE.md) | 新服務進平台的最低要求 |
@@ -200,7 +209,6 @@ Prometheus 停了它不會安靜變綠、而是連同整組規則消失，
 | **非 Claude 的 agent 接手** | [`AGENTS.md`](AGENTS.md) | codex／copilot／agy／gemini 依慣例讀的入口。**薄指標，不複製內容**——它只指向上一列那份，外加對所有 agent 都成立的硬規則 |
 | **模型怎麼擴充** | [`docs/MLOps-Model-Extension.md`](docs/MLOps-Model-Extension.md) | 模型註冊表：加一個模型要動什麼、動之前必須先回答什麼（缺值 51.8%、556 列、這台機器的時間上限）；統計／深度學習／混合模態各自卡在哪 |
 | 生產節點接手 | [`docs/Ubu-Prod-Bringup.md`](docs/Ubu-Prod-Bringup.md) | Ubuntu prod 已完成什麼、卡在哪、下一步順序 |
-| **歷史里程碑** | [`docs/Milestone-2026-08-25.md`](docs/Milestone-2026-08-25.md) | **2026-08-25 當時的狀態，不是現況。** 保留是為了「那天我們說了什麼」可查；現況一律看板面與本檔第一節 |
 | 簡報用八張圖 | [`docs/report/README.md`](docs/report/README.md) | 一份來源、線上與離線兩個版本；三個入口都記在那裡 |
 
 ### 決策紀錄的那條規則
@@ -368,12 +376,11 @@ GitHub Actions 宣告 `PLATFORM_TIERS=1`，所以它的綠燈只代表**契約�
 
 1. [Plan.md](Plan.md) 的 `Handoff / Current Status`
 2. [NEW_SERVICE_GUIDE.md](NEW_SERVICE_GUIDE.md)
-3. [docs/Architecture.md](docs/Architecture.md)
-4. [docs/IaC.md](docs/IaC.md)
-5. [docs/Network.md](docs/Network.md)
-6. [docs/Security.md](docs/Security.md)
-7. [docs/Pilot-Validation.md](docs/Pilot-Validation.md)、[docs/Human-Usability-Review-Checklist.md](docs/Human-Usability-Review-Checklist.md)
-8. [docs/Future-ML-LLMOps.md](docs/Future-ML-LLMOps.md)、[docs/Future-DataOps.md](docs/Future-DataOps.md)（延後範圍，但架構設計需考量）
+3. [docs/Network.md](docs/Network.md)
+4. [platform/iac/README.md](platform/iac/README.md)（IaC 引擎、Checkov、state 邊界）
+5. [platform/security/README.md](platform/security/README.md)、[platform/vault/README.md](platform/vault/README.md)（安全閘門與機密）
+6. [NEW_SERVICE_GUIDE.md](NEW_SERVICE_GUIDE.md)（平台與 pilot 的擁有權界線）
+8. [docs/Future-DataOps.md](docs/Future-DataOps.md)（延後範圍，但架構設計需考量；MLOps／LLMOps 的導入順序已併入其中）
 9. [docs/Backlog.md](docs/Backlog.md)——遞延項目，**每一項附「現在做 vs 等 K8s」判定**
 10. [docs/Kubernetes-Readiness.md](docs/Kubernetes-Readiness.md)——什麼帶得走、什麼被取代、什麼完全沒碰過
 

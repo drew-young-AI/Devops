@@ -94,11 +94,13 @@ timestamp: 2026-08-15T20:00:54+08:00
       正確（`shutting_down` flag + threaded `server.shutdown()`），但實際
       行為沒有達到 README 宣稱的「graceful shutdown 時返回 503」。尚未
       決定要修正還是記錄為已知限制。
-- [ ] **Human Platform Usability Review**：依 `docs/Pilot-Validation.md`
-      定義，這項檢查「operator 能否理解 CI、dashboard、evidence、
-      rollback」，本質上需要使用者本人操作，AI 無法代為完成。走查清單
-      見 `docs/Human-Usability-Review-Checklist.md`（含每項工具的實際
-      連結與點擊步驟，2026-08-11 逐項實測過才寫的）。
+- [ ] **Human Platform Usability Review**：operator 能否理解 CI、dashboard、
+      evidence、rollback。本質上需要使用者本人操作，AI 無法代為完成。
+      **兩份支撐文件都已於 2026-09-09 刪除**（ADR-0018）：走查清單
+      `Human-Usability-Review-Checklist.md` 逐項寫死 2026-08-11 的連結與畫面，
+      而 Grafana 換過資料夾結構、部署換到 K8s，那些畫面已不存在；
+      `Pilot-Validation.md` 的狀態機以 `PRODUCTION_LIKE` 收尾，而該節點在板面上
+      是 `superseded`。要重走一次的話，現況入口在 `README.md` 第一節與板面。
 
 ### 2026-08-11 發現並修正：Grafana dashboard 完全空白（真實 bug）
 
@@ -534,7 +536,8 @@ Pilot 只用來驗證平台，不代表產品需求或產品效果已完成。
 - [ ] ~~Kubernetes~~、Argo CD、Kubeflow、Airflow。
       **Kubernetes 已移出本清單**（[ADR-0010](docs/decisions/0010-kubernetes-target-runtime-k3s.md)）；另外三個留著。
 - [ ] MLOps/LLMOps 完整平台；只保留未來 integration contract（詳見
-      `docs/Future-ML-LLMOps.md`，已補上具體臨床模型類型）。
+      `docs/Future-DataOps.md`「模型類型與 MLOps／LLMOps 的導入順序」，
+      2026-09-09 由已刪除的 `Future-ML-LLMOps.md` 併入）。
 - [ ] DataOps 完整平台（Warehouse/Lakehouse/多模態醫療資料、Databricks 或任何
       實際資料庫）；只保留未來 integration contract（詳見
       `docs/Future-DataOps.md`：資料種類對應、FHIR/OMOP/REDCap 整合、多人協作、
@@ -614,12 +617,9 @@ P4  MLOps / LLMOps expansion
 
 細節與歷史決策見：
 
-- [Architecture.md](docs/Architecture.md)
-- [IaC.md](docs/IaC.md)
 - [Network.md](docs/Network.md)
-- [Security.md](docs/Security.md)
 - [Observability.md](docs/Observability.md)
-- [Pilot-Validation.md](docs/Pilot-Validation.md)
-- [Future-ML-LLMOps.md](docs/Future-ML-LLMOps.md)
+- [platform/iac/README.md](platform/iac/README.md)
+- [platform/security/README.md](platform/security/README.md)
 - [Future-DataOps.md](docs/Future-DataOps.md)
 - [Plan-detail.md](docs/Plan-detail.md)

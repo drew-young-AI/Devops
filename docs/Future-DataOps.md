@@ -11,7 +11,7 @@ timestamp: 2026-08-15T20:00:54+08:00
 
 # Future DataOps — Medical & Multi-Modal Data
 
-This is deferred, same as `Future-ML-LLMOps.md`. Keep the architecture able
+This is deferred. Keep the architecture able
 to grow into this; do not build the full data platform now. Written from
 the actual job scope (2026-08-11): AI 醫療、數位健康、臨床決策支援，需整合
 EMR、檢驗、醫療影像、基因、RWD、FHIR/OMOP/REDCap/Databricks。
@@ -175,7 +175,7 @@ owns the *content*.
 | 資料類型 | 特性 | 建議層 | 現況 |
 |---|---|---|---|
 | EMR / 結構化病歷、檢驗資料 | 表格式，schema 明確，常有 LOINC/ICD 編碼 | Data Warehouse（Databricks SQL 或既有 Postgres 模式） | `STAGE_REVIEW.md` §8 Stage 1 討論已涵蓋，尚未建置 |
-| 醫療影像（DICOM） | 大型二進位，需 PACS-like 存取 | MinIO（S3-compatible，`docs/IaC.md` 已決定）或 Databricks Unity Catalog Volumes | 尚未建置——兩個選項互斥的取捨見下 |
+| 醫療影像（DICOM） | 大型二進位，需 PACS-like 存取 | MinIO（S3-compatible，`platform/iac/README.md` 已決定）或 Databricks Unity Catalog Volumes | 尚未建置——兩個選項互斥的取捨見下 |
 | 基因資料（VCF/BAM/CRAM） | 極大檔案、特殊格式，常需要 GATK 等專門 pipeline | MinIO + 專門運算環境（GPU/高記憶體） | 尚未建置，需要雲端運算資源決策（跟 rathole/Cloud VM 是同一個「還沒決定雲端供應商」的缺口） |
 | RWD / 多模態 | 混合上述 | 依內容拆分到對應層，不強求單一格式 | — |
 
@@ -212,12 +212,31 @@ owns the *content*.
 **這是唯一一項建議提前處理的事**——不是要現在寫 PHI 掃描器，是要在 Stage 4
 啟動前，先有一次明確的「evidence/日誌管線 PHI 安全檢查」，寫進 runbook。
 
-## 模型類型（呼應 `Future-ML-LLMOps.md`）
+## 模型類型與 MLOps／LLMOps 的導入順序
 
-疾病風險預測、預後分析、治療成效評估、病人分群、臨床試驗媒合、臨床決策支援——
-這些具體模型類型，讓原本抽象的「以後可能要用 MLflow」有了明確使用場景。不代表
-現在要建，代表 `Future-ML-LLMOps.md` 裡的 MLflow tracking/registry 決策不是
-空談，是有具體對象的。
+（2026-09-09 併入。原本分散在 `Future-ML-LLMOps.md`，該檔刪除——它 1.8KB
+的內容有一半已經被實際做出來的東西取代，另一半就是這一節。）
+
+具體模型類型，讓原本抽象的「以後可能要用 MLflow」有了明確使用場景：
+疾病風險預測、預後分析、治療成效評估、病人分群、臨床試驗媒合、臨床決策支援、
+AI Agent／LLM 應用。
+
+**分工的界線**：這些模型的訓練／驗證／準確度評估屬於研究工作本身，不是
+`platform/` 的範圍。`platform/` 要提供的是它們的**部署、版本控管、audit
+trail**——跟 `platform/compose/`、`platform/security/` 的 evidence-driven
+模式同一套邏輯，只是套用對象從容器映像換成模型 artifact。
+
+**延後清單，以及它現在的狀態**：
+
+| 原本的規劃 | 2026-09-09 現況 |
+|---|---|
+| MLflow：tracking、artifact、model registry、lineage | **部分已自建**：`model_run` 表 ＋ `feature_set` ＋ ADR-0016 汰換規則 ＋ 24 條 `mlops_*` 指標。導入 MLflow 現在是「換掉一個會動的東西」，不是「填一個空格」 |
+| Airflow：跨系統批次 DAG | 未做。現況是 launchd 計時器 ＋ 鎖檔（見 §27 T-list） |
+| Kubeflow：K8s 原生 ML pipeline | 未做。ADR-0010 之後前提才成立；整套在單機很重（見 `Kubernetes-Readiness.md` §3） |
+| LLMOps：版本化 model／prompt／tool／evaluation，跑回歸與安全閘門 | **一半已做**：`system_digest` ＋ `inputs_digest` ＋ `temperature=0` 能抓非確定性。**缺 evaluation**，登記為 §27 T29 |
+
+MLX endpoint（`127.0.0.1:9000`）目前仍只是 code／CI／API／diff 檢查的
+automation actor，**不是上列任何模型的 serving endpoint**。
 
 ## 多人協作 — 現有單人模型需要重新設計，但不是現在
 

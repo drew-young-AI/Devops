@@ -38,7 +38,8 @@ value into Vault safely, with rollback capability via KV v2 versioning).
 ## Steps
 
 1. **Generate a new PAT** (fine-grained, minimum scope needed — see
-   `docs/Security.md` "不使用長期 access key" / minimal-scope principle):
+   the minimal-scope principle, now stated in `AGENTS.md` §2 rules 4-5
+   (the old citation named a sentence `docs/Security.md` never contained):
    - GitHub → Settings → Developer settings → Personal access tokens
    - Set an expiration (do not create a non-expiring token)
    - Copy the new value — you will only see it once

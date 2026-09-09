@@ -308,11 +308,12 @@ tofu show -json tfplan > /tmp/iac_outputs.json
 
 ## 📚 Documentation
 
-- **Architecture**: `docs/Architecture.md`
 - **Network Design**: `docs/Network.md`
-- **Security Requirements**: `docs/Security.md`
+- **Security gates**: `platform/security/README.md`
+- **Secrets**: `platform/vault/README.md`
 - **Observability Contract**: `docs/Observability.md`
 - **Detailed Planning**: `docs/Plan-detail.md`
+- **Platform / pilot ownership boundary**: `NEW_SERVICE_GUIDE.md`
 
 ## 🔧 Troubleshooting
 
@@ -404,10 +405,23 @@ Before applying any changes:
 4. **Monitor and audit**
    - Track all applies in `evidence/iac_metadata.json`
    - Review Checkov findings regularly
-   - Rotate credentials per `docs/Security.md`
+   - Rotate credentials per `platform/vault/README.md` 「Secret Rotation」
 
 ---
 
 **Last Updated**: 2026-08-09
 **Maintained by**: Platform Team
 **License**: Internal Use Only
+
+## 狀態後端的邊界（2026-09-09 自 `docs/IaC.md` 遷入）
+
+- 本機加密 state：第一個驗證選項。
+- GitHub／GitLab artifact：只存報告與 plan，**不是權威 state**。
+- MinIO：可選的 S3 相容後端，放 artifact、模型檔、備份與 state 實驗。
+  **MinIO 是物件儲存，它不取代 PostgreSQL 或任何結構化資料庫。**
+- 雲端後端：未來的 provider adapter。
+
+`docs/IaC.md` 已於 2026-09-09 刪除。它是 2026-08-09 寫的工具清單，其中
+**OPA/Conftest、Ansible、Packer 在這個 repo 裡各有 0 個引用檔案**——它列的是
+打算用的東西，讀起來卻像已經在用的東西。真正在用的（OpenTofu、Checkov、
+本目錄的 conftest 政策）就在這份 README 裡，量得到。

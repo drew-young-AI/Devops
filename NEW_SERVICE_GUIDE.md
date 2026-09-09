@@ -210,3 +210,17 @@ Decision: PASS | FAIL | BLOCKED
 ```
 
 LLM 應先檢查範圍、資料與權限，再建立 Pilot，不應直接修改 platform contract。
+
+## 平台與 pilot 的擁有權界線（2026-09-09 自 `docs/Architecture.md` 遷入）
+
+- **pilot 擁有**：應用程式碼、Dockerfile、它自己的 migration 與 schema 版本。
+- **平台擁有**：可重用的 CI、安全掃描、網路、可觀測性、部署契約。
+- **MacBook 是 PoC 主機不是生產主機**；Ubuntu 節點才是 prod（ADR-0008）。
+- **MLX `127.0.0.1:9000` 是自動化行為者，不是部署目標。** 它做程式碼、CI、
+  API、diff 與監控的檢查；它不是任何模型的 serving endpoint。
+
+原本的 `docs/Architecture.md` 已於 2026-09-09 刪除：它的控制平面圖停在
+`Production-like Compose -> NGINX`，並把 Kubernetes 寫成「future adapter，
+等平台契約通過再說」——而 ADR-0010 早已把 Kubernetes 定為目標執行環境，
+`prodlike` 節點在板面上是 `superseded`。**那份圖不是舊，是反的**，而它從
+README 連得到、標題叫「平台架構決策」。上面這四條是它唯一還成立的內容。

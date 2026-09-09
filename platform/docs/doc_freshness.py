@@ -75,9 +75,6 @@ GENERATED = {
 
 # Hand-maintained on purpose. One line each, saying why it is allowed to age.
 CURATED = {
-    "docs/Milestone-2026-08-25.html":
-        "a dated milestone snapshot; being frozen is the point, and its "
-        "filename carries the date so no reader mistakes it for current state",
     "docs/report/plates.src.html":
         "the hand-authored source of the eight plates; plates.offline.html is "
         "generated FROM it, so this is the one file that must be edited by hand",

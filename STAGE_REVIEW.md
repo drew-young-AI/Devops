@@ -19,8 +19,16 @@ timestamp: 2026-08-19T12:00:00+08:00
 > §1–§9 是**當時**的快照，刻意不回頭改寫。文中提到 station1-hello 的地方
 > 記錄的是那個階段的真實狀態；它已於 2026-08-19 退役，見 §10.5。
 
-本文件是目前實際建置狀態的快照，給討論下一步用。詳細規格與逐項驗證證據見
-`Plan.md`（交接狀態權威來源）與各 `platform/*/README.md`。
+> **⚠️ 這份文件是凍結的歷史，不是現況（2026-09-09 標注）。**
+> 最後一次 review 是 **2026-08-19**。在那之後發生的事沒有一件寫在這裡：
+> Kubernetes 轉向（ADR-0010）、pilot 資料迴路補上（ADR-0013）、
+> 整個 MLOps 層（模型註冊表、汰換規則、事後評分、24 條指標）、
+> 第二台機器、第二個預測題目。
+> **現況一律看板面**（`README.md` 第一節），不要從這裡推測。
+> 留著的理由：`docs/Future-DataOps.md` 引用本文 §8 的 Stage 1-4 路線圖
+> 當推理依據（判準見 [ADR-0018](docs/decisions/0018-delete-a-document-only-when-an-adr-carries-its-reason.md)）。
+
+詳細規格與逐項驗證證據見 `Plan.md` 與各 `platform/*/README.md`。
 
 ---
 
