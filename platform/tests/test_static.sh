@@ -618,6 +618,22 @@ assert_equals "" "$(scan_uppercase_image "$REPO_ROOT/platform" "$REPO_ROOT/pilot
 # thin pointers, so a path that rots in either sends the next agent somewhere
 # that does not exist. Same loop rather than a second copy of this check --
 # two checks that must agree is the divergence this repo keeps paying for.
+#
+# A GENERATED PATH IS NOT A DEAD PATH (2026-09-09). This check passed on the
+# development machine and failed in CI on `docs/Stage-Report.json`: it is
+# build output, gitignored on purpose (a committed status snapshot is the
+# stale status page the generator exists to replace), so it exists here and
+# not in a fresh clone. The pointer is correct -- run the generator and the
+# file appears. Only a checkout that has never generated anything can see
+# this, which is precisely what the second machine is for.
+#
+# The test is `git check-ignore`, not a second list. A path this repository
+# deliberately does not track IS build output, by definition and by the reason
+# written next to it in .gitignore -- so .gitignore is already the authoritative
+# answer and a hand-kept array here would only drift from it. The narrowness
+# matters: a path that is neither tracked nor ignored is still a dead pointer
+# and still fails.
+
 for ROUTER in docs/Session-Handover.md AGENTS.md; do
   HANDOVER="$REPO_ROOT/$ROUTER"
   if [ -f "$HANDOVER" ]; then
@@ -628,6 +644,10 @@ for ROUTER in docs/Session-Handover.md AGENTS.md; do
         */) continue ;;                       # a directory written with a slash
         *[*?]*) continue ;;                   # a glob, not a path
       esac
+      # Ignored => generated => absent in a fresh clone is correct.
+      if git -C "$REPO_ROOT" check-ignore -q "$ptr" 2>/dev/null; then
+        continue
+      fi
       [ -e "$REPO_ROOT/$ptr" ] || MISSING_PTR="$MISSING_PTR $ptr"
     done
     MISSING_PTR="$(printf '%s' "$MISSING_PTR" | sed 's/^ *//; s/ *$//')"
