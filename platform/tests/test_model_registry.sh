@@ -130,7 +130,11 @@ echo "== mutation: an entry that returns a FITTED estimator must be refused =="
 # The file is restored in a trap and the restore is VERIFIED with cmp against
 # an untouched copy: an unrestored mutation would leave a broken registry in
 # the repo, which is the one outcome worse than not testing this at all.
-BACKUP="$(mktemp -t backtest_orig)"
+# `name.XXXXXX`: GNU mktemp refuses fewer than three X and prints nothing,
+# so BACKUP was empty on Linux -- `cp` wrote to "", and the restore check
+# failed with `cmp: : No such file or directory`. The mutation itself was
+# fine; the SAFETY NET was the part that did not exist on that platform.
+BACKUP="$(mktemp -t backtest_orig.XXXXXX)"
 cp "$MLOPS/backtest.py" "$BACKUP"
 # on_exit, not `trap ... EXIT`: a bare trap REPLACES lib.sh's own exit handler
 # and silently discards its sandbox cleanup. Guarded on the backup still

@@ -275,7 +275,7 @@ assert_output_contains "SUCCESS" "including the two that must stay SILENT"
 # A control that has never been seen to fail and one that cannot fail produce
 # the same output. Mutate the comparison so a tie no longer counts as losing;
 # the boundary case must go red. Restored in a trap and the restore VERIFIED.
-BACKUP="$(mktemp -t mlops_rules)"
+BACKUP="$(mktemp -t mlops_rules.XXXXXX)"
 cp "$RULES" "$BACKUP"
 restore_rules() { [ -f "$BACKUP" ] && cp "$BACKUP" "$RULES"; }
 on_exit restore_rules

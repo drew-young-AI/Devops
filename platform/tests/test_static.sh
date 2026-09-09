@@ -467,6 +467,34 @@ scan_unbraced_cjk() {  # <root...> -- basenames where $VAR touches a CJK char
 assert_equals "" "$(scan_unbraced_cjk "$REPO_ROOT/platform" "$REPO_ROOT/pilots")" \
   "no \$VAR is written directly against a CJK character (bash eats it into the name)"
 
+# ---- mktemp -t needs a template GNU will accept ---------------------------
+#
+# WHY (2026-09-09). `mktemp -t backtest_orig` works on BSD and FAILS on GNU
+# coreutils, which requires at least three X in the template. It fails by
+# printing NOTHING, so the variable is empty and the next line writes to "" --
+# and in test_model_registry.sh the variable held the BACKUP used to restore a
+# mutated file. The mutation worked on both platforms; the safety net existed
+# on only one. run_all.sh had the same spelling for its timing file, which is
+# why per-suite cost has been silently unrecorded in CI.
+#
+# Four suites already spelled it `name.XXXXXX` and said why in a comment. This
+# turns that comment into a rule.
+scan_bare_mktemp_t() {  # <root...> -- basenames with a template GNU rejects
+  local out=""
+  while IFS= read -r hit; do
+    local file="${hit%%:*}" rest="${hit#*:}" line
+    line="${rest#*:}"
+    case "$(basename "$file")" in test_static.sh) continue ;; esac
+    case "$line" in *XXX*) continue ;; esac
+    out="$out $(basename "$file")"
+  done < <(grep -rnE 'mktemp +-[a-z]*t ' "$@" --include='*.sh' 2>/dev/null \
+           | sed 's/[[:space:]]*#.*$//' | grep -E 'mktemp +-[a-z]*t ')
+  printf '%s' "$out" | tr ' ' '\n' | sort -u | tr '\n' ' ' | sed 's/^ *//; s/ *$//'
+}
+
+assert_equals "" "$(scan_bare_mktemp_t "$REPO_ROOT/platform" "$REPO_ROOT/pilots")" \
+  "every mktemp -t carries a template GNU accepts (three or more X)"
+
 #
 # `trap X EXIT` replaces whatever was registered before it. lib.sh registers
 # the sandbox cleanup at source time, so a suite registering its own cleanup
@@ -734,6 +762,20 @@ case "$CJK_CAUGHT" in
       *) _pass "catches: \$VAR written directly against a CJK character" ;;
     esac ;;
   *) _fail "catches: \$VAR written directly against a CJK character" "found: '$CJK_CAUGHT'" ;;
+esac
+
+# The control: a bare prefix must be caught, a templated one must not.
+MKFIX="$(mktemp -d)"
+printf '#!/usr/bin/env bash\nf="$(mktemp -t thing)"\n' > "$MKFIX/offender.sh"
+printf '#!/usr/bin/env bash\nf="$(mktemp -t thing.XXXXXX)"\n' > "$MKFIX/portable.sh"
+MK_CAUGHT="$(scan_bare_mktemp_t "$MKFIX")"
+rm -rf "$MKFIX"
+case "$MK_CAUGHT" in
+  *offender.sh*) case "$MK_CAUGHT" in
+      *portable.sh*) _fail "catches only the bare prefix" "flagged the templated one too" ;;
+      *) _pass "catches: mktemp -t with a template GNU would reject" ;;
+    esac ;;
+  *) _fail "catches: mktemp -t with a template GNU would reject" "found: '$MK_CAUGHT'" ;;
 esac
 
 # ---- the pilot's AppRole must be delivered by the start path, not the shell -

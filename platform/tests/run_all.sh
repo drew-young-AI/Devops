@@ -260,7 +260,11 @@ PLATFORM_SUITES="${PLATFORM_SUITES:-}"
 # lib.sh is not sourced here (this file is a runner, not a suite), so the repo
 # root is derived rather than inherited.
 RA_REPO_ROOT="$(cd "$SUITE_DIR/../.." && pwd)"
-TIMING_FILE="$(mktemp -t suite_timing)"
+# `name.XXXXXX`, not a bare prefix: GNU mktemp refuses a template with fewer
+# than three X and prints nothing, so TIMING_FILE was EMPTY on Linux and
+# every write went to a path that is the empty string. The repo documents
+# this idiom in four other suites; these call sites had not followed it.
+TIMING_FILE="$(mktemp -t suite_timing.XXXXXX)"
 trap 'rm -f "$TIMING_FILE"' EXIT
 
 suite_selected() {

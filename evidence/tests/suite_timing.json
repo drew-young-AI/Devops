@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-09T12:51:08Z",
-  "total_seconds": 341,
-  "measured_seconds": 341,
+  "generated_at": "2026-09-09T13:02:36Z",
+  "total_seconds": 344,
+  "measured_seconds": 344,
   "suite_count": 38,
   "platform_tiers": "1,2,3",
   "platform_suites": "",
@@ -10,7 +10,7 @@
     {
       "suite": "test_bluegreen.sh",
       "tier": 3,
-      "seconds": 124,
+      "seconds": 122,
       "rc": 0
     },
     {
@@ -20,15 +20,15 @@
       "rc": 0
     },
     {
-      "suite": "test_data_contract_live.sh",
-      "tier": 2,
-      "seconds": 26,
+      "suite": "test_scheduler.sh",
+      "tier": 1,
+      "seconds": 25,
       "rc": 0
     },
     {
-      "suite": "test_scheduler.sh",
-      "tier": 1,
-      "seconds": 24,
+      "suite": "test_data_contract_live.sh",
+      "tier": 2,
+      "seconds": 25,
       "rc": 0
     },
     {
@@ -40,7 +40,7 @@
     {
       "suite": "test_backup_coverage.sh",
       "tier": 3,
-      "seconds": 17,
+      "seconds": 22,
       "rc": 0
     },
     {
@@ -52,13 +52,7 @@
     {
       "suite": "verify_networkpolicy.sh",
       "tier": 3,
-      "seconds": 9,
-      "rc": 0
-    },
-    {
-      "suite": "test_analytics_mirror.sh",
-      "tier": 1,
-      "seconds": 7,
+      "seconds": 8,
       "rc": 0
     },
     {
@@ -68,25 +62,31 @@
       "rc": 0
     },
     {
-      "suite": "test_no_lookahead.sh",
-      "tier": 2,
-      "seconds": 5,
+      "suite": "test_analytics_mirror.sh",
+      "tier": 1,
+      "seconds": 6,
       "rc": 0
     },
     {
-      "suite": "test_llm_review.sh",
-      "tier": 1,
-      "seconds": 4,
+      "suite": "test_no_lookahead.sh",
+      "tier": 2,
+      "seconds": 6,
       "rc": 0
     },
     {
       "suite": "test_sandbox_hygiene.sh",
       "tier": 1,
-      "seconds": 3,
+      "seconds": 4,
       "rc": 0
     },
     {
-      "suite": "test_check_health.sh",
+      "suite": "test_model_registry.sh",
+      "tier": 1,
+      "seconds": 4,
+      "rc": 0
+    },
+    {
+      "suite": "test_llm_review.sh",
       "tier": 1,
       "seconds": 3,
       "rc": 0
@@ -98,9 +98,27 @@
       "rc": 0
     },
     {
-      "suite": "test_model_registry.sh",
+      "suite": "test_capability_graph.sh",
       "tier": 1,
       "seconds": 3,
+      "rc": 0
+    },
+    {
+      "suite": "test_check_health.sh",
+      "tier": 1,
+      "seconds": 2,
+      "rc": 0
+    },
+    {
+      "suite": "test_stage_report.sh",
+      "tier": 1,
+      "seconds": 2,
+      "rc": 0
+    },
+    {
+      "suite": "test_source_frequency.sh",
+      "tier": 1,
+      "seconds": 2,
       "rc": 0
     },
     {
@@ -116,31 +134,13 @@
       "rc": 0
     },
     {
-      "suite": "test_dashboards.sh",
-      "tier": 1,
-      "seconds": 2,
-      "rc": 0
-    },
-    {
-      "suite": "test_capability_graph.sh",
-      "tier": 1,
-      "seconds": 2,
-      "rc": 0
-    },
-    {
       "suite": "test_deploy_contract.sh",
       "tier": 1,
       "seconds": 1,
       "rc": 0
     },
     {
-      "suite": "test_stage_report.sh",
-      "tier": 1,
-      "seconds": 1,
-      "rc": 0
-    },
-    {
-      "suite": "test_decisions.sh",
+      "suite": "test_network_exposure.sh",
       "tier": 1,
       "seconds": 1,
       "rc": 0
@@ -152,7 +152,13 @@
       "rc": 0
     },
     {
-      "suite": "test_source_frequency.sh",
+      "suite": "test_dashboards.sh",
+      "tier": 1,
+      "seconds": 1,
+      "rc": 0
+    },
+    {
+      "suite": "test_readme_index.sh",
       "tier": 1,
       "seconds": 1,
       "rc": 0
@@ -164,13 +170,13 @@
       "rc": 0
     },
     {
-      "suite": "test_dast_coverage.sh",
+      "suite": "test_redaction.sh",
       "tier": 1,
       "seconds": 1,
       "rc": 0
     },
     {
-      "suite": "test_offline_report.sh",
+      "suite": "test_doc_graph.sh",
       "tier": 1,
       "seconds": 1,
       "rc": 0
@@ -182,37 +188,19 @@
       "rc": 0
     },
     {
-      "suite": "test_doc_freshness.sh",
-      "tier": 1,
-      "seconds": 1,
-      "rc": 0
-    },
-    {
-      "suite": "test_migration_observed.sh",
-      "tier": 3,
-      "seconds": 1,
-      "rc": 0
-    },
-    {
       "suite": "test_ingress.sh",
       "tier": 1,
       "seconds": 0,
       "rc": 0
     },
     {
-      "suite": "test_network_exposure.sh",
+      "suite": "test_decisions.sh",
       "tier": 1,
       "seconds": 0,
       "rc": 0
     },
     {
-      "suite": "test_readme_index.sh",
-      "tier": 1,
-      "seconds": 0,
-      "rc": 0
-    },
-    {
-      "suite": "test_redaction.sh",
+      "suite": "test_dast_coverage.sh",
       "tier": 1,
       "seconds": 0,
       "rc": 0
@@ -224,7 +212,13 @@
       "rc": 0
     },
     {
-      "suite": "test_doc_graph.sh",
+      "suite": "test_offline_report.sh",
+      "tier": 1,
+      "seconds": 0,
+      "rc": 0
+    },
+    {
+      "suite": "test_doc_freshness.sh",
       "tier": 1,
       "seconds": 0,
       "rc": 0
@@ -232,6 +226,12 @@
     {
       "suite": "test_duplicate_check.sh",
       "tier": 1,
+      "seconds": 0,
+      "rc": 0
+    },
+    {
+      "suite": "test_migration_observed.sh",
+      "tier": 3,
       "seconds": 0,
       "rc": 0
     }
