@@ -1,9 +1,25 @@
 {
   "schema": "gha-status/1",
-  "fetched_at": "2026-09-09T23:16:57+08:00",
+  "fetched_at": "2026-09-09T23:46:59+08:00",
   "fetch_state": "ok",
   "detail": "fetched main",
   "runs": [
+    {
+      "conclusion": "success",
+      "createdAt": "2026-09-09T15:44:37Z",
+      "displayTitle": "fix(test): 對 gitignored 產物下斷言，本機綠 CI 紅——同一天第二次",
+      "status": "completed",
+      "url": "https://github.com/drew-young-AI/Devops/actions/runs/34372242544",
+      "workflowName": "Platform Tests"
+    },
+    {
+      "conclusion": "failure",
+      "createdAt": "2026-09-09T15:32:10Z",
+      "displayTitle": "feat(handover): 必備 runbook（無 agent、無網路可用）與有分母的完成度",
+      "status": "completed",
+      "url": "https://github.com/drew-young-AI/Devops/actions/runs/34370876548",
+      "workflowName": "Platform Tests"
+    },
     {
       "conclusion": "success",
       "createdAt": "2026-09-09T13:21:59Z",
@@ -66,22 +82,6 @@
       "displayTitle": "chore(evidence): 09-09 產物與 grafana-admin 的輪替期限",
       "status": "completed",
       "url": "https://github.com/drew-young-AI/Devops/actions/runs/34349934201",
-      "workflowName": "Platform Tests"
-    },
-    {
-      "conclusion": "success",
-      "createdAt": "2026-09-08T15:35:46Z",
-      "displayTitle": "chore(evidence): 09-08 排程產物（健康快照、資料契約彙總、statusdag 指標）",
-      "status": "completed",
-      "url": "https://github.com/drew-young-AI/Devops/actions/runs/34245763110",
-      "workflowName": "pilot-image"
-    },
-    {
-      "conclusion": "failure",
-      "createdAt": "2026-09-08T15:35:46Z",
-      "displayTitle": "chore(evidence): 09-08 排程產物（健康快照、資料契約彙總、statusdag 指標）",
-      "status": "completed",
-      "url": "https://github.com/drew-young-AI/Devops/actions/runs/34245762875",
       "workflowName": "Platform Tests"
     }
   ]
