@@ -216,4 +216,15 @@ assert_output_contains "Session-Handover.md" "and the agent entry point"
 assert_output_contains "ssh drew@ubu.local" \
   "the production node is reached by hostname; its IP has drifted three times"
 
+# ---- both entry commands must have their exit codes explained --------------
+#
+# Found by walking the document as a first-time reader: `status.sh` returns 1
+# on a healthy platform that has one not-configured job, and the runbook
+# explained check_health.sh's exit codes but not this one. A reader who gets a
+# non-zero exit and no table cannot tell "this is fine" from "this is broken",
+# and the two scripts do NOT use the same numbering.
+assert_output_contains "ALL_FRESH" "the scheduler's exit codes are spelled out too"
+assert_output_contains "STALE_OR_UNKNOWN" \
+  "including the one that outranks CRITICAL: a job that stopped reporting looks like success"
+
 suite_summary
