@@ -1,9 +1,17 @@
 {
   "schema": "gha-status/1",
-  "fetched_at": "2026-09-10T22:19:21+08:00",
+  "fetched_at": "2026-09-10T22:49:26+08:00",
   "fetch_state": "ok",
   "detail": "fetched main",
   "runs": [
+    {
+      "conclusion": "success",
+      "createdAt": "2026-09-10T14:30:53Z",
+      "displayTitle": "feat(board): 登記簿列出 9 個未量測，三個看一眼就知道不該留著",
+      "status": "completed",
+      "url": "https://github.com/drew-young-AI/Devops/actions/runs/34489560326",
+      "workflowName": "Platform Tests"
+    },
     {
       "conclusion": "success",
       "createdAt": "2026-09-10T08:24:10Z",
@@ -74,14 +82,6 @@
       "displayTitle": "fix(reachability): ssh 到生產節點會間歇失敗，而錯誤訊息指向「機器關著」",
       "status": "completed",
       "url": "https://github.com/drew-young-AI/Devops/actions/runs/34433222347",
-      "workflowName": "Platform Tests"
-    },
-    {
-      "conclusion": "success",
-      "createdAt": "2026-09-10T02:23:22Z",
-      "displayTitle": "docs(runbook): 兩支入口指令的退出碼都要能自己判讀，而它們的編號不一樣",
-      "status": "completed",
-      "url": "https://github.com/drew-young-AI/Devops/actions/runs/34429248854",
       "workflowName": "Platform Tests"
     }
   ]

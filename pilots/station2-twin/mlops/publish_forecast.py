@@ -172,7 +172,6 @@ def main():
 
     horizons = [args.horizon] if args.horizon else [1, 2]
 
-    import numpy as np
     import psycopg
     dsn = os.environ.get("DATABASE_URL") or (
         f"host={os.environ.get('PGHOST', 'host.docker.internal')} "

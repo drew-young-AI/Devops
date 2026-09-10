@@ -49,7 +49,6 @@ import html
 import importlib.util
 import json
 import os
-import re
 import sys
 from datetime import datetime, timezone
 
@@ -113,7 +112,7 @@ LINES = [
               "來源以列舉發現而非猜 URL；地理對照每筆帶證據"),
         stage("載入", ["facts"],
               "同一張事實表容納縣市×週、鄉鎮×年、鄉鎮×日"),
-        stage("血緣", ["lineage"],
+        stage("血緣", ["lineage", "ingestq"],
               "檔案列數 = 接受 + 拒絕 + 重複，是資料庫約束不是報表"),
         stage("契約", ["dcontract", "mirror"],
               "資料契約進 CI；資料庫缺席時失敗而不是跳過"),
@@ -129,7 +128,7 @@ LINES = [
               "輸了不准上線，是資料庫觸發器不是團隊慣例"),
         stage("發布", ["forecast"],
               "API 只做查詢，服務路徑不載入模型"),
-        stage("事後評分", ["fcscore"],
+        stage("事後評分", ["fcscore", "fclead"],
               "拿發出去的那個數字比真的到來的那一週；回測比的是模型被擬合圍繞的歷史，不是這件事"),
         stage("重訓", ["retrain"],
               "每週排程；日曆觸發已實測，不是手動跑過就算"),

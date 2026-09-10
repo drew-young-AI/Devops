@@ -353,4 +353,56 @@ assert_output_contains "orphan.py" "and it is named"
 run_cmd json_probe . capabilities.json '{"capabilities":[]}' probe_capability_catalog
 assert_output_contains "unknown|" "an empty catalogue is UNKNOWN -- the enumeration broke, the repo did not empty"
 
+# --------------------------------- published is not still publishing (MLOps)
+# `forecast` counts rows and cannot fall. If publishing stopped a month ago it
+# still reads "4 筆已發布預測" while the actuals march on and every one of
+# those four becomes a forecast of a week we already know the answer to.
+sql_probe() {  # <probe-fn> <first-answer> <second-answer>
+  python3 - "$1" "$2" "$3" <<'PY'
+import os, sys
+sys.path.insert(0, os.path.join(os.getcwd(), "platform", "statusdag"))
+import dag
+answers = [sys.argv[2], sys.argv[3]]
+calls = {"n": 0}
+def fake_psql(q, *a, **k):
+    i = calls["n"]; calls["n"] += 1
+    v = answers[i] if i < len(answers) else ""
+    return None if v == "NULL" else v.replace("~", "\n")
+dag.psql = fake_psql
+print("%s|%s" % getattr(dag, sys.argv[1])())
+PY
+}
+
+run_cmd sql_probe probe_forecast_lead "2026|35" "2026|37"
+assert_output_contains "ok|" "a t+2 model whose newest target leads the newest actual by 2 is working"
+
+run_cmd sql_probe probe_forecast_lead "2026|37" "2026|37"
+assert_output_contains "warn|" "a forecast for a week we already have actuals for is not a forecast"
+run_cmd sql_probe probe_forecast_lead "2026|40" "2026|37"
+assert_output_contains "warn|" "and falling behind is WARN however many rows the forecast table holds"
+
+run_cmd sql_probe probe_forecast_lead "2026|35" ""
+assert_output_contains "fail|" "no forecast at all is FAIL"
+run_cmd sql_probe probe_forecast_lead "" "2026|37"
+assert_output_contains "unknown|" "forecasts with no actuals to compare against is UNKNOWN, not OK"
+run_cmd sql_probe probe_forecast_lead "NULL" "NULL"
+assert_output_contains "unknown|" "a database that did not answer is UNKNOWN"
+
+# ------------------------------------- balanced and accepting nothing (DataOps)
+# `lineage` proves file rows = accepted + rejected + duplicate, and that stays
+# true when a source rejects EVERY row -- which is what an upstream column
+# rename does. `facts` reports a count that does not fall. Three green nodes
+# over a feed that has stopped contributing.
+run_cmd sql_probe probe_ingest_quality "a|1000|5~b|500|1" ""
+assert_output_contains "ok|" "half a percent rejected is green"
+run_cmd sql_probe probe_ingest_quality "a|1000|80~b|500|1" ""
+assert_output_contains "warn|" "8% rejected on one source is WARN"
+assert_output_contains "a " "and the source is named -- 'ingest quality is down' sends nobody anywhere"
+run_cmd sql_probe probe_ingest_quality "a|1000|1000~b|500|1" ""
+assert_output_contains "fail|" "a source rejecting every row is FAIL: it has stopped contributing"
+run_cmd sql_probe probe_ingest_quality "" ""
+assert_output_contains "unknown|" "no ingest runs is UNKNOWN -- an empty scan is not a clean one"
+run_cmd sql_probe probe_ingest_quality "NULL" ""
+assert_output_contains "unknown|" "a database that did not answer is UNKNOWN"
+
 suite_summary

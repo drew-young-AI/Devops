@@ -160,6 +160,11 @@ devops_node_state{node="lineage",layer="dataops",state="superseded"} 0
 devops_node_state{node="lineage",layer="dataops",state="warn"} 0
 devops_node_state{node="lineage",layer="dataops",state="unknown"} 0
 devops_node_state{node="lineage",layer="dataops",state="fail"} 0
+devops_node_state{node="ingestq",layer="dataops",state="ok"} 1
+devops_node_state{node="ingestq",layer="dataops",state="superseded"} 0
+devops_node_state{node="ingestq",layer="dataops",state="warn"} 0
+devops_node_state{node="ingestq",layer="dataops",state="unknown"} 0
+devops_node_state{node="ingestq",layer="dataops",state="fail"} 0
 devops_node_state{node="dcontract",layer="dataops",state="ok"} 1
 devops_node_state{node="dcontract",layer="dataops",state="superseded"} 0
 devops_node_state{node="dcontract",layer="dataops",state="warn"} 0
@@ -195,6 +200,11 @@ devops_node_state{node="fcscore",layer="mlops",state="superseded"} 0
 devops_node_state{node="fcscore",layer="mlops",state="warn"} 0
 devops_node_state{node="fcscore",layer="mlops",state="unknown"} 0
 devops_node_state{node="fcscore",layer="mlops",state="fail"} 0
+devops_node_state{node="fclead",layer="mlops",state="ok"} 1
+devops_node_state{node="fclead",layer="mlops",state="superseded"} 0
+devops_node_state{node="fclead",layer="mlops",state="warn"} 0
+devops_node_state{node="fclead",layer="mlops",state="unknown"} 0
+devops_node_state{node="fclead",layer="mlops",state="fail"} 0
 devops_node_state{node="retrain",layer="mlops",state="ok"} 1
 devops_node_state{node="retrain",layer="mlops",state="superseded"} 0
 devops_node_state{node="retrain",layer="mlops",state="warn"} 0
@@ -249,6 +259,7 @@ devops_node_state_code{node="mirror",layer="dataops"} 0
 devops_node_state_code{node="geo",layer="dataops"} 0
 devops_node_state_code{node="facts",layer="dataops"} 0
 devops_node_state_code{node="lineage",layer="dataops"} 0
+devops_node_state_code{node="ingestq",layer="dataops"} 0
 devops_node_state_code{node="dcontract",layer="dataops"} 0
 devops_node_state_code{node="epiweek",layer="dataops"} 2
 devops_node_state_code{node="features",layer="mlops"} 0
@@ -256,6 +267,7 @@ devops_node_state_code{node="backtest",layer="mlops"} 0
 devops_node_state_code{node="mgate",layer="mlops"} 2
 devops_node_state_code{node="forecast",layer="mlops"} 0
 devops_node_state_code{node="fcscore",layer="mlops"} 0
+devops_node_state_code{node="fclead",layer="mlops"} 0
 devops_node_state_code{node="retrain",layer="mlops"} 0
 devops_node_state_code{node="k8s",layer="k8s"} 0
 devops_node_state_code{node="bluegreen",layer="k8s"} 0
@@ -294,6 +306,7 @@ devops_node_impacted{node="mirror"} 0
 devops_node_impacted{node="geo"} 0
 devops_node_impacted{node="facts"} 0
 devops_node_impacted{node="lineage"} 0
+devops_node_impacted{node="ingestq"} 0
 devops_node_impacted{node="dcontract"} 0
 devops_node_impacted{node="epiweek"} 0
 devops_node_impacted{node="features"} 0
@@ -301,10 +314,11 @@ devops_node_impacted{node="backtest"} 0
 devops_node_impacted{node="mgate"} 0
 devops_node_impacted{node="forecast"} 0
 devops_node_impacted{node="fcscore"} 0
+devops_node_impacted{node="fclead"} 0
 devops_node_impacted{node="retrain"} 0
 devops_node_impacted{node="k8s"} 0
 devops_node_impacted{node="bluegreen"} 0
 devops_node_impacted{node="prodk8s"} 0
 # HELP devops_board_generated_seconds Unix time this board was built.
 # TYPE devops_board_generated_seconds gauge
-devops_board_generated_seconds 1789050445
+devops_board_generated_seconds 1789053208

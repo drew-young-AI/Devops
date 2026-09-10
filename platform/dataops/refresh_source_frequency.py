@@ -40,7 +40,6 @@ Usage:
 """
 import argparse
 import json
-import os
 import ssl
 import subprocess
 import sys

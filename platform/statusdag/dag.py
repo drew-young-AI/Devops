@@ -38,7 +38,6 @@ import glob
 import json
 import os
 import re
-import shutil
 import subprocess
 import urllib.error
 import urllib.parse
@@ -460,16 +459,6 @@ def retired_only(pattern):
     return not live and bool(retired)
 
 
-def probe_ci():
-    files = sorted(glob.glob(os.path.join(EVIDENCE, "*/build_*.json")))
-    data = load(files[-1]) if files else None
-    if not data:
-        if retired_only("*/build_*.json"):
-            return SUPERSEDED, "已由 station1-hello 驗證後退役；改走 Kubernetes"
-        return UNKNOWN, "no build evidence"
-    return OK, f"sha {data.get('commit_sha', '?')[:7]}"
-
-
 def probe_github_actions():
     """Remote CI state, read from evidence rather than fetched here.
 
@@ -577,17 +566,6 @@ def probe_github_actions():
     # and ten red runs is a channel nobody reads.
     bad = sum(1 for x in runs if x.get("conclusion") not in (None, "success"))
     return FAIL, f"main {concl}：最近 {len(runs)} 次有 {bad} 次紅{age}"
-
-
-def probe_registry():
-    files = sorted(glob.glob(os.path.join(EVIDENCE, "*/push_*.json")))
-    if not files:
-        if retired_only("*/push_*.json"):
-            return SUPERSEDED, "已由 station1-hello 驗證後退役；改走本機 registry"
-        return UNKNOWN, "nothing pushed"
-    data = load(files[-1]) or {}
-    hours = age_hours(os.path.basename(files[-1]).split("_")[-1].replace(".json", ""))
-    return OK, f"{data.get('registry_image', 'pushed')}".split("/")[-1][:28]
 
 
 ALERT_CHANNEL_RE = re.compile(r"^\s{4,}(\w+)_configs:", re.M)
@@ -1574,6 +1552,90 @@ def probe_capability_catalog():
     return OK, f"{len(caps)} 支能力全部被文件描述到，零孤兒"
 
 
+def probe_forecast_lead():
+    """Published is not still publishing -- the model has to lead the actuals.
+
+    `probe_forecast` counts rows in `forecast` and reports "4 筆已發布預測".
+    That count cannot fall. If publishing stopped a month ago it still says 4,
+    while the actuals march on and every one of those four becomes a forecast
+    of a week we already know the answer to.
+
+    So this asks the only question that goes stale on its own: how far ahead of
+    the newest ACTUAL does the newest forecast reach. A t+2 model leading by 2
+    is working. A model leading by 0 has stopped being a forecast and become a
+    record.
+
+    Epi weeks are compared as (year, week) pairs rather than subtracted, since
+    week 1 of the next year follows week 52 or 53 depending on the year -- and
+    guessing 52 is how an off-by-one becomes a silent all-clear every January.
+    """
+    obs = psql("SELECT tp.epi_year, tp.epi_week FROM surveillance_fact sf "
+               "JOIN time_period tp ON tp.period_id = sf.period_id "
+               "WHERE tp.time_level = 'epi_week' "
+               "ORDER BY tp.epi_year DESC, tp.epi_week DESC LIMIT 1;")
+    fc = psql("SELECT target_epi_year, target_epi_week FROM forecast "
+              "ORDER BY target_epi_year DESC, target_epi_week DESC LIMIT 1;")
+    if obs is None or fc is None:
+        return UNKNOWN, "資料庫無回應"
+    obs, fc = (obs or "").strip(), (fc or "").strip()
+    if not fc:
+        return FAIL, "一筆預測都沒有"
+    if not obs:
+        return UNKNOWN, "沒有任何週粒度的實際值可以比對"
+    try:
+        oy, ow = (int(x) for x in obs.split("|"))
+        fy, fw = (int(x) for x in fc.split("|"))
+    except ValueError:
+        return UNKNOWN, f"讀不懂週別：實際 {obs!r} 預測 {fc!r}"
+    label = f"最新實際 {oy}w{ow:02d}，最新預測目標 {fy}w{fw:02d}"
+    if (fy, fw) <= (oy, ow):
+        return WARN, f"{label}——預測沒有領先實際值，發布可能已經停了"
+    return OK, f"{label}（領先 {fw - ow if fy == oy else '跨年'} 週）"
+
+
+def probe_ingest_quality():
+    """A source can keep fetching, keep balancing, and accept nothing.
+
+    `lineage` proves the arithmetic (file rows = accepted + rejected +
+    duplicate) and it stays true when a source starts rejecting EVERY row --
+    an upstream column rename does exactly that. `facts` reports a row count,
+    which does not fall. `srcfresh` sees the content changing. Three green
+    nodes over a feed that has stopped contributing anything.
+
+    The rate is per source and taken from each source's LATEST run, not summed
+    across history: a source that broke yesterday is invisible inside a
+    denominator of thirty million rows loaded over a month.
+    """
+    out = psql(
+        "SELECT source, rows_in_file, rows_rejected FROM ("
+        "  SELECT DISTINCT ON (source) source, rows_in_file, rows_rejected, fetched_at"
+        "  FROM ingest_runs ORDER BY source, fetched_at DESC) t "
+        "WHERE rows_in_file > 0 "
+        "ORDER BY rows_rejected::float / rows_in_file DESC LIMIT 5;")
+    if out is None:
+        return UNKNOWN, "資料庫無回應"
+    rows = [ln.split("|") for ln in (out or "").strip().splitlines() if ln.strip()]
+    if not rows:
+        return UNKNOWN, "沒有任何有內容的抓取紀錄——量到的是空的，不是沒問題"
+    worst = []
+    for r in rows:
+        try:
+            src, total, rej = r[0], int(r[1]), int(r[2])
+        except (IndexError, ValueError):
+            continue
+        worst.append((rej / total, src, rej, total))
+    if not worst:
+        return UNKNOWN, "抓取紀錄的欄位讀不出數字"
+    worst.sort(reverse=True)
+    ratio, src, rej, total = worst[0]
+    label = f"最差的來源 {src} 退回 {rej:,}/{total:,}（{100 * ratio:.1f}%）"
+    if ratio >= 0.5:
+        return FAIL, f"{label}——上游可能改了欄位，這個來源已經沒有在貢獻資料"
+    if ratio >= 0.05:
+        return WARN, label
+    return OK, label
+
+
 def probe_prod_node():
     """The production NODE, which is not the production cluster.
 
@@ -2005,6 +2067,7 @@ NODES = [
     ("geo",        "地理權威",            "dataops",     probe_geo),
     ("facts",      "事實載入",            "dataops",     probe_facts),
     ("lineage",    "血緣算術",            "dataops",     probe_lineage),
+    ("ingestq",    "抓取品質",            "dataops",     probe_ingest_quality),
     ("dcontract",  "資料契約",            "dataops",     lambda: probe_gate("data/contract_summary_*.json", stale_hours=24 * 8)),
     ("epiweek",    "週↔日曆對照",         "dataops",     probe_epiweek),
 
@@ -2014,6 +2077,7 @@ NODES = [
     ("mgate",      "上線閘門",            "mlops",       probe_model_gate),
     ("forecast",   "已發布預測",          "mlops",       probe_forecast),
     ("fcscore",    "預測事後評分",        "mlops",       probe_forecast_score),
+    ("fclead",     "預測領先實際值",      "mlops",       probe_forecast_lead),
     ("retrain",    "排程重訓",            "mlops",       probe_retrain),
 
     # --- Kubernetes（藍，A9/A10）-----------------------------------------
@@ -2025,6 +2089,80 @@ NODES = [
     # how a cluster disappears without the board changing colour.
     ("prodk8s",    "prod 叢集 (ubu/amd64)", "k8s",       probe_prod_cluster),
 ]
+
+# --------------------------------------------------------------------------
+# EVIDENCE SCHEMA CONTRACT -- what each probe believes about what it reads.
+#
+# THE FAILURE THIS EXISTS FOR, TWICE IN ONE DAY.
+#
+# `probe_capability_catalog` was written against four guessed field names
+# (`documented_in`, `reachable_from`, `described_by`, `internal_to`) joined by
+# `or`. The real field is `described`. Every lookup returned None, `not None`
+# is True, and the probe reported "94 of 102 capabilities have no
+# documentation" -- while the generator that wrote the file was reporting zero
+# orphans. Half an hour earlier the same mistake in miniature: the record
+# shape was inferred from `capabilities[0].keys()`, and the first record
+# happened to be a described one, so `internal_to` was not in the sample.
+#
+# The shape both share: A MISSING FIELD IS FALSY, AND FALSY IS A VERDICT.
+# `data.get("routes_reachable")` on a renamed field does not raise, does not
+# warn, and does not look different from a scan that genuinely reached zero
+# routes. Every probe here reads an artifact written by a DIFFERENT program;
+# the moment that program renames a key, the reader starts reporting fiction
+# with full confidence.
+#
+# So each probe declares the fields it depends on, and
+# platform/tests/test_coverage_closure.sh resolves them against the real
+# artifact. A rename then produces "SCHEMA MISS: capabilities.json has no
+# capabilities[].described" -- which is a different sentence from a finding,
+# and that difference is the whole point.
+#
+# PATH GRAMMAR
+#   a.b            nested key
+#   a[].b          list of objects; EVERY element must carry b
+#   a[].b|c        every element must carry at least one of b, c
+#   metric:NAME    a .prom file must expose a series named NAME
+EVIDENCE_READS = {
+    "probe_github_actions": ("ci/gha_status.json",
+                             ["fetch_state", "runs[].workflowName",
+                              "runs[].status", "runs[].conclusion"]),
+    "probe_analytics_mirror": ("analytics/mirror_manifest.json",
+                               ["built_at", "watermark.fact_rows"]),
+    "probe_health_rollup": ("observability/health_rollup.json",
+                            ["generated_at", "snapshots", "coverage_ratio",
+                             "verdicts"]),
+    "probe_dast_coverage": ("security/dast_coverage.json",
+                            ["generated_at", "routes_total", "routes_reachable",
+                             "unreachable_by_reason"]),
+    "probe_capability_catalog": ("capabilities.json",
+                                 ["capabilities[].path",
+                                  "capabilities[].described|internal_to"]),
+    "probe_secret_rotation": ("vault/rotation_summary_*.json",
+                              ["gate_result", "total_secrets", "checked_secrets",
+                               "exempt", "due", "without_record"]),
+    "probe_host_disk": ("statusdag/host_disk.prom",
+                        ["metric:host_filesystem_size_bytes",
+                         "metric:host_filesystem_avail_bytes",
+                         "metric:host_disk_metrics_generated_seconds"]),
+    "probe_log_coverage": ("statusdag/loki_coverage.prom",
+                           ["metric:devops_loki_lines_received_total",
+                            "metric:devops_loki_unrecognised_class_total"]),
+    "probe_source_freshness": ("statusdag/dataops.prom",
+                               ["metric:dataops_source_expected_interval_seconds",
+                                "metric:dataops_source_unchanged_seconds",
+                                "metric:dataops_source_retired"]),
+    # probe_gate is shared: three nodes call it with different patterns, so the
+    # pattern side is a LIST. All three summaries are written by different
+    # scripts and all three are read through the same `gate_result` key -- which
+    # is exactly the kind of agreement that holds until one of them is rewritten.
+    "probe_gate": (["security/sast_summary_*.json", "security/dast_summary_*.json",
+                    "data/contract_summary_*.json"], ["gate_result"]),
+    "probe_restore_drill": ("scheduler/restore_last.json", []),
+    "probe_retrain": ("scheduler/retrain_last.json", []),
+    "probe_deploy": ("*/deploy_develop_*.json", []),
+    "probe_llm_review": ("*/llm_review_*.json", []),
+    "probe_gitleaks": ("security/gitleaks_*.json", []),
+}
 
 # --------------------------------------------------------------------------
 # COVERAGE LEDGER -- what exists, and which node has an opinion about it.

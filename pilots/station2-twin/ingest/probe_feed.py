@@ -13,7 +13,6 @@ import csv
 import hashlib
 import io
 import ssl
-import sys
 import urllib.request
 from pathlib import Path
 

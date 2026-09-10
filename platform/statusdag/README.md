@@ -83,14 +83,27 @@ readers** — never two copies.
 不該留著——`rollup`、`dastcov`、`catalog`。補上節點之後未量測降到 6 個。
 這正是封閉檢查和多寫一支測試的差別：**它產生的是一張待辦清單，不是一次通過。**
 
+### 第三個維度：讀的人和寫的人對不對得上
+
+`dag.EVIDENCE_READS` ＋ 封閉檢查裡的 schema 契約。每支探針讀的都是**另一個程式**
+寫的檔案；那個程式改一個鍵名的那一刻，讀的人就開始用完全的自信報告虛構的事實。
+
+實際發生過：`probe_capability_catalog` 用四個**猜的**欄位名去找孤兒，四個都不存在
+→ `.get()` 回 `None` → `not None` 為真 → 報告「102 支裡有 94 支沒有文件描述」，
+而寫那個檔案的程式同時在說零孤兒。**欄位不存在 → falsy → 而 falsy 就是一個判決。**
+
+現在改名會產生 `SCHEMA MISS: capabilities.json has no capabilities[].described`——
+和「發現」不同的一句話。控制項直接拿那四個猜錯的名字去跑並斷言它們解析不到，
+證明這個檢查當時就會抓到。理由見 [ADR-0019](../../docs/decisions/0019-guards-are-a-list-of-past-failures.md)。
+
 **登記簿的內容也會寫錯。** `job:catalog` 的理由我第一次寫成「資料來源目錄」，
 實際上是**能力目錄**（`capability_graph.py --catalog`）。列舉是機械的，理由是人寫的——
 後者仍然會錯，只是現在錯在一個看得到的地方。
 完整理由與它抓不到的三件事：[ADR-0019](../../docs/decisions/0019-guards-are-a-list-of-past-failures.md)。
 
-## 2026-09-10：十一個「有腳本、沒節點」的表面
+## 2026-09-10：十三個「有腳本、沒節點」的表面
 
-板面上多了 `certs`、`hostdisk`、`rotation`、`iac`、`srcfresh`、`prodhost`、`mirror`、`logcov`、`rollup`、`dastcov`、`capcat`。十一個都有既有腳本或既有指標、都沒有節點，
+板面上多了 `certs`、`hostdisk`、`rotation`、`iac`、`srcfresh`、`prodhost`、`mirror`、`logcov`、`rollup`、`dastcov`、`capcat`、`fclead`、`ingestq`。十三個都有既有腳本、既有指標或既有資料表，都沒有節點，
 而且**都以同一種形狀失效**：一路正常，然後突然不正常，中間沒有斜率，也沒有人在看。
 
 | 節點 | 它問的問題 | 沒有它的時候 |
@@ -106,6 +119,8 @@ readers** — never two copies.
 | `rollup` | 健康檢查**跑了幾次**、其中多少時間是健康的 | 單次檢查只答得出「現在」。2,453 份快照裡覆蓋率 90%、健康 48%、降級 41%——這些數字每週產生，而沒有人讀 |
 | `dastcov` | DAST **掃到幾條路由** | `dast` 只判最近一次的判決。實測**只掃得到 10 條裡的 4 條**，而「DAST PASS」在 40% 與 100% 覆蓋率上印的是同一個字 |
 | `capcat` | 有沒有腳本是**沒有任何文件描述**的 | 兩份封閉檢查的另一份。`capability_graph.py` 每天跑，但答案只在套件裡，兩次跑之間新出現的孤兒是看不見的 |
+| `fclead`（MLOps） | 最新預測**有沒有領先**最新實際值 | `forecast` 數列數，而列數不會變小。發布停掉一個月之後它還是說「4 筆已發布預測」，而那四筆早就變成對已知答案的「預測」|
+| `ingestq`（DataOps） | 每個來源**最近一次**退回了多少列 | 上游改欄位 → 整批退回 → `lineage` 的恆等式照樣成立、`facts` 的列數不會掉、`srcfresh` 看到內容有變。三個綠燈蓋著一個已經不再貢獻資料的來源 |
 
 `prodhost` 讀 kubectl 而不是 ssh + df，是刻意的：那些條件是 kubelet 自己的，
 也就是**真的會導致驅逐的那一組**，而空間數字來自同一個 kubelet 的 stats 端點。

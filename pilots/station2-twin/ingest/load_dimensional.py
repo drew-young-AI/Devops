@@ -54,7 +54,7 @@ import re
 import ssl
 import sys
 import urllib.request
-from datetime import date, datetime, timezone
+from datetime import datetime, timezone
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent

@@ -37,7 +37,6 @@ import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.parse import urlparse, parse_qs
 
-import psycopg
 from psycopg_pool import ConnectionPool
 
 import surveillance

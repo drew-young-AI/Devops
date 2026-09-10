@@ -22,7 +22,6 @@ import os
 import re
 import sys
 
-import yaml
 
 # "  #   host_disk.prom        disk            300        900"
 TABLE_ROW = re.compile(
