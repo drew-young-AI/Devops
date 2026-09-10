@@ -308,4 +308,50 @@ assert_output_contains "分母是節點，不是階段" \
 assert_output_contains "阻擋者" \
   "and publishes who each blocker belongs to, because only one owner is us"
 
+# ---- ownership belongs to a NODE, never to its neighbours -----------------
+#
+# The owner column is the honest half of the landing standard: the percentage
+# moves when nodes are added, "engineering-owned blockers = 0" does not. So a
+# node that inherits a neighbour's owner does not just mis-colour a row -- it
+# silently improves the number the standard is measured against.
+#
+# That happened. `dastcov` was added to the 驗證 stage next to `llmreview`,
+# whose ask is owned by `decision`, and dastcov -- engineering's to fix or to
+# accept -- was reported to the platform owner as something waiting on them.
+# The cause was one line: owners were computed per stage and fanned out to
+# every node in it.
+run_cmd python3 - <<'PY'
+import os, sys
+sys.path.insert(0, os.path.join(os.getcwd(), "platform", "statusdag"))
+import dag, stage_report as sr
+
+# Two blocking nodes in one stage, only one of which has an ask.
+board = {"nodes": [], "counts": {}, "verdict": "ok",
+         "generated_at": "2026-09-10T00:00:00Z"}
+# The ask must be one whose node SHARES A STAGE with dastcov, or this control
+# tests nothing: an ask two stages away could never have leaked its owner here.
+stage_of = {n: st["name"] for _, _, _, sts in sr.LINES for st in sts for n in st["nodes"]}
+ask = next(a for a in sr.ASKS if stage_of.get(a["node"]) == stage_of["dastcov"])
+for nid, label, layer, probe in dag.NODES:
+    if nid == ask["node"]:
+        state, detail = dag.WARN, ask["when"]
+    elif nid == "dastcov":
+        state, detail = dag.WARN, "掃得到 4/10 條路由（40%）"
+    else:
+        state, detail = dag.OK, "ok"
+    board["nodes"].append({"id": nid, "label": label, "layer": layer,
+                           "state": state, "detail": detail, "impacted_by": []})
+
+m = sr.stage_model(board)
+owners = {}
+for line in m["lines"]:
+    for b in line["completion"]["blocking"]:
+        owners[b["id"]] = b["owner"]
+print("ASKNODE %s=%s" % (ask["node"], owners.get(ask["node"])))
+print("NEIGHBOUR dastcov=%s" % owners.get("dastcov"))
+PY
+assert_rc 0 "the per-node ownership model renders"
+assert_output_contains "NEIGHBOUR dastcov=eng" \
+  "a blocking node with no ask of its own is engineering's, even when a neighbour in the same stage is waiting on someone else"
+
 suite_summary

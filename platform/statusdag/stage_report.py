@@ -79,7 +79,7 @@ def stage(name, nodes, why):
 
 LINES = [
     ("devops", "DevOps", "交付與維運", [
-        stage("基礎", ["vault", "audit", "scheduler", "certs", "rotation", "iac"],
+        stage("基礎", ["vault", "audit", "scheduler", "certs", "rotation", "iac", "capcat"],
               "機密、身分、稽核軌跡與排程器——其他每一段都站在這上面"),
         stage("原始碼閘門", ["sast", "secrets"],
               "進建置之前擋下：原始碼弱點與歷史中的秘密"),
@@ -94,13 +94,13 @@ LINES = [
         # is how this omission was caught within the hour.
         stage("部署", ["k8s", "bluegreen", "prodk8s", "develop"],
               "Kubernetes 底座與藍綠切換（切換是改 Service 指向，不是滾動更新）"),
-        stage("驗證", ["dast", "llmreview"],
+        stage("驗證", ["dast", "dastcov", "llmreview"],
               "對執行中的系統掃描，以及模型複審"),
         stage("人工關卡", ["gate"],
               "上 production-like 需要真人按下去，刻意不自動"),
         stage("上線", ["nginx"],
               "對外服務與入口"),
-        stage("觀測", ["prometheus", "loki", "logcov", "alertmgr", "grafana"],
+        stage("觀測", ["prometheus", "loki", "logcov", "rollup", "alertmgr", "grafana"],
               "指標、日誌、告警、檢視——平台能不能看見自己"),
         stage("備份與還原", ["backup", "restore"],
               "備份覆蓋率不得有漏；沒還原過的備份不算備份"),
@@ -461,7 +461,27 @@ def stage_model(board=None):
         # `or "eng"` at the read site: a stage with no declared owner yields
         # None, and an unowned blocker is engineering work by default --
         # never "nobody's".
-        owner_of = {n["id"]: st["owner"] for st in smodels for n in st["nodes"]}
+        # OWNERSHIP IS PER NODE, NOT PER STAGE.
+        #
+        # This line used to read `{n["id"]: st["owner"] ...}`, which handed
+        # every node in a stage the owner of whichever ask matched FIRST in
+        # that stage. On 2026-09-10 the `dastcov` node was added to the
+        # 驗證 stage alongside `llmreview`, whose ask is owned by `decision` --
+        # and dastcov, which is engineering's to fix or accept, was reported to
+        # the platform owner as something waiting on THEM.
+        #
+        # That is worse than a wrong colour. The owner column is the one the
+        # landing standard reads ("engineering-owned blockers = 0"), so a node
+        # inheriting a neighbour's owner silently improves the number that is
+        # supposed to be the honest half of the standard.
+        owner_of = {}
+        for st_model, st_def in zip(smodels, stages):
+            for n in [by_id[i] for i in st_def["nodes"]]:
+                if not blocks_completion(n):
+                    continue
+                mine = [a for a in ASKS
+                        if a["node"] == n["id"] and a["when"] in (n.get("detail") or "")]
+                owner_of[n["id"]] = mine[0]["owner"] if mine else "eng"
         sup_nodes = [n for n in lnodes if n["state"] == dag.SUPERSEDED]
         awaiting = [n for n in sup_nodes if blocks_completion(n)]
         retired = [n for n in sup_nodes if n not in awaiting]

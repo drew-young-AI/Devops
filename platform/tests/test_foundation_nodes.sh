@@ -289,4 +289,68 @@ assert_output_contains "unknown|" "a cluster reporting zero nodes is UNKNOWN, ne
 run_cmd prodnode_probe "$(node_doc True False)" "-"
 assert_output_contains "warn|" "healthy conditions with unreadable disk usage is WARN, not OK"
 
+# ------------------------------------------------ coverage-of-the-coverage
+# Three nodes whose whole job is to carry a DENOMINATOR next to a verdict.
+# "DAST PASS" over 4 of 10 routes prints the same word as PASS over 10 of 10;
+# a health rollup that saw four fifths of its windows makes a weaker claim
+# about every one of them; a capability catalogue is only evidence if it
+# enumerated something.
+json_probe() {  # <subdir> <filename> <json> <probe-fn>
+  python3 - "$FIX" "$1" "$2" "$3" "$4" <<'PY'
+import json, os, sys, tempfile
+root, sub, name, doc, fn = sys.argv[1:6]
+d = tempfile.mkdtemp(dir=root)
+target = os.path.join(d, sub) if sub != "." else d
+os.makedirs(target, exist_ok=True)
+open(os.path.join(target, name), "w").write(doc)
+sys.path.insert(0, os.path.join(os.getcwd(), "platform", "statusdag"))
+import dag
+dag.EVIDENCE = d
+print("%s|%s" % getattr(dag, fn)())
+PY
+}
+NOW="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+# -- rollup ----------------------------------------------------------------
+run_cmd json_probe observability health_rollup.json   "{\"generated_at\":\"$NOW\",\"snapshots\":1000,\"coverage_ratio\":0.97,\"verdicts\":{\"HEALTHY\":900,\"DEGRADED\":100}}"   probe_health_rollup
+assert_output_contains "ok|" "a rollup that saw 97% of its windows is green"
+
+run_cmd json_probe observability health_rollup.json   "{\"generated_at\":\"$NOW\",\"snapshots\":1000,\"coverage_ratio\":0.85,\"verdicts\":{\"HEALTHY\":900}}"   probe_health_rollup
+assert_output_contains "warn|" "85% coverage is WARN: the green periods mean less than they look"
+
+run_cmd json_probe observability health_rollup.json   "{\"generated_at\":\"$NOW\",\"snapshots\":1000,\"coverage_ratio\":0.60,\"verdicts\":{\"HEALTHY\":900}}"   probe_health_rollup
+assert_output_contains "fail|" "60% coverage is FAIL"
+
+# The regression this node was written twice for: an old CRITICAL is history,
+# not a current state, and colouring on it makes the node permanently amber
+# for something already fixed -- the cumulative-counter mistake again.
+run_cmd json_probe observability health_rollup.json   "{\"generated_at\":\"$NOW\",\"snapshots\":1000,\"coverage_ratio\":0.97,\"verdicts\":{\"HEALTHY\":900,\"CRITICAL\":1}}"   probe_health_rollup
+assert_output_contains "ok|" "a CRITICAL from a month ago does not hold the node amber forever"
+assert_output_contains "CRITICAL" "but it is still stated in the text -- silent is not the alternative to amber"
+
+run_cmd json_probe observability health_rollup.json   "{\"generated_at\":\"$NOW\",\"snapshots\":0,\"coverage_ratio\":1.0,\"verdicts\":{}}"   probe_health_rollup
+assert_output_contains "unknown|" "a rollup over zero snapshots is UNKNOWN, never a clean month"
+
+# -- dast coverage ---------------------------------------------------------
+run_cmd json_probe security dast_coverage.json   "{\"generated_at\":\"$NOW\",\"routes_total\":10,\"routes_reachable\":9,\"unreachable_by_reason\":{\"write\":1}}"   probe_dast_coverage
+assert_output_contains "ok|" "9 of 10 routes reachable is green"
+
+run_cmd json_probe security dast_coverage.json   "{\"generated_at\":\"$NOW\",\"routes_total\":10,\"routes_reachable\":4,\"unreachable_by_reason\":{\"write\":1,\"parameterised\":3,\"unlinked\":2}}"   probe_dast_coverage
+assert_output_contains "warn|" "a scan reaching under half the routes is WARN however green its verdict was"
+assert_output_contains "parameterised 3" "and the reasons are carried: which six were missed decides whether it matters"
+
+run_cmd json_probe security dast_coverage.json   "{\"generated_at\":\"$NOW\",\"routes_total\":0,\"routes_reachable\":0}"   probe_dast_coverage
+assert_output_contains "unknown|" "an empty route table is UNKNOWN: no denominator, no coverage"
+
+# -- capability catalogue --------------------------------------------------
+run_cmd json_probe . capabilities.json   '{"capabilities":[{"path":"a.sh","described":true},{"path":"b.py","internal_to":"a.sh"}]}'   probe_capability_catalog
+assert_output_contains "ok|" "described, or internal to something described, is not an orphan"
+
+run_cmd json_probe . capabilities.json   '{"capabilities":[{"path":"a.sh","described":true},{"path":"orphan.py","described":false}]}'   probe_capability_catalog
+assert_output_contains "warn|" "a capability no document describes is WARN"
+assert_output_contains "orphan.py" "and it is named"
+
+run_cmd json_probe . capabilities.json '{"capabilities":[]}' probe_capability_catalog
+assert_output_contains "unknown|" "an empty catalogue is UNKNOWN -- the enumeration broke, the repo did not empty"
+
 suite_summary

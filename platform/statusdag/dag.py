@@ -1451,6 +1451,129 @@ def probe_log_coverage():
     return OK, f"{total:,.0f} 行／{len(tenants)} 個租戶{tail}"
 
 
+def probe_health_rollup():
+    """A month of health snapshots condensed, and the part nobody was shown.
+
+    `check_health.sh` answers "is the monitoring stack healthy NOW" every 15
+    minutes and its exit code goes to the scheduler. `rollup_health.py` reads
+    all of those and answers two questions the single check cannot:
+
+      how often did it actually run   -- coverage_ratio. A check that skipped
+                                         a fifth of its windows is a check
+                                         whose green periods mean less than
+                                         they look.
+      how much of the time was healthy -- the verdict mix. 1,175 HEALTHY next
+                                         to 1,002 DEGRADED is not a healthy
+                                         month, and the last sample alone can
+                                         never say so.
+
+    Neither number reached the board until 2026-09-10. The rollup ran weekly,
+    wrote its answer, and nothing read it.
+    """
+    data = load(os.path.join(EVIDENCE, "observability", "health_rollup.json"))
+    if not data:
+        return UNKNOWN, "沒有 health_rollup.json（rollup job 沒跑過）"
+    n = data.get("snapshots") or 0
+    if not n:
+        return UNKNOWN, "彙總了 0 份快照——量到的是空的，不是沒問題"
+    ratio = data.get("coverage_ratio")
+    verdicts = data.get("verdicts") or {}
+    healthy = verdicts.get("HEALTHY", 0)
+    crit = verdicts.get("CRITICAL", 0)
+    hours = age_hours(data.get("generated_at"))
+    pct_healthy = 100.0 * healthy / n
+    deg = 100.0 * verdicts.get("DEGRADED", 0) / n
+    label = (f"{n:,} 份快照，覆蓋率 {100 * (ratio or 0):.0f}%，"
+             f"健康 {pct_healthy:.0f}%／降級 {deg:.0f}%"
+             + (f"，史上 {crit} 份 CRITICAL" if crit else ""))
+    # COLOUR ON COVERAGE, NOT ON HISTORY.
+    #
+    # The first version went WARN whenever the month held any CRITICAL sample.
+    # There is one, from 2026-08-19, and it is fixed -- so the node would have
+    # been permanently amber for an event that is over. That is the cumulative
+    # counter mistake this platform just fixed in probe_alertmanager, in a new
+    # place: "it happened once" and "it is happening" must not be one colour.
+    #
+    # What DOES belong in the colour is coverage: a rollup that only saw four
+    # fifths of its windows is a weaker claim about every one of them, and
+    # that weakness is true right now.
+    if hours is not None and hours > 24 * 10:
+        return WARN, f"{label}；但這份彙總已 {hours / 24:.0f} 天"
+    if ratio is not None and ratio < 0.80:
+        return FAIL, f"{label}——五分之一以上的檢查窗沒有跑，綠燈期間的意義因此打折"
+    if ratio is not None and ratio < 0.90:
+        return WARN, label
+    return OK, label
+
+
+def probe_dast_coverage():
+    """A DAST PASS over 40% of the routes prints the same word as one over 100%.
+
+    The `dast` node reads the scan's verdict. `dast_coverage.py` reads the
+    pilot's own route table and asks how many of those routes the baseline
+    scanner can even reach -- GET only, spider-discovered, no parameters. The
+    answer today is 4 of 10, and the six it cannot reach are not a scanner
+    fault: two are unlinked, three take parameters, one is a write.
+
+    That makes this the same shape as the rotation sweep: the verdict is real
+    and the denominator is the part that decides what it is worth. Reporting
+    the verdict without the denominator is how "we scan the pilot" becomes
+    true and misleading in the same sentence.
+    """
+    data = load(os.path.join(EVIDENCE, "security", "dast_coverage.json"))
+    if not data:
+        return UNKNOWN, "沒有 dast_coverage.json（dastcov job 沒跑過）"
+    total = data.get("routes_total") or 0
+    if not total:
+        return UNKNOWN, "路由表是空的——沒有分母就沒有覆蓋率"
+    reach = data.get("routes_reachable") or 0
+    ratio = reach / total
+    why = data.get("unreachable_by_reason") or {}
+    tail = ("；掃不到的原因：" + "、".join(f"{k} {v}" for k, v in sorted(why.items()))) if why else ""
+    hours = age_hours(data.get("generated_at"))
+    label = f"掃得到 {reach}/{total} 條路由（{100 * ratio:.0f}%）{tail}"
+    if hours is not None and hours > 24 * 8:
+        return WARN, f"{label}；這份覆蓋率已 {hours / 24:.0f} 天"
+    if ratio < 0.5:
+        return WARN, label
+    return OK, label
+
+
+def probe_capability_catalog():
+    """Every script described in a document somebody can click to.
+
+    This is the OTHER closure check (see ADR-0019): `capability_graph.py`
+    enumerates every runnable capability and asks whether a reader starting at
+    README.md can reach a description of it. `test_capability_graph.sh` runs
+    it in the suite; nothing put the answer on the board, so between suite
+    runs a new orphan was invisible.
+
+    ZERO CAPABILITIES IS UNKNOWN, not a clean graph.
+    """
+    data = load(os.path.join(EVIDENCE, "capabilities.json"))
+    if not data:
+        return UNKNOWN, "沒有 capabilities.json（catalog job 沒跑過）"
+    caps = data.get("capabilities") or []
+    if not caps:
+        return UNKNOWN, "目錄裡 0 支能力——列舉壞了，不是 repo 空了"
+    # The field is `described`, and it was guessed wrong the first time: four
+    # plausible key names were tried with `or`, all missed, and the probe
+    # reported 94 of 102 undescribed while capability_graph.py's own output
+    # said zero orphans. A guessed field name fails EXACTLY like a real
+    # finding, which is why the shape is read from the file rather than
+    # assumed -- CLAUDE.md's rule against guessing a data mapping.
+    # `described` OR `internal_to`: a capability reached only through a
+    # documented entry point is not an orphan, and capability_graph.py
+    # records which entry point. Reading `described` alone reported 8
+    # orphans where the generator says 0 -- seven of them are internal.
+    orphans = [c for c in caps if isinstance(c, dict)
+               and not (c.get("described") or c.get("internal_to"))]
+    if orphans:
+        names = "、".join(str(c.get("path", "?")) for c in orphans[:3])
+        return WARN, f"{len(orphans)}/{len(caps)} 支能力沒有任何文件描述：{names}"
+    return OK, f"{len(caps)} 支能力全部被文件描述到，零孤兒"
+
+
 def probe_prod_node():
     """The production NODE, which is not the production cluster.
 
@@ -1835,6 +1958,7 @@ NODES = [
     ("hostdisk",   "主機磁碟",            "foundation",  probe_host_disk),
     ("rotation",   "機密輪替",            "foundation",  probe_secret_rotation),
     ("iac",        "IaC 驗證",            "foundation",  probe_iac),
+    ("capcat",     "能力目錄零孤兒",      "foundation",  probe_capability_catalog),
     ("prodhost",   "prod 節點健康 (ubu)",  "k8s",        probe_prod_node),
 
     ("sast",       "SAST 原始碼",         "source",      lambda: probe_gate("security/sast_summary_*.json", stale_hours=24 * 8)),
@@ -1862,6 +1986,7 @@ NODES = [
 
     ("develop",    "develop 部署",        "deploy",      lambda: probe_deploy("develop")),
     ("dast",       "DAST 執行中系統",      "verify",      lambda: probe_gate("security/dast_summary_*.json", stale_hours=48)),
+    ("dastcov",    "DAST 掃到多少",       "verify",      probe_dast_coverage),
     ("llmreview",  "LLM 複審",            "verify",      probe_llm_review),
     ("gate",       "真人 PROMOTE",        "gate",        probe_human_gate),
     ("nginx",      "NGINX 入口",          "release",     lambda: probe_docker("nginx-nginx-1")),
@@ -1869,6 +1994,7 @@ NODES = [
     ("prometheus", "Prometheus 指標",     "observe",     probe_prometheus),
     ("loki",       "Loki 日誌",           "observe",     lambda: probe_docker("observability-loki-1")),
     ("logcov",     "日誌真的有進來",      "observe",     probe_log_coverage),
+    ("rollup",     "健康史彙總",          "observe",     probe_health_rollup),
     ("alertmgr",   "Alertmanager 告警",   "observe",     probe_alertmanager),
     ("grafana",    "Grafana 檢視",        "observe",     lambda: probe_docker("observability-grafana-1")),
 
@@ -1961,10 +2087,10 @@ COVERAGE = {
     "job:rotation": "rotation",
     "job:retrain": "retrain",
     "job:gha": "gha",
-    "job:rollup": None,
-    "job:dastcov": None,
+    "job:rollup": "rollup",
+    "job:dastcov": "dastcov",
     "job:logcov": "logcov",
-    "job:catalog": None,
+    "job:catalog": "capcat",
 }
 
 # A `None` above MUST appear here. The reason is the deliverable: an
@@ -1982,13 +2108,6 @@ UNMEASURED = {
     "job:dag": "同上：dag.py 產生所有節點的狀態，沒有節點能判 dag.py 自己。"
                "外部的守衛是 exporter_freshness_check.py 與新鮮度告警。",
     "job:stagereport": "同 job:board。",
-    "job:rollup": "rollup_health.py 把 1,500 份健康快照收斂成一個答案，"
-                  "而那個答案沒有進板面。",
-    "job:dastcov": "DAST 掃到多少表面（dast_coverage.py）沒有節點——"
-                   "`dast` 節點只判最近一次掃描的判決，不判它掃了多少。",
-    "job:catalog": "來源目錄重新整理（discover_sources.py 一路）的結果沒有節點。"
-                   "`sources` 判登記筆數，`srcfresh` 判還在不在發布，"
-                   "都不判「目錄裡有沒有我們還沒登記的新來源」。",
 }
 
 # (from, to) -- "to depends on from".

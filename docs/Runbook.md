@@ -386,10 +386,10 @@ grep -A 8 "三條線的完成度" docs/Stage-Report.md
 
 ### 加節點會雙向改變百分比，兩個方向都要看
 
-同一天加了八個「有腳本／有指標、卻沒有節點」的表面。`certs`、`hostdisk`、
-`rotation`、`iac`、`prodhost`、`mirror`、`logcov` 加上去是綠的——**那是覆蓋率上升，
-不是進度**。`srcfresh` 加上去是黃的（一個來源 4.4 天沒有新內容），**DataOps 因此
-往下掉，而那是對的**：它一直都該是那個數字，只是沒有人在量。
+同一天加了十一個「有腳本／有指標、卻沒有節點」的表面。`certs`、`hostdisk`、
+`rotation`、`iac`、`prodhost`、`mirror`、`logcov`、`rollup`、`capcat` 加上去是綠的——**那是覆蓋率上升，
+不是進度**。`srcfresh` 與 `dastcov` 加上去是黃的（一個來源 4.7 天沒有新內容；DAST 只掃得到
+10 條路由裡的 4 條），**兩條線因此往下掉，而那是對的**：它一直都該是那個數字，只是沒有人在量。
 
 判準是**只加得了紅燈的節點**。每一個新節點都要有讓它變紅的合成控制項，
 在 `platform/tests/test_foundation_nodes.sh`。守衛沒被看過失敗，和守衛不會失敗，
