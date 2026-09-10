@@ -1636,6 +1636,43 @@ def probe_ingest_quality():
     return OK, label
 
 
+def probe_gate_integrity():
+    """Did anything get published that the gate should have blocked?
+
+    `publish_forecast.py` selects with `AND mr.beats_baselines`, so the gate is
+    enforced AT PUBLISH TIME. That is a guarantee about one code path, and this
+    repository has already learned what that is worth: `probe_lineage` exists
+    because "the schema says so" is not evidence -- a CHECK constraint that was
+    dropped leaves no trace, and neither does a WHERE clause that was edited.
+
+    So this is the post-condition, asked of the data rather than the code:
+    every row in `forecast` must trace through `model_run` to a run that beat
+    both naive baselines. A single row that does not means the most important
+    decision this platform makes was made and then bypassed.
+
+    NO FORECASTS IS UNKNOWN, not clean. "Nothing was published in violation" is
+    trivially true over an empty table, and that is the vacuous pass this
+    platform keeps meeting.
+    """
+    out = psql("SELECT count(*) FILTER (WHERE mr.beats_baselines IS NOT TRUE), "
+               "count(*) FROM forecast f "
+               "JOIN model_run mr ON mr.model_run_id = f.model_run_id;")
+    if out is None:
+        return UNKNOWN, "資料庫無回應"
+    parts = (out or "").strip().split("|")
+    if len(parts) != 2:
+        return UNKNOWN, f"讀不懂閘門查詢的回覆：{out!r}"
+    try:
+        leaked, total = int(parts[0]), int(parts[1])
+    except ValueError:
+        return UNKNOWN, f"閘門查詢回的不是數字：{out!r}"
+    if total == 0:
+        return UNKNOWN, "forecast 表是空的——「沒有違規發布」在空集合上恆真"
+    if leaked:
+        return FAIL, f"{leaked}/{total} 筆已發布預測來自沒有贏過基準的 model_run"
+    return OK, f"{total} 筆已發布預測全部來自贏過兩個基準的 model_run"
+
+
 def probe_prod_node():
     """The production NODE, which is not the production cluster.
 
@@ -2075,6 +2112,7 @@ NODES = [
     ("features",   "特徵集",              "mlops",       probe_features),
     ("backtest",   "回測（rolling-origin）", "mlops",     probe_backtest),
     ("mgate",      "上線閘門",            "mlops",       probe_model_gate),
+    ("gateleak",   "閘門沒有被繞過",      "mlops",       probe_gate_integrity),
     ("forecast",   "已發布預測",          "mlops",       probe_forecast),
     ("fcscore",    "預測事後評分",        "mlops",       probe_forecast_score),
     ("fclead",     "預測領先實際值",      "mlops",       probe_forecast_lead),

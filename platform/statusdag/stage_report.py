@@ -124,7 +124,7 @@ LINES = [
               "特徵集綁定產生它的程式碼雜湊"),
         stage("回測", ["backtest"],
               "rolling-origin，與兩個天真基準在同一批折上評分"),
-        stage("上線閘門", ["mgate"],
+        stage("上線閘門", ["mgate", "gateleak"],
               "輸了不准上線，是資料庫觸發器不是團隊慣例"),
         stage("發布", ["forecast"],
               "API 只做查詢，服務路徑不載入模型"),

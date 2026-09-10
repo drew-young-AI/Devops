@@ -405,4 +405,18 @@ assert_output_contains "unknown|" "no ingest runs is UNKNOWN -- an empty scan is
 run_cmd sql_probe probe_ingest_quality "NULL" ""
 assert_output_contains "unknown|" "a database that did not answer is UNKNOWN"
 
+# ------------------------------------------- the gate must not be bypassable
+# publish_forecast.py enforces `AND mr.beats_baselines` at publish time. That
+# is a guarantee about one code path; probe_lineage exists because a CHECK
+# constraint that was dropped leaves no trace, and neither does an edited
+# WHERE clause. This asks the data instead.
+run_cmd sql_probe probe_gate_integrity "0|4" ""
+assert_output_contains "ok|" "four published forecasts, none from a losing run, is green"
+run_cmd sql_probe probe_gate_integrity "1|4" ""
+assert_output_contains "fail|" "a single forecast from a run that lost to the baselines is FAIL"
+run_cmd sql_probe probe_gate_integrity "0|0" ""
+assert_output_contains "unknown|" "an empty forecast table is UNKNOWN: 'nothing was published in violation' is trivially true over nothing"
+run_cmd sql_probe probe_gate_integrity "NULL" ""
+assert_output_contains "unknown|" "a database that did not answer is UNKNOWN"
+
 suite_summary

@@ -190,6 +190,11 @@ devops_node_state{node="mgate",layer="mlops",state="superseded"} 0
 devops_node_state{node="mgate",layer="mlops",state="warn"} 1
 devops_node_state{node="mgate",layer="mlops",state="unknown"} 0
 devops_node_state{node="mgate",layer="mlops",state="fail"} 0
+devops_node_state{node="gateleak",layer="mlops",state="ok"} 1
+devops_node_state{node="gateleak",layer="mlops",state="superseded"} 0
+devops_node_state{node="gateleak",layer="mlops",state="warn"} 0
+devops_node_state{node="gateleak",layer="mlops",state="unknown"} 0
+devops_node_state{node="gateleak",layer="mlops",state="fail"} 0
 devops_node_state{node="forecast",layer="mlops",state="ok"} 1
 devops_node_state{node="forecast",layer="mlops",state="superseded"} 0
 devops_node_state{node="forecast",layer="mlops",state="warn"} 0
@@ -265,6 +270,7 @@ devops_node_state_code{node="epiweek",layer="dataops"} 2
 devops_node_state_code{node="features",layer="mlops"} 0
 devops_node_state_code{node="backtest",layer="mlops"} 0
 devops_node_state_code{node="mgate",layer="mlops"} 2
+devops_node_state_code{node="gateleak",layer="mlops"} 0
 devops_node_state_code{node="forecast",layer="mlops"} 0
 devops_node_state_code{node="fcscore",layer="mlops"} 0
 devops_node_state_code{node="fclead",layer="mlops"} 0
@@ -312,6 +318,7 @@ devops_node_impacted{node="epiweek"} 0
 devops_node_impacted{node="features"} 0
 devops_node_impacted{node="backtest"} 0
 devops_node_impacted{node="mgate"} 0
+devops_node_impacted{node="gateleak"} 0
 devops_node_impacted{node="forecast"} 0
 devops_node_impacted{node="fcscore"} 0
 devops_node_impacted{node="fclead"} 0
@@ -321,4 +328,4 @@ devops_node_impacted{node="bluegreen"} 0
 devops_node_impacted{node="prodk8s"} 0
 # HELP devops_board_generated_seconds Unix time this board was built.
 # TYPE devops_board_generated_seconds gauge
-devops_board_generated_seconds 1789053208
+devops_board_generated_seconds 1789055055

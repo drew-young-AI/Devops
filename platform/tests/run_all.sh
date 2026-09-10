@@ -215,6 +215,11 @@ SUITES=(
 # from the outage it exists to catch.
 DB_SUITES=(
   test_data_contract_live.sh
+  # Do the probes' queries refer to things the schema actually has? Derived
+  # from the source, not declared -- a hand-written list of column
+  # dependencies is one more thing the person who wrote the query wrong can
+  # also write wrong. It carries the two real 2026-09-10 mistakes as controls.
+  test_sql_contract.sh
   # The MLOps half of the same idea: a leak does not fail, it flatters. This
   # rebuilds the feature set over a truncated series and requires the past not
   # to change. Verified by injecting two deliberate leaks; both were caught.

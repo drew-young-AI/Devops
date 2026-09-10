@@ -1,8 +1,8 @@
 {
-  "generated_at": "2026-09-10T15:15:55Z",
-  "total_seconds": 357,
-  "measured_seconds": 357,
-  "suite_count": 41,
+  "generated_at": "2026-09-10T15:43:24Z",
+  "total_seconds": 350,
+  "measured_seconds": 350,
+  "suite_count": 42,
   "platform_tiers": "1,2,3",
   "platform_suites": "",
   "partial": false,
@@ -10,7 +10,7 @@
     {
       "suite": "test_bluegreen.sh",
       "tier": 3,
-      "seconds": 125,
+      "seconds": 123,
       "rc": 0
     },
     {
@@ -20,21 +20,21 @@
       "rc": 0
     },
     {
-      "suite": "test_data_contract_live.sh",
-      "tier": 2,
-      "seconds": 26,
+      "suite": "test_scheduler.sh",
+      "tier": 1,
+      "seconds": 25,
       "rc": 0
     },
     {
-      "suite": "test_scheduler.sh",
-      "tier": 1,
+      "suite": "test_data_contract_live.sh",
+      "tier": 2,
       "seconds": 24,
       "rc": 0
     },
     {
       "suite": "test_mlops_metrics.sh",
       "tier": 1,
-      "seconds": 23,
+      "seconds": 22,
       "rc": 0
     },
     {
@@ -47,12 +47,6 @@
       "suite": "test_dataops_metrics.sh",
       "tier": 1,
       "seconds": 15,
-      "rc": 0
-    },
-    {
-      "suite": "test_no_lookahead.sh",
-      "tier": 2,
-      "seconds": 10,
       "rc": 0
     },
     {
@@ -82,7 +76,13 @@
     {
       "suite": "test_evidence_contract.sh",
       "tier": 1,
-      "seconds": 4,
+      "seconds": 5,
+      "rc": 0
+    },
+    {
+      "suite": "test_no_lookahead.sh",
+      "tier": 2,
+      "seconds": 5,
       "rc": 0
     },
     {
@@ -99,12 +99,6 @@
     },
     {
       "suite": "test_model_registry.sh",
-      "tier": 1,
-      "seconds": 3,
-      "rc": 0
-    },
-    {
-      "suite": "test_capability_graph.sh",
       "tier": 1,
       "seconds": 3,
       "rc": 0
@@ -128,13 +122,13 @@
       "rc": 0
     },
     {
-      "suite": "test_deploy_contract.sh",
+      "suite": "test_capability_graph.sh",
       "tier": 1,
-      "seconds": 1,
+      "seconds": 2,
       "rc": 0
     },
     {
-      "suite": "test_ingress.sh",
+      "suite": "test_deploy_contract.sh",
       "tier": 1,
       "seconds": 1,
       "rc": 0
@@ -194,15 +188,39 @@
       "rc": 0
     },
     {
+      "suite": "test_approle_env.sh",
+      "tier": 1,
+      "seconds": 1,
+      "rc": 0
+    },
+    {
       "suite": "test_doc_graph.sh",
       "tier": 1,
       "seconds": 1,
       "rc": 0
     },
     {
-      "suite": "test_loki_coverage.sh",
+      "suite": "test_doc_freshness.sh",
       "tier": 1,
       "seconds": 1,
+      "rc": 0
+    },
+    {
+      "suite": "test_duplicate_check.sh",
+      "tier": 1,
+      "seconds": 1,
+      "rc": 0
+    },
+    {
+      "suite": "test_sql_contract.sh",
+      "tier": 2,
+      "seconds": 1,
+      "rc": 0
+    },
+    {
+      "suite": "test_ingress.sh",
+      "tier": 1,
+      "seconds": 0,
       "rc": 0
     },
     {
@@ -224,25 +242,13 @@
       "rc": 0
     },
     {
-      "suite": "test_approle_env.sh",
-      "tier": 1,
-      "seconds": 0,
-      "rc": 0
-    },
-    {
       "suite": "test_offline_report.sh",
       "tier": 1,
       "seconds": 0,
       "rc": 0
     },
     {
-      "suite": "test_doc_freshness.sh",
-      "tier": 1,
-      "seconds": 0,
-      "rc": 0
-    },
-    {
-      "suite": "test_duplicate_check.sh",
+      "suite": "test_loki_coverage.sh",
       "tier": 1,
       "seconds": 0,
       "rc": 0
