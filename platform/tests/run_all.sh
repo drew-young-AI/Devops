@@ -77,6 +77,13 @@ SUITES=(
   test_mlops_metrics.sh
   test_gha_status.sh
   test_runbook.sh
+  # Three board nodes added 2026-09-10 for surfaces that had a script and no
+  # node: certificate expiry (nothing checked it, anywhere), host disk (the
+  # number that stopped the platform once), and rotation COVERAGE (the sweep
+  # prints PASS whether it checked three secrets or none). All three were
+  # green the day they were added, so every assertion has a control that
+  # makes it red -- including a deliberately expired certificate fixture.
+  test_foundation_nodes.sh
   # The mlops half: a schema that says "many models" while the code had one,
   # hardcoded, with its name retyped as a literal in three places. This suite
   # asserts a SECOND family is registered and runnable, and that an

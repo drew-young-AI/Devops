@@ -1246,6 +1246,233 @@ def probe_k8s():
     return OK, "k3d 叢集回應 /readyz"
 
 
+CERT_WARN_DAYS = 30
+CERT_ROOT = REPO_ROOT
+CERT_GLOBS = ("platform/**/*.crt", "platform/**/*.pem",
+              "pilots/**/*.crt", "pilots/**/*.pem")
+# Probing ubu costs a TLS handshake over the LAN. It is skippable so a suite
+# can assert on the file half deterministically -- not so production can turn
+# it off, which is why the OK text says out loud when ubu was not read.
+CERT_PROBE_UBU = True
+
+
+def _seconds_until(not_after):
+    """Parse OpenSSL's notAfter into seconds from now, or None if unparseable.
+
+    Both formats are tried because the trailing zone is present on a file read
+    (`GMT`) and absent on some builds; guessing one and silently returning
+    None for the other would turn an expiring certificate into a skipped one.
+    """
+    for fmt in ("%b %d %H:%M:%S %Y %Z", "%b %d %H:%M:%S %Y"):
+        try:
+            t = datetime.strptime(not_after.strip(), fmt).replace(tzinfo=timezone.utc)
+        except ValueError:
+            continue
+        return (t - datetime.now(timezone.utc)).total_seconds()
+    return None
+
+
+def _cert_not_after(path):
+    """Seconds until the certificate at `path` expires, or None if it is not one.
+
+    A .pem in this repo may be a private key or a chain. The honest answer for
+    a key is "this is not a certificate", not "it never expires" -- so this
+    returns None and the caller counts it separately rather than folding it
+    into the healthy set.
+    """
+    rc, out, _ = run_diag(["openssl", "x509", "-in", path, "-noout", "-enddate"],
+                          timeout=8)
+    if rc != 0 or not out or "notAfter=" not in out:
+        return None
+    return _seconds_until(out.split("notAfter=", 1)[1])
+
+
+def probe_certificates():
+    """Every certificate this platform depends on, and how long it has left.
+
+    NOTHING CHECKED THIS UNTIL 2026-09-10. That is a gap with a specific
+    shape: a certificate does not degrade, it works perfectly and then stops,
+    everywhere that uses it, at a timestamp decided months earlier by somebody
+    else. The pinned TWCA intermediate under pilots/.../ingest/certs is the
+    clearest case -- when it lapses, every public-health feed starts failing
+    verification at once, and the error (CERTIFICATE_VERIFY_FAILED) names
+    neither the file nor the date.
+
+    Two sources, deliberately:
+      files     what the repo carries. Missing ones are not an error here --
+                a fresh clone has none of them (Runbook section 0) and that is
+                what section 0 is for.
+      ubu       the k3s API server certificate, read off the wire. It is not
+                in this repo at all, and k3s only rotates it on restart within
+                90 days of expiry -- a node that stays up for a year is
+                exactly the case that expires.
+
+    AN EMPTY SCAN IS REFUSED. If no file parsed as a certificate, this node
+    reports UNKNOWN rather than OK: "nothing is expiring" and "nothing was
+    read" produce the same silence otherwise, and this platform has already
+    been caught by that five times.
+    """
+    seen, skipped = [], 0
+    for pattern in CERT_GLOBS:
+        for path in glob.glob(os.path.join(CERT_ROOT, pattern), recursive=True):
+            # platform/tests/fixtures holds a DELIBERATELY EXPIRED certificate
+            # -- it is the negative control that proves this node can go red,
+            # and without this line it would hold the node red permanently.
+            # Excluding a directory from a scan is also how a real certificate
+            # hides, so the exclusion is exactly one path, spelled out, and the
+            # suite asserts the fixture is still expired.
+            if ("/venv/" in path or "/node_modules/" in path
+                    or "/tests/fixtures/" in path):
+                continue
+            secs = _cert_not_after(path)
+            if secs is None:
+                skipped += 1
+                continue
+            seen.append((secs, os.path.relpath(path, CERT_ROOT)))
+
+    # The one certificate that is not a file we own.
+    rc, out = (1, "")
+    if CERT_PROBE_UBU:
+        rc, out, _ = run_diag(
+            ["sh", "-c",
+             "echo | openssl s_client -connect ubu.local:6443 -servername ubu.local "
+             "2>/dev/null | openssl x509 -noout -enddate"], timeout=12)
+    ubu_secs = (_seconds_until(out.split("notAfter=", 1)[1])
+                if rc == 0 and out and "notAfter=" in out else None)
+    if ubu_secs is not None:
+        seen.append((ubu_secs, "ubu k3s API"))
+
+    if not seen:
+        return UNKNOWN, f"沒有讀到任何憑證（跳過 {skipped} 個非憑證檔）"
+
+    seen.sort()
+    secs, name = seen[0]
+    days = secs / 86400.0
+    tail = f"{len(seen)} 張憑證" + ("" if ubu_secs is not None else "（ubu 讀不到）")
+    if days < 0:
+        return FAIL, f"{name} 已過期 {abs(days):.0f} 天；{tail}"
+    if days < CERT_WARN_DAYS:
+        return WARN, f"{name} 剩 {days:.0f} 天（門檻 {CERT_WARN_DAYS}）；{tail}"
+    return OK, f"最快到期的是 {name}，剩 {days:.0f} 天；{tail}"
+
+
+def probe_host_disk():
+    """The number that stopped this whole platform once, and was not measured.
+
+    Reads what host_disk_metrics.sh wrote rather than measuring again: the
+    scheduler runs it every 300s (the shortest interval in jobs.conf) and a
+    board that re-measured would disagree with the alert rule that fires on
+    the same file. Staleness is therefore part of the verdict -- a fresh
+    reading of a healthy disk and a two-hour-old reading of an unknown one are
+    not the same claim.
+    """
+    path = os.path.join(EVIDENCE, "statusdag", "host_disk.prom")
+    try:
+        with open(path, encoding="utf-8") as fh:
+            body = fh.read()
+    except OSError:
+        return UNKNOWN, "host_disk.prom 不存在（disk job 從未跑過）"
+    vals = {}
+    for m in re.finditer(r"^(host_[a-z_]+)(?:\{[^}]*\})?\s+([0-9.e+]+)$", body, re.M):
+        vals[m.group(1)] = float(m.group(2))
+    size = vals.get("host_filesystem_size_bytes")
+    avail = vals.get("host_filesystem_avail_bytes")
+    gen = vals.get("host_disk_metrics_generated_seconds")
+    if not size or avail is None:
+        return UNKNOWN, "host_disk.prom 沒有大小/可用空間這兩個指標"
+    age_min = ((datetime.now(timezone.utc).timestamp() - gen) / 60.0) if gen else None
+    if age_min is not None and age_min > 30:
+        return WARN, f"讀數已 {age_min:.0f} 分鐘沒更新（disk job 每 5 分鐘）"
+    pct = 100.0 * avail / size
+    label = f"可用 {avail / 1e9:.0f}G／{size / 1e9:.0f}G（{pct:.0f}%）"
+    if pct < 5:
+        return FAIL, label
+    if pct < 15:
+        return WARN, label
+    return OK, label
+
+
+def probe_secret_rotation():
+    """Rotation coverage, not just the rotation verdict.
+
+    PASS over 1 of 3 secrets and PASS over 3 of 3 print the same word, and the
+    sweep already learned that lesson the hard way (see its own header: all
+    three were once exempt and 'every non-exempt secret is within its
+    interval' was true over the empty set). So this node reports the
+    denominator, and refuses to call a sweep that checked nothing OK.
+    """
+    path = newest("vault/rotation_summary_*.json")
+    data = load(path)
+    if not data:
+        return UNKNOWN, "沒有輪替掃描的證據（rotation job 每 7 天）"
+    checked = data.get("checked_secrets")
+    total = data.get("total_secrets")
+    hours = age_hours(os.path.basename(path).replace(".json", "").split("_")[-1])
+    verdict = data.get("gate_result")
+    cover = f"檢查 {checked}/{total} 筆" + (f"，{data.get('exempt')} 筆豁免"
+                                            if data.get("exempt") else "")
+    if verdict == "FAIL":
+        return FAIL, f"{data.get('due')} 筆逾期／{data.get('without_record')} 筆無紀錄；{cover}"
+    if not checked:
+        return WARN, f"這次掃描什麼都沒驗到（全部豁免）；{cover}"
+    if hours is not None and hours > 24 * 10:
+        return WARN, f"{cover}，但這份證據已 {hours / 24:.0f} 天"
+    return OK, cover
+
+
+IAC_DIR = os.path.join(REPO_ROOT, "platform", "iac")
+
+
+def probe_iac():
+    """Infrastructure-as-Code, which this board had no opinion about at all.
+
+    `platform/statusdag/README.md` has carried "No `iac` node" as known gap #1
+    since the layer existed, with the consequence written next to it: it is
+    part of why platform/iac went unverified for months. The remote workflow
+    checks it on push, but the board -- the thing a person actually looks at --
+    could not tell you whether the layer even parsed.
+
+    WHY NOT JUST READ THE WORKFLOW'S VERDICT. Because `gha` already does, and
+    two nodes reporting one measurement is the "one definition, many readers"
+    failure this directory's README warns about. This one runs the check
+    locally, so it answers a different question: does the IaC in the WORKING
+    TREE validate, right now, before it is pushed.
+
+    NOT INITIALISED IS UNKNOWN, NOT OK. `tofu validate` without providers
+    downloaded fails with a message about `tofu init`; treating that as a pass
+    would be the exact vacuous green this platform keeps finding. The init
+    command is named in the detail so the reader can act on it.
+    """
+    if not os.path.isdir(IAC_DIR):
+        return UNKNOWN, "platform/iac 不存在"
+    rc, out, err = run_diag(["sh", "-c", "command -v tofu || command -v terraform"],
+                            timeout=8)
+    if rc != 0 or not out:
+        return UNKNOWN, "本機沒有 tofu/terraform，無法在推之前驗證"
+    binary = out.strip().splitlines()[0]
+    if not os.path.isdir(os.path.join(IAC_DIR, ".terraform")):
+        return UNKNOWN, f"尚未 init：cd platform/iac && {os.path.basename(binary)} init"
+    rc, out, err = run_diag([binary, "-chdir=" + IAC_DIR, "validate", "-json"],
+                            timeout=60)
+    try:
+        report = json.loads(out or "{}")
+    except json.JSONDecodeError:
+        return UNKNOWN, "validate 的輸出不是 JSON：" + " ".join((err or "").split())[:80]
+    if not report.get("valid"):
+        first = ""
+        for d in report.get("diagnostics") or []:
+            first = (d.get("summary") or "")[:70]
+            break
+        return FAIL, f"{report.get('error_count', '?')} 個錯誤：{first}"
+    rc_fmt, out_fmt, _ = run_diag([binary, "-chdir=" + IAC_DIR, "fmt",
+                                   "-check", "-recursive"], timeout=30)
+    warn = report.get("warning_count") or 0
+    if rc_fmt != 0:
+        files = " ".join((out_fmt or "").split())[:60] or "（未列出檔名）"
+        return WARN, f"validate 通過，但格式未套用：{files}"
+    return OK, f"validate 通過、格式一致" + (f"（{warn} 個警告）" if warn else "")
+
+
 def probe_prod_cluster():
     """The amd64 production cluster on ubu -- a SECOND machine, not a copy.
 
@@ -1374,6 +1601,16 @@ NODES = [
     ("scheduler",  "排程器",              "foundation",  probe_scheduler),
     ("backup",     "備份",                "foundation",  probe_backup),
     ("restore",    "還原演練",            "foundation",  probe_restore_drill),
+    # Three surfaces that had scripts and no node, added 2026-09-10. Each one
+    # fails silently by construction: a certificate works perfectly until a
+    # date somebody else chose; a disk is fine until the moment it stops the
+    # whole platform; a rotation sweep prints PASS whether it checked three
+    # secrets or none. All three were green the day they were added -- that is
+    # the point of adding them BEFORE they are not.
+    ("certs",      "憑證到期",            "foundation",  probe_certificates),
+    ("hostdisk",   "主機磁碟",            "foundation",  probe_host_disk),
+    ("rotation",   "機密輪替",            "foundation",  probe_secret_rotation),
+    ("iac",        "IaC 驗證",            "foundation",  probe_iac),
 
     ("sast",       "SAST 原始碼",         "source",      lambda: probe_gate("security/sast_summary_*.json", stale_hours=24 * 8)),
     ("secrets",    "Secret 歷史掃描",     "source",      probe_gitleaks),

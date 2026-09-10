@@ -1,9 +1,17 @@
 {
   "schema": "gha-status/1",
-  "fetched_at": "2026-09-10T14:18:19+08:00",
+  "fetched_at": "2026-09-10T14:48:21+08:00",
   "fetch_state": "ok",
   "detail": "fetched main",
   "runs": [
+    {
+      "conclusion": "success",
+      "createdAt": "2026-09-10T06:26:45Z",
+      "displayTitle": "fix(reachability): §零 是憑印象列的，用真的 clone 一比就少了六個承重檔案",
+      "status": "completed",
+      "url": "https://github.com/drew-young-AI/Devops/actions/runs/34445225738",
+      "workflowName": "Platform Tests"
+    },
     {
       "conclusion": "success",
       "createdAt": "2026-09-10T06:14:50Z",
@@ -74,14 +82,6 @@
       "displayTitle": "chore(evidence): 09-09 收尾產物（CI 轉綠後的板面與指標）",
       "status": "completed",
       "url": "https://github.com/drew-young-AI/Devops/actions/runs/34356609842",
-      "workflowName": "Platform Tests"
-    },
-    {
-      "conclusion": "success",
-      "createdAt": "2026-09-09T13:18:34Z",
-      "displayTitle": "fix(test): tier 1 宣告成「無依賴」，而它整套跑在容器映像裡——ubu 上沒有 Docker",
-      "status": "completed",
-      "url": "https://github.com/drew-young-AI/Devops/actions/runs/34356256818",
       "workflowName": "Platform Tests"
     }
   ]

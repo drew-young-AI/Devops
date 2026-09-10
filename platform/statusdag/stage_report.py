@@ -79,7 +79,7 @@ def stage(name, nodes, why):
 
 LINES = [
     ("devops", "DevOps", "交付與維運", [
-        stage("基礎", ["vault", "audit", "scheduler"],
+        stage("基礎", ["vault", "audit", "scheduler", "certs", "rotation", "iac"],
               "機密、身分、稽核軌跡與排程器——其他每一段都站在這上面"),
         stage("原始碼閘門", ["sast", "secrets"],
               "進建置之前擋下：原始碼弱點與歷史中的秘密"),
@@ -104,6 +104,8 @@ LINES = [
               "指標、日誌、告警、檢視——平台能不能看見自己"),
         stage("備份與還原", ["backup", "restore"],
               "備份覆蓋率不得有漏；沒還原過的備份不算備份"),
+        stage("主機資源", ["hostdisk"],
+              "磁碟填滿會停掉整個平台，而它曾經是唯一沒被量的數字"),
     ]),
     ("dataops", "DataOps", "資料工程", [
         stage("來源與權威", ["sources", "geo"],
@@ -178,6 +180,50 @@ ASKS = [
         "ref": "docs/Backlog.md",
     },
     {
+        "id": "prod-workload-reachability",
+        "node": "prodk8s",
+        "when": "沒有任何工作負載",
+        "owner": "decision",
+        # RECLASSIFIED 2026-09-10, from eng. It sat in eng because "deploy the
+        # pilot to ubu" sounds like engineering. It was measured that day and
+        # it is not: the amd64 image exists in ghcr (pilot-image.yml builds it
+        # natively, verified 09-09), and the ghcr token is in Vault, so the
+        # image half is done. The manifest points the pod at
+        # host.k3d.internal:18200 (Vault) and :15432 (Postgres), and BOTH are
+        # bound to 127.0.0.1 on the Mac -- confirmed from ubu, connection
+        # refused on both. There is no amount of engineering that gets past
+        # that without someone deciding to open them, or to run a second Vault.
+        "ask": "prod 叢集有一個 amd64 映像可以跑，但 pod 需要的 Vault 與資料庫都只綁在 "
+               "Mac 的 127.0.0.1 上（從 ubu 實測 connection refused）。"
+               "這不是工程問題，是要不要把它們開出去的問題。",
+        "options": [
+            "把 Vault 與 Postgres 開到區網（只給 ubu），沿用現有那一套動態憑證——"
+            "改動最小，但擴大了曝險面，而曝險範圍是您定的",
+            "在 ubu 上另起一套 Vault ＋ 資料庫（Backlog T7）——隔離最乾淨，"
+            "但會產生第二組 unseal key，而那組鑰匙放哪裡只有您能決定",
+            "明確記錄「prod 叢集此階段只證明它會回應，不承載服務」，讓黃燈變成已知狀態",
+        ],
+        "ref": "docs/Backlog.md",
+    },
+    {
+        "id": "llm-review-artifacts",
+        "node": "llmreview",
+        "when": "已退役的 Compose 路徑",
+        "owner": "decision",
+        # Also reclassified from eng, and for a derived reason: T30 says the
+        # work is "decide the shape of the Kubernetes artefact". That artefact
+        # does not exist until something is deployed to prod, which is the
+        # question above. Leaving it as eng implied someone could just go and
+        # do it.
+        "ask": "LLM 複審的輸入來自已退役的 Compose 路徑。要接回去得先有 Kubernetes 產物，"
+               "而那要等上面那個決定。",
+        "options": [
+            "先回答 prodk8s 那一題；這一項會跟著解開",
+            "或明確記錄「LLM 複審此階段不接回」，讓它從待辦變成已知取捨",
+        ],
+        "ref": "docs/Backlog.md",
+    },
+    {
         "id": "smtp-credential",
         "node": "alertmgr",
         # Matched on the channel name, not just "沒接上": if telegram ever comes
@@ -239,6 +285,26 @@ STATE_LABEL = {dag.OK: "正常", dag.SUPERSEDED: "已被取代", dag.WARN: "注�
 # decision, and an attention list nobody can act on stops being read.
 ACTIONABLE = (dag.WARN, dag.UNKNOWN, dag.FAIL)
 
+
+def blocks_completion(node):
+    """Does this node hold a line back, whatever colour it is showing?
+
+    ACTIONABLE alone was not the right set. A node that is SUPERSEDED and
+    still WAITING for its replacement (`llmreview`) counts against completion
+    below -- it is in `blocking` -- but it was invisible to the ask matcher,
+    which only looked at actionable states. The consequence was quiet and
+    wrong: with no ask attached, the owner fell through to the `eng` default,
+    so the board said engineering was sitting on something that in fact needed
+    a decision nobody had been asked for.
+
+    Retired-and-replaced nodes are NOT blocking (their work moved to a live
+    node here), which is the same split the completion block makes, by the
+    same heuristic, stated in one place.
+    """
+    if node["state"] in ACTIONABLE:
+        return True
+    return node["state"] == dag.SUPERSEDED and "待" in (node.get("detail") or "")
+
 assert set(STATE_ORDER) == set(STATE_LABEL), "state tables disagree"
 assert set(STATE_ORDER) == set(dag.RANK), "stage_report and dag disagree on the state set"
 
@@ -264,7 +330,7 @@ def matching_asks(nodes):
     out = []
     for a in ASKS:
         for n in nodes:
-            if n["id"] != a["node"] or n["state"] not in ACTIONABLE:
+            if n["id"] != a["node"] or not blocks_completion(n):
                 continue
             if a["when"] in n["detail"]:
                 out.append(dict(a, node_label=n["label"], node_detail=n["detail"]))
@@ -350,8 +416,9 @@ def stage_model(board=None):
         for st in stages:
             nodes = [by_id[i] for i in st["nodes"]]
             state = stage_state(nodes)
-            asks = matching_asks(nodes) if state in ACTIONABLE else []
-            owner = asks[0]["owner"] if asks else ("eng" if state in ACTIONABLE else None)
+            blocking_nodes = [n for n in nodes if blocks_completion(n)]
+            asks = matching_asks(nodes) if blocking_nodes else []
+            owner = asks[0]["owner"] if asks else ("eng" if blocking_nodes else None)
             culprits = [n for n in nodes if n["state"] in ACTIONABLE]
             smodels.append({
                 "name": st["name"], "why": st["why"], "state": state,
@@ -395,7 +462,7 @@ def stage_model(board=None):
         # never "nobody's".
         owner_of = {n["id"]: st["owner"] for st in smodels for n in st["nodes"]}
         sup_nodes = [n for n in lnodes if n["state"] == dag.SUPERSEDED]
-        awaiting = [n for n in sup_nodes if "待" in (n.get("detail") or "")]
+        awaiting = [n for n in sup_nodes if blocks_completion(n)]
         retired = [n for n in sup_nodes if n not in awaiting]
         n_ok = sum(1 for n in lnodes if n["state"] == dag.OK)
         n_total = len(lnodes)

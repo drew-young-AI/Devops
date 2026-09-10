@@ -38,7 +38,7 @@ git ls-files --others --ignored --exclude-standard \
   | grep -vE '\.(pyc|dump|tar\.gz)$'
 ```
 
-2026-09-10 這條指令回 13 筆，13 筆都在上面那張表裡（`venv/` 與 `~/.kube/config`
+2026-09-10 這條指令回 13 筆，13 筆都在上面那張表裡（`.terraform/` 目錄本身不在輸出裡，它是目錄不是檔案）（`venv/` 與 `~/.kube/config`
 被過濾掉，但它們也在表上）。**濾的是目錄不是副檔名**：第一版用副檔名濾，
 `.json` 那條當場就漏掉了四把憑證——`.init-output.json`、`.identity-output.json`
 和兩個 AppRole 核發紀錄。產物和機密共用副檔名，只有位置分得開它們。
@@ -58,6 +58,7 @@ git ls-files --others --ignored --exclude-standard \
 | `platform/security/keys/cosign.key` | `sign_artifact.sh` 拒絕簽章 | `cd platform/security/keys && COSIGN_PASSWORD='' cosign generate-key-pair`——**注意 `cosign.pub` 有進版控**，重生私鑰會讓既有簽章全部驗不過 | 產物簽章 |
 | `platform/vault/.identity-output.json` | 人員 RBAC 帳號的核發紀錄不見（Vault 裡的帳號還在） | `platform/vault/scripts/setup_identity.sh` | 人員存取 |
 | `platform/vault/.rotation-check-approle.json` | `rotation` 排程 job 回報 not-configured | `platform/vault/scripts/setup_rotation_check.sh` | 憑證輪替檢查 |
+| `platform/iac/.terraform/`（約 16M） | 板面的 `IaC 驗證` 節點回 UNKNOWN（**不是綠**） | `cd platform/iac && tofu init` | IaC 驗證 |
 | `platform/observability/.env` | 看板／告警裡的連結指向 `localhost` 而不是這台機器的區網名 | 內容只有 `PLATFORM_LAN_HOST`，用 `scutil --get LocalHostName` 導出，**不要用打的** | 連結可點 |
 
 **`.init-output.json` 沒有辦法「重建」——它只能被「初始化」，而初始化會產生

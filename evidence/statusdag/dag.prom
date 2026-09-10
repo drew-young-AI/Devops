@@ -25,6 +25,26 @@ devops_node_state{node="restore",layer="foundation",state="superseded"} 0
 devops_node_state{node="restore",layer="foundation",state="warn"} 0
 devops_node_state{node="restore",layer="foundation",state="unknown"} 0
 devops_node_state{node="restore",layer="foundation",state="fail"} 0
+devops_node_state{node="certs",layer="foundation",state="ok"} 1
+devops_node_state{node="certs",layer="foundation",state="superseded"} 0
+devops_node_state{node="certs",layer="foundation",state="warn"} 0
+devops_node_state{node="certs",layer="foundation",state="unknown"} 0
+devops_node_state{node="certs",layer="foundation",state="fail"} 0
+devops_node_state{node="hostdisk",layer="foundation",state="ok"} 1
+devops_node_state{node="hostdisk",layer="foundation",state="superseded"} 0
+devops_node_state{node="hostdisk",layer="foundation",state="warn"} 0
+devops_node_state{node="hostdisk",layer="foundation",state="unknown"} 0
+devops_node_state{node="hostdisk",layer="foundation",state="fail"} 0
+devops_node_state{node="rotation",layer="foundation",state="ok"} 1
+devops_node_state{node="rotation",layer="foundation",state="superseded"} 0
+devops_node_state{node="rotation",layer="foundation",state="warn"} 0
+devops_node_state{node="rotation",layer="foundation",state="unknown"} 0
+devops_node_state{node="rotation",layer="foundation",state="fail"} 0
+devops_node_state{node="iac",layer="foundation",state="ok"} 1
+devops_node_state{node="iac",layer="foundation",state="superseded"} 0
+devops_node_state{node="iac",layer="foundation",state="warn"} 0
+devops_node_state{node="iac",layer="foundation",state="unknown"} 0
+devops_node_state{node="iac",layer="foundation",state="fail"} 0
 devops_node_state{node="sast",layer="source",state="ok"} 1
 devops_node_state{node="sast",layer="source",state="superseded"} 0
 devops_node_state{node="sast",layer="source",state="warn"} 0
@@ -187,6 +207,10 @@ devops_node_state_code{node="audit",layer="foundation"} 0
 devops_node_state_code{node="scheduler",layer="foundation"} 2
 devops_node_state_code{node="backup",layer="foundation"} 0
 devops_node_state_code{node="restore",layer="foundation"} 0
+devops_node_state_code{node="certs",layer="foundation"} 0
+devops_node_state_code{node="hostdisk",layer="foundation"} 0
+devops_node_state_code{node="rotation",layer="foundation"} 0
+devops_node_state_code{node="iac",layer="foundation"} 0
 devops_node_state_code{node="sast",layer="source"} 0
 devops_node_state_code{node="secrets",layer="source"} 0
 devops_node_state_code{node="ci",layer="build"} 1
@@ -225,6 +249,10 @@ devops_node_impacted{node="audit"} 0
 devops_node_impacted{node="scheduler"} 0
 devops_node_impacted{node="backup"} 0
 devops_node_impacted{node="restore"} 0
+devops_node_impacted{node="certs"} 0
+devops_node_impacted{node="hostdisk"} 0
+devops_node_impacted{node="rotation"} 0
+devops_node_impacted{node="iac"} 0
 devops_node_impacted{node="sast"} 0
 devops_node_impacted{node="secrets"} 0
 devops_node_impacted{node="ci"} 0
@@ -258,4 +286,4 @@ devops_node_impacted{node="bluegreen"} 0
 devops_node_impacted{node="prodk8s"} 0
 # HELP devops_board_generated_seconds Unix time this board was built.
 # TYPE devops_board_generated_seconds gauge
-devops_board_generated_seconds 1789020959
+devops_board_generated_seconds 1789023716

@@ -48,15 +48,37 @@ regex in a dashboard; `RANK` in `dag.py` and again as a Grafana value mapping; a
 drift expression in an alert and again in a panel. **One definition, many
 readers** — never two copies.
 
+## 2026-09-10：四個「有腳本、沒節點」的表面
+
+板面上多了 `certs`、`hostdisk`、`rotation`、`iac`。四個都有既有腳本、都沒有節點，
+而且**都以同一種形狀失效**：一路正常，然後突然不正常，中間沒有斜率，也沒有人在看。
+
+| 節點 | 它問的問題 | 沒有它的時候 |
+|---|---|---|
+| `certs` | 最快到期的憑證還剩幾天 | 憑證不會衰退，它到某個別人幾個月前訂下的時刻才一起停。整個平台**沒有任何地方**檢查過到期 |
+| `hostdisk` | 主機磁碟還剩多少 | 曾經填滿並停掉整個平台，而它一度是唯一沒被量的數字 |
+| `rotation` | 這次掃描**檢查了幾筆** | 掃描印 PASS 時不分「驗了 3 筆」還是「驗了 0 筆」。今天實測是 1/3，另外 2 筆豁免 |
+| `iac` | 工作區裡的 IaC 現在驗不驗得過 | 這就是下面 gap #1 講了好幾個月的那件事 |
+
+**四個節點加上去的那天全部是綠的，而那正是加它們的時機。** 也因為如此，每一條斷言
+都配了會讓它變紅的控制項——包含一張**故意過期的憑證夾具**（`platform/tests/fixtures/`，
+2026-09-05 到期，永遠不會再變有效）。守衛沒被看過失敗，和守衛不會失敗，從輸出上分不出來。
+
+**分母變大會讓百分比上升，而那不是「做了更多事」。** DevOps 從 24 個節點變成 28 個，
+strict 從 66.7% 變成 70.4%——多出來的是**覆蓋率**不是進度。要看進度看阻擋者的數量與
+它們的擁有者，不要看那個百分比。
+
 ## Known gaps
 
-1. **No `iac` node.** The Infrastructure-as-Code layer is not represented on the
-   board at all, so the board has never had an opinion about it — which is part
-   of why `platform/iac/` went unverified for months.
-2. **No CI node.** GitHub Actions was red for at least six days with nobody
-   notified, because CI state reaches no board and no channel.
+1. ~~**No `iac` node.**~~ 2026-09-10 加上了，跑本機的 `tofu validate` ＋ `fmt -check`。
+   刻意**不**去讀遠端工作流的判決——`gha` 已經在讀了，兩個節點報同一個量測就是這份
+   README 自己警告的「一份定義、多個讀者」。這一個問的是不同的問題：**推出去之前**，
+   工作區裡的 IaC 驗不驗得過。
+2. ~~**No CI node.**~~ `gha` 節點 2026-08-31 就加了（GitHub Actions 紅了至少六天沒人知道
+   之後）。這一條在這裡多留了十天，是這份文件自己的可達性缺陷。
 3. `llmreview` is SUPERSEDED: its input comes from the retired Compose path and
-   it has not been reconnected to the Kubernetes artefacts.
+   it has not been reconnected to the Kubernetes artefacts. **2026-09-10 改判擁有者**
+   為「待您決定」——它要等 Kubernetes 產物，而那要等 prod 叢集能不能承載服務的決定。
 
 
 ---

@@ -197,6 +197,35 @@ done
 
 echo ""
 echo "  ${#SECRETS[@]} secret(s): $ok within interval, $due due, $unrecorded without a record, $exempt exempt"
+
+# Leave evidence, in the same shape SAST/DAST/Trivy leave it.
+#
+# This sweep runs WEEKLY (scheduler jobs.conf). Until 2026-09-10 its only
+# trace was the scheduler's own exit-code record, which carries the verdict
+# and loses the coverage -- and the coverage is the part that matters here:
+# "PASS" over 1 of 3 secrets and "PASS" over 3 of 3 print the same word.
+# checked_secrets is written so the board can say which one it is.
+EVIDENCE_DIR="$REPO_ROOT/evidence/vault"
+mkdir -p "$EVIDENCE_DIR"
+STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
+verdict="PASS"
+[ "$due" -gt 0 ] || [ "$unrecorded" -gt 0 ] && verdict="FAIL"
+[ "$exempt" -eq "${#SECRETS[@]}" ] && verdict="VACUOUS"
+python3 - "$EVIDENCE_DIR/rotation_summary_$STAMP.json" "$verdict" \
+    "${#SECRETS[@]}" "$ok" "$due" "$unrecorded" "$exempt" "$INTERVAL_DAYS" <<'PY'
+import json, sys
+out, verdict, total, ok, due, unrec, exempt, interval = sys.argv[1:9]
+json.dump({
+    "gate_result": verdict,
+    "total_secrets": int(total),
+    "checked_secrets": int(total) - int(exempt),
+    "within_interval": int(ok),
+    "due": int(due),
+    "without_record": int(unrec),
+    "exempt": int(exempt),
+    "default_interval_days": int(interval),
+}, open(out, "w"), indent=2, sort_keys=True)
+PY
 if [ "$due" -gt 0 ] || [ "$unrecorded" -gt 0 ]; then
   echo "  Rotate:  platform/vault/scripts/rotate_secret.sh <path> <field>" >&2
   echo "  Or set this secret's own interval / record an exemption:" >&2
