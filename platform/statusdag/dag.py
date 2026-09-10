@@ -1473,6 +1473,65 @@ def probe_iac():
     return OK, f"validate 通過、格式一致" + (f"（{warn} 個警告）" if warn else "")
 
 
+def probe_source_freshness():
+    """Registered is not publishing.
+
+    `probe_sources` counts rows in data_source and goes green at "22 個登記
+    來源". That number cannot fall when a feed stops: a source that published
+    nothing for a month is still registered, so the node stays green while the
+    thing it is named after has stopped happening. This platform has met that
+    shape repeatedly -- the Prometheus job watching a deleted service, the
+    scheduler that detects a stopped job and not an absent one -- and this is
+    the same shape in the data layer.
+
+    The judgement is not "has it changed recently" but "has it changed within
+    3x its OWN declared publication interval", because a yearly registry and a
+    daily case count are both healthy at wildly different ages. That is the
+    same expression as the SourcePublishedNothingNew alert rule, read from the
+    same exported metrics, deliberately: two definitions of stale would drift
+    apart and the board and the alert would start disagreeing.
+
+    Retired sources are excluded. They are registered and deliberately no
+    longer fetched, so counting them would make this node permanently amber
+    for a state somebody chose.
+
+    ZERO SOURCES IS UNKNOWN. A .prom with no source series means the exporter
+    did not run or ran against nothing -- an answer about no sources, not an
+    answer that no source is stale.
+    """
+    path = os.path.join(EVIDENCE, "statusdag", "dataops.prom")
+    try:
+        with open(path, encoding="utf-8") as fh:
+            body = fh.read()
+    except OSError:
+        return UNKNOWN, "dataops.prom 不存在（dataops 匯出器沒跑過）"
+
+    def series(name):
+        out = {}
+        for m in re.finditer(r'^%s\{([^}]*)\}\s+([0-9.e+-]+)$' % name, body, re.M):
+            labels = dict(re.findall(r'(\w+)="([^"]*)"', m.group(1)))
+            if labels.get("source"):
+                out[labels["source"]] = float(m.group(2))
+        return out
+
+    expected = series("dataops_source_expected_interval_seconds")
+    unchanged = series("dataops_source_unchanged_seconds")
+    retired = series("dataops_source_retired")
+    live = {k: v for k, v in expected.items() if not retired.get(k)}
+    if not live:
+        return UNKNOWN, "dataops.prom 裡沒有任何在用的來源（匯出器對著空的跑）"
+
+    stale = sorted(
+        ((k, unchanged.get(k, 0.0) / 86400.0, v * 3 / 86400.0)
+         for k, v in live.items() if unchanged.get(k, 0.0) > 3 * v),
+        key=lambda r: -r[1])
+    if not stale:
+        return OK, f"{len(live)} 個在用來源都在自己的發布週期內"
+    named = "、".join(f"{k}（{d:.1f} 天／門檻 {lim:.1f}）" for k, d, lim in stale[:3])
+    more = f"，另 {len(stale) - 3} 個" if len(stale) > 3 else ""
+    return WARN, f"{len(stale)}/{len(live)} 個來源超過 3 倍週期沒有新內容：{named}{more}"
+
+
 def probe_prod_cluster():
     """The amd64 production cluster on ubu -- a SECOND machine, not a copy.
 
@@ -1637,6 +1696,7 @@ NODES = [
 
     # --- DataOps（綠）---------------------------------------------------
     ("sources",    "來源登記",            "dataops",     probe_sources),
+    ("srcfresh",   "來源仍在發布",        "dataops",     probe_source_freshness),
     ("geo",        "地理權威",            "dataops",     probe_geo),
     ("facts",      "事實載入",            "dataops",     probe_facts),
     ("lineage",    "血緣算術",            "dataops",     probe_lineage),

@@ -422,6 +422,62 @@ assert_output_contains "NO_SAMPLE_CASE ('warn', '累計曾送出失敗（無近�
 assert_output_contains "NOT_SCRAPED_CASE ('warn', '累計曾送出失敗（無近期樣本）: telegram')" \
   "an empty result set is unmeasured, not clean -- it must not render green"
 
+# ── probe_source_freshness: registered is not publishing ───────────────────
+#
+# `probe_sources` counts rows in data_source. That number cannot fall when a
+# feed stops, so the node stays green at "22 個登記來源" while the thing it is
+# named after has stopped happening -- the same shape as the Prometheus job
+# that watched a deleted service. This probe reads the SAME expression the
+# SourcePublishedNothingNew rule uses, off the same exported metrics, so the
+# board and the alert cannot drift into disagreeing.
+run_cmd python3 - <<'PY'
+import os, sys, tempfile
+sys.path.insert(0, os.path.join(os.getcwd(), "platform", "statusdag"))
+import dag
+
+DAY = 86400
+def prom(rows):
+    out = []
+    for src, expected, unchanged, retired in rows:
+        out.append('dataops_source_expected_interval_seconds{project="p",source="%s",provenance="declared"} %d' % (src, expected))
+        out.append('dataops_source_unchanged_seconds{project="p",source="%s"} %d' % (src, unchanged))
+        if retired:
+            out.append('dataops_source_retired{project="p",source="%s"} 1' % src)
+    return "\n".join(out) + "\n"
+
+def probe(rows):
+    d = tempfile.mkdtemp()
+    os.makedirs(os.path.join(d, "statusdag"))
+    with open(os.path.join(d, "statusdag", "dataops.prom"), "w") as fh:
+        fh.write(prom(rows))
+    dag.EVIDENCE = d
+    return dag.probe_source_freshness()
+
+# fresh: unchanged is inside 3x its own interval
+print("FRESH", probe([("a", DAY, DAY * 2, 0), ("b", 365 * DAY, 100 * DAY, 0)]))
+# stale: 4 days without a change against a declared daily cadence
+print("STALE", probe([("a", DAY, DAY * 4, 0), ("b", 365 * DAY, 100 * DAY, 0)]))
+# the annual source must NOT be judged by the daily one's yardstick
+print("ANNUAL", probe([("b", 365 * DAY, 100 * DAY, 0)]))
+# retired sources are excluded: deliberately no longer fetched
+print("RETIRED", probe([("a", DAY, DAY * 999, 1)]))
+# empty: an exporter that ran against nothing has not said sources are fine
+print("EMPTY", probe([]))
+PY
+assert_rc 0 "probe_source_freshness runs against synthetic exporter output"
+assert_output_contains "FRESH ('ok'" \
+  "sources inside their own publication interval are green"
+assert_output_contains "STALE ('warn'" \
+  "a source past 3x its own interval is WARN -- registered is not publishing"
+assert_output_contains "a（4.0 天／門檻 3.0）" \
+  "and the stale source is NAMED with its own threshold, not a shared one"
+assert_output_contains "ANNUAL ('ok'" \
+  "an annual source 100 days old is healthy: one threshold for all sources is what this replaced"
+assert_output_contains "RETIRED ('unknown'" \
+  "a retired source is excluded, and excluding the only source leaves nothing measured"
+assert_output_contains "EMPTY ('unknown'" \
+  "an exporter that produced no source series is UNKNOWN, never OK"
+
 # ── probe_prod_cluster: report what kubectl said, not a sentence we chose ───
 #
 # NOTE FOR WHOEVER ADDS THE NEXT PROBE TEST HERE: assert_output_contains reads

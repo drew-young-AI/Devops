@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-10T07:07:58Z",
-  "total_seconds": 345,
-  "measured_seconds": 345,
+  "generated_at": "2026-09-10T07:22:12Z",
+  "total_seconds": 347,
+  "measured_seconds": 346,
   "suite_count": 40,
   "platform_tiers": "1,2,3",
   "platform_suites": "",
@@ -20,15 +20,15 @@
       "rc": 0
     },
     {
-      "suite": "test_data_contract_live.sh",
-      "tier": 2,
+      "suite": "test_scheduler.sh",
+      "tier": 1,
       "seconds": 25,
       "rc": 0
     },
     {
-      "suite": "test_scheduler.sh",
-      "tier": 1,
-      "seconds": 24,
+      "suite": "test_data_contract_live.sh",
+      "tier": 2,
+      "seconds": 25,
       "rc": 0
     },
     {
@@ -40,13 +40,13 @@
     {
       "suite": "test_backup_coverage.sh",
       "tier": 3,
-      "seconds": 18,
+      "seconds": 22,
       "rc": 0
     },
     {
       "suite": "test_dataops_metrics.sh",
       "tier": 1,
-      "seconds": 15,
+      "seconds": 14,
       "rc": 0
     },
     {
@@ -58,13 +58,13 @@
     {
       "suite": "test_analytics_mirror.sh",
       "tier": 1,
-      "seconds": 7,
+      "seconds": 6,
       "rc": 0
     },
     {
       "suite": "test_health_rollup.sh",
       "tier": 1,
-      "seconds": 7,
+      "seconds": 6,
       "rc": 0
     },
     {
@@ -80,37 +80,37 @@
       "rc": 0
     },
     {
-      "suite": "test_foundation_nodes.sh",
-      "tier": 1,
-      "seconds": 4,
-      "rc": 0
-    },
-    {
-      "suite": "test_model_registry.sh",
-      "tier": 1,
-      "seconds": 4,
-      "rc": 0
-    },
-    {
-      "suite": "test_sandbox_hygiene.sh",
-      "tier": 1,
-      "seconds": 3,
-      "rc": 0
-    },
-    {
       "suite": "test_llm_review.sh",
       "tier": 1,
       "seconds": 3,
       "rc": 0
     },
     {
-      "suite": "test_capability_graph.sh",
+      "suite": "test_foundation_nodes.sh",
       "tier": 1,
       "seconds": 3,
       "rc": 0
     },
     {
+      "suite": "test_model_registry.sh",
+      "tier": 1,
+      "seconds": 3,
+      "rc": 0
+    },
+    {
+      "suite": "test_sandbox_hygiene.sh",
+      "tier": 1,
+      "seconds": 2,
+      "rc": 0
+    },
+    {
       "suite": "test_check_health.sh",
+      "tier": 1,
+      "seconds": 2,
+      "rc": 0
+    },
+    {
+      "suite": "test_stage_report.sh",
       "tier": 1,
       "seconds": 2,
       "rc": 0
@@ -134,25 +134,25 @@
       "rc": 0
     },
     {
+      "suite": "test_capability_graph.sh",
+      "tier": 1,
+      "seconds": 2,
+      "rc": 0
+    },
+    {
       "suite": "test_deploy_contract.sh",
       "tier": 1,
       "seconds": 1,
       "rc": 0
     },
     {
-      "suite": "test_ingress.sh",
+      "suite": "test_network_exposure.sh",
       "tier": 1,
       "seconds": 1,
       "rc": 0
     },
     {
-      "suite": "test_stage_report.sh",
-      "tier": 1,
-      "seconds": 1,
-      "rc": 0
-    },
-    {
-      "suite": "test_decisions.sh",
+      "suite": "test_gha_status.sh",
       "tier": 1,
       "seconds": 1,
       "rc": 0
@@ -182,25 +182,37 @@
       "rc": 0
     },
     {
+      "suite": "test_approle_env.sh",
+      "tier": 1,
+      "seconds": 1,
+      "rc": 0
+    },
+    {
       "suite": "test_doc_graph.sh",
       "tier": 1,
       "seconds": 1,
       "rc": 0
     },
     {
-      "suite": "test_loki_coverage.sh",
+      "suite": "test_doc_freshness.sh",
       "tier": 1,
       "seconds": 1,
       "rc": 0
     },
     {
-      "suite": "test_network_exposure.sh",
+      "suite": "test_duplicate_check.sh",
+      "tier": 1,
+      "seconds": 1,
+      "rc": 0
+    },
+    {
+      "suite": "test_ingress.sh",
       "tier": 1,
       "seconds": 0,
       "rc": 0
     },
     {
-      "suite": "test_gha_status.sh",
+      "suite": "test_decisions.sh",
       "tier": 1,
       "seconds": 0,
       "rc": 0
@@ -218,25 +230,13 @@
       "rc": 0
     },
     {
-      "suite": "test_approle_env.sh",
-      "tier": 1,
-      "seconds": 0,
-      "rc": 0
-    },
-    {
       "suite": "test_offline_report.sh",
       "tier": 1,
       "seconds": 0,
       "rc": 0
     },
     {
-      "suite": "test_doc_freshness.sh",
-      "tier": 1,
-      "seconds": 0,
-      "rc": 0
-    },
-    {
-      "suite": "test_duplicate_check.sh",
+      "suite": "test_loki_coverage.sh",
       "tier": 1,
       "seconds": 0,
       "rc": 0

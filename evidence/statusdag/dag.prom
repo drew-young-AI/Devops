@@ -130,6 +130,11 @@ devops_node_state{node="sources",layer="dataops",state="superseded"} 0
 devops_node_state{node="sources",layer="dataops",state="warn"} 0
 devops_node_state{node="sources",layer="dataops",state="unknown"} 0
 devops_node_state{node="sources",layer="dataops",state="fail"} 0
+devops_node_state{node="srcfresh",layer="dataops",state="ok"} 0
+devops_node_state{node="srcfresh",layer="dataops",state="superseded"} 0
+devops_node_state{node="srcfresh",layer="dataops",state="warn"} 1
+devops_node_state{node="srcfresh",layer="dataops",state="unknown"} 0
+devops_node_state{node="srcfresh",layer="dataops",state="fail"} 0
 devops_node_state{node="geo",layer="dataops",state="ok"} 1
 devops_node_state{node="geo",layer="dataops",state="superseded"} 0
 devops_node_state{node="geo",layer="dataops",state="warn"} 0
@@ -228,6 +233,7 @@ devops_node_state_code{node="loki",layer="observe"} 0
 devops_node_state_code{node="alertmgr",layer="observe"} 2
 devops_node_state_code{node="grafana",layer="observe"} 0
 devops_node_state_code{node="sources",layer="dataops"} 0
+devops_node_state_code{node="srcfresh",layer="dataops"} 2
 devops_node_state_code{node="geo",layer="dataops"} 0
 devops_node_state_code{node="facts",layer="dataops"} 0
 devops_node_state_code{node="lineage",layer="dataops"} 0
@@ -270,6 +276,7 @@ devops_node_impacted{node="loki"} 0
 devops_node_impacted{node="alertmgr"} 0
 devops_node_impacted{node="grafana"} 0
 devops_node_impacted{node="sources"} 0
+devops_node_impacted{node="srcfresh"} 0
 devops_node_impacted{node="geo"} 0
 devops_node_impacted{node="facts"} 0
 devops_node_impacted{node="lineage"} 0
@@ -286,4 +293,4 @@ devops_node_impacted{node="bluegreen"} 0
 devops_node_impacted{node="prodk8s"} 0
 # HELP devops_board_generated_seconds Unix time this board was built.
 # TYPE devops_board_generated_seconds gauge
-devops_board_generated_seconds 1789023716
+devops_board_generated_seconds 1789024635
