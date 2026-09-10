@@ -24,7 +24,18 @@ for line in doc["lines"]:
     # Crediting a retired node whose job moved to a live one can only raise the
     # figure; if it ever lowered it, the split has been computed backwards.
     assert c["pct_crediting_retired"] >= c["pct_strict"], c
+    # The engineering-only ceiling: what this line would read if every
+    # eng-owned blocker were closed and nothing else changed. It can never be
+    # below the current figure (closing blockers cannot subtract), and never
+    # above 100. When it sits below the landing standard, no amount of work
+    # inside this repository reaches the standard -- and that is exactly the
+    # sentence this field exists so nobody has to write by hand each round.
+    ceiling = c["pct_ceiling_eng_only"]
+    assert c["pct_strict"] <= ceiling <= 100, (line["id"], c["pct_strict"], ceiling)
+    eng = c["blocking_by_owner"].get("eng", 0)
+    expected = round(100.0 * (c["nodes_ok"] + eng) / c["nodes_total"], 1)
+    assert abs(ceiling - expected) < 0.05, (line["id"], ceiling, expected)
     for b in c["blocking"]:
         assert b.get("owner"), (line["id"], b)
-    print("%s %s%% denom=%s blockers=%d" % (
-        line["id"], c["pct_strict"], c["denominator"], len(c["blocking"])))
+    print("%s %s%% ceiling=%s%% denom=%s blockers=%d" % (
+        line["id"], c["pct_strict"], ceiling, c["denominator"], len(c["blocking"])))

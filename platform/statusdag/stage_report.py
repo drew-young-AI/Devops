@@ -507,6 +507,26 @@ def stage_model(board=None):
                 "pct_crediting_retired": (
                     round(100.0 * (n_ok + len(retired)) / n_total, 1)
                     if n_total else 0.0),
+                # HOW FAR ENGINEERING CAN GET ON ITS OWN.
+                #
+                # Added 2026-09-10 because the same paragraph was being written
+                # by hand every round: "DevOps needs three more green, four of
+                # its five blockers are yours, so even closing mine leaves it
+                # at 86.2%". That is arithmetic, and a number nobody had to
+                # re-derive is a number nobody can re-derive wrongly.
+                #
+                # It is the percentage this line would show if every
+                # engineering-owned blocker were closed and nothing else
+                # changed. When it is below the 90% target, no amount of work
+                # inside this repository reaches the target -- which is a fact
+                # about the target, not about the effort, and it should be
+                # visible without anyone explaining it.
+                "pct_ceiling_eng_only": (
+                    round(100.0 * (n_ok + sum(
+                        1 for n in lnodes
+                        if n["state"] != dag.OK and n not in retired
+                        and (owner_of.get(n["id"]) or "eng") == "eng")) / n_total, 1)
+                    if n_total else 0.0),
                 # THE OWNER TRAVELS WITH THE BLOCKER, and it is declared in
                 # LINES rather than judged here.
                 #
@@ -648,12 +668,17 @@ def render_markdown(m):
         "只有兩條路：等別人，或讓某個節點不再說一句真話**——而後者正是這整個平台",
         "存在要防的事。",
         "",
-        "| 線 | 節點綠燈 | 計入「已被取代且有替代品」 | 阻擋者（依歸屬） |",
+        "**「工程端自己的上限」是「把所有 `工程自理` 的阻擋者都關掉、其他都不變」"
+        "會得到的百分比。** 它低於落地標準的那一刻，就代表**這個 repo 裡再多的工作"
+        "也到不了標準**——那是關於標準的事實，不是關於努力的事實，"
+        "而它不該需要任何人每一輪重新解釋一次。",
+        "",
+        "| 線 | 節點綠燈 | **工程端自己的上限** | 阻擋者（依歸屬） |",
         "|---|---:|---:|---|",
     ] + [
         (f"| {l['name']} | {l['completion']['pct_strict']}% "
          f"({l['completion']['nodes_ok']}/{l['completion']['nodes_total']}) "
-         f"| {l['completion']['pct_crediting_retired']}% | "
+         f"| {l['completion']['pct_ceiling_eng_only']}% | "
          + ("、".join(f"{OWNER_LABEL.get(o, o)} {n}"
                       for o, n in l["completion"]["blocking_by_owner"].items())
             or "無")
