@@ -28,6 +28,21 @@ repo。** 所以它裡面沒有任何外部連結，不解釋設計理由（那�
 
 **只有前三列是「起得來」的必要條件**，其餘是功能性的，缺了對應功能就是關的。
 
+這張表是**從 gitignore 反查出來的，不是憑印象列的**——2026-09-10 用一份真的
+`git clone` 比對，發現原本漏了六個承重檔案（憑證、簽章金鑰、兩個 AppRole 核發
+紀錄）。重跑這個比對：
+
+```bash
+git ls-files --others --ignored --exclude-standard \
+  | grep -vE '^evidence/|^docs/|/archives/|/mirror/|__pycache__|/venv/|DS_Store' \
+  | grep -vE '\.(pyc|dump|tar\.gz)$'
+```
+
+2026-09-10 這條指令回 13 筆，13 筆都在上面那張表裡（`venv/` 與 `~/.kube/config`
+被過濾掉，但它們也在表上）。**濾的是目錄不是副檔名**：第一版用副檔名濾，
+`.json` 那條當場就漏掉了四把憑證——`.init-output.json`、`.identity-output.json`
+和兩個 AppRole 核發紀錄。產物和機密共用副檔名，只有位置分得開它們。
+
 | 缺什麼 | 症狀 | 用這個補 | 必要？ |
 |---|---|---|---|
 | `platform/vault/.init-output.json` | Vault 封著，**所有憑證都拿不到** | `platform/vault/scripts/init_and_unseal.sh` | **是** |
@@ -38,6 +53,12 @@ repo。** 所以它裡面沒有任何外部連結，不解釋設計理由（那�
 | `platform/observability/alertmanager/telegram-token`<br>＋同目錄的 `config.yml` | 告警送不出去（板面會說） | `platform/observability/scripts/setup_notifications.sh`（值讀自 `~/.env` 的 `TELEGRAM_BOT_TOKEN` 與 `TELEGRAM_HOME_CHANNEL`） | 通知 |
 | `platform/backup/.rclone.conf` | 異地備份 `not-configured` | `platform/backup/setup_rclone.sh` | 異地備份 |
 | `~/.kube/config` 的 `ubu` context | 連不到生產節點 | `platform/k8s/bootstrap_k3s.sh` | 生產節點 |
+| `pilots/station2-twin/ingest/certs/twca-ssl-ca-2023.pem` | 抓疾管署資料時 `CERTIFICATE_VERIFY_FAILED`——**而錯誤訊息不會說是少一個檔案** | 重新抓取的指令在同目錄的 `README.md`（`od.cdc.gov.tw` 送錯中繼憑證，這是正確的那張） | 資料抓取 |
+| `platform/nginx/certs/devops.local.crt`（連同 `.key`） | ingress 起不來或只有純 HTTP | `platform/nginx/scripts/generate_local_certs.sh` | HTTPS ingress |
+| `platform/security/keys/cosign.key` | `sign_artifact.sh` 拒絕簽章 | `cd platform/security/keys && COSIGN_PASSWORD='' cosign generate-key-pair`——**注意 `cosign.pub` 有進版控**，重生私鑰會讓既有簽章全部驗不過 | 產物簽章 |
+| `platform/vault/.identity-output.json` | 人員 RBAC 帳號的核發紀錄不見（Vault 裡的帳號還在） | `platform/vault/scripts/setup_identity.sh` | 人員存取 |
+| `platform/vault/.rotation-check-approle.json` | `rotation` 排程 job 回報 not-configured | `platform/vault/scripts/setup_rotation_check.sh` | 憑證輪替檢查 |
+| `platform/observability/.env` | 看板／告警裡的連結指向 `localhost` 而不是這台機器的區網名 | 內容只有 `PLATFORM_LAN_HOST`，用 `scutil --get LocalHostName` 導出，**不要用打的** | 連結可點 |
 
 **`.init-output.json` 沒有辦法「重建」——它只能被「初始化」，而初始化會產生
 一個全新的、空的 Vault。** 舊的機密不會回來。所以那一列的腳本只對**全新機器**

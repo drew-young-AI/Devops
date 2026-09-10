@@ -1,9 +1,17 @@
 {
   "schema": "gha-status/1",
-  "fetched_at": "2026-09-10T13:48:16+08:00",
+  "fetched_at": "2026-09-10T14:18:19+08:00",
   "fetch_state": "ok",
   "detail": "fetched main",
   "runs": [
+    {
+      "conclusion": "success",
+      "createdAt": "2026-09-10T06:14:50Z",
+      "displayTitle": "fix(alerting): 告警通道有 74% 送不出去，而唯一的證據活在沒人抓的行程裡",
+      "status": "completed",
+      "url": "https://github.com/drew-young-AI/Devops/actions/runs/34444363402",
+      "workflowName": "Platform Tests"
+    },
     {
       "conclusion": "success",
       "createdAt": "2026-09-10T03:26:37Z",
@@ -74,14 +82,6 @@
       "displayTitle": "fix(test): tier 1 宣告成「無依賴」，而它整套跑在容器映像裡——ubu 上沒有 Docker",
       "status": "completed",
       "url": "https://github.com/drew-young-AI/Devops/actions/runs/34356256818",
-      "workflowName": "Platform Tests"
-    },
-    {
-      "conclusion": "success",
-      "createdAt": "2026-09-09T13:03:06Z",
-      "displayTitle": "fix(test): mktemp -t 的裸前綴在 GNU 上什麼都不印，而它接住的是突變的還原",
-      "status": "completed",
-      "url": "https://github.com/drew-young-AI/Devops/actions/runs/34354657859",
       "workflowName": "Platform Tests"
     }
   ]

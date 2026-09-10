@@ -23,6 +23,11 @@ VAULT_CONTAINER="vault-vault-1"
 INIT_FILE="$REPO_ROOT/platform/vault/.init-output.json"
 POLICY_FILE="$REPO_ROOT/platform/vault/policies/rotation-check.hcl"
 ROLE="rotation-check"
+# Concretely: platform/vault/.rotation-check-approle.json -- spelled out here
+# because the path below is assembled from $ROLE, so grepping the repo for the
+# filename finds only the consumer (check_rotation_sweep.sh) and not the thing
+# that creates it. A file whose producer cannot be found by its own name is a
+# file nobody can regenerate.
 OUT="$REPO_ROOT/platform/vault/.${ROLE}-approle.json"
 
 die() { echo "$@" >&2; exit 1; }
