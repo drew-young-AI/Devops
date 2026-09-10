@@ -178,6 +178,26 @@ ASKS = [
         "ref": "docs/Backlog.md",
     },
     {
+        "id": "smtp-credential",
+        "node": "alertmgr",
+        # Matched on the channel name, not just "沒接上": if telegram ever comes
+        # unwired too, that is an engineering fault and must NOT be absorbed
+        # into a question addressed to the user.
+        "when": "沒接上: email",
+        "owner": "decision",
+        "ask": "郵件通道從未接上：Vault 裡沒有 secret/devops/smtp 這一筆，"
+               "而 platform/notify/setup_mail.sh 讀的就是它。程式沒有壞，是那筆機密"
+               "從來沒有被建立，只有帳號持有人拿得到。"
+               "代價是實測過的——2026-09-07 到 09-10 Telegram 有三天送不出去，"
+               "而那三天沒有第二條通道可以退。",
+        "options": [
+            "取得一組 SMTP 帳號與 app password，寫進 Vault 的 secret/devops/smtp，"
+            "再跑 platform/notify/setup_mail.sh <address>（它會先實際寄一封才宣稱可用）",
+            "明確記錄「只用單一通道」及理由，讓它變成已知風險而不是待辦",
+        ],
+        "ref": "docs/Runbook.md",
+    },
+    {
         "id": "epiweek-definition",
         "node": "epiweek",
         "when": "無日曆日",

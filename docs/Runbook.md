@@ -35,7 +35,7 @@ repo。** 所以它裡面沒有任何外部連結，不解釋設計理由（那�
 | `platform/analytics/venv/` | `platform/dataops/run.sh` 直接 exit 78 | `platform/analytics/setup.sh` | **是**（DataOps 指標） |
 | `platform/observability/.grafana.env` | Grafana 登不進去 | `platform/observability/scripts/setup_grafana_identity.sh` | 看板 |
 | `platform/vault/.station2-twin-approle.json` | K8s 那份沒有動態憑證 | `platform/k8s/station2-twin/sync_vault_secret.sh` | K8s 部署 |
-| `platform/notify/.telegram.env` | 告警送不出去（板面會說） | `platform/observability/scripts/setup_notifications.sh` | 通知 |
+| `platform/observability/alertmanager/telegram-token`<br>＋同目錄的 `config.yml` | 告警送不出去（板面會說） | `platform/observability/scripts/setup_notifications.sh`（值讀自 `~/.env` 的 `TELEGRAM_BOT_TOKEN` 與 `TELEGRAM_HOME_CHANNEL`） | 通知 |
 | `platform/backup/.rclone.conf` | 異地備份 `not-configured` | `platform/backup/setup_rclone.sh` | 異地備份 |
 | `~/.kube/config` 的 `ubu` context | 連不到生產節點 | `platform/k8s/bootstrap_k3s.sh` | 生產節點 |
 
@@ -148,7 +148,12 @@ docker exec -e VAULT_TOKEN="$VT" -e VAULT_ADDR=http://127.0.0.1:8200 \
 | **GHCR（映像庫）** | — | Vault `secret/devops/ghcr` | — | — | 同上 |
 | **pilot 資料庫** | `twin` / db `twin` | 容器環境變數 | `pilots/station2-twin/.env`（由 `config.example.env` 複製） | **否**（範例檔才進版控） | `docker exec station2-twin-db-1 sh -c 'printf %s "$POSTGRES_PASSWORD"'` |
 | **pilot AppRole** | — | Vault（動態核發） | `platform/vault/.station2-twin-approle.json` | **否** | `platform/k8s/station2-twin/sync_vault_secret.sh` 重新核發 |
+| **Telegram bot** | bot 本身 | `~/.env` 的 `TELEGRAM_BOT_TOKEN`（頻道是 `TELEGRAM_HOME_CHANNEL`） | `platform/observability/alertmanager/telegram-token`（chmod 600，由腳本產生） | **否**（gitignored） | `platform/observability/scripts/setup_notifications.sh` 會重新產生並實送一則測試訊息 |
 | **生產節點 ssh** | `drew` | 你的 ssh 金鑰 | `~/.ssh/` | **否** | `ssh -4 drew@ubu.local`（**要 `-4`，理由見第七節**） |
+
+> **Telegram token 會出現在 `docker logs` 裡。** 上游函式庫把整個 URL（含 token）
+> 寫進錯誤訊息。能對這台機器下 `docker logs` 的人就等於拿得到這把 token；要換就改
+> `~/.env` 再重跑 `setup_notifications.sh`。
 
 **三個 `.` 開頭的檔都是 gitignored。** 意思是：**換一台機器 clone 這個 repo，
 這三個檔都不會跟過去**——`.init-output.json` 沒有備份就等於整個 Vault 沒了，
@@ -186,7 +191,7 @@ docker exec -e VAULT_TOKEN="$VT" -e VAULT_ADDR=http://127.0.0.1:8200 \
 
 ---
 
-## 五、東西壞了：三個判斷順序
+## 五、東西壞了：四個判斷順序
 
 ### 1. `docker` 指令掛住而不是快速失敗
 
@@ -212,6 +217,30 @@ platform/observability/host_disk_metrics.sh   # 平台自己量的那份
 ```bash
 platform/scheduler/status.sh
 ```
+
+### 4. 平台很安靜——是真的沒事，還是通知送不出去
+
+**這是最不容易發現的一種壞法**：告警正確觸發、分組正確、API 查得到，而最後一段
+沒有送達。2026-08-19 這樣燒掉 3h55m，2026-09-07 到 09-10 又這樣燒掉三天
+（Telegram 388 送出／287 失敗）。
+
+安靜本身不是證據。要有證據，問這三句：
+
+```bash
+# a. 近 6 小時各通道送失敗幾次。空的結果代表「沒在抓」，不是「沒失敗」。
+curl -s --get 'http://127.0.0.1:19090/api/v1/query' \
+  --data-urlencode 'query=sum by (integration) (increase(alertmanager_notifications_failed_total[6h]))'
+
+# b. 重新產生設定，並實際送一則測試訊息（送不出去就 exit 1）
+platform/observability/scripts/setup_notifications.sh
+
+# c. 現在有哪些告警在燒
+curl -s 'http://127.0.0.1:19093/api/v2/alerts?active=true'
+```
+
+（a）沒有 series 的話，Prometheus 沒有在抓 Alertmanager——查
+`platform/observability/prometheus/prometheus.yml` 裡有沒有 `job_name: alertmanager`。
+背景見 [`platform/notify/README.md`](../platform/notify/README.md)。
 
 ---
 

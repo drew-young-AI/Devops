@@ -1,9 +1,25 @@
 {
   "schema": "gha-status/1",
-  "fetched_at": "2026-09-10T11:18:03+08:00",
+  "fetched_at": "2026-09-10T13:48:16+08:00",
   "fetch_state": "ok",
   "detail": "fetched main",
   "runs": [
+    {
+      "conclusion": "success",
+      "createdAt": "2026-09-10T03:26:37Z",
+      "displayTitle": "chore(evidence): 09-10 產物",
+      "status": "completed",
+      "url": "https://github.com/drew-young-AI/Devops/actions/runs/34433347169",
+      "workflowName": "Platform Tests"
+    },
+    {
+      "conclusion": "success",
+      "createdAt": "2026-09-10T03:24:39Z",
+      "displayTitle": "fix(reachability): ssh 到生產節點會間歇失敗，而錯誤訊息指向「機器關著」",
+      "status": "completed",
+      "url": "https://github.com/drew-young-AI/Devops/actions/runs/34433222347",
+      "workflowName": "Platform Tests"
+    },
     {
       "conclusion": "success",
       "createdAt": "2026-09-10T02:23:22Z",
@@ -66,22 +82,6 @@
       "displayTitle": "fix(test): mktemp -t 的裸前綴在 GNU 上什麼都不印，而它接住的是突變的還原",
       "status": "completed",
       "url": "https://github.com/drew-young-AI/Devops/actions/runs/34354657859",
-      "workflowName": "Platform Tests"
-    },
-    {
-      "conclusion": "failure",
-      "createdAt": "2026-09-09T12:51:45Z",
-      "displayTitle": "fix(ci): Linux 上跑不起來的四件事，以及一個說 main 綠燈的紅燈探針",
-      "status": "completed",
-      "url": "https://github.com/drew-young-AI/Devops/actions/runs/34353509331",
-      "workflowName": "Platform Tests"
-    },
-    {
-      "conclusion": "failure",
-      "createdAt": "2026-09-09T12:22:07Z",
-      "displayTitle": "fix(test): 產生式產物不是壞掉的指標——接手路由檢查在乾淨 clone 上會誤紅",
-      "status": "completed",
-      "url": "https://github.com/drew-young-AI/Devops/actions/runs/34350602453",
       "workflowName": "Platform Tests"
     }
   ]

@@ -67,20 +67,40 @@ receivers:
       - bot_token_file: /etc/alertmanager/telegram-token
         chat_id: __TELEGRAM_CHAT_ID__
         api_url: https://api.telegram.org
-        parse_mode: HTML
+        # parse_mode is DELIBERATELY EMPTY (plain text), and that is a fix, not
+        # a downgrade. It used to be HTML. Alertmanager truncates a telegram
+        # message at 4096 runes AFTER rendering, so a group large enough to hit
+        # the cap got cut in the middle of a tag; Telegram then rejected the
+        # whole message with
+        #   Bad Request: can't parse entities: Can't find end tag
+        #   corresponding to start tag "code" (400)
+        # and after 17 retries the notification was dropped. Between 2026-09-07
+        # and 2026-09-10, 287 of 388 sends failed this way -- silently, because
+        # nothing was scraping Alertmanager (now fixed in prometheus.yml).
+        #
+        # With no parse_mode there is no markup to leave unbalanced, so the
+        # worst case degrades from "never delivered" to "delivered, truncated".
+        # A truncated alert you can act on beats a well-formatted one that
+        # never arrives.
+        parse_mode: ""
         # send_resolved is the half people forget. Without it you are told
         # something broke and never told it recovered, so every alert has to be
         # chased manually to find out whether it still matters -- which is how
         # people start ignoring the channel.
         send_resolved: true
+        # The loop is capped at 5 alerts and the total is stated first, so the
+        # message stays far below 4096 runes in the ordinary case instead of
+        # relying on truncation. The cap is belt to parse_mode's braces: the
+        # count line means a capped message still tells you how much you are
+        # not seeing, which a truncated one does not.
         message: |-
-          <b>{{ if eq .Status "firing" }}🔴 FIRING{{ else }}✅ RESOLVED{{ end }} · {{ .CommonLabels.alertname }}</b>
-          {{ range .Alerts }}
-          {{ .Annotations.summary }}
-
-          {{ .Annotations.description }}
-          {{ if .Annotations.runbook }}<b>Runbook:</b> <code>{{ .Annotations.runbook }}</code>{{ end }}
-          {{ end }}
+          {{ if eq .Status "firing" }}🔴 FIRING{{ else }}✅ RESOLVED{{ end }} · {{ .CommonLabels.alertname }} · 共 {{ len .Alerts }} 筆
+          {{ range $i, $a := .Alerts }}{{ if lt $i 5 }}
+          {{ $a.Annotations.summary }}
+          {{ $a.Annotations.description }}
+          {{ if $a.Annotations.runbook }}Runbook: {{ $a.Annotations.runbook }}{{ end }}
+          {{ end }}{{ end }}
+          {{ if gt (len .Alerts) 5 }}… 其餘的在看板：http://__LAN_HOST__:18085/Stage-Report.html{{ end }}
 
     email_configs:
       - to: __MAIL_TO__

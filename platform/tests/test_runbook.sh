@@ -68,6 +68,57 @@ done
 MISSING_PATH="$(printf '%s' "$MISSING_PATH" | sed 's/^ *//')"
 assert_equals "" "$MISSING_PATH" "every document the runbook points at still exists"
 
+# ---- section 0: the file it says is missing must be the file the named
+# ---- script actually creates ----------------------------------------------
+#
+# The row for the Telegram credential said the missing file was
+# `platform/notify/.telegram.env`. No such file has ever existed: the script
+# writes `alertmanager/telegram-token` and `alertmanager/config.yml`. A human
+# following section 0 on a fresh machine would have gone looking for a path
+# that cannot appear, and concluded the platform was broken.
+#
+# Nothing caught it, for a boring reason: the existence check above only scans
+# `docs/` and `evidence/` paths, so anything under `platform/` or `pilots/` in
+# this runbook was never checked at all. Widening that check is not enough
+# either -- section 0 is a list of files that are SUPPOSED to be absent on a
+# fresh clone, so "does it exist" is the wrong question there. The right
+# question is whether the script named in the same row mentions the path it
+# claims to produce.
+run_cmd python3 - "$RUNBOOK" "$REPO_ROOT" <<'PY'
+import pathlib, re, sys
+runbook, root = pathlib.Path(sys.argv[1]), pathlib.Path(sys.argv[2])
+text = runbook.read_text(encoding="utf-8")
+sec = text.split("## 零、", 1)[1].split("\n## ", 1)[0]
+rows = [r for r in sec.splitlines()
+        if r.startswith("|") and "---" not in r and "缺什麼" not in r]
+if not rows:
+    sys.exit("REFUSING: section 0 has no table rows -- an empty scan is not a pass")
+bad = []
+for row in rows:
+    cells = [c.strip() for c in row.strip("|").split("|")]
+    if len(cells) < 3:
+        continue
+    want = re.findall(r"`([^`]+)`", cells[0])
+    script = next((m for m in re.findall(r"`([^`]+)`", cells[2])
+                   if m.endswith(".sh")), None)
+    if not want or not script:
+        continue
+    sp = root / script.split()[0]
+    if not sp.exists():
+        bad.append("%s: named script %s does not exist" % (want[0], script))
+        continue
+    body = sp.read_text(encoding="utf-8", errors="replace")
+    # Match on the basename: the script legitimately builds the path from its
+    # own $HERE, so the full repo-relative string will not appear literally.
+    if not any(pathlib.PurePath(w.rstrip("/")).name in body for w in want):
+        bad.append("%s: %s never mentions it" % (want[0], script))
+print("SECTION0_ROWS %d" % len(rows))
+print("SECTION0_BAD %s" % ("; ".join(bad) if bad else "none"))
+PY
+assert_rc 0 "section 0's rows can be parsed at all"
+assert_output_contains "SECTION0_BAD none" \
+  "every file section 0 says is missing is a file its own named script creates"
+
 # ---- it must be usable with no network -------------------------------------
 #
 # The whole premise is "no internet". A runbook that says "see the wiki" fails

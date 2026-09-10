@@ -41,6 +41,7 @@ import re
 import shutil
 import subprocess
 import urllib.error
+import urllib.parse
 import urllib.request
 from datetime import datetime, timezone
 
@@ -610,6 +611,44 @@ def declared_channels():
         return set()
 
 
+NOTIFY_WINDOW_S = 6 * 3600
+
+
+def _recent_notify_failures():
+    """Failed sends per integration inside the recent window, or None.
+
+    None means "Prometheus could not answer" -- no series yet, unreachable, or
+    a malformed reply. It is deliberately distinct from {} ("asked, and nothing
+    failed"), because the caller must not report a healthy channel on the
+    strength of a question that was never answered.
+    """
+    q = ("sum by (integration) (increase("
+         "alertmanager_notifications_failed_total[%ds]))" % NOTIFY_WINDOW_S)
+    try:
+        with urllib.request.urlopen(
+                "http://127.0.0.1:19090/api/v1/query?query="
+                + urllib.parse.quote(q), timeout=8) as r:
+            d = json.load(r)
+    except Exception:  # noqa: BLE001
+        return None
+    if d.get("status") != "success":
+        return None
+    rows = d.get("data", {}).get("result", [])
+    if not rows:
+        # No series at all: Alertmanager is not being scraped, or has not been
+        # scraped twice yet. Either way this is unanswered, not clean.
+        return None
+    out = {}
+    for row in rows:
+        try:
+            v = float(row["value"][1])
+        except (KeyError, IndexError, TypeError, ValueError):
+            continue
+        if v > 0:
+            out[row.get("metric", {}).get("integration", "?")] = v
+    return out
+
+
 def probe_alertmanager():
     """Alerts firing is NECESSARY AND NOT SUFFICIENT -- they must reach someone.
 
@@ -659,20 +698,43 @@ def probe_alertmanager():
 
     # Delivery: configured is not delivered. A channel whose every send fails
     # is indistinguishable, from the board, from one that is working.
-    try:
-        with urllib.request.urlopen(
-                "http://127.0.0.1:19093/metrics", timeout=6) as r:
-            body = r.read().decode("utf-8", "replace")
-        failed = {}
-        for m in re.finditer(
-                r'alertmanager_notifications_failed_total\{integration="(\w+)"[^}]*\}'
-                r"\s+([0-9.e+]+)", body):
-            failed[m.group(1)] = failed.get(m.group(1), 0.0) + float(m.group(2))
-        broken = sorted(k for k, v in failed.items() if v > 0)
-        if broken:
-            reasons.append("送出失敗: " + ", ".join(broken))
-    except Exception:  # noqa: BLE001
-        reasons.append("送達指標無法讀取")
+    #
+    # ASK "IS IT FAILING NOW", NOT "HAS IT EVER FAILED".
+    #
+    # This used to read alertmanager_notifications_failed_total straight off
+    # /metrics and warn on any non-zero value. That counter is cumulative and
+    # only resets when the process restarts, so it conflated two states that
+    # need different actions: one bad send during a DNS blip six weeks ago, and
+    # a channel that is dropping everything right now. It also meant a node
+    # that had gone amber could never go green again by being FIXED -- only by
+    # a restart, which is the same button that hides the problem.
+    #
+    # So the recent window comes from Prometheus (which scrapes Alertmanager as
+    # of 2026-09-10; before that nothing did, which is how 287 failed telegram
+    # sends stayed invisible for three days). The cumulative counter is kept
+    # only as the fallback when Prometheus cannot answer, and it says so in the
+    # text -- a reader must be able to tell "failing now" from "failed once,
+    # sometime".
+    recent = _recent_notify_failures()
+    if recent is None:
+        try:
+            with urllib.request.urlopen(
+                    "http://127.0.0.1:19093/metrics", timeout=6) as r:
+                body = r.read().decode("utf-8", "replace")
+            failed = {}
+            for m in re.finditer(
+                    r'alertmanager_notifications_failed_total\{integration="(\w+)"[^}]*\}'
+                    r"\s+([0-9.e+]+)", body):
+                failed[m.group(1)] = failed.get(m.group(1), 0.0) + float(m.group(2))
+            broken = sorted(k for k, v in failed.items() if v > 0)
+            if broken:
+                reasons.append("累計曾送出失敗（無近期樣本）: " + ", ".join(broken))
+        except Exception:  # noqa: BLE001
+            reasons.append("送達指標無法讀取")
+    elif recent:
+        reasons.append(
+            "近 %dh 送出失敗: " % (NOTIFY_WINDOW_S // 3600)
+            + ", ".join("%s %d 次" % (k, round(v)) for k, v in sorted(recent.items())))
 
     crit = [a for a in alerts if a["labels"].get("severity") == "critical"]
     if crit:

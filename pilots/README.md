@@ -23,8 +23,19 @@ rollback，全部驗證過，證據保留在 `../evidence/_retired/station1-hell
 儀表板對著錯的服務顯示「一切正常」，比沒有儀表板更糟。已修正。
 
 目前狀態（station2-twin）：readiness 契約、migration gate（expand/contract）、
-Vault 動態資料庫憑證、四個公衛 feed 共 4,390,947 列事實資料、Prometheus/
-Grafana/告警規則皆已驗證。**blue/green 尚未接上**——它的 compose 把資料庫與
+Vault 動態資料庫憑證、四個公衛 feed、Prometheus/Grafana/告警規則皆已驗證。
+
+**資料量不寫在這裡，因為寫下來的數字會過期而讀起來不會。** 這一行原本寫
+「4,390,947 列」，2026-09-10 實測是 7,167,314 列——差了 280 萬列，而中間沒有任何
+一步會告訴你它不再是真的。要現在的數字就跑：
+
+```bash
+docker exec station2-twin-db-1 psql -U twin -d twin -tAc \
+  "select 'surveillance_fact',count(*) from surveillance_fact
+   union all select 'demographic_fact',count(*) from demographic_fact"
+```
+
+**blue/green 尚未接上**——它的 compose 把資料庫與
 應用綁在同一份檔案，第二個顏色會撞到同一個 host port 與同一個具名 volume，
 拆分見 `../docs/Backlog.md`。
 

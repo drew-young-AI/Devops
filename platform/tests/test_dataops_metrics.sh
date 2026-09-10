@@ -342,7 +342,7 @@ assert_output_contains "NO_RULES_CASE ('warn', 'running, but NO alert rules" \
 # only moment it is still cheap to fix), and a channel whose sends FAIL must
 # not look the same as one that works.
 run_cmd python3 -c "
-import io, json, sys, urllib.request
+import io, json, sys, urllib.error, urllib.request
 sys.path.insert(0, '$REPO_ROOT/platform/statusdag')
 import dag
 
@@ -352,8 +352,19 @@ class R(io.BytesIO):
 
 METRICS = 'alertmanager_notifications_failed_total{integration=\"%s\",reason=\"other\"} %s\n'
 
-def fake(alerts, live_cfg, failed_pairs):
+# recent=None means Prometheus could not answer (unreachable). A dict means it
+# answered, and a ZERO entry is not the same as an ABSENT one: `increase()` over
+# a scraped counter returns a 0-valued series, so an EMPTY result set means the
+# target is not being scraped at all -- unanswered, not clean. The difference
+# decides which sentence the board says, so both have to be exercised.
+def fake(alerts, live_cfg, failed_pairs, recent):
     def _open(url, timeout=0):
+        if 'api/v1/query' in url:
+            if recent is None:
+                raise urllib.error.URLError('prometheus down')
+            return R(json.dumps({'status': 'success', 'data': {'result': [
+                {'metric': {'integration': k}, 'value': [0, str(v)]}
+                for k, v in recent.items()]}}).encode())
         if 'api/v2/alerts' in url:
             return R(json.dumps(alerts).encode())
         if 'api/v2/status' in url:
@@ -369,12 +380,31 @@ BOTH = 'receivers:\n  - name: r\n    telegram_configs:\n    email_configs:\n'
 ONLY_TG = 'receivers:\n  - name: r\n    telegram_configs:\n'
 real = urllib.request.urlopen
 try:
-    urllib.request.urlopen = fake([], BOTH, [('telegram', '0'), ('email', '0')])
+    urllib.request.urlopen = fake([], BOTH, [('telegram', '0'), ('email', '0')],
+                                  {'telegram': 0.0, 'email': 0.0})
     print('WIRED_CASE', dag.probe_alertmanager())
-    urllib.request.urlopen = fake([], ONLY_TG, [('telegram', '0')])
+    urllib.request.urlopen = fake([], ONLY_TG, [('telegram', '0')], {'telegram': 0.0})
     print('UNWIRED_CASE', dag.probe_alertmanager())
-    urllib.request.urlopen = fake([], BOTH, [('telegram', '7'), ('email', '0')])
+    urllib.request.urlopen = fake([], BOTH, [('telegram', '7'), ('email', '0')],
+                                  {'telegram': 7.0})
     print('FAILING_CASE', dag.probe_alertmanager())
+    # The regression this whole rewrite exists for: the cumulative counter is
+    # stuck at 287 from a fault that IS FIXED. If the probe still warned on it,
+    # the node could only go green by restarting Alertmanager -- the same
+    # button that erases the evidence.
+    urllib.request.urlopen = fake([], BOTH, [('telegram', '287'), ('email', '0')],
+                                  {'telegram': 0.0, 'email': 0.0})
+    print('HEALED_CASE', dag.probe_alertmanager())
+    # And when Prometheus cannot answer, the cumulative counter is still worth
+    # reporting -- but it must NOT be worded as a present-tense failure.
+    urllib.request.urlopen = fake([], BOTH, [('telegram', '287'), ('email', '0')], None)
+    print('NO_SAMPLE_CASE', dag.probe_alertmanager())
+    # Prometheus ANSWERS, with nothing. That is the empty-scan shape this
+    # platform keeps meeting: a query that succeeds over zero series reads as
+    # 'nothing is wrong' and actually means 'nothing was measured'. Alertmanager
+    # went unscraped for months; this asserts that state can never render green.
+    urllib.request.urlopen = fake([], BOTH, [('telegram', '287'), ('email', '0')], {})
+    print('NOT_SCRAPED_CASE', dag.probe_alertmanager())
 finally:
     urllib.request.urlopen = real
 "
@@ -383,8 +413,14 @@ assert_output_contains "WIRED_CASE ('ok', 'no active alerts, all declared channe
   "every declared channel wired and delivering is the only way to green"
 assert_output_contains "UNWIRED_CASE ('warn', '宣告了但沒接上: email')" \
   "a declared-but-missing channel is WARN with ZERO alerts firing, and is named"
-assert_output_contains "FAILING_CASE ('warn', '送出失敗: telegram')" \
-  "configured is not delivered: a channel whose sends fail is not green"
+assert_output_contains "FAILING_CASE ('warn', '近 6h 送出失敗: telegram 7 次')" \
+  "configured is not delivered: a channel failing INSIDE the window is not green"
+assert_output_contains "HEALED_CASE ('ok', 'no active alerts, all declared channels wired')" \
+  "a fixed channel must be able to go green again without restarting Alertmanager"
+assert_output_contains "NO_SAMPLE_CASE ('warn', '累計曾送出失敗（無近期樣本）: telegram')" \
+  "with no recent sample the cumulative counter is reported, but not as present tense"
+assert_output_contains "NOT_SCRAPED_CASE ('warn', '累計曾送出失敗（無近期樣本）: telegram')" \
+  "an empty result set is unmeasured, not clean -- it must not render green"
 
 # ── probe_prod_cluster: report what kubectl said, not a sentence we chose ───
 #

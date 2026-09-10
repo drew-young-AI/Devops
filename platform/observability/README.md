@@ -222,19 +222,22 @@ Scrape-target health is reported for diagnosis but deliberately does **not**
 affect the verdict: a target being down is what the alert rules are for, and
 the idle blue/green color is legitimately down.
 
-## Why no notification receiver yet
+## 通知送到哪裡（這一節在 2026-09-10 之前是錯的）
 
-Alertmanager's receiver is `local-null`: it accepts and holds alerts, and
-sends nothing. Alerts are consumed by polling `/api/v2/alerts` (which is
-what `check_health.sh` does).
+**Alertmanager 的預設 receiver 是 `telegram`，不是 `local-null`。** 這一節從
+2026-08-19 接上 Telegram 之後就沒有改過，整整說了三個星期「還沒接收件端」。
+自己確認，不要相信這句話：
 
-Wiring a real destination — Telegram, email, webhook — needs a credential
-and an egress decision, and both are the user's call, not something to
-default into. The routing *shape* is already correct (critical is split into
-its own branch with a shorter `repeat_interval`), so adding a destination
-later is a receiver definition, not a redesign. This follows the same
-"don't fake production capability" principle as `platform/vault/`'s
-deliberate lack of auto-unseal.
+```bash
+curl -s http://127.0.0.1:19093/api/v2/receivers   # -> ["telegram","local-null"]
+```
+
+`local-null` 還在，但**沒有任何路由指到它**。它保留下來是為了「刻意不被通知」
+這個情境：把某條規則路由到 null 是一個看得出來的決定，和「這條路由從來沒寫完」
+讀起來完全不同。
+
+細節、失效史與怎麼自己驗，見 [`platform/notify/README.md`](../notify/README.md)。
+**先讀那一份再動這裡的設定**——Telegram 曾經設定正確而且 74% 送不出去。
 
 `inhibit_rules` suppresses `ScrapeTargetDownProlonged` for a service already
 reporting `ProductionLikeAllColorsDown`, so a real outage produces one
@@ -251,7 +254,7 @@ unavailable` for this datasource, because the Alertmanager datasource is a
 core (non-plugin) type with no backend health handler. The datasource
 genuinely works — confirmed by proxying real requests through Grafana
 (`/api/datasources/proxy/uid/<uid>/api/v2/status` returns the live cluster
-status, `/api/v2/receivers` returns `local-null`), which is the same path
+status, `/api/v2/receivers` returns the live receiver list), which is the same path
 the Alerting UI uses.
 
 ## Log data governance (2026-08-14)
@@ -386,8 +389,10 @@ from the `.env`-as-secret-store pattern this platform moved away from.
 
 ## Known gaps
 
-- **No container CPU / memory / restart metrics.** Nothing collects them —
-  there is no cAdvisor or node-exporter. Alert rules for resource pressure
+- **No container CPU / memory / restart metrics.** node-exporter *is*
+  running, but with `--collector.disable-defaults --collector.textfile`: it
+  is a delivery mechanism for `dag.py`'s `.prom` files, not a host metrics
+  source. There is no cAdvisor. Alert rules for resource pressure
   and crash-looping are therefore *absent rather than broken*: writing rules
   against metrics that are never produced yields alerts that can never fire,
   which reads as "all clear" and is strictly worse than an acknowledged gap.
@@ -395,16 +400,10 @@ from the `.env`-as-secret-store pattern this platform moved away from.
   another container, and `docs/Plan-detail.md` Station 8 requires every new
   tool to map to an identified control gap rather than being added by
   reflex. This gap is now identified; the decision is not made.
-- **No latency metric.** `station1-hello` exposes only
-  `station1_requests_total` and `station1_errors_total` — no histogram — so
+- **No latency metric.** The pilot exposes counters, not a histogram, so
   there is no p95/p99 rule. Adding one requires changing the pilot.
-- **`station1_errors_total` counts 404s only, not 5xx.** `HighErrorRate`
-  therefore detects bad routing/clients, not server faults. Naming it
-  "error rate" without this note would overstate what it covers.
-- **No scheduled runner yet.** `check_health.sh` is the interface; nothing
-  calls it on a timer. That is the next step, and it is intentionally
-  separate — the check has to be trustworthy before automating it.
-- **Alert notification is unwired** — see above.
+  (The two `station1-hello` bullets that used to sit here described a pilot
+  retired on 2026-08-19 and were removed on 2026-09-10.)
 - **Redaction is v1.** Three patterns. Free-text names, addresses and
   unexpected identifier formats pass through. The mechanism is in place and
   verified; the ruleset is a starting point, not coverage.
@@ -432,6 +431,24 @@ from the `.env`-as-secret-store pattern this platform moved away from.
 
 驗收方式是**評估**不是解析（[ADR-0007](../../docs/decisions/0007-verify-by-evaluation.md)）：
 `/api/v1/rules` 的 `health` 必須是 `ok`，由 `test_dataops_metrics.sh` 對所有規則檢查。
+
+### scrape job `alertmanager` — 監控告警系統自己（2026-09-10）
+
+告警系統是這個平台唯一「壞掉的時候不會告訴你它壞了」的元件，而它先前**沒有被抓**。
+代價是實測到的：Telegram 388 次送出裡 287 次失敗，持續三天，沒有任何地方看得出來。
+唯一的證據 `alertmanager_notifications_failed_total` 是個累計計數器，活在一個沒人
+抓的行程裡——所以連「現在還在失敗嗎」「什麼時候開始的」都問不出來，只能問「有沒有
+曾經失敗過」，而那個問題只要壞過一次就永遠回答「有」。
+
+```bash
+# 近 6 小時各通道的送出失敗數。沒有 series ≠ 沒失敗，是沒在抓。
+curl -s --get 'http://127.0.0.1:19090/api/v1/query' \
+  --data-urlencode 'query=sum by (integration) (increase(alertmanager_notifications_failed_total[6h]))'
+```
+
+`dag.py` 的 `alertmgr` 節點現在就是問這個窗口，而不是問累計值。差別在於：修好之後
+節點**可以自己變綠**。舊寫法只有重啟 Alertmanager 才會變綠——而重啟正是那顆會把
+證據一起抹掉的按鈕。
 
 ### scrape job `station2-twin-k8s` — 監控遷移過去的那份
 

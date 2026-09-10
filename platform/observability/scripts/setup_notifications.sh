@@ -82,12 +82,19 @@ if "__TELEGRAM_CHAT_ID__" not in text:
     sys.exit("template has no __TELEGRAM_CHAT_ID__ placeholder -- refusing to "
              "write a config that would silently keep an old value")
 text = text.replace("__TELEGRAM_CHAT_ID__", chat)
+# __LAN_HOST__ is substituted UNCONDITIONALLY. It used to live inside the mail
+# branch, which made it look mail-specific; it is not -- it is "where this
+# platform's board is". The moment the telegram message also pointed at the
+# board, the mail-only substitution left a literal __LAN_HOST__ behind and the
+# leftovers guard below refused to write the config at all. Correct refusal,
+# wrong cause: a placeholder's value must not depend on an unrelated feature
+# being configured.
+text = text.replace("__LAN_HOST__", lanhost)
 
 if mhost and mfrom and mto:
     text = (text.replace("__MAIL_SMARTHOST__", mhost)
                 .replace("__MAIL_FROM__", mfrom)
-                .replace("__MAIL_TO__", mto)
-                .replace("__LAN_HOST__", lanhost))
+                .replace("__MAIL_TO__", mto))
 else:
     # Drop the whole email_configs block, from its key to the next key at the
     # same indent. Leaving it in with placeholders would either refuse to parse

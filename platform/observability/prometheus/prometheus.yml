@@ -78,3 +78,20 @@ scrape_configs:
       - targets: ["node-exporter:9100"]
         labels:
           service: statusdag
+
+  # Alertmanager itself. Added 2026-09-10 after telegram delivery had been
+  # failing for 3 days without anyone being able to see it: the ONLY evidence
+  # was alertmanager_notifications_failed_total, a counter that lives inside a
+  # process nothing was scraping. 287 of 388 sends had failed, and because the
+  # counter is cumulative and never sampled, there was no way to ask "is it
+  # failing NOW" or "when did it start" -- only "has it ever failed", which a
+  # single bad startup answers yes forever.
+  #
+  # The alerting system is a service like any other. Not monitoring it means
+  # the one component whose job is to tell you things are broken is the one
+  # component that cannot tell you it is broken itself.
+  - job_name: alertmanager
+    static_configs:
+      - targets: ["alertmanager:9093"]
+        labels:
+          service: alertmanager
