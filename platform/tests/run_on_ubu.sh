@@ -48,7 +48,17 @@ DEST="${UBU_DEST:-devops-ci}"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$HERE/../.." && pwd)"
 
-if ! timeout 10 ssh -o BatchMode=yes -o ConnectTimeout=8 "$HOST" true 2>/dev/null; then
+# -4 ON EVERY SSH (2026-09-10). mDNS on this LAN sometimes answers `ubu.local`
+# with ONLY a AAAA record -- a global IPv6 address that is not routable from
+# here -- and ssh prefers it. The connection then fails with a timeout or
+# `Could not resolve hostname`, both of which point at "the machine is off"
+# when the machine is on and its port 22 is open. It was diagnosed as a sleeping
+# laptop twice before anyone looked at the address family.
+#
+# Forcing IPv4 costs nothing (there is no IPv6-only path to this host) and
+# removes an intermittent failure whose error message names the wrong cause.
+SSH_OPTS=(-4 -o BatchMode=yes)
+if ! timeout 10 ssh "${SSH_OPTS[@]}" -o ConnectTimeout=8 "$HOST" true 2>/dev/null; then
   echo "  SKIP  $HOST is not reachable -- Linux verification is UNVERIFIED"
   echo "        (it is a laptop and suspend is still enabled; see"
   echo "         docs/Ubu-Prod-Bringup.md §3.1)"
@@ -59,7 +69,9 @@ echo "=== syncing working tree to $HOST:~/$DEST ==="
 # archives/ is 3.3GB of backup tarballs and mirror/ is a rebuildable Parquet
 # copy: neither is input to any tier-1 suite, and including them turned a
 # 20-second sync into a ten-minute one on the first attempt.
-rsync -a --delete \
+# rsync gets the same -4, through -e: it opens its own ssh and would otherwise
+# pick the unroutable AAAA while the checks above passed over IPv4.
+rsync -a --delete -e "ssh ${SSH_OPTS[*]}" \
   --exclude='.git/' \
   --exclude='platform/backup/archives/' \
   --exclude='**/venv/' \
@@ -72,7 +84,7 @@ rsync -a --delete \
 # report "0 orphans" -- a clean bill of health from a scan that visited
 # nothing, which those very suites exist to refuse. Their own floor checks
 # caught it, which is the only reason this is a paragraph and not a silent pass.
-ssh -o BatchMode=yes "$HOST" "cd ~/$DEST \
+ssh "${SSH_OPTS[@]}" "$HOST" "cd ~/$DEST \
   && (git rev-parse --git-dir >/dev/null 2>&1 || git init -q) \
   && git config user.email ci@local && git config user.name ci \
   && git add -A >/dev/null 2>&1 && git commit -qm 'linux verification snapshot' >/dev/null 2>&1; true"
@@ -80,5 +92,5 @@ ssh -o BatchMode=yes "$HOST" "cd ~/$DEST \
 [ "${1:-}" = "--sync" ] && { echo "synced only"; exit 0; }
 
 echo
-echo "=== tier 1 on $HOST ($(ssh -o BatchMode=yes "$HOST" 'uname -s -m')) ==="
-ssh -o BatchMode=yes "$HOST" "cd ~/$DEST && PLATFORM_TIERS=1 bash platform/tests/run_all.sh"
+echo "=== tier 1 on $HOST ($(ssh "${SSH_OPTS[@]}" "$HOST" 'uname -s -m')) ==="
+ssh "${SSH_OPTS[@]}" "$HOST" "cd ~/$DEST && PLATFORM_TIERS=1 bash platform/tests/run_all.sh"

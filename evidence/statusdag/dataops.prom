@@ -29,29 +29,29 @@ dataops_source_last_fetch_timestamp_seconds{project="station2-twin",source="moi-
 dataops_source_last_fetch_timestamp_seconds{project="station2-twin",source="moi-ris-village-population"} 1788640193
 # HELP dataops_source_age_seconds How long since this source last updated. A constraint cannot see a thing that failed to happen; this can.
 # TYPE dataops_source_age_seconds gauge
-dataops_source_age_seconds{project="station2-twin",source="cdc-nhi-covid"} 23196
-dataops_source_age_seconds{project="station2-twin",source="cdc-nhi-diarrhea"} 23158
-dataops_source_age_seconds{project="station2-twin",source="cdc-nhi-enterovirus"} 23187
-dataops_source_age_seconds{project="station2-twin",source="cdc-nhi-herpangina"} 23168
-dataops_source_age_seconds{project="station2-twin",source="cdc-nhi-hfmd"} 23178
-dataops_source_age_seconds{project="station2-twin",source="cdc-nhi-ili"} 23219
-dataops_source_age_seconds{project="station2-twin",source="cdc-nhi-influenza"} 23210
-dataops_source_age_seconds{project="station2-twin",source="cdc-nhi-pneumonia"} 23200
-dataops_source_age_seconds{project="station2-twin",source="cdc-nhi-scarlet-fever"} 23140
-dataops_source_age_seconds{project="station2-twin",source="cdc-nhi-uri"} 23149
-dataops_source_age_seconds{project="station2-twin",source="cdc-nhi-varicella"} 23130
-dataops_source_age_seconds{project="station2-twin",source="cdc-rods-conjunctivitis"} 23114
-dataops_source_age_seconds{project="station2-twin",source="cdc-rods-covid"} 23109
-dataops_source_age_seconds{project="station2-twin",source="cdc-rods-diarrhea"} 23120
-dataops_source_age_seconds{project="station2-twin",source="cdc-rods-enterovirus"} 23117
-dataops_source_age_seconds{project="station2-twin",source="cdc-rods-herpangina"} 23112
-dataops_source_age_seconds{project="station2-twin",source="cdc-rods-hfmd"} 23110
-dataops_source_age_seconds{project="station2-twin",source="cdc-rods-ili"} 23125
-dataops_source_age_seconds{project="station2-twin",source="cdc-tb-caremag"} 363466
-dataops_source_age_seconds{project="station2-twin",source="cdc-tb-town"} 364035
-dataops_source_age_seconds{project="station2-twin",source="moi-admin-geography"} 363412
-dataops_source_age_seconds{project="station2-twin",source="moi-ris-village-education"} 363435
-dataops_source_age_seconds{project="station2-twin",source="moi-ris-village-population"} 363448
+dataops_source_age_seconds{project="station2-twin",source="cdc-nhi-covid"} 26801
+dataops_source_age_seconds{project="station2-twin",source="cdc-nhi-diarrhea"} 26763
+dataops_source_age_seconds{project="station2-twin",source="cdc-nhi-enterovirus"} 26792
+dataops_source_age_seconds{project="station2-twin",source="cdc-nhi-herpangina"} 26773
+dataops_source_age_seconds{project="station2-twin",source="cdc-nhi-hfmd"} 26783
+dataops_source_age_seconds{project="station2-twin",source="cdc-nhi-ili"} 26824
+dataops_source_age_seconds{project="station2-twin",source="cdc-nhi-influenza"} 26815
+dataops_source_age_seconds{project="station2-twin",source="cdc-nhi-pneumonia"} 26805
+dataops_source_age_seconds{project="station2-twin",source="cdc-nhi-scarlet-fever"} 26745
+dataops_source_age_seconds{project="station2-twin",source="cdc-nhi-uri"} 26754
+dataops_source_age_seconds{project="station2-twin",source="cdc-nhi-varicella"} 26735
+dataops_source_age_seconds{project="station2-twin",source="cdc-rods-conjunctivitis"} 26719
+dataops_source_age_seconds{project="station2-twin",source="cdc-rods-covid"} 26714
+dataops_source_age_seconds{project="station2-twin",source="cdc-rods-diarrhea"} 26725
+dataops_source_age_seconds{project="station2-twin",source="cdc-rods-enterovirus"} 26722
+dataops_source_age_seconds{project="station2-twin",source="cdc-rods-herpangina"} 26717
+dataops_source_age_seconds{project="station2-twin",source="cdc-rods-hfmd"} 26715
+dataops_source_age_seconds{project="station2-twin",source="cdc-rods-ili"} 26730
+dataops_source_age_seconds{project="station2-twin",source="cdc-tb-caremag"} 367071
+dataops_source_age_seconds{project="station2-twin",source="cdc-tb-town"} 367640
+dataops_source_age_seconds{project="station2-twin",source="moi-admin-geography"} 367017
+dataops_source_age_seconds{project="station2-twin",source="moi-ris-village-education"} 367040
+dataops_source_age_seconds{project="station2-twin",source="moi-ris-village-population"} 367053
 # HELP dataops_source_retired 1 for a source with ingest history but no fact rows; excluded from freshness because it can never become fresh.
 # TYPE dataops_source_retired gauge
 dataops_source_retired{project="station2-twin",source="cdc-rods"} 1
@@ -233,29 +233,29 @@ dataops_ingest_runs_conflicted_total{project="station2-twin",source="moi-ris-vil
 dataops_ingest_runs_conflicted_total{project="station2-twin",source="moi-ris-village-population"} 0
 # HELP dataops_source_unchanged_seconds Seconds since this source last returned different bytes. A successful fetch of identical content does NOT reset this -- that is the whole point.
 # TYPE dataops_source_unchanged_seconds gauge
-dataops_source_unchanged_seconds{project="station2-twin",source="cdc-nhi-covid"} 109281
-dataops_source_unchanged_seconds{project="station2-twin",source="cdc-nhi-diarrhea"} 109247
-dataops_source_unchanged_seconds{project="station2-twin",source="cdc-nhi-enterovirus"} 109272
-dataops_source_unchanged_seconds{project="station2-twin",source="cdc-nhi-herpangina"} 109255
-dataops_source_unchanged_seconds{project="station2-twin",source="cdc-nhi-hfmd"} 109264
-dataops_source_unchanged_seconds{project="station2-twin",source="cdc-nhi-ili"} 110205
-dataops_source_unchanged_seconds{project="station2-twin",source="cdc-nhi-influenza"} 110196
-dataops_source_unchanged_seconds{project="station2-twin",source="cdc-nhi-pneumonia"} 109289
-dataops_source_unchanged_seconds{project="station2-twin",source="cdc-nhi-scarlet-fever"} 109230
-dataops_source_unchanged_seconds{project="station2-twin",source="cdc-nhi-uri"} 109238
-dataops_source_unchanged_seconds{project="station2-twin",source="cdc-nhi-varicella"} 109221
-dataops_source_unchanged_seconds{project="station2-twin",source="cdc-rods-conjunctivitis"} 195920
-dataops_source_unchanged_seconds{project="station2-twin",source="cdc-rods-covid"} 109202
-dataops_source_unchanged_seconds{project="station2-twin",source="cdc-rods-diarrhea"} 109212
-dataops_source_unchanged_seconds{project="station2-twin",source="cdc-rods-enterovirus"} 109209
-dataops_source_unchanged_seconds{project="station2-twin",source="cdc-rods-herpangina"} 109204
-dataops_source_unchanged_seconds{project="station2-twin",source="cdc-rods-hfmd"} 109203
-dataops_source_unchanged_seconds{project="station2-twin",source="cdc-rods-ili"} 109217
-dataops_source_unchanged_seconds{project="station2-twin",source="cdc-tb-caremag"} 363467
-dataops_source_unchanged_seconds{project="station2-twin",source="cdc-tb-town"} 1907149
-dataops_source_unchanged_seconds{project="station2-twin",source="moi-admin-geography"} 1907308
-dataops_source_unchanged_seconds{project="station2-twin",source="moi-ris-village-education"} 1851488
-dataops_source_unchanged_seconds{project="station2-twin",source="moi-ris-village-population"} 1851595
+dataops_source_unchanged_seconds{project="station2-twin",source="cdc-nhi-covid"} 112885
+dataops_source_unchanged_seconds{project="station2-twin",source="cdc-nhi-diarrhea"} 112851
+dataops_source_unchanged_seconds{project="station2-twin",source="cdc-nhi-enterovirus"} 112877
+dataops_source_unchanged_seconds{project="station2-twin",source="cdc-nhi-herpangina"} 112860
+dataops_source_unchanged_seconds{project="station2-twin",source="cdc-nhi-hfmd"} 112868
+dataops_source_unchanged_seconds{project="station2-twin",source="cdc-nhi-ili"} 113809
+dataops_source_unchanged_seconds{project="station2-twin",source="cdc-nhi-influenza"} 113800
+dataops_source_unchanged_seconds{project="station2-twin",source="cdc-nhi-pneumonia"} 112893
+dataops_source_unchanged_seconds{project="station2-twin",source="cdc-nhi-scarlet-fever"} 112834
+dataops_source_unchanged_seconds{project="station2-twin",source="cdc-nhi-uri"} 112843
+dataops_source_unchanged_seconds{project="station2-twin",source="cdc-nhi-varicella"} 112826
+dataops_source_unchanged_seconds{project="station2-twin",source="cdc-rods-conjunctivitis"} 199524
+dataops_source_unchanged_seconds{project="station2-twin",source="cdc-rods-covid"} 112806
+dataops_source_unchanged_seconds{project="station2-twin",source="cdc-rods-diarrhea"} 112816
+dataops_source_unchanged_seconds{project="station2-twin",source="cdc-rods-enterovirus"} 112814
+dataops_source_unchanged_seconds{project="station2-twin",source="cdc-rods-herpangina"} 112808
+dataops_source_unchanged_seconds{project="station2-twin",source="cdc-rods-hfmd"} 112807
+dataops_source_unchanged_seconds{project="station2-twin",source="cdc-rods-ili"} 112821
+dataops_source_unchanged_seconds{project="station2-twin",source="cdc-tb-caremag"} 367071
+dataops_source_unchanged_seconds{project="station2-twin",source="cdc-tb-town"} 1910753
+dataops_source_unchanged_seconds{project="station2-twin",source="moi-admin-geography"} 1910912
+dataops_source_unchanged_seconds{project="station2-twin",source="moi-ris-village-education"} 1855093
+dataops_source_unchanged_seconds{project="station2-twin",source="moi-ris-village-population"} 1855199
 # HELP dataops_source_expected_interval_seconds How often the PUBLISHER says this source is updated, from their own catalogue. Absent for a source with no evidence -- absent on purpose, so nothing thresholds against a guess.
 # TYPE dataops_source_expected_interval_seconds gauge
 dataops_source_expected_interval_seconds{project="station2-twin",source="cdc-nhi-covid",provenance="declared"} 604800
@@ -343,4 +343,4 @@ dataops_yoy_geo_comparable_count{project="station2-twin",disease_id="33",disease
 dataops_yoy_geo_comparable_count{project="station2-twin",disease_id="35",disease="急性出血性結膜炎"} 3
 # HELP dataops_metrics_generated_timestamp_seconds When this file was written.
 # TYPE dataops_metrics_generated_timestamp_seconds gauge
-dataops_metrics_generated_timestamp_seconds 1789003642
+dataops_metrics_generated_timestamp_seconds 1789007247

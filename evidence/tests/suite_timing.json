@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-10T02:22:43Z",
-  "total_seconds": 359,
-  "measured_seconds": 359,
+  "generated_at": "2026-09-10T03:23:50Z",
+  "total_seconds": 337,
+  "measured_seconds": 337,
   "suite_count": 39,
   "platform_tiers": "1,2,3",
   "platform_suites": "",
@@ -20,9 +20,9 @@
       "rc": 0
     },
     {
-      "suite": "test_image_arch.sh",
-      "tier": 1,
-      "seconds": 26,
+      "suite": "test_data_contract_live.sh",
+      "tier": 2,
+      "seconds": 25,
       "rc": 0
     },
     {
@@ -32,27 +32,21 @@
       "rc": 0
     },
     {
-      "suite": "test_data_contract_live.sh",
-      "tier": 2,
-      "seconds": 24,
-      "rc": 0
-    },
-    {
       "suite": "test_mlops_metrics.sh",
       "tier": 1,
-      "seconds": 23,
+      "seconds": 22,
       "rc": 0
     },
     {
       "suite": "test_backup_coverage.sh",
       "tier": 3,
-      "seconds": 17,
+      "seconds": 21,
       "rc": 0
     },
     {
       "suite": "test_dataops_metrics.sh",
       "tier": 1,
-      "seconds": 14,
+      "seconds": 15,
       "rc": 0
     },
     {
@@ -64,13 +58,13 @@
     {
       "suite": "test_analytics_mirror.sh",
       "tier": 1,
-      "seconds": 7,
+      "seconds": 6,
       "rc": 0
     },
     {
       "suite": "test_health_rollup.sh",
       "tier": 1,
-      "seconds": 7,
+      "seconds": 6,
       "rc": 0
     },
     {
@@ -82,7 +76,7 @@
     {
       "suite": "test_llm_review.sh",
       "tier": 1,
-      "seconds": 3,
+      "seconds": 4,
       "rc": 0
     },
     {
@@ -122,12 +116,6 @@
       "rc": 0
     },
     {
-      "suite": "test_dashboards.sh",
-      "tier": 1,
-      "seconds": 2,
-      "rc": 0
-    },
-    {
       "suite": "test_capability_graph.sh",
       "tier": 1,
       "seconds": 2,
@@ -135,12 +123,6 @@
     },
     {
       "suite": "test_deploy_contract.sh",
-      "tier": 1,
-      "seconds": 1,
-      "rc": 0
-    },
-    {
-      "suite": "test_ingress.sh",
       "tier": 1,
       "seconds": 1,
       "rc": 0
@@ -158,12 +140,6 @@
       "rc": 0
     },
     {
-      "suite": "test_gha_status.sh",
-      "tier": 1,
-      "seconds": 1,
-      "rc": 0
-    },
-    {
       "suite": "test_runbook.sh",
       "tier": 1,
       "seconds": 1,
@@ -176,13 +152,31 @@
       "rc": 0
     },
     {
-      "suite": "test_redaction.sh",
+      "suite": "test_dashboards.sh",
       "tier": 1,
       "seconds": 1,
       "rc": 0
     },
     {
-      "suite": "test_doc_graph.sh",
+      "suite": "test_readme_index.sh",
+      "tier": 1,
+      "seconds": 1,
+      "rc": 0
+    },
+    {
+      "suite": "test_image_arch.sh",
+      "tier": 1,
+      "seconds": 1,
+      "rc": 0
+    },
+    {
+      "suite": "test_dast_coverage.sh",
+      "tier": 1,
+      "seconds": 1,
+      "rc": 0
+    },
+    {
+      "suite": "test_offline_report.sh",
       "tier": 1,
       "seconds": 1,
       "rc": 0
@@ -194,9 +188,21 @@
       "rc": 0
     },
     {
-      "suite": "test_duplicate_check.sh",
+      "suite": "test_doc_freshness.sh",
       "tier": 1,
       "seconds": 1,
+      "rc": 0
+    },
+    {
+      "suite": "test_migration_observed.sh",
+      "tier": 3,
+      "seconds": 1,
+      "rc": 0
+    },
+    {
+      "suite": "test_ingress.sh",
+      "tier": 1,
+      "seconds": 0,
       "rc": 0
     },
     {
@@ -206,13 +212,13 @@
       "rc": 0
     },
     {
-      "suite": "test_readme_index.sh",
+      "suite": "test_gha_status.sh",
       "tier": 1,
       "seconds": 0,
       "rc": 0
     },
     {
-      "suite": "test_dast_coverage.sh",
+      "suite": "test_redaction.sh",
       "tier": 1,
       "seconds": 0,
       "rc": 0
@@ -224,20 +230,14 @@
       "rc": 0
     },
     {
-      "suite": "test_offline_report.sh",
+      "suite": "test_doc_graph.sh",
       "tier": 1,
       "seconds": 0,
       "rc": 0
     },
     {
-      "suite": "test_doc_freshness.sh",
+      "suite": "test_duplicate_check.sh",
       "tier": 1,
-      "seconds": 0,
-      "rc": 0
-    },
-    {
-      "suite": "test_migration_observed.sh",
-      "tier": 3,
       "seconds": 0,
       "rc": 0
     }

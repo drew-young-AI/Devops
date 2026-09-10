@@ -20,6 +20,32 @@ repo。** 所以它裡面沒有任何外部連結，不解釋設計理由（那�
 
 ---
 
+## 零、全新 clone：這些檔案不會跟過來
+
+**`git clone` 之後平台不會動，而錯誤訊息不會告訴你為什麼。** 每一個憑證與
+執行環境檔都是 gitignored——那是刻意的（機密不進版控），代價是一份清單，
+就是這一張。
+
+**只有前三列是「起得來」的必要條件**，其餘是功能性的，缺了對應功能就是關的。
+
+| 缺什麼 | 症狀 | 用這個補 | 必要？ |
+|---|---|---|---|
+| `platform/vault/.init-output.json` | Vault 封著，**所有憑證都拿不到** | `platform/vault/scripts/init_and_unseal.sh` | **是** |
+| `pilots/station2-twin/.env.vault` | pilot 安靜地退回**靜態資料庫密碼** | `platform/vault/scripts/write_pilot_approle_env.sh station2-twin`（`platform/recover.sh` 會自己叫） | **是** |
+| `platform/analytics/venv/` | `platform/dataops/run.sh` 直接 exit 78 | `platform/analytics/setup.sh` | **是**（DataOps 指標） |
+| `platform/observability/.grafana.env` | Grafana 登不進去 | `platform/observability/scripts/setup_grafana_identity.sh` | 看板 |
+| `platform/vault/.station2-twin-approle.json` | K8s 那份沒有動態憑證 | `platform/k8s/station2-twin/sync_vault_secret.sh` | K8s 部署 |
+| `platform/notify/.telegram.env` | 告警送不出去（板面會說） | `platform/observability/scripts/setup_notifications.sh` | 通知 |
+| `platform/backup/.rclone.conf` | 異地備份 `not-configured` | `platform/backup/setup_rclone.sh` | 異地備份 |
+| `~/.kube/config` 的 `ubu` context | 連不到生產節點 | `platform/k8s/bootstrap_k3s.sh` | 生產節點 |
+
+**`.init-output.json` 沒有辦法「重建」——它只能被「初始化」，而初始化會產生
+一個全新的、空的 Vault。** 舊的機密不會回來。所以那一列的腳本只對**全新機器**
+有意義；如果你是在既有機器上弄丟了它，就是弄丟了整個 Vault。這也是
+`platform/vault/README.md` 說要把它移到這台機器以外的原因。
+
+---
+
 ## 一、四條指令（記住這四條就夠）
 
 ```bash
@@ -122,7 +148,7 @@ docker exec -e VAULT_TOKEN="$VT" -e VAULT_ADDR=http://127.0.0.1:8200 \
 | **GHCR（映像庫）** | — | Vault `secret/devops/ghcr` | — | — | 同上 |
 | **pilot 資料庫** | `twin` / db `twin` | 容器環境變數 | `pilots/station2-twin/.env`（由 `config.example.env` 複製） | **否**（範例檔才進版控） | `docker exec station2-twin-db-1 sh -c 'printf %s "$POSTGRES_PASSWORD"'` |
 | **pilot AppRole** | — | Vault（動態核發） | `platform/vault/.station2-twin-approle.json` | **否** | `platform/k8s/station2-twin/sync_vault_secret.sh` 重新核發 |
-| **生產節點 ssh** | `drew` | 你的 ssh 金鑰 | `~/.ssh/` | **否** | `ssh drew@ubu.local`（**用主機名，那台沒有保留 IP**） |
+| **生產節點 ssh** | `drew` | 你的 ssh 金鑰 | `~/.ssh/` | **否** | `ssh -4 drew@ubu.local`（**要 `-4`，理由見第七節**） |
 
 **三個 `.` 開頭的檔都是 gitignored。** 意思是：**換一台機器 clone 這個 repo，
 這三個檔都不會跟過去**——`.init-output.json` 沒有備份就等於整個 Vault 沒了，
@@ -208,11 +234,26 @@ platform/db/migrate.sh             # 套用 pilot 的 schema migration
 platform/k8s/bootstrap_k3s.sh                  # 建本機練習叢集（k3d）
 kubectl --context k3d-devops-lab get pods -A   # 本機
 kubectl --context ubu get nodes                # 生產節點（Ubuntu）
-ssh drew@ubu.local                             # 生產節點的殼
+ssh -4 drew@ubu.local                          # 生產節點的殼（-4 是必要的）
 ```
 
 **用主機名 `ubu.local`，不要記 IP。** 那台機器沒有 DHCP 保留位址，
 IP 已經在 `.143` 與 `.144` 之間漂移過三次；記在文件裡的數字會讓人停止查證。
+
+**但要加 `-4`。** 這個區網的 mDNS 有時只回一筆 **AAAA**（一個從這裡路由不到的
+全域 IPv6），而 ssh 偏好它。連線於是逾時、或報
+`Could not resolve hostname`——**兩種訊息都指向「機器關著」，而機器是開著的、
+22 埠也是開的**。這個誤診已經發生過兩次，才有人去看位址族。
+
+判斷順序（機器明明開著卻連不上時）：
+
+```bash
+dscacheutil -q host -a name ubu.local     # 只有 ipv6_address → 就是這個問題
+ssh -4 drew@ubu.local                     # 加了 -4 就會通
+```
+
+**一勞永逸的作法**（改你自己的 `~/.ssh/config`，這個 repo 不會去動它）：
+在 `Host ubu ubu.local` 那一段加一行 `AddressFamily inet`。
 
 ubu 上**沒有 Docker**（它跑 k3s over containerd），所以任何需要容器映像的
 腳本在那裡不能跑。

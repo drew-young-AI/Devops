@@ -204,6 +204,24 @@ assert_output_contains "vault kv get" \
 assert_output_contains "gitignored" \
   "and says which credential files do NOT travel with a fresh clone"
 
+# ---- the fresh-clone list must be complete and buildable --------------------
+#
+# WHY (2026-09-10). `git clone` gives you a repository that does not run, and
+# nothing says which files are missing -- they are gitignored on purpose, so
+# the reader gets a Vault that is sealed, a pilot that silently falls back to a
+# static password, and a dataops exporter that exits 78. Three different error
+# messages, one cause, and no list.
+#
+# Every recreate command in that section is checked by the executable loop
+# above; this asserts the section EXISTS and names the three that are load-
+# bearing, because a list missing its first row is worse than no list.
+assert_output_contains "全新 clone" "the fresh-clone section exists"
+assert_output_contains "init_and_unseal.sh" "and names how to get a Vault"
+assert_output_contains "write_pilot_approle_env.sh" \
+  "and how the pilot gets dynamic credentials instead of the static fallback"
+assert_output_contains "analytics/setup.sh" \
+  "and the venv the dataops exporter exits 78 without"
+
 # ---- one question, one file ------------------------------------------------
 #
 # The thing a first-time reader (or a weaker agent) actually gets stuck on is
@@ -213,8 +231,10 @@ assert_output_contains "gitignored" \
 assert_output_contains "docs/Backlog.md" "the register of what is not done is named"
 assert_output_contains "docs/decisions/index.md" "and the decision record index"
 assert_output_contains "Session-Handover.md" "and the agent entry point"
-assert_output_contains "ssh drew@ubu.local" \
-  "the production node is reached by hostname; its IP has drifted three times"
+assert_output_contains "ssh -4 drew@ubu.local" \
+  "the production node is reached by hostname AND forced to IPv4: mDNS here \
+sometimes answers with only an unroutable AAAA, and the resulting timeout \
+reads as 'the machine is off' when it is on"
 
 # ---- both entry commands must have their exit codes explained --------------
 #
