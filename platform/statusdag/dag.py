@@ -1375,6 +1375,82 @@ def _disk_verdict(avail, size, label):
     return OK, text
 
 
+def probe_analytics_mirror():
+    """The DuckDB mirror answers queries 300-425x faster, and can answer wrong.
+
+    The mirror is a COPY. A copy that has fallen behind still returns rows,
+    still returns them fast, and gives no sign that they are last week's --
+    which makes it the one component here whose failure mode is a confident
+    wrong answer rather than an error. `test_analytics_mirror.sh` already
+    asserts a mirror behind the ingest watermark refuses to answer; nothing
+    told the BOARD whether that had happened.
+
+    Compared against the database rather than against itself: a manifest that
+    says 6,534,845 rows is only evidence if surveillance_fact still holds
+    6,534,845 rows.
+    """
+    path = os.path.join(EVIDENCE, "analytics", "mirror_manifest.json")
+    data = load(path)
+    if not data:
+        return UNKNOWN, "沒有 mirror_manifest.json（mirror job 沒跑過）"
+    claimed = (data.get("watermark") or {}).get("fact_rows")
+    if claimed is None:
+        return UNKNOWN, "manifest 沒有 watermark.fact_rows"
+    actual = _n(psql("SELECT count(*) FROM surveillance_fact;"))
+    if actual is None:
+        return UNKNOWN, "資料庫無回應，無法比對鏡像"
+    hours = age_hours(data.get("built_at"))
+    if actual != claimed:
+        return FAIL, f"鏡像 {claimed:,} 列，資料庫 {actual:,} 列，差 {actual - claimed:+,}"
+    if hours is not None and hours > 24:
+        return WARN, f"{claimed:,} 列一致，但這份鏡像已 {hours:.0f} 小時"
+    return OK, f"{claimed:,} 列與資料庫一致"
+
+
+def probe_log_coverage():
+    """Loki running is not Loki receiving.
+
+    The `loki` node checks the container is up. A container that is up and
+    receiving nothing is the shape this platform keeps meeting -- the
+    Prometheus job watching a deleted service, the registered source that
+    stopped publishing. This reads what actually arrived.
+
+    An UNEXERCISED TENANT IS REPORTED, NOT ALARMED ON. `restricted` holds
+    PII-classified lines and has zero, which is what "nothing has been
+    classified restricted" looks like and also what "routing is broken" looks
+    like. Colouring it amber would assert a distinction the data cannot make,
+    so it is stated in the text and left to a reader who knows which.
+
+    An UNRECOGNISED CLASS is different and IS amber: a line whose class the
+    classifier does not know is a line whose handling nobody decided.
+    """
+    path = os.path.join(EVIDENCE, "statusdag", "loki_coverage.prom")
+    try:
+        with open(path, encoding="utf-8") as fh:
+            body = fh.read()
+    except OSError:
+        return UNKNOWN, "loki_coverage.prom 不存在（logcov job 沒跑過）"
+    vals, tenants = {}, {}
+    for m in re.finditer(r"^(devops_loki_\w+)(?:\{([^}]*)\})?\s+([0-9.e+-]+)$", body, re.M):
+        name, labels, value = m.group(1), m.group(2) or "", float(m.group(3))
+        t = dict(re.findall(r'(\w+)="([^"]*)"', labels)).get("tenant")
+        if t and name.endswith("lines_received_total"):
+            tenants[t] = value
+        elif not t:
+            vals[name] = value
+    if not tenants:
+        return UNKNOWN, "沒有任何租戶的行數指標——量到的是空的，不是沒問題"
+    total = sum(tenants.values())
+    idle = sorted(k for k, v in tenants.items() if v == 0)
+    tail = f"；{len(idle)} 個租戶未被使用（{', '.join(idle)}）" if idle else ""
+    unknown_class = vals.get("devops_loki_unrecognised_class_total", 0)
+    if total == 0:
+        return FAIL, "Loki 在跑，但一行日誌都沒收到"
+    if unknown_class:
+        return WARN, f"{unknown_class:.0f} 行的分類不被辨識——沒有人決定過怎麼處理{tail}"
+    return OK, f"{total:,.0f} 行／{len(tenants)} 個租戶{tail}"
+
+
 def probe_prod_node():
     """The production NODE, which is not the production cluster.
 
@@ -1764,29 +1840,42 @@ NODES = [
     ("sast",       "SAST 原始碼",         "source",      lambda: probe_gate("security/sast_summary_*.json", stale_hours=24 * 8)),
     ("secrets",    "Secret 歷史掃描",     "source",      probe_gitleaks),
 
-    ("ci",         "CI 建置",             "build",       probe_ci),
-    # Remote CI, distinct from the local build evidence above. Added 2026-08-31
-    # because GitHub Actions had been red for at least six days unnoticed.
+    # ci / trivy / registry / prodlike were REMOVED on 2026-09-10.
+    #
+    # They had been rendering as SUPERSEDED for weeks, which was honest about
+    # each one and dishonest in aggregate: `pct_strict` divides by every node,
+    # so four nodes that can never be `ok` again put a ceiling of 24/28 on a
+    # standard the platform owner had set at 90%. The board was reporting a
+    # shortfall that no amount of work could close.
+    #
+    # A retired node also becomes an orphan the moment its replacement is
+    # working: nothing points at it, its evidence lives only under
+    # evidence/_retired/, and the probe exists to say "this moved". That
+    # sentence belongs in a document, not in a denominator.
+    #
+    # Where each one's work went, so removing them does not lose the trail:
+    #   ci       -> gha              (build moved to GitHub Actions)
+    #   trivy    -> not measured     declared in COVERAGE below, not silent
+    #   registry -> not measured     ditto: the k3d-local registry has no node
+    #   prodlike -> bluegreen        (Compose production-like -> k8s blue/green)
     ("gha",        "GitHub Actions",      "build",       probe_github_actions),
-    ("trivy",      "映像漏洞掃描",         "build",       lambda: probe_gate("*/trivy_summary_*.json", stale_hours=24 * 30,
-                                                                      retired_note="已由 station1-hello 驗證後退役；k8s 映像走本機 registry")),
-    ("registry",   "Registry 推送",       "build",       probe_registry),
 
     ("develop",    "develop 部署",        "deploy",      lambda: probe_deploy("develop")),
     ("dast",       "DAST 執行中系統",      "verify",      lambda: probe_gate("security/dast_summary_*.json", stale_hours=48)),
     ("llmreview",  "LLM 複審",            "verify",      probe_llm_review),
     ("gate",       "真人 PROMOTE",        "gate",        probe_human_gate),
-    ("prodlike",   "production-like",     "release",     lambda: probe_deploy("production-like")),
     ("nginx",      "NGINX 入口",          "release",     lambda: probe_docker("nginx-nginx-1")),
 
     ("prometheus", "Prometheus 指標",     "observe",     probe_prometheus),
     ("loki",       "Loki 日誌",           "observe",     lambda: probe_docker("observability-loki-1")),
+    ("logcov",     "日誌真的有進來",      "observe",     probe_log_coverage),
     ("alertmgr",   "Alertmanager 告警",   "observe",     probe_alertmanager),
     ("grafana",    "Grafana 檢視",        "observe",     lambda: probe_docker("observability-grafana-1")),
 
     # --- DataOps（綠）---------------------------------------------------
     ("sources",    "來源登記",            "dataops",     probe_sources),
     ("srcfresh",   "來源仍在發布",        "dataops",     probe_source_freshness),
+    ("mirror",     "分析鏡像一致",        "dataops",     probe_analytics_mirror),
     ("geo",        "地理權威",            "dataops",     probe_geo),
     ("facts",      "事實載入",            "dataops",     probe_facts),
     ("lineage",    "血緣算術",            "dataops",     probe_lineage),
@@ -1811,30 +1900,122 @@ NODES = [
     ("prodk8s",    "prod 叢集 (ubu/amd64)", "k8s",       probe_prod_cluster),
 ]
 
+# --------------------------------------------------------------------------
+# COVERAGE LEDGER -- what exists, and which node has an opinion about it.
+#
+# WHY THIS EXISTS, AND WHY IT IS NOT ANOTHER TEST.
+#
+# Every guard in this repository was written after a specific failure. That
+# makes the guard set a LIST OF PAST FAILURES, not a covering set -- so each
+# review round finds new gaps, and finding them depends on somebody happening
+# to look. Six surfaces were found that way on 2026-09-10 alone (certificate
+# expiry, host disk, rotation coverage, IaC, source freshness, prod node
+# health), each with a working script and no node. Writing a seventh test
+# would not change that; it would add one more past failure to the list.
+#
+# This is a CLOSURE check instead. It enumerates the population -- every
+# service any compose file declares, every job the scheduler runs -- and
+# refuses unless each member is either mapped to a board node or written down
+# here as deliberately unmeasured, with a reason. A new service or job added
+# tomorrow FAILS THE SUITE until somebody says where it is measured.
+#
+# The difference that matters: a test answers "is this thing broken". This
+# answers "is there anything nobody is asking that question about". Only the
+# second one shrinks the unknown set on its own.
+#
+# LIVENESS VS OUTCOME. Every scheduler job's liveness is already covered by
+# the `scheduler` node, which fails when any job stops reporting. The node
+# named here is the one with an opinion about the job's RESULT -- and `None`
+# means no node judges the result, which is a real gap and is why the reason
+# is mandatory.
+COVERAGE = {
+    # -- containers ---------------------------------------------------------
+    "service:vault": "vault",
+    "service:prometheus": "prometheus",
+    "service:alertmanager": "alertmgr",
+    "service:loki": "loki",
+    "service:grafana": "grafana",
+    "service:nginx": "nginx",
+    "service:node-exporter": None,
+    "service:alloy": None,
+    "service:db": "facts",
+    "service:twin": "develop",
+
+    # -- scheduled jobs (result, not liveness) ------------------------------
+    "job:disk": "hostdisk",
+    "job:health": None,
+    "job:board": None,
+    "job:dag": None,
+    "job:stagereport": None,
+    "job:ingest": "srcfresh",
+    "job:ingestslow": "srcfresh",
+    "job:mirror": "mirror",
+    "job:dataops": "facts",
+    "job:mlopsmetrics": "backtest",
+    "job:audit": "audit",
+    "job:backup": "backup",
+    "job:offsite": "scheduler",
+    "job:dast": "dast",
+    "job:sast": "sast",
+    "job:restore": "restore",
+    "job:rotation": "rotation",
+    "job:retrain": "retrain",
+    "job:gha": "gha",
+    "job:rollup": None,
+    "job:dastcov": None,
+    "job:logcov": "logcov",
+    "job:catalog": None,
+}
+
+# A `None` above MUST appear here. The reason is the deliverable: an
+# unmeasured surface somebody wrote a sentence about is a decision; one that
+# is merely absent is the thing this ledger exists to stop.
+UNMEASURED = {
+    "service:node-exporter": "它是 dag.prom 送進 Prometheus 的唯一路徑。它死掉的症狀是"
+                             "「板面指標變舊」，由告警規則 HostDiskMetricsStale 一類的新鮮度"
+                             "規則抓到，而不是由節點。沒有節點直接判它。",
+    "service:alloy": "日誌從容器送到 Loki 的那一段。`logcov` 判的是「Loki 有沒有收到」，"
+                     "收不到時分不出是 alloy 死了還是沒有東西產生日誌。",
+    "job:health": "check_health.sh 的退出碼是給排程代理人看的，沒有節點判它的結論。",
+    "job:board": "板面產生它自己。它壞掉的症狀就是這份報告不存在，"
+                 "而一份不存在的報告沒有辦法報告自己不存在。",
+    "job:dag": "同上：dag.py 產生所有節點的狀態，沒有節點能判 dag.py 自己。"
+               "外部的守衛是 exporter_freshness_check.py 與新鮮度告警。",
+    "job:stagereport": "同 job:board。",
+    "job:rollup": "rollup_health.py 把 1,500 份健康快照收斂成一個答案，"
+                  "而那個答案沒有進板面。",
+    "job:dastcov": "DAST 掃到多少表面（dast_coverage.py）沒有節點——"
+                   "`dast` 節點只判最近一次掃描的判決，不判它掃了多少。",
+    "job:catalog": "來源目錄重新整理（discover_sources.py 一路）的結果沒有節點。"
+                   "`sources` 判登記筆數，`srcfresh` 判還在不在發布，"
+                   "都不判「目錄裡有沒有我們還沒登記的新來源」。",
+}
+
 # (from, to) -- "to depends on from".
 EDGES = [
     ("vault", "audit"),
-    ("vault", "ci"),          # CI reads the GHCR credential from Vault
+    ("vault", "gha"),         # the workflow reads the GHCR credential from Vault
     ("vault", "grafana"),     # Grafana's admin credential is sourced from Vault
     ("scheduler", "backup"),
     ("scheduler", "dast"),
     ("scheduler", "sast"),
     ("backup", "restore"),
 
-    ("sast", "ci"),
-    ("secrets", "ci"),
-    ("ci", "trivy"),
-    ("trivy", "registry"),
-    ("ci", "develop"),
+    # The source gates now gate the REMOTE build, because the local one is gone.
+    ("sast", "gha"),
+    ("secrets", "gha"),
+    ("gha", "develop"),
     ("develop", "dast"),
     ("develop", "llmreview"),
     ("dast", "gate"),
     ("llmreview", "gate"),
-    ("gate", "prodlike"),
-    ("prodlike", "nginx"),
+    # The human promote used to land on the Compose production-like copy. It
+    # lands on the Kubernetes blue/green Service now; the edge follows the work.
+    ("gate", "bluegreen"),
+    ("bluegreen", "nginx"),
 
     ("develop", "prometheus"),
-    ("prodlike", "prometheus"),
+    ("bluegreen", "prometheus"),
     ("prometheus", "alertmgr"),
     ("loki", "grafana"),
     ("prometheus", "grafana"),
@@ -1860,14 +2041,24 @@ EDGES = [
 
     # Kubernetes: 叢集是藍綠的底座；藍綠取代了 Compose 的 promote 路徑。
     ("k8s", "bluegreen"),
-    ("registry", "bluegreen"),
+    # ("registry", "bluegreen") went with the registry node. The image blue/green
+    # runs comes from the k3d-local registry, which now has NO node at all --
+    # declared in COVERAGE as unmeasured rather than left as a hole nobody
+    # wrote down.
 
     # prodk8s HAS NO EDGE, AND THAT IS THE ACCURATE STATE.
     #
     # It renders as an isolated node, which looks like an omission and is not.
-    # Nothing depends on the prod cluster because nothing runs there yet, and
-    # the prod cluster depends on the amd64 build chain -- which has no node,
-    # because .github/workflows/pilot-image.yml has never executed.
+    # Nothing depends on the prod cluster because nothing runs there yet.
+    #
+    # CORRECTED 2026-09-10. This comment used to add "and the prod cluster
+    # depends on the amd64 build chain -- which has no node, because
+    # pilot-image.yml has never executed". That workflow has now run three
+    # times (09-03, 09-08, 09-09) and amd64 images are in ghcr, verified by
+    # listing the tags. So ("gha", "prodk8s") is drawn below: it is the chain
+    # that produces the only image this cluster could run.
+    #
+    ("gha", "prodk8s"),
     #
     # The tempting edge is ("registry", "prodk8s"). It would be false: that
     # registry is the k3d one on this Mac, serving arm64 images the amd64 node

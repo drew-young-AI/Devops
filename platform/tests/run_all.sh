@@ -84,6 +84,12 @@ SUITES=(
   # green the day they were added, so every assertion has a control that
   # makes it red -- including a deliberately expired certificate fixture.
   test_foundation_nodes.sh
+  # The closure check. Not a test of a behaviour -- an enumeration of every
+  # service and scheduled job, refusing unless each is mapped to a node or
+  # written down as deliberately unmeasured. This is what stops the guard
+  # set from being a list of past failures that only grows when somebody
+  # happens to look.
+  test_coverage_closure.sh
   # The mlops half: a schema that says "many models" while the code had one,
   # hardcoded, with its name retyped as a literal in three places. This suite
   # asserts a SECOND family is registered and runnable, and that an

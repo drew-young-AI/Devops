@@ -48,9 +48,41 @@ regex in a dashboard; `RANK` in `dag.py` and again as a Grafana value mapping; a
 drift expression in an alert and again in a panel. **One definition, many
 readers** — never two copies.
 
-## 2026-09-10：六個「有腳本、沒節點」的表面
+## 2026-09-10：退役節點被刪掉，而不是被計進分母
 
-板面上多了 `certs`、`hostdisk`、`rotation`、`iac`、`srcfresh`、`prodhost`。六個都有既有腳本或既有指標、都沒有節點，
+`ci`／`trivy`／`registry`／`prodlike` 已移除。它們原本是 `superseded`——對每一個
+單獨看都誠實，**加總起來不誠實**：`pct_strict` 除的是全部節點，四個永遠不會再變綠
+的節點等於在 90% 的標準上壓了一個 85.7% 的天花板，**板面在報告一個做多少事都關不掉
+的差距**。
+
+一個被取代的節點也是孤兒：沒有東西指向它、證據只在 `evidence/_retired/` 底下、
+探針存在的唯一目的是說一句「這件事搬走了」。**那句話屬於文件，不屬於分母。**
+每一個的去向寫在 `dag.py` 的節點表註解裡（`ci`→`gha`、`prodlike`→`bluegreen`、
+`trivy`／`registry`→ 沒有量測，寫進下面的登記簿）。
+
+依賴邊跟著搬：`sast`／`secrets` 現在指向 `gha`（原本指向已刪的本機 `ci`），
+`gate`→`bluegreen`，`bluegreen`→`nginx`／`prometheus`。並新增 `gha`→`prodk8s`——
+原本的註解說「amd64 建置鏈沒有節點，因為那個 workflow 從未執行」，**那句話已經過期**：
+它跑過三次，amd64 映像實際列得出來。
+
+## 覆蓋率登記簿：為什麼每一輪都會找到新缺口
+
+`dag.py` 的 `COVERAGE` ＋ `platform/tests/test_coverage_closure.sh`。
+
+**根因不是執行不力，是方法的結構性上限**：這個 repo 的每一個守衛都是某次失敗之後
+寫的，所以守衛集合是一份**過去失敗清單**，不是覆蓋集合。它的成長方式是「有人剛好
+看到」。再寫一支測試只是在清單上多加一筆。
+
+而且測試回答的問題不對。測試回答「這個東西壞了嗎」；**沒有任何測試回答「有沒有東西
+是沒有人在問這個問題的」**——只有第二個問題會讓未知集合自己縮小。
+
+封閉檢查列舉母體（每份 compose 的服務、每個排程 job），要求每一個都對應到節點，
+或寫在 `UNMEASURED` 裡附上理由。實測往 `jobs.conf` 加一行就會紅。
+完整理由與它抓不到的三件事：[ADR-0019](../../docs/decisions/0019-guards-are-a-list-of-past-failures.md)。
+
+## 2026-09-10：八個「有腳本、沒節點」的表面
+
+板面上多了 `certs`、`hostdisk`、`rotation`、`iac`、`srcfresh`、`prodhost`、`mirror`、`logcov`。八個都有既有腳本或既有指標、都沒有節點，
 而且**都以同一種形狀失效**：一路正常，然後突然不正常，中間沒有斜率，也沒有人在看。
 
 | 節點 | 它問的問題 | 沒有它的時候 |
@@ -61,6 +93,8 @@ readers** — never two copies.
 | `iac` | 工作區裡的 IaC 現在驗不驗得過 | 這就是下面 gap #1 講了好幾個月的那件事 |
 | `srcfresh` | 登記的來源**還在發布嗎** | `sources` 只數登記筆數，而登記筆數在來源停掉時不會變小。第一天就抓到一個 |
 | `prodhost` | 生產**節點**本身健康嗎（kubelet 的壓力條件 ＋ 實際剩餘空間） | `prodk8s` 問的是「API server 回不回應、上面有沒有東西在跑」，這兩件事在一台磁碟滿了、kubelet 已經開始驅逐的機器上**都還是真的** |
+| `mirror` | DuckDB 鏡像的列數還跟資料庫一樣嗎 | 鏡像是**複本**。落後的複本照樣回傳、照樣很快，而且不會說那是上週的——這是這裡唯一「失效形式是自信的錯答案」的元件 |
+| `logcov` | 日誌**真的有進來**嗎 | `loki` 只看容器活著。活著而且什麼都沒收到，跟活著而且正常，在那個節點上長得一樣 |
 
 `prodhost` 讀 kubectl 而不是 ssh + df，是刻意的：那些條件是 kubelet 自己的，
 也就是**真的會導致驅逐的那一組**，而空間數字來自同一個 kubelet 的 stats 端點。

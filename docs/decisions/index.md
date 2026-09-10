@@ -26,5 +26,6 @@
 | 0016 | [上線模型的汰換規則：相對 2% 門檻，同分留任](0016-champion-challenger-replacement-margin.md) | 已採用 | 2026-09-08 | `pilots/station2-twin/mlops/run.sh publish_forecast.py --explain-gate` |
 | 0017 | [多專案的區隔用標籤，不用資料夾](0017-project-separation-is-a-label-not-a-folder.md) | 已採用 | 2026-09-09 | `platform/tests/dashboard_audit.py` |
 | 0018 | [刪除文件的判準是「理由有沒有被 ADR 接住」，不是「舊不舊」](0018-delete-a-document-only-when-an-adr-carries-its-reason.md) | 已採用 | 2026-09-09 | — |
+| 0019 | [守衛是一份「過去失敗清單」，不是覆蓋集合——改用對母體的封閉檢查](0019-guards-are-a-list-of-past-failures.md) | 已採用 | 2026-09-10 | `platform/tests/test_coverage_closure.sh` |
 
-共 18 筆。
+共 19 筆。

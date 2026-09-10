@@ -83,8 +83,8 @@ LINES = [
               "機密、身分、稽核軌跡與排程器——其他每一段都站在這上面"),
         stage("原始碼閘門", ["sast", "secrets"],
               "進建置之前擋下：原始碼弱點與歷史中的秘密"),
-        stage("建置與映像", ["ci", "gha", "trivy", "registry"],
-              "編譯、遠端 CI、映像漏洞掃描、推送到 registry"),
+        stage("建置與映像", ["gha"],
+              "遠端 CI 原生建置 arm64 與 amd64 兩份映像並推上 ghcr"),
         # prodk8s is the SECOND MACHINE (ADR-0008), on the same stage as the
         # lab cluster rather than a stage of its own: they are the same step of
         # the pipeline, executed on different hardware. Added here the same day
@@ -98,9 +98,9 @@ LINES = [
               "對執行中的系統掃描，以及模型複審"),
         stage("人工關卡", ["gate"],
               "上 production-like 需要真人按下去，刻意不自動"),
-        stage("上線", ["prodlike", "nginx"],
+        stage("上線", ["nginx"],
               "對外服務與入口"),
-        stage("觀測", ["prometheus", "loki", "alertmgr", "grafana"],
+        stage("觀測", ["prometheus", "loki", "logcov", "alertmgr", "grafana"],
               "指標、日誌、告警、檢視——平台能不能看見自己"),
         stage("備份與還原", ["backup", "restore"],
               "備份覆蓋率不得有漏；沒還原過的備份不算備份"),
@@ -115,7 +115,7 @@ LINES = [
               "同一張事實表容納縣市×週、鄉鎮×年、鄉鎮×日"),
         stage("血緣", ["lineage"],
               "檔案列數 = 接受 + 拒絕 + 重複，是資料庫約束不是報表"),
-        stage("契約", ["dcontract"],
+        stage("契約", ["dcontract", "mirror"],
               "資料契約進 CI；資料庫缺席時失敗而不是跳過"),
         stage("時間軸對照", ["epiweek"],
               "流行病學週要對得上日曆日，週資料與日資料才能結合"),

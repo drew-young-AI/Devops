@@ -1,9 +1,25 @@
 {
   "schema": "gha-status/1",
-  "fetched_at": "2026-09-10T15:18:24+08:00",
+  "fetched_at": "2026-09-10T16:18:30+08:00",
   "fetch_state": "ok",
   "detail": "fetched main",
   "runs": [
+    {
+      "conclusion": "success",
+      "createdAt": "2026-09-10T07:37:07Z",
+      "displayTitle": "feat(board): 生產節點本身沒有被量——prodk8s 綠著也可能是一台磁碟滿了的機器",
+      "status": "completed",
+      "url": "https://github.com/drew-young-AI/Devops/actions/runs/34450857259",
+      "workflowName": "Platform Tests"
+    },
+    {
+      "conclusion": "success",
+      "createdAt": "2026-09-10T07:23:52Z",
+      "displayTitle": "feat(board): 「登記了」不等於「還在發布」——srcfresh 第一天就抓到一個",
+      "status": "completed",
+      "url": "https://github.com/drew-young-AI/Devops/actions/runs/34449746816",
+      "workflowName": "Platform Tests"
+    },
     {
       "conclusion": "success",
       "createdAt": "2026-09-10T07:10:17Z",
@@ -66,22 +82,6 @@
       "displayTitle": "chore(evidence): 09-09 收尾產物",
       "status": "completed",
       "url": "https://github.com/drew-young-AI/Devops/actions/runs/34372513282",
-      "workflowName": "Platform Tests"
-    },
-    {
-      "conclusion": "success",
-      "createdAt": "2026-09-09T15:44:37Z",
-      "displayTitle": "fix(test): 對 gitignored 產物下斷言，本機綠 CI 紅——同一天第二次",
-      "status": "completed",
-      "url": "https://github.com/drew-young-AI/Devops/actions/runs/34372242544",
-      "workflowName": "Platform Tests"
-    },
-    {
-      "conclusion": "failure",
-      "createdAt": "2026-09-09T15:32:10Z",
-      "displayTitle": "feat(handover): 必備 runbook（無 agent、無網路可用）與有分母的完成度",
-      "status": "completed",
-      "url": "https://github.com/drew-young-AI/Devops/actions/runs/34370876548",
       "workflowName": "Platform Tests"
     }
   ]
