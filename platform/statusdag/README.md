@@ -48,9 +48,9 @@ regex in a dashboard; `RANK` in `dag.py` and again as a Grafana value mapping; a
 drift expression in an alert and again in a panel. **One definition, many
 readers** — never two copies.
 
-## 2026-09-10：五個「有腳本、沒節點」的表面
+## 2026-09-10：六個「有腳本、沒節點」的表面
 
-板面上多了 `certs`、`hostdisk`、`rotation`、`iac`、`srcfresh`。五個都有既有腳本或既有指標、都沒有節點，
+板面上多了 `certs`、`hostdisk`、`rotation`、`iac`、`srcfresh`、`prodhost`。六個都有既有腳本或既有指標、都沒有節點，
 而且**都以同一種形狀失效**：一路正常，然後突然不正常，中間沒有斜率，也沒有人在看。
 
 | 節點 | 它問的問題 | 沒有它的時候 |
@@ -60,6 +60,14 @@ readers** — never two copies.
 | `rotation` | 這次掃描**檢查了幾筆** | 掃描印 PASS 時不分「驗了 3 筆」還是「驗了 0 筆」。今天實測是 1/3，另外 2 筆豁免 |
 | `iac` | 工作區裡的 IaC 現在驗不驗得過 | 這就是下面 gap #1 講了好幾個月的那件事 |
 | `srcfresh` | 登記的來源**還在發布嗎** | `sources` 只數登記筆數，而登記筆數在來源停掉時不會變小。第一天就抓到一個 |
+| `prodhost` | 生產**節點**本身健康嗎（kubelet 的壓力條件 ＋ 實際剩餘空間） | `prodk8s` 問的是「API server 回不回應、上面有沒有東西在跑」，這兩件事在一台磁碟滿了、kubelet 已經開始驅逐的機器上**都還是真的** |
+
+`prodhost` 讀 kubectl 而不是 ssh + df，是刻意的：那些條件是 kubelet 自己的，
+也就是**真的會導致驅逐的那一組**，而空間數字來自同一個 kubelet 的 stats 端點。
+ssh 出來的數字沒有任何東西會據以行動。而且光看條件不夠——`DiskPressure` 要到
+kubelet 的驅逐門檻（約 85–90% 滿）才會翻 True，那時 pod 已經在被殺了，所以剩餘
+空間用**和 Mac 那台同一組門檻**另外判一次，取較早響的那個。兩台共用一份
+`DISK_FAIL_PCT`／`DISK_WARN_PCT`，不是各寫一份。
 
 **前四個節點加上去的那天全部是綠的，而那正是加它們的時機。** 也因為如此，每一條斷言
 都配了會讓它變紅的控制項——包含一張**故意過期的憑證夾具**（`platform/tests/fixtures/`，

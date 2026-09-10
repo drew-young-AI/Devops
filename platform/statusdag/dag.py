@@ -1356,6 +1356,101 @@ def probe_certificates():
     return OK, f"最快到期的是 {name}，剩 {days:.0f} 天；{tail}"
 
 
+# One definition, two readers. The Mac's disk and the production node's disk
+# are different measurements of the same question, and two copies of these
+# numbers would drift -- which is the failure statusdag/README.md lists four
+# times over (a threshold in install.sh and again in its test, LINES here and
+# again as a dashboard regex, RANK here and again as a Grafana mapping).
+DISK_FAIL_PCT = 5
+DISK_WARN_PCT = 15
+
+
+def _disk_verdict(avail, size, label):
+    pct = 100.0 * avail / size
+    text = f"{label}可用 {avail / 1e9:.0f}G／{size / 1e9:.0f}G（{pct:.0f}%）"
+    if pct < DISK_FAIL_PCT:
+        return FAIL, text
+    if pct < DISK_WARN_PCT:
+        return WARN, text
+    return OK, text
+
+
+def probe_prod_node():
+    """The production NODE, which is not the production cluster.
+
+    `prodk8s` asks whether the API server answers and whether anything is
+    running on it. Both can be true on a machine that is out of disk, under
+    memory pressure, or that kubelet has started evicting from. They are
+    different questions and they get different nodes, for the same reason the
+    lab cluster and the prod cluster are not one node: a single node covering
+    both goes green whenever EITHER answers.
+
+    Read through kubectl rather than ssh, deliberately. The conditions are
+    kubelet's own -- they are what will actually cause an eviction -- and the
+    filesystem figures come from the same kubelet's stats endpoint, so this
+    node reports what the thing making the decisions can see. An ssh + df
+    would report a number nothing acts on.
+
+    CONDITIONS ARE NOT ENOUGH ON THEIR OWN. DiskPressure only turns True at
+    kubelet's eviction threshold, around 85-90% full: by then pods are already
+    being killed. So the free-space percentage is judged too, at the same
+    thresholds the Mac's disk uses, and it is the earlier of the two signals.
+    """
+    rc, out = run(["kubectl", "config", "get-contexts", "-o", "name"], timeout=10)
+    if rc is None:
+        return UNKNOWN, "kubectl 無法執行"
+    if "ubu" not in (out or "").split():
+        return UNKNOWN, "kubeconfig 裡沒有 ubu context（bootstrap_k3s.sh 尚未跑過）"
+
+    rc, out, err = run_diag(["kubectl", "--context", "ubu", "--request-timeout=8s",
+                             "get", "node", "-o", "json"], timeout=15)
+    if rc != 0:
+        return UNKNOWN, "生產節點讀不到：" + " ".join((err or "").split())[:70]
+    try:
+        items = json.loads(out or "{}").get("items") or []
+    except json.JSONDecodeError:
+        return UNKNOWN, "kubectl 回的不是 JSON"
+    if not items:
+        # A cluster with no nodes is not a healthy cluster; it is an answer
+        # about nothing, and OK would be the vacuous green again.
+        return UNKNOWN, "叢集回應了，但一個節點也沒有"
+
+    bad, names = [], []
+    for node in items:
+        name = node.get("metadata", {}).get("name", "?")
+        names.append(name)
+        for c in node.get("status", {}).get("conditions") or []:
+            t, v = c.get("type"), c.get("status")
+            if t == "Ready" and v != "True":
+                bad.append(f"{name} 未就緒（{c.get('reason', '?')}）")
+            elif t in ("DiskPressure", "MemoryPressure", "PIDPressure") and v == "True":
+                bad.append(f"{name} {t}")
+    if bad:
+        return FAIL, "；".join(bad[:3])
+
+    # Free space, which turns amber long before kubelet starts evicting.
+    worst = None
+    for name in names:
+        rc, out, _ = run_diag(
+            ["kubectl", "--context", "ubu", "--request-timeout=8s", "get", "--raw",
+             f"/api/v1/nodes/{name}/proxy/stats/summary"], timeout=15)
+        if rc != 0:
+            continue
+        try:
+            fs = json.loads(out or "{}").get("node", {}).get("fs") or {}
+        except json.JSONDecodeError:
+            continue
+        avail, size = fs.get("availableBytes"), fs.get("capacityBytes")
+        if not avail or not size:
+            continue
+        v = _disk_verdict(avail, size, f"{name} ")
+        if worst is None or RANK.get(v[0], 0) > RANK.get(worst[0], 0):
+            worst = v
+    if worst is None:
+        return WARN, f"{len(names)} 個節點條件正常，但讀不到磁碟用量——沒有量到就不是沒事"
+    return worst
+
+
 def probe_host_disk():
     """The number that stopped this whole platform once, and was not measured.
 
@@ -1383,13 +1478,7 @@ def probe_host_disk():
     age_min = ((datetime.now(timezone.utc).timestamp() - gen) / 60.0) if gen else None
     if age_min is not None and age_min > 30:
         return WARN, f"讀數已 {age_min:.0f} 分鐘沒更新（disk job 每 5 分鐘）"
-    pct = 100.0 * avail / size
-    label = f"可用 {avail / 1e9:.0f}G／{size / 1e9:.0f}G（{pct:.0f}%）"
-    if pct < 5:
-        return FAIL, label
-    if pct < 15:
-        return WARN, label
-    return OK, label
+    return _disk_verdict(avail, size, "")
 
 
 def probe_secret_rotation():
@@ -1670,6 +1759,7 @@ NODES = [
     ("hostdisk",   "主機磁碟",            "foundation",  probe_host_disk),
     ("rotation",   "機密輪替",            "foundation",  probe_secret_rotation),
     ("iac",        "IaC 驗證",            "foundation",  probe_iac),
+    ("prodhost",   "prod 節點健康 (ubu)",  "k8s",        probe_prod_node),
 
     ("sast",       "SAST 原始碼",         "source",      lambda: probe_gate("security/sast_summary_*.json", stale_hours=24 * 8)),
     ("secrets",    "Secret 歷史掃描",     "source",      probe_gitleaks),

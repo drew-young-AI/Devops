@@ -222,4 +222,71 @@ else
   fi
 fi
 
+# ------------------------------------------------------- prod node health
+# `prodk8s` asks whether the API server answers and whether anything runs.
+# Both stay true on a machine that is out of disk or that kubelet has started
+# evicting from. Separate question, separate node -- and the fake kubectl below
+# is what makes the FAIL branches reachable without breaking a real machine
+# (CLAUDE.md section 5c: simulate the fault, do not create it).
+prodnode_probe() {  # <node-json> <stats-json>
+  python3 - "$FIX" "$1" "$2" <<'PY'
+import json, os, sys
+root, node_json, stats_json = sys.argv[1], sys.argv[2], sys.argv[3]
+sys.path.insert(0, os.path.join(os.getcwd(), "platform", "statusdag"))
+import dag
+
+def fake_run(cmd, timeout=25):
+    return 0, "ubu\nk3d-devops-lab\n"
+
+def fake_diag(cmd, timeout=25):
+    joined = " ".join(cmd)
+    if "stats/summary" in joined:
+        return (1, "", "no stats") if stats_json == "-" else (0, stats_json, "")
+    if "get" in cmd and "node" in cmd:
+        return 0, node_json, ""
+    return 1, "", "unexpected: " + joined
+
+dag.run, dag.run_diag = fake_run, fake_diag
+print("%s|%s" % dag.probe_prod_node())
+PY
+}
+
+node_doc() {  # <ready> <diskpressure>
+  cat <<JSON
+{"items":[{"metadata":{"name":"ubu"},"status":{"conditions":[
+ {"type":"Ready","status":"$1","reason":"KubeletReady"},
+ {"type":"DiskPressure","status":"$2","reason":"KubeletHasNoDiskPressure"},
+ {"type":"MemoryPressure","status":"False"},{"type":"PIDPressure","status":"False"}]}}]}
+JSON
+}
+stats_doc() {  # <avail-bytes> <capacity-bytes>
+  printf '{"node":{"fs":{"availableBytes":%s,"capacityBytes":%s}}}' "$1" "$2"
+}
+
+run_cmd prodnode_probe "$(node_doc True False)" "$(stats_doc 88000000000 105000000000)"
+assert_output_contains "ok|" "a Ready node with 84% free is green"
+
+run_cmd prodnode_probe "$(node_doc True True)" "$(stats_doc 88000000000 105000000000)"
+assert_output_contains "fail|" "DiskPressure is FAIL even while the free-space number still looks fine"
+assert_output_contains "DiskPressure" "and the condition is named"
+
+run_cmd prodnode_probe "$(node_doc False False)" "$(stats_doc 88000000000 105000000000)"
+assert_output_contains "fail|" "a NotReady node is FAIL"
+
+# The earlier signal. DiskPressure only flips at kubelet's eviction threshold,
+# by which time pods are already being killed; 10% free must already be amber.
+run_cmd prodnode_probe "$(node_doc True False)" "$(stats_doc 10000000000 105000000000)"
+assert_output_contains "warn|" "10% free is WARN before kubelet reports any pressure at all"
+run_cmd prodnode_probe "$(node_doc True False)" "$(stats_doc 2000000000 105000000000)"
+assert_output_contains "fail|" "2% free is FAIL"
+
+# A cluster that answers with no nodes is an answer about nothing.
+run_cmd prodnode_probe '{"items":[]}' "$(stats_doc 88000000000 105000000000)"
+assert_output_contains "unknown|" "a cluster reporting zero nodes is UNKNOWN, never OK"
+
+# Conditions fine, usage unreadable: not measured is not the same as not a
+# problem, and this is the half a conditions-only probe would call green.
+run_cmd prodnode_probe "$(node_doc True False)" "-"
+assert_output_contains "warn|" "healthy conditions with unreadable disk usage is WARN, not OK"
+
 suite_summary

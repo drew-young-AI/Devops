@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-10T07:22:12Z",
-  "total_seconds": 347,
-  "measured_seconds": 346,
+  "generated_at": "2026-09-10T07:35:32Z",
+  "total_seconds": 367,
+  "measured_seconds": 367,
   "suite_count": 40,
   "platform_tiers": "1,2,3",
   "platform_suites": "",
@@ -10,13 +10,19 @@
     {
       "suite": "test_bluegreen.sh",
       "tier": 3,
-      "seconds": 123,
+      "seconds": 122,
       "rc": 0
     },
     {
       "suite": "test_static.sh",
       "tier": 1,
-      "seconds": 51,
+      "seconds": 52,
+      "rc": 0
+    },
+    {
+      "suite": "test_data_contract_live.sh",
+      "tier": 2,
+      "seconds": 41,
       "rc": 0
     },
     {
@@ -26,21 +32,15 @@
       "rc": 0
     },
     {
-      "suite": "test_data_contract_live.sh",
-      "tier": 2,
-      "seconds": 25,
-      "rc": 0
-    },
-    {
       "suite": "test_mlops_metrics.sh",
       "tier": 1,
-      "seconds": 22,
+      "seconds": 25,
       "rc": 0
     },
     {
       "suite": "test_backup_coverage.sh",
       "tier": 3,
-      "seconds": 22,
+      "seconds": 21,
       "rc": 0
     },
     {
@@ -50,27 +50,27 @@
       "rc": 0
     },
     {
+      "suite": "test_analytics_mirror.sh",
+      "tier": 1,
+      "seconds": 8,
+      "rc": 0
+    },
+    {
       "suite": "verify_networkpolicy.sh",
       "tier": 3,
       "seconds": 8,
       "rc": 0
     },
     {
-      "suite": "test_analytics_mirror.sh",
-      "tier": 1,
-      "seconds": 6,
-      "rc": 0
-    },
-    {
       "suite": "test_health_rollup.sh",
       "tier": 1,
-      "seconds": 6,
+      "seconds": 7,
       "rc": 0
     },
     {
       "suite": "test_no_lookahead.sh",
       "tier": 2,
-      "seconds": 6,
+      "seconds": 5,
       "rc": 0
     },
     {
@@ -80,19 +80,19 @@
       "rc": 0
     },
     {
-      "suite": "test_llm_review.sh",
-      "tier": 1,
-      "seconds": 3,
-      "rc": 0
-    },
-    {
       "suite": "test_foundation_nodes.sh",
       "tier": 1,
-      "seconds": 3,
+      "seconds": 4,
       "rc": 0
     },
     {
       "suite": "test_model_registry.sh",
+      "tier": 1,
+      "seconds": 4,
+      "rc": 0
+    },
+    {
+      "suite": "test_llm_review.sh",
       "tier": 1,
       "seconds": 3,
       "rc": 0
@@ -105,18 +105,6 @@
     },
     {
       "suite": "test_check_health.sh",
-      "tier": 1,
-      "seconds": 2,
-      "rc": 0
-    },
-    {
-      "suite": "test_stage_report.sh",
-      "tier": 1,
-      "seconds": 2,
-      "rc": 0
-    },
-    {
-      "suite": "test_host_capacity.sh",
       "tier": 1,
       "seconds": 2,
       "rc": 0
@@ -146,13 +134,13 @@
       "rc": 0
     },
     {
-      "suite": "test_network_exposure.sh",
+      "suite": "test_stage_report.sh",
       "tier": 1,
       "seconds": 1,
       "rc": 0
     },
     {
-      "suite": "test_gha_status.sh",
+      "suite": "test_decisions.sh",
       "tier": 1,
       "seconds": 1,
       "rc": 0
@@ -170,6 +158,18 @@
       "rc": 0
     },
     {
+      "suite": "test_host_capacity.sh",
+      "tier": 1,
+      "seconds": 1,
+      "rc": 0
+    },
+    {
+      "suite": "test_readme_index.sh",
+      "tier": 1,
+      "seconds": 1,
+      "rc": 0
+    },
+    {
       "suite": "test_image_arch.sh",
       "tier": 1,
       "seconds": 1,
@@ -182,13 +182,13 @@
       "rc": 0
     },
     {
-      "suite": "test_approle_env.sh",
+      "suite": "test_offline_report.sh",
       "tier": 1,
       "seconds": 1,
       "rc": 0
     },
     {
-      "suite": "test_doc_graph.sh",
+      "suite": "test_loki_coverage.sh",
       "tier": 1,
       "seconds": 1,
       "rc": 0
@@ -206,19 +206,25 @@
       "rc": 0
     },
     {
+      "suite": "test_migration_observed.sh",
+      "tier": 3,
+      "seconds": 1,
+      "rc": 0
+    },
+    {
       "suite": "test_ingress.sh",
       "tier": 1,
       "seconds": 0,
       "rc": 0
     },
     {
-      "suite": "test_decisions.sh",
+      "suite": "test_network_exposure.sh",
       "tier": 1,
       "seconds": 0,
       "rc": 0
     },
     {
-      "suite": "test_readme_index.sh",
+      "suite": "test_gha_status.sh",
       "tier": 1,
       "seconds": 0,
       "rc": 0
@@ -230,20 +236,14 @@
       "rc": 0
     },
     {
-      "suite": "test_offline_report.sh",
+      "suite": "test_approle_env.sh",
       "tier": 1,
       "seconds": 0,
       "rc": 0
     },
     {
-      "suite": "test_loki_coverage.sh",
+      "suite": "test_doc_graph.sh",
       "tier": 1,
-      "seconds": 0,
-      "rc": 0
-    },
-    {
-      "suite": "test_migration_observed.sh",
-      "tier": 3,
       "seconds": 0,
       "rc": 0
     }

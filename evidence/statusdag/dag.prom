@@ -45,6 +45,11 @@ devops_node_state{node="iac",layer="foundation",state="superseded"} 0
 devops_node_state{node="iac",layer="foundation",state="warn"} 0
 devops_node_state{node="iac",layer="foundation",state="unknown"} 0
 devops_node_state{node="iac",layer="foundation",state="fail"} 0
+devops_node_state{node="prodhost",layer="k8s",state="ok"} 1
+devops_node_state{node="prodhost",layer="k8s",state="superseded"} 0
+devops_node_state{node="prodhost",layer="k8s",state="warn"} 0
+devops_node_state{node="prodhost",layer="k8s",state="unknown"} 0
+devops_node_state{node="prodhost",layer="k8s",state="fail"} 0
 devops_node_state{node="sast",layer="source",state="ok"} 1
 devops_node_state{node="sast",layer="source",state="superseded"} 0
 devops_node_state{node="sast",layer="source",state="warn"} 0
@@ -216,6 +221,7 @@ devops_node_state_code{node="certs",layer="foundation"} 0
 devops_node_state_code{node="hostdisk",layer="foundation"} 0
 devops_node_state_code{node="rotation",layer="foundation"} 0
 devops_node_state_code{node="iac",layer="foundation"} 0
+devops_node_state_code{node="prodhost",layer="k8s"} 0
 devops_node_state_code{node="sast",layer="source"} 0
 devops_node_state_code{node="secrets",layer="source"} 0
 devops_node_state_code{node="ci",layer="build"} 1
@@ -259,6 +265,7 @@ devops_node_impacted{node="certs"} 0
 devops_node_impacted{node="hostdisk"} 0
 devops_node_impacted{node="rotation"} 0
 devops_node_impacted{node="iac"} 0
+devops_node_impacted{node="prodhost"} 0
 devops_node_impacted{node="sast"} 0
 devops_node_impacted{node="secrets"} 0
 devops_node_impacted{node="ci"} 0
@@ -293,4 +300,4 @@ devops_node_impacted{node="bluegreen"} 0
 devops_node_impacted{node="prodk8s"} 0
 # HELP devops_board_generated_seconds Unix time this board was built.
 # TYPE devops_board_generated_seconds gauge
-devops_board_generated_seconds 1789024635
+devops_board_generated_seconds 1789025561
