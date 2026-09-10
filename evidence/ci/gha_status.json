@@ -1,9 +1,25 @@
 {
   "schema": "gha-status/1",
-  "fetched_at": "2026-09-10T22:49:26+08:00",
+  "fetched_at": "2026-09-10T23:19:29+08:00",
   "fetch_state": "ok",
   "detail": "fetched main",
   "runs": [
+    {
+      "conclusion": "success",
+      "createdAt": "2026-09-10T15:17:48Z",
+      "displayTitle": "feat(board): 第三個維度——讀證據的人和寫證據的人對不對得上",
+      "status": "completed",
+      "url": "https://github.com/drew-young-AI/Devops/actions/runs/34494699475",
+      "workflowName": "pilot-image"
+    },
+    {
+      "conclusion": "success",
+      "createdAt": "2026-09-10T15:17:48Z",
+      "displayTitle": "feat(board): 第三個維度——讀證據的人和寫證據的人對不對得上",
+      "status": "completed",
+      "url": "https://github.com/drew-young-AI/Devops/actions/runs/34494699692",
+      "workflowName": "Platform Tests"
+    },
     {
       "conclusion": "success",
       "createdAt": "2026-09-10T14:30:53Z",
@@ -66,22 +82,6 @@
       "displayTitle": "fix(alerting): 告警通道有 74% 送不出去，而唯一的證據活在沒人抓的行程裡",
       "status": "completed",
       "url": "https://github.com/drew-young-AI/Devops/actions/runs/34444363402",
-      "workflowName": "Platform Tests"
-    },
-    {
-      "conclusion": "success",
-      "createdAt": "2026-09-10T03:26:37Z",
-      "displayTitle": "chore(evidence): 09-10 產物",
-      "status": "completed",
-      "url": "https://github.com/drew-young-AI/Devops/actions/runs/34433347169",
-      "workflowName": "Platform Tests"
-    },
-    {
-      "conclusion": "success",
-      "createdAt": "2026-09-10T03:24:39Z",
-      "displayTitle": "fix(reachability): ssh 到生產節點會間歇失敗，而錯誤訊息指向「機器關著」",
-      "status": "completed",
-      "url": "https://github.com/drew-young-AI/Devops/actions/runs/34433222347",
       "workflowName": "Platform Tests"
     }
   ]
