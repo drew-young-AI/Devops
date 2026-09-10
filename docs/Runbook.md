@@ -63,23 +63,70 @@ platform/vault/scripts/init_and_unseal.sh
 
 ---
 
-## 三、憑證在哪（不要去別的地方找）
+## 三、憑證：不是「有一把密碼」，是「你自己拿得到」
 
-| 要什麼 | 在哪 | 怎麼拿 |
-|---|---|---|
-| Vault 解封金鑰／root token | `platform/vault/.init-output.json` | 這是唯一一份，**沒有備份就沒有 Vault** |
-| Grafana 管理員 | Vault `secret/devops/grafana-admin` | `grep GF_SECURITY_ADMIN_PASSWORD platform/observability/.grafana.env` |
-| 資料庫 | 容器環境變數 | `docker exec station2-twin-db-1 sh -c 'printf %s "$POSTGRES_PASSWORD"'` |
+**這一節的判準是：一個沒有 AI、沒有網路的人，照著做就拿得到，不用問任何人。**
+上一版只寫了「解封金鑰在 `.init-output.json`」——那句話告訴你密碼存在，
+沒告訴你怎麼用，而讀的人會撞在 `permission denied` 上然後卡住。
 
-`.grafana.env` 是**可丟棄的傳遞檔**，不是第二個真實來源。密碼跟 Vault 不一致
-時（例如瀏覽器存了舊的），重置並覆蓋：
+**這裡不寫任何密碼的值。** 寫的是帳號、位置、與取出的指令。
+
+### 第 0 步：所有東西都在 Vault 後面，先進得去
 
 ```bash
-platform/observability/scripts/setup_grafana_identity.sh
+cd /Users/drew/ENV/Devops
+
+# 1. Vault 封著的話先解封（重開機後一定是封的）
+platform/vault/scripts/init_and_unseal.sh        # 需要 5 把裡的 3 把，腳本自己讀
+
+# 2. 拿 root token（它在這個檔的 root_token 欄位）
+VT=$(python3 -c "import json;print(json.load(open('platform/vault/.init-output.json'))['root_token'])")
+
+# 3. 列出有哪些機密
+docker exec -e VAULT_TOKEN="$VT" -e VAULT_ADDR=http://127.0.0.1:8200 \
+  vault-vault-1 vault kv list secret/devops
+
+# 4. 取一筆（-field 只印那一個欄位，不會把整包倒出來）
+docker exec -e VAULT_TOKEN="$VT" -e VAULT_ADDR=http://127.0.0.1:8200 \
+  vault-vault-1 vault kv get -field=username secret/devops/grafana-admin
+docker exec -e VAULT_TOKEN="$VT" -e VAULT_ADDR=http://127.0.0.1:8200 \
+  vault-vault-1 vault kv get -field=password secret/devops/grafana-admin
 ```
 
-它從 Vault 取值、重設 Grafana 現行密碼、重寫 `.grafana.env`，並驗證預設的
-`admin/admin` 已不被接受。**過程中不印出任何密碼。**
+**`VAULT_ADDR` 一定要給。** 少了它，`vault` 指令會去問 `https://127.0.0.1:8200`
+（預設是 https），Vault 是 http，於是錯誤訊息講的是 TLS 而不是位址。
+
+### 憑證清單
+
+| 要什麼 | 帳號 | 真實來源 | 實體檔案 | 進版控？ | 怎麼拿 |
+|---|---|---|---|---|---|
+| **Vault 主鑰** | — | 這個檔本身 | `platform/vault/.init-output.json` | **否**（gitignored） | 5 把 unseal key（門檻 3）在 `unseal_keys_b64`，root token 在 `root_token` |
+| **Grafana 管理員** | `admin` | Vault `secret/devops/grafana-admin` | `platform/observability/.grafana.env` | **否** | 上面第 4 步；或 `grep GF_SECURITY_ADMIN_PASSWORD platform/observability/.grafana.env` |
+| **GitHub token** | — | Vault `secret/devops/github` | — | — | 上面第 4 步，`-field=password` |
+| **GHCR（映像庫）** | — | Vault `secret/devops/ghcr` | — | — | 同上 |
+| **pilot 資料庫** | `twin` / db `twin` | 容器環境變數 | `pilots/station2-twin/.env`（由 `config.example.env` 複製） | **否**（範例檔才進版控） | `docker exec station2-twin-db-1 sh -c 'printf %s "$POSTGRES_PASSWORD"'` |
+| **pilot AppRole** | — | Vault（動態核發） | `platform/vault/.station2-twin-approle.json` | **否** | `platform/k8s/station2-twin/sync_vault_secret.sh` 重新核發 |
+| **生產節點 ssh** | `drew` | 你的 ssh 金鑰 | `~/.ssh/` | **否** | `ssh drew@ubu.local`（**用主機名，那台沒有保留 IP**） |
+
+**三個 `.` 開頭的檔都是 gitignored。** 意思是：**換一台機器 clone 這個 repo，
+這三個檔都不會跟過去**——`.init-output.json` 沒有備份就等於整個 Vault 沒了，
+另外兩個可以由腳本重建（見下）。
+
+### 不一致或不見了怎麼辦
+
+| 症狀 | 做什麼 |
+|---|---|
+| Grafana 登不進去 | `platform/observability/scripts/setup_grafana_identity.sh` — 從 Vault 取值、重設現行密碼、重寫 `.grafana.env`，並驗證 `admin/admin` 已不被接受。**過程中不印密碼。** 瀏覽器存的舊帳密要自己更新（帳號是 `admin`） |
+| `.grafana.env` 不見 | 同上一格。它是**可丟棄的傳遞檔**，不是第二個真實來源 |
+| AppRole 過期／不見 | `platform/k8s/station2-twin/sync_vault_secret.sh` |
+| `.init-output.json` 不見 | **沒有救。** 這是唯一一份主鑰。這也是為什麼 `platform/vault/README.md` 說要把它移到這台機器以外 |
+
+### 已知缺口：程式引用了一筆不存在的機密
+
+`platform/notify/setup_mail.sh` 讀 `secret/devops/smtp`，而 Vault 裡**沒有這一筆**
+（`vault kv get` 回 `No value found`）。這就是板面上 `alertmgr` 說
+「宣告了但沒接上: email」的實際原因——不是程式壞了，是那筆機密從來沒被建立。
+建立它需要一組真的 SMTP 帳密，那是使用者的事（Backlog B 系列）。
 
 ---
 
@@ -172,7 +219,36 @@ platform/tests/run_all.sh 2>&1 | tail -20    # 5. 證明契約還成立
 
 ---
 
-## 九、「做完多少了」——不要用讀的，用產生的
+## 九、重點文件在哪：一個問題對一份檔案
+
+**第一次接手的人（或能力較弱的 agent）最容易卡在「這件事該去哪裡查」。**
+下面是最小的對照表，順序就是第一次 review 的建議順序。
+
+| 你要問的 | 去這一份 | 它答得了什麼、答不了什麼 |
+|---|---|---|
+| **怎麼把它跑起來、憑證怎麼拿** | `docs/Runbook.md`（本檔） | 只給必備操作。**不給設計理由** |
+| 現在哪裡是紅的 | `platform/statusdag/dag.py --json` 的輸出 | 這是平台**對自己的判定**，不是文件記載。跟任何文件衝突時以它為準 |
+| 做完多少了 | `docs/Stage-Report.md`「三條線的完成度」 | 分母是節點，並附阻擋者的歸屬。**產生式，不要手改** |
+| 某個決定為什麼是這樣 | `docs/decisions/index.md`（18 筆 ADR） | 帶量測的都附 `rerun:` 指令。**它答不了「現在的狀態」** |
+| 還沒做的、以及什麼時候該做 | `docs/Backlog.md` §27 | 每一項附觸發條件。B1–B10 是**只有使用者能做**的 |
+| 某一層怎麼運作 | 該層的 `platform/<層>/README.md` | 每份末尾都有一張能力表（何時跑／做什麼／保證什麼） |
+| 這個 pilot 怎麼跑、資料從哪來 | `pilots/station2-twin/README.md` | 含啟動方式與為什麼不能自己 `compose up` |
+| **AI agent 接手** | `docs/Session-Handover.md`（Claude）、`AGENTS.md`（其他家） | 開場指令、讀的順序、**會再遇到的 10 個坑** |
+| 生產節點（Ubuntu） | `docs/Ubu-Prod-Bringup.md` | 用 `ssh drew@ubu.local`，**不要記 IP** |
+
+### 給能力較弱的 agent 的三條路由規則
+
+1. **不要用讀的推測狀態。** 現況一律由指令產生（上表第二、三列）。
+   手寫的現況頁在這個 repo 已經有過兩份，其中一份對長官說反了。
+2. **跟不了反引號。** 文件裡寫成 `` `platform/x/README.md` `` 的東西，
+   agent 點不進去也搜不到；能點的連結才算可達。這條規則的來歷見
+   `docs/Reachability.md`。
+3. **改東西之前先看 `docs/Backlog.md` §27。** 規則是「只登記，不實作」，
+   例外是**修好既有東西的缺陷**——那不算新增範圍。
+
+---
+
+## 十、「做完多少了」——不要用讀的，用產生的
 
 ```bash
 python3 platform/statusdag/stage_report.py     # 重新產生三種格式
@@ -187,7 +263,7 @@ grep -A 8 "三條線的完成度" docs/Stage-Report.md
 
 ---
 
-## 九、這份手冊沒有寫的，以及它們在哪
+## 十一、這份手冊沒有寫的，以及它們在哪
 
 | 要找什麼 | 去哪 |
 |---|---|

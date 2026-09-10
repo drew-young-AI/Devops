@@ -364,6 +364,30 @@ def probe_restore_drill():
     return OK, f"passed {hours / 24:.1f}d ago" if hours else "passed"
 
 
+def _ready_body():
+    """The readiness endpoint's own words, or None if it did not answer.
+
+    `http_probe` reports reachable/not; when a copy answers 503 the REASON is in
+    the body, and 「schema_mismatch, expected 17, actual 18」 is the difference
+    between a five-second fix and an afternoon.
+    """
+    try:
+        import ssl
+        ctx = ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
+        with urllib.request.urlopen(
+                "http://127.0.0.1:18090/health/ready", timeout=4, context=ctx) as r:
+            return r.read(200).decode("utf-8", "replace")
+    except urllib.error.HTTPError as exc:
+        try:
+            return exc.read(200).decode("utf-8", "replace")
+        except Exception:
+            return f"HTTP {exc.code}"
+    except Exception:
+        return None
+
+
 def probe_deploy(env):
     if env == "develop":
         files = sorted(glob.glob(os.path.join(
@@ -375,7 +399,34 @@ def probe_deploy(env):
             return UNKNOWN, "no deploy evidence"
         if data.get("health_status") != "healthy":
             return FAIL, f"health={data.get('health_status')}"
-        return OK, f"sha {data.get('commit_sha', '?')}"
+        # DEPLOYED IS NOT SERVING (2026-09-10).
+        #
+        # Everything above reads the evidence file written AT DEPLOY TIME. It
+        # answers "did the last deployment succeed", which stops being the same
+        # question the moment anything changes underneath the running copy.
+        #
+        # Found by walking the platform as a first-time reader would: the pilot
+        # README had no start instructions, and writing them meant running the
+        # readiness check by hand. The develop copy had been answering
+        # `{"status": "schema_mismatch", "expected": 17, "actual": 18}` for
+        # thirteen hours -- migration 018 moved the database while that
+        # container kept the environment it was started with -- and this node
+        # said `ok` the entire time, because the deployment really had
+        # succeeded, the previous day.
+        #
+        # The readiness endpoint is the one that knows. It is asked here rather
+        # than trusted from a file, and a copy that cannot be reached is UNKNOWN
+        # rather than FAIL: the pilot is allowed to be stopped, and a node that
+        # goes red for a service nobody asked to be running gets ignored.
+        sha = data.get("commit_sha", "?")
+        ok, detail = http_probe("http://127.0.0.1:18090/health/ready", timeout=4)
+        if not ok:
+            body = _ready_body()
+            if body is None:
+                return UNKNOWN, f"sha {sha}，但這份副本沒有回應（可能沒在跑）"
+            return FAIL, (f"已部署 sha {sha}，但**沒有在服務**："
+                          f"{body}")
+        return OK, f"sha {sha}，readiness 通過"
     # Globbed like every other probe rather than naming one pilot. The
     # hardcoded path here outlived the pilot it named: after station1-hello was
     # retired this would have kept reporting its last promote as the platform's

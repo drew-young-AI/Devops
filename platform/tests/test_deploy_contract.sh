@@ -120,4 +120,35 @@ run_cmd "$DEPLOY" promote "$PILOT"
 assert_rc 1 "promote still blocked by the real gate, not by the LLM verdict"
 assert_output_contains "not healthy" "the blocking reason is the develop gate, not the LLM"
 
+
+# ---- deployed is not serving ------------------------------------------------
+#
+# WHY (2026-09-10). `probe_deploy("develop")` read the evidence file written AT
+# DEPLOY TIME and reported `ok` from it. That answers "did the last deployment
+# succeed", which stops being the same question the moment anything changes
+# under the running copy.
+#
+# Found by walking the platform as a first-time reader: the pilot README had no
+# start instructions, and writing them meant running the readiness check by
+# hand. The develop copy had been answering
+#   {"status": "schema_mismatch", "expected": 17, "actual": 18}
+# for thirteen hours -- migration 018 moved the database while that container
+# kept the environment it was started with -- and the node said `ok` throughout,
+# because the deployment really had succeeded, the day before.
+#
+# STUBS, NOT CONTAINERS. The three states are produced by replacing the HTTP
+# call, so this costs milliseconds and does not restart anything. The real
+# transition was verified once by hand against the live copy (green -> red with
+# the mismatch quoted -> green after recover.sh); what has to be permanent is
+# that the three cases stay DISTINCT.
+run_cmd python3 "$SUITE_DIR/assert_develop_serving.py"
+assert_rc 0 "the develop probe classifies serving / not-serving / absent"
+assert_output_contains "SERVING ok" "a copy that answers readiness is green"
+assert_output_contains "MISMATCH fail" \
+  "a DEPLOYED copy that is not serving is RED -- deploy evidence alone said ok for 13h"
+assert_output_contains "schema_mismatch" \
+  "and the reason is quoted, because 'not serving' sends you nowhere"
+assert_output_contains "ABSENT unknown" \
+  "a copy that is not running at all is UNKNOWN, not FAIL: it is allowed to be stopped"
+
 suite_summary

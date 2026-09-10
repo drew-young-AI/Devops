@@ -1,9 +1,17 @@
 {
   "schema": "gha-status/1",
-  "fetched_at": "2026-09-09T23:46:59+08:00",
+  "fetched_at": "2026-09-10T09:47:55+08:00",
   "fetch_state": "ok",
   "detail": "fetched main",
   "runs": [
+    {
+      "conclusion": "success",
+      "createdAt": "2026-09-09T15:47:05Z",
+      "displayTitle": "chore(evidence): 09-09 收尾產物",
+      "status": "completed",
+      "url": "https://github.com/drew-young-AI/Devops/actions/runs/34372513282",
+      "workflowName": "Platform Tests"
+    },
     {
       "conclusion": "success",
       "createdAt": "2026-09-09T15:44:37Z",
@@ -75,14 +83,6 @@
       "status": "completed",
       "url": "https://github.com/drew-young-AI/Devops/actions/runs/34349934323",
       "workflowName": "IaC Validation"
-    },
-    {
-      "conclusion": "failure",
-      "createdAt": "2026-09-09T12:15:02Z",
-      "displayTitle": "chore(evidence): 09-09 產物與 grafana-admin 的輪替期限",
-      "status": "completed",
-      "url": "https://github.com/drew-young-AI/Devops/actions/runs/34349934201",
-      "workflowName": "Platform Tests"
     }
   ]
 }

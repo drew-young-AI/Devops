@@ -1,7 +1,7 @@
 {
   "generated_by": "platform/docs/capability_graph.py --catalog",
   "root": "README.md",
-  "count": 98,
+  "count": 102,
   "capabilities": [
     {
       "path": "pilots/station2-twin/app/app.py",
@@ -93,6 +93,15 @@
       "what": "建立預測特徵集，並記錄它從哪裡來",
       "guarantee": "血緣寫入 feature_set / feature_row，每個特徵都回溯得到事實表",
       "run": "pilots/station2-twin/mlops/build_features.py"
+    },
+    {
+      "path": "pilots/station2-twin/mlops/policy_backtest.py",
+      "described": true,
+      "described_in": "platform/mlops/README.md",
+      "when": "retrain.sh 第 5 步，每週；也可手動",
+      "what": "把發布決策在整段歷史上逐週重放：每個原點閘門選誰、發不發、發出去的數字對上真的發生的那一週如何",
+      "guarantee": "三道洩漏門都堵住（配適走 fit_one、選擇只能用當時的誤差、基準只在同一組原點上算）。它是模擬，指標前綴 mlops_policy_backtest_ 與實績永不相加",
+      "run": "pilots/station2-twin/mlops/policy_backtest.py"
     },
     {
       "path": "pilots/station2-twin/mlops/publish_forecast.py",
@@ -461,6 +470,15 @@
       "run": "platform/mlops/model_registry.py"
     },
     {
+      "path": "platform/mlops/pipeline_metrics.py",
+      "described": true,
+      "described_in": "platform/mlops/README.md",
+      "when": "排程，每小時（jobs.conf 的 mlopsmetrics）",
+      "what": "把模型層的數字寫成 Prometheus textfile：對基準的相對優勢、各時程有沒有通過過閘門、事後評分、距上次重訓",
+      "guarantee": "只出數字不下判斷——門檻全部在 alerts/mlops.yml。2026-09-08 之前這一層在 Prometheus 有 0 個指標（devops_ 20 個、dataops_ 15 個），整層只有看板上的燈",
+      "run": "platform/mlops/pipeline_metrics.py"
+    },
+    {
       "path": "platform/mlops/promotion_policy.py",
       "described": true,
       "described_in": "platform/mlops/README.md",
@@ -468,6 +486,15 @@
       "what": "挑戰者何時取代現役模型：六種判定（BOOTSTRAP／REPLACE／KEEP／REFRESH／INCOMPARABLE／REFUSED）",
       "guarantee": "門檻沒有預設值——沒想過門檻的專案會被迫想。現役只跟它在同一比較範圍內重評的分數比",
       "run": "platform/mlops/promotion_policy.py"
+    },
+    {
+      "path": "platform/mlops/replay_significance.py",
+      "described": true,
+      "described_in": "platform/mlops/README.md",
+      "when": "重訓後（retrain.sh 步驟 5b），或手動重跑重放時",
+      "what": "對重放出來的每一組（題目×時程）算配對自助法 95% CI、精確雙尾符號檢定、以及 lag-1 自相關",
+      "guarantee": "點估計永遠不單獨出現——margin_ratio 一定跟著 ci_low／ci_high。固定 seed 42、10000 次重抽、純標準函式庫，兩次執行逐位元相同。自相關是回報不是校正：把它偷偷修掉會讓區間看起來比它應得的更窄",
+      "run": "platform/mlops/replay_significance.py"
     },
     {
       "path": "platform/mlops/retrain.sh",
@@ -577,6 +604,15 @@
       "what": "從模板產生 Alertmanager 實際設定",
       "guarantee": "憑證從 repo 外面注入，產生的檔案在 .gitignore 裡。Alertmanager 不展開環境變數，所以 chat id 必須是字面值——這就是它必須被產生而不是被提交的原因",
       "run": "platform/observability/scripts/setup_notifications.sh"
+    },
+    {
+      "path": "platform/observability/scripts/verify_dashboard_render.py",
+      "described": true,
+      "described_in": "platform/observability/README.md",
+      "when": "隨 test_dashboards.sh 每次跑；改看板或改 datasource 之後手動跑",
+      "what": "把每一張看板的每一個面板查詢送過 Grafana 自己的 datasource proxy，回報幾個真的拿到序列",
+      "guarantee": "它證的是 dashboard_audit.py 證不到的那半：憑證通得過、uid 解析得到、Grafana 的容器連得到 Prometheus／Loki。靜態稽核在一台正在拒絕每一次登入的 Grafana 上會通過。憑證讀自 .grafana.env，不印出任何內容；Prometheus 與 Loki 走不同端點，log query 必須用 query_range",
+      "run": "platform/observability/scripts/verify_dashboard_render.py"
     },
     {
       "path": "platform/recover.sh",

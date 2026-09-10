@@ -83,7 +83,16 @@ assert_equals "" "$EXTERNAL" "the runbook has no link that needs a network to fo
 # files rather than from a running Docker, so the check works on a machine
 # where the platform is DOWN -- which is exactly when the runbook is read.
 PORT_MISS=""
-for port in $(grep -oE 'mac\.local:[0-9]+|127\.0\.0\.1:[0-9]+' "$RUNBOOK" \
+# CONTAINER-INTERNAL ADDRESSES ARE NOT A PROMISE ABOUT THE HOST.
+#
+# `VAULT_ADDR=http://127.0.0.1:8200` inside a `docker exec` is the address as
+# seen from INSIDE the Vault container; 8200 is deliberately not published to
+# the host. The first version of this rule flagged it as an unpublished port,
+# which was the guard being right about the wrong line: the rule exists for
+# ports the reader is told to OPEN, not for addresses passed to a process that
+# is already inside the network namespace.
+for port in $(grep -vE 'docker exec|VAULT_ADDR' "$RUNBOOK" \
+              | grep -oE 'mac\.local:[0-9]+|127\.0\.0\.1:[0-9]+' \
               | grep -oE '[0-9]+$' | sort -u); do
   # The compose files write ports as "127.0.0.1:${HOST_PORT:-18090}:8080", so
   # the number is looked for inside the ports mapping rather than anchored to a
@@ -128,5 +137,83 @@ BAD_EXT="$(grep -oE 'https?://[A-Za-z0-9._-]+' "$FIX" \
 [ -n "$BAD_EXT" ] \
   && _pass "catches: a runbook link that needs a network" \
   || _fail "catches: a runbook link that needs a network" "found none"
+
+
+# ---- every Vault path the runbook names must really be in Vault ------------
+#
+# WHY THIS IS THE ASSERTION THAT MATTERS IN THIS SUITE.
+#
+# A credential table is only worth having if following it WORKS. A row naming a
+# Vault path that does not exist sends the reader to `No value found`, which is
+# indistinguishable from "I typed it wrong" -- and they have no way to tell,
+# because the table is the authority they were sent to.
+#
+# This is not hypothetical. `platform/notify/setup_mail.sh` reads
+# `secret/devops/smtp`, and that secret has never existed. The board says
+# "email declared but not connected"; the CAUSE was one missing row in Vault,
+# and nothing in the repository connected those two facts until this check.
+#
+# Skipped, not failed, when Vault is down or sealed: the runbook is read most
+# often when things are broken, and a suite that cannot run then is no use.
+VAULT_INIT="$REPO_ROOT/platform/vault/.init-output.json"
+if [ -f "$VAULT_INIT" ] && docker ps --format '{{.Names}}' 2>/dev/null | grep -q '^vault-vault-1$'; then
+  VT="$(python3 -c "import json,sys;print(json.load(open(sys.argv[1]))['root_token'])" "$VAULT_INIT" 2>/dev/null)"
+  MISSING_SECRET=""
+  CHECKED=0
+  for path in $(grep -oE 'secret/[a-z]+/[a-z0-9-]+' "$RUNBOOK" | sort -u); do
+    # A path the runbook itself DECLARES missing is exempt, and the declaration
+    # has to be in the document -- not in this test. `secret/devops/smtp` is
+    # read by platform/notify/setup_mail.sh and has never existed; the runbook
+    # says so, in the section that explains why the board reports email as
+    # declared-but-not-connected. An exemption a reader can see is a note; an
+    # exemption only the test knows about is a hole.
+    if grep -q "$path" "$RUNBOOK" \
+       && grep -A2 -B2 "$path" "$RUNBOOK" | grep -q '沒有這一筆\|不存在'; then
+      continue
+    fi
+    CHECKED=$((CHECKED + 1))
+    docker exec -e VAULT_TOKEN="$VT" -e VAULT_ADDR=http://127.0.0.1:8200 \
+      vault-vault-1 vault kv get "$path" >/dev/null 2>&1 \
+      || MISSING_SECRET="$MISSING_SECRET $path"
+  done
+  MISSING_SECRET="$(printf '%s' "$MISSING_SECRET" | sed 's/^ *//')"
+  assert_equals "" "$MISSING_SECRET" \
+    "every Vault path the credential table names really holds a secret ($CHECKED checked)"
+  # The denominator again: a table that lost its Vault rows would pass a loop
+  # that ran zero times.
+  if [ "$CHECKED" -ge 3 ]; then
+    assert_equals "yes" "yes" "the credential table names $CHECKED Vault paths, not zero"
+  else
+    assert_equals "at least 3 vault paths" "$CHECKED" \
+      "a credential table naming almost no secrets is refused, not reported clean"
+  fi
+else
+  echo "  SKIP  Vault is down or uninitialised -- the credential table is UNVERIFIED"
+fi
+
+# ---- the retrieval chain must actually be in the document ------------------
+#
+# The failure this replaces: the old section named the file holding the root
+# token and stopped there. A reader following it hits `permission denied` with
+# no next step. Naming a credential is not the same as making it reachable.
+run_cmd cat "$RUNBOOK"
+assert_output_contains "VAULT_ADDR" \
+  "the runbook says how to address Vault, not just where the token file is"
+assert_output_contains "vault kv get" \
+  "and shows the command that actually reads a secret out"
+assert_output_contains "gitignored" \
+  "and says which credential files do NOT travel with a fresh clone"
+
+# ---- one question, one file ------------------------------------------------
+#
+# The thing a first-time reader (or a weaker agent) actually gets stuck on is
+# not a command, it is "where do I look this up". The map is asserted rather
+# than trusted because a pointer that rots sends them somewhere that does not
+# exist at the moment they have least context.
+assert_output_contains "docs/Backlog.md" "the register of what is not done is named"
+assert_output_contains "docs/decisions/index.md" "and the decision record index"
+assert_output_contains "Session-Handover.md" "and the agent entry point"
+assert_output_contains "ssh drew@ubu.local" \
+  "the production node is reached by hostname; its IP has drifted three times"
 
 suite_summary

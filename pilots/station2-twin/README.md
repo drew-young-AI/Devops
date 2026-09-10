@@ -31,6 +31,47 @@ curl -s localhost:18090/health/ready
 | `GET /twin/<asset>` | latest observation |
 | `GET /twin/<asset>/history?limit=N` | most recent N |
 
+## 怎麼把它跑起來（2026-09-10 補；在這之前這份 README 一個字都沒說）
+
+**不要自己 `docker compose up`。** 用平台的復原腳本，它會先向 Vault 換到
+AppRole 憑證再啟動：
+
+```bash
+cd /Users/drew/ENV/Devops
+platform/recover.sh            # 起 vault → observability → nginx → 這個 pilot
+```
+
+**為什麼不能自己 `compose up`**：`compose.yaml` 讀 `${VAULT_ROLE_ID:-}` 與
+`${VAULT_SECRET_ID:-}`，兩者為空時應用程式會**退回靜態資料庫密碼**。那個退路
+是刻意留的（沒有 Vault 也要能跑），但 2026-09-01 它被**意外**走到過：從一個
+沒有 export AppRole 的 shell 執行復原，develop 副本就安靜地降級成 `mode:
+static`，而 Kubernetes 副本還在用 Vault——同一天早上，兩個副本的憑證模型
+互換了，沒有任何地方說。
+
+`recover.sh` 改成用 `--env-file` 而不是繼承環境，就是為了關掉這條意外路徑。
+
+### 它需要的檔案，以及它們哪來
+
+| 檔案 | 進版控？ | 哪來 |
+|---|---|---|
+| `pilots/station2-twin/.env.vault` | **否** | `platform/vault/scripts/write_pilot_approle_env.sh station2-twin` 產生（`recover.sh` 會自己叫） |
+| `config.example.env` | 是 | 範本。要手動跑時複製成 `.env` 並填 `PGPASSWORD` |
+
+資料庫密碼怎麼拿、Vault 怎麼進去，見
+[`docs/Runbook.md`](../../docs/Runbook.md) 第三節。
+
+### 確認它真的起來了
+
+```bash
+curl -s http://127.0.0.1:18090/health/ready    # ready，不是 live
+```
+
+**要看 `ready` 不是 `live`。** 應用程式在資料庫還在復原時就會回答
+`/health/live`，一個以 live 判定成功的復原腳本等於什麼都沒說——
+理由見下一節。
+
+---
+
 ## Why this pilot exists
 
 station1-hello is stateless. It holds nothing, so schema migration, dynamic
