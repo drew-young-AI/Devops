@@ -31,7 +31,15 @@ SUBJECT="${1:?usage: send_mail.sh <subject> [< body]}"
 # shellcheck source=/dev/null
 . "$CONF"
 
-SMTP_PASSWORD="$(cat "$PW_FILE")" python3 - "$HOST" "$FROM" "$TO" "$SUBJECT" <<'PY'
+# SMTP_PORT is an override, not a setting: 587 (submission + STARTTLS) is what
+# every smarthost this platform targets uses, and mail.conf deliberately does
+# not carry a port so there is one less thing to get wrong. It exists because
+# the failure shape that matters most -- a host that ACCEPTS the connection and
+# then refuses to proceed -- cannot be exercised otherwise: a stub cannot bind
+# 587 without root, and a control that cannot reach its branch is measuring the
+# branch it already had. See platform/tests/test_send_mail.sh.
+SMTP_PASSWORD="$(cat "$PW_FILE")" SMTP_PORT="${SMTP_PORT:-587}" \
+  python3 - "$HOST" "$FROM" "$TO" "$SUBJECT" <<'PY'
 import os, smtplib, ssl, sys
 from email.message import EmailMessage
 
@@ -40,7 +48,7 @@ msg = EmailMessage()
 msg["From"], msg["To"], msg["Subject"] = sender, rcpt, subject
 msg.set_content(sys.stdin.read())
 try:
-    s = smtplib.SMTP(host, 587, timeout=25)
+    s = smtplib.SMTP(host, int(os.environ.get("SMTP_PORT", "587")), timeout=25)
     s.ehlo(); s.starttls(context=ssl.create_default_context()); s.ehlo()
     s.login(sender, os.environ["SMTP_PASSWORD"])
     s.send_message(msg); s.quit()

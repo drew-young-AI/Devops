@@ -1,9 +1,25 @@
 {
   "schema": "gha-status/1",
-  "fetched_at": "2026-09-11T15:27:44+08:00",
+  "fetched_at": "2026-09-11T15:58:08+08:00",
   "fetch_state": "ok",
   "detail": "fetched main",
   "runs": [
+    {
+      "conclusion": "success",
+      "createdAt": "2026-09-11T07:46:10Z",
+      "displayTitle": "docs: 更正 T43 兩次——rclone 不用裝，SMTP 路徑也已驗到只剩憑證",
+      "status": "completed",
+      "url": "https://github.com/drew-young-AI/Devops/actions/runs/34575939542",
+      "workflowName": "Platform Tests"
+    },
+    {
+      "conclusion": "success",
+      "createdAt": "2026-09-11T07:40:48Z",
+      "displayTitle": "feat(llm-review): 接回公衛 pilot 的 K8s 路徑——真正擋住的是模型名分岔，不是產物",
+      "status": "completed",
+      "url": "https://github.com/drew-young-AI/Devops/actions/runs/34575512871",
+      "workflowName": "Platform Tests"
+    },
     {
       "conclusion": "success",
       "createdAt": "2026-09-11T07:09:52Z",
@@ -66,22 +82,6 @@
       "displayTitle": "feat(quality): 名字的生命週期檢查——第六份封閉檢查，抓「刪掉之後沒人改的文件」",
       "status": "completed",
       "url": "https://github.com/drew-young-AI/Devops/actions/runs/34554342705",
-      "workflowName": "Platform Tests"
-    },
-    {
-      "conclusion": "success",
-      "createdAt": "2026-09-10T15:58:34Z",
-      "displayTitle": "chore(evidence): 09-10 收盤",
-      "status": "completed",
-      "url": "https://github.com/drew-young-AI/Devops/actions/runs/34499127756",
-      "workflowName": "Platform Tests"
-    },
-    {
-      "conclusion": "success",
-      "createdAt": "2026-09-10T15:56:18Z",
-      "displayTitle": "feat(board): 「工程端自己的上限」變成產生式，不再每輪由我口頭解釋",
-      "status": "completed",
-      "url": "https://github.com/drew-young-AI/Devops/actions/runs/34498889217",
       "workflowName": "Platform Tests"
     }
   ]

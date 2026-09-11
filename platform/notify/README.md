@@ -112,4 +112,4 @@ python3 -c "import sys;sys.path.insert(0,'platform/statusdag');import dag;print(
 |---|---|---|---|
 | [`setup_mail.sh`](setup_mail.sh) | 一次性／換憑證時 | 設定外寄郵件，**並在宣稱可用之前先證明它可用** | 這個平台為此付過一次代價：2026-08-19 告警正確觸發並持續 3h55m，而**收件端根本沒收到**。設定檔不會證明自己能送達，這支會 |
 | [`emit_event.sh`](emit_event.sh) | 一次性的平台**事件** | 送出單次事件，**刻意不是 Alertmanager** | **狀態 vs 事件的分野**：狀態是「為真且持續為真」（服務掛了、schema 版本不明），那是 Alertmanager 的；事件是「發生過一次」，重送就是重複 |
-| [`send_mail.sh`](send_mail.sh) | 由 `setup_mail.sh` 與告警路徑呼叫 | 用 `mail.conf` 的設定把一封信交給 smarthost | 沒有 `mail.conf` 就明確失敗，不會安靜地送到空的收件人 |
+| [`send_mail.sh`](send_mail.sh) | 由 `setup_mail.sh` 與告警路徑呼叫 | 用 `mail.conf` 的設定把一封信交給 smarthost | **「沒設定」和「設定了但壞掉」是兩個不同的離開碼**：`78` 是沒設定（呼叫端據此跳過），`1` 是設定在但寄不出去（有人得去看）。把這兩者合成一個，正是這個平台付過兩次代價的那種靜默——2026-08-19 告警燒進空 receiver 3h55m，09-07 起 Telegram 388 次送出失敗 287 次而沒人知道。控制項在 `platform/tests/test_send_mail.sh`，包含最危險的那個形狀：**主機接受了連線然後拒絕往下走**（某個東西在聽，所以任何可達性檢查都會說它健康） |

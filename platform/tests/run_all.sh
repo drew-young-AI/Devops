@@ -191,6 +191,14 @@ SUITES=(
   # that no longer existed. Four namespaces, one mechanism, and the retired
   # set derived from git history rather than a list somebody maintains.
   test_xref_lifecycle.sh
+  # The mail path had no test of any kind, on a platform that has paid for
+  # silence twice (a null receiver for 3h55m on 2026-08-19; Telegram failing
+  # 287 of 388 sends unnoticed for three days in September). What is pinned
+  # without a credential is the distinction the exit codes exist to make: 78
+  # means NOT CONFIGURED and callers skip on it, so a real fault must never
+  # return it -- including the dangerous shape where the host accepts the
+  # connection and then refuses to proceed.
+  test_send_mail.sh
   # Reachability prevents one route to duplicate work -- you cannot find the
   # existing thing, so you build a second. It does nothing about the route that
   # actually happened: BOTH copies documented, BOTH reachable, drifted apart,
