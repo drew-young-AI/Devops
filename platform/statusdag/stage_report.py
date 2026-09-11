@@ -287,56 +287,14 @@ ASKS = [
         ],
         "ref": "docs/Backlog.md",
     },
-    {
-        "id": "epiweek-definition",
-        "node": "epiweek",
-        "when": "無日曆日",
-        "owner": "external",
-        # MEASURED 2026-09-11, twice, and the second measurement changed the
-        # answer. WHAT THIS ASK USED TO SAY -- 「只有他們能給權威答案」 -- is
-        # false: CDC publishes the crosswalk, machine-readable, no letter.
-        #
-        #   https://nidss.cdc.gov.tw/config/DIM_CAL.csv
-        #   CAL_YMD,CAL_YEAR,CAL_WEEK   7,305 rows, 2007-01-01 .. 2026-12-31
-        #
-        # AND THE RULE CANNOT BE USED INSTEAD OF THE TABLE. Their own FAQ says
-        # 「週別計算方式係以週日為當週第一天，週六為當週結束日，每年第1週為包含
-        # 1月4日之那一週」. That rule reproduces the table exactly from 2010
-        # onward and CONTRADICTS IT for 2007-2009, where CDC truncated weeks at
-        # the calendar boundary instead: 2009 week 01 is Jan 1-3 (three days)
-        # and week 02 starts Jan 4, so the stated rule is wrong about their own
-        # data. Six weeks in the file are not seven days long.
-        #
-        # Our database agrees with the TABLE, not the rule: it holds 2009 week
-        # 53 across six RODS feeds, which no Sunday-start rule produces. So the
-        # 53rd week was never a loader defect.
-        #
-        # This is the same lesson as the SQL contract, one layer out: derive
-        # from the source, do not restate it. Here the source publishes a
-        # lookup, so the rule is the thing that must not be written down.
-        #
-        # What is still true: the day facts are TB case management and the week
-        # facts are influenza-like illness, so NO metric currently has both and
-        # nothing we can compute today is blocked. The crosswalk matters when
-        # 中醫大 individual-level data (dated) arrives.
-        "ask": "**外部那一半已經有答案了**：疾管署自己發布日↔週對照表 "
-               "`https://nidss.cdc.gov.tw/config/DIM_CAL.csv`"
-               "（`CAL_YMD,CAL_YEAR,CAL_WEEK`，7,305 列，2007-01-01 至 2026-12-31），"
-               "不需要發公文。**但不能改用規則算**：他們 FAQ 寫的「第1週為包含1月4日"
-               "那一週」在 2010 年以後和表一致，2007–2009 卻相反——那三年的週被截在"
-               "跨年處（2009 第 1 週只有 1/1–1/3 三天）。我們資料庫站在表這一邊"
-               "（六個 RODS feed 都有 2009 第 53 週），所以那不是載入缺陷。"
-               "剩下的是一個小決定：這份對照表要怎麼進來。",
-        "options": [
-            "當成**一個資料來源**用既有 ingest 流程收（和其他 CDC feed 同一條路）"
-            "——每年會延長，跟著更新；`srcfresh` 也就看得到它停沒停",
-            "或**快照 vendored** 進 repo 當 crosswalk（像 `geo_alias.csv` 那樣，"
-            "每筆帶 evidence）——不依賴網路，但要有人記得每年補",
-            "先不做：日事實是結核病、週事實是類流感，**今天沒有任何分析被它擋住**；"
-            "等中醫大個人級資料（帶日期）真的進來再做",
-        ],
-        "ref": "docs/Backlog.md",
-    },
+    # epiweek-definition was DELETED on 2026-09-11, not merely stopped
+    # matching. It asked the platform owner to obtain the week definition from
+    # 疾管署, and its premise -- 「只有他們能給權威答案」 -- turned out to be
+    # false: they publish the crosswalk at
+    # https://nidss.cdc.gov.tw/config/DIM_CAL.csv and it is now vendored and
+    # loaded. Nothing is being asked of anyone any more, so if that node goes
+    # red again (the snapshot ends 2026-12-31) it correctly falls to `eng`:
+    # renewing a calendar is engineering work, not a question for the owner.
     {
         "id": "model-loses-to-persistence",
         "node": "mgate",
