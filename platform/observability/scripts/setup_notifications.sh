@@ -120,7 +120,19 @@ chmod 600 "$CONFIG"
 # refusing to start AFTER someone configured mail -- that is, at the exact
 # moment they were expecting notifications to start working.
 if command -v docker >/dev/null 2>&1; then
-  AM_CHECK="$(docker run --rm -v "$AM_DIR:/cfg:ro" \
+  # --user, because the config is chmod 600 two lines above.
+  #
+  # macOS hides this: Docker Desktop's file sharing maps ownership, so the
+  # container reads a 0600 host file regardless of its own uid. On Linux --
+  # which is what ubu, the production node, is -- it does not, and amtool gets
+  # "open /cfg/config.yml: permission denied". The script then prints
+  # "REFUSING: Alertmanager rejects the generated config", which is a lie: the
+  # config is fine and the container simply cannot read it.
+  #
+  # Found 2026-09-11 by CI (ubuntu-latest) failing a suite that passed on the
+  # Mac -- the cross-architecture gap ADR-0008 exists for, in a script whose
+  # whole job is to be run once on a machine somebody is setting up.
+  AM_CHECK="$(docker run --rm --user "$(id -u):$(id -g)" -v "$AM_DIR:/cfg:ro" \
       --entrypoint amtool prom/alertmanager:v0.28.1 \
       check-config /cfg/config.yml 2>&1)" || {
     echo "REFUSING: Alertmanager rejects the generated config." >&2
