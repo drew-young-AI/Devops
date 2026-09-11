@@ -1,9 +1,17 @@
 {
   "schema": "gha-status/1",
-  "fetched_at": "2026-09-11T10:27:11+08:00",
+  "fetched_at": "2026-09-11T10:40:51+08:00",
   "fetch_state": "ok",
   "detail": "fetched main",
   "runs": [
+    {
+      "conclusion": "success",
+      "createdAt": "2026-09-11T02:38:20Z",
+      "displayTitle": "fix(board): 兩個會讓「落地了沒」那個數字虛高的缺陷，以及一個在 CI 才會現形的空檢查",
+      "status": "completed",
+      "url": "https://github.com/drew-young-AI/Devops/actions/runs/34555384575",
+      "workflowName": "Platform Tests"
+    },
     {
       "conclusion": "failure",
       "createdAt": "2026-09-11T02:22:07Z",
@@ -74,14 +82,6 @@
       "displayTitle": "chore(evidence): 09-10 收尾產物",
       "status": "completed",
       "url": "https://github.com/drew-young-AI/Devops/actions/runs/34454960337",
-      "workflowName": "Platform Tests"
-    },
-    {
-      "conclusion": "success",
-      "createdAt": "2026-09-10T08:21:39Z",
-      "displayTitle": "feat(board): 刪掉退役節點，並用「對母體的封閉檢查」取代「再多寫一支測試」",
-      "status": "completed",
-      "url": "https://github.com/drew-young-AI/Devops/actions/runs/34454729332",
       "workflowName": "Platform Tests"
     }
   ]
