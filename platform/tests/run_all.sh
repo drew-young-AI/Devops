@@ -199,6 +199,15 @@ SUITES=(
   # return it -- including the dangerous shape where the host accepts the
   # connection and then refuses to proceed.
   test_send_mail.sh
+  # And the branch one step further along: what setup_notifications.sh
+  # GENERATES once mail.conf exists. That branch has never executed on this
+  # machine, because the credential has never existed -- and the script's own
+  # comments record an indentation defect that "would have surfaced as
+  # Alertmanager refusing to start AFTER someone configured mail". Checked
+  # against amtool, Alertmanager's own parser, because the defect it names is
+  # valid YAML. Mutation-tested 2026-09-11: nesting email_configs one level
+  # deeper turns this suite red in 9 places.
+  test_notify_config.sh
   # Reachability prevents one route to duplicate work -- you cannot find the
   # existing thing, so you build a second. It does nothing about the route that
   # actually happened: BOTH copies documented, BOTH reachable, drifted apart,
