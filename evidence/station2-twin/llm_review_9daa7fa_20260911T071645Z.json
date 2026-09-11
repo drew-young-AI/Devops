@@ -1,0 +1,42 @@
+{
+  "evidence_type": "LLM-generated",
+  "human_acceptance": null,
+  "note": "LLM-generated evidence only. Per NEW_SERVICE_GUIDE.md section 8 this does not constitute production release approval; a human decision is still required regardless of the verdict below.",
+  "service": "station2-twin",
+  "commit_sha": "9daa7fa",
+  "generated_at": "2026-09-11T07:16:45Z",
+  "status": "OK",
+  "verdict": "CONCERN",
+  "summary": "The develop deployment is healthy, but critical build and security evidence is missing. The empty diff prevents code-level review, requiring human verification of the commit contents.",
+  "findings": [
+    {
+      "severity": "medium",
+      "area": "build-evidence",
+      "detail": "Build metadata, container vulnerability scan, and SBOM summary are missing, preventing verification of build integrity and security posture."
+    },
+    {
+      "severity": "medium",
+      "area": "code-change",
+      "detail": "The git diff is empty, making it impossible to assess the specific code changes or risks introduced in this commit."
+    }
+  ],
+  "error": null,
+  "raw_response": "{\"verdict\":\"CONCERN\",\"findings\":[{\"severity\":\"medium\",\"area\":\"build-evidence\",\"detail\":\"Build metadata, container vulnerability scan, and SBOM summary are missing, preventing verification of build integrity and security posture.\"},{\"severity\":\"medium\",\"area\":\"code-change\",\"detail\":\"The git diff is empty, making it impossible to assess the specific code changes or risks introduced in this commit.\"}],\"summary\":\"The develop deployment is healthy, but critical build and security evidence is missing. The empty diff prevents code-level review, requiring human verification of the commit contents.\"}",
+  "reproducibility": {
+    "endpoint": "http://127.0.0.1:9000",
+    "model": "/Users/drew/models/Qwen3.8-27B-4bit",
+    "temperature": 0,
+    "top_p": 1,
+    "thinking_enabled": false,
+    "inputs_digest_sha256": "5389fca0b37881ef625e79cecd8c0011485a3dd7640c8f217c1ba3ef128ac6df",
+    "system_prompt_digest_sha256": "e5c474b18e0c8e79e84189430546981915bb6f95a5216bf7824d0ac55f3acbbf",
+    "diff_truncated": false,
+    "sources_present": {
+      "BUILD METADATA": false,
+      "CONTAINER VULNERABILITY SCAN (Trivy gate)": false,
+      "SBOM SUMMARY": false,
+      "DEVELOP DEPLOYMENT": true,
+      "GIT DIFF (service directory only)": false
+    }
+  }
+}

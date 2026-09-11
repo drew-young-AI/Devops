@@ -90,8 +90,8 @@ devops_node_state{node="dastcov",layer="verify",state="superseded"} 0
 devops_node_state{node="dastcov",layer="verify",state="warn"} 1
 devops_node_state{node="dastcov",layer="verify",state="unknown"} 0
 devops_node_state{node="dastcov",layer="verify",state="fail"} 0
-devops_node_state{node="llmreview",layer="verify",state="ok"} 0
-devops_node_state{node="llmreview",layer="verify",state="superseded"} 1
+devops_node_state{node="llmreview",layer="verify",state="ok"} 1
+devops_node_state{node="llmreview",layer="verify",state="superseded"} 0
 devops_node_state{node="llmreview",layer="verify",state="warn"} 0
 devops_node_state{node="llmreview",layer="verify",state="unknown"} 0
 devops_node_state{node="llmreview",layer="verify",state="fail"} 0
@@ -255,7 +255,7 @@ devops_node_state_code{node="gha",layer="build"} 0
 devops_node_state_code{node="develop",layer="deploy"} 0
 devops_node_state_code{node="dast",layer="verify"} 0
 devops_node_state_code{node="dastcov",layer="verify"} 2
-devops_node_state_code{node="llmreview",layer="verify"} 1
+devops_node_state_code{node="llmreview",layer="verify"} 0
 devops_node_state_code{node="gate",layer="gate"} 0
 devops_node_state_code{node="nginx",layer="release"} 0
 devops_node_state_code{node="prometheus",layer="observe"} 0
@@ -335,4 +335,4 @@ devops_node_impacted{node="bluegreen"} 0
 devops_node_impacted{node="prodk8s"} 0
 # HELP devops_board_generated_seconds Unix time this board was built.
 # TYPE devops_board_generated_seconds gauge
-devops_board_generated_seconds 1789109824
+devops_board_generated_seconds 1789111721

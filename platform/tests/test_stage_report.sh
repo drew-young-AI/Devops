@@ -394,8 +394,23 @@ board = {"nodes": [], "counts": {}, "verdict": "ok",
          "generated_at": "2026-09-10T00:00:00Z"}
 # The ask must be one whose node SHARES A STAGE with dastcov, or this control
 # tests nothing: an ask two stages away could never have leaked its owner here.
+#
+# It is CONSTRUCTED, not picked out of the live ASKS list. The first version
+# did `next(a for a in sr.ASKS if ...)` and broke on 2026-09-11 the moment an
+# unrelated question was answered and its ask deleted -- the last one that
+# happened to share dastcov's stage. A control that stops working because
+# someone resolved a different problem is testing the wrong thing, and it
+# fails in the direction that looks like a regression in the code under test.
 stage_of = {n: st["name"] for _, _, _, sts in sr.LINES for st in sts for n in st["nodes"]}
-ask = next(a for a in sr.ASKS if stage_of.get(a["node"]) == stage_of["dastcov"])
+neighbours = [n for n, st in stage_of.items()
+              if st == stage_of["dastcov"] and n != "dastcov"]
+if not neighbours:
+    raise SystemExit("REFUSING: dastcov has no stage-mate, so per-stage "
+                     "leakage could not happen here and this control is empty")
+ask = {"id": "synthetic-neighbour", "node": neighbours[0],
+       "when": "這個節點正在等某個人", "owner": "decision",
+       "ask": "synthetic", "options": ["x"], "ref": "docs/Backlog.md"}
+sr.ASKS = list(sr.ASKS) + [ask]
 for nid, label, layer, probe in dag.NODES:
     if nid == ask["node"]:
         state, detail = dag.WARN, ask["when"]

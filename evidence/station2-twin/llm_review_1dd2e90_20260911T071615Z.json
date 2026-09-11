@@ -1,0 +1,42 @@
+{
+  "evidence_type": "LLM-generated",
+  "human_acceptance": null,
+  "note": "LLM-generated evidence only. Per NEW_SERVICE_GUIDE.md section 8 this does not constitute production release approval; a human decision is still required regardless of the verdict below.",
+  "service": "station2-twin",
+  "commit_sha": "1dd2e90",
+  "generated_at": "2026-09-11T07:16:15Z",
+  "status": "OK",
+  "verdict": "CONCERN",
+  "summary": "The release evidence for station2-twin commit 1dd2e90 is entirely missing, including build metadata, security scans, and code diffs. A human reviewer must investigate why no artifacts were generated for this commit before proceeding.",
+  "findings": [
+    {
+      "severity": "medium",
+      "area": "build-evidence",
+      "detail": "No build metadata, vulnerability scan, SBOM, or deployment evidence was provided for this commit."
+    },
+    {
+      "severity": "medium",
+      "area": "code-change",
+      "detail": "The git diff is empty, making it impossible to verify the nature or safety of the changes in commit 1dd2e90."
+    }
+  ],
+  "error": null,
+  "raw_response": "{\"verdict\":\"CONCERN\",\"findings\":[{\"severity\":\"medium\",\"area\":\"build-evidence\",\"detail\":\"No build metadata, vulnerability scan, SBOM, or deployment evidence was provided for this commit.\"},{\"severity\":\"medium\",\"area\":\"code-change\",\"detail\":\"The git diff is empty, making it impossible to verify the nature or safety of the changes in commit 1dd2e90.\"}],\"summary\":\"The release evidence for station2-twin commit 1dd2e90 is entirely missing, including build metadata, security scans, and code diffs. A human reviewer must investigate why no artifacts were generated for this commit before proceeding.\"}",
+  "reproducibility": {
+    "endpoint": "http://127.0.0.1:9000",
+    "model": "/Users/drew/models/Qwen3.8-27B-4bit",
+    "temperature": 0,
+    "top_p": 1,
+    "thinking_enabled": false,
+    "inputs_digest_sha256": "8d6c8e3beb2496bdcb0b2897d7e9ff5aa9f48cae3499c0bed56b4f5ff2214cf8",
+    "system_prompt_digest_sha256": "e5c474b18e0c8e79e84189430546981915bb6f95a5216bf7824d0ac55f3acbbf",
+    "diff_truncated": false,
+    "sources_present": {
+      "BUILD METADATA": false,
+      "CONTAINER VULNERABILITY SCAN (Trivy gate)": false,
+      "SBOM SUMMARY": false,
+      "DEVELOP DEPLOYMENT": false,
+      "GIT DIFF (service directory only)": false
+    }
+  }
+}

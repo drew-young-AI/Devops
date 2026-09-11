@@ -30,9 +30,16 @@ on_exit 'rm -rf "$FIXTURES"'
 SANDBOXES+=("$FIXTURES")
 
 chat_fixture() {
+  # `/v1/models` is served too, because review.sh now ASKS the endpoint which
+  # model it has instead of carrying a hardcoded name. The old default
+  # (`mlx-community/Qwen3.6-35B-A3B-4bit`) had drifted from what the endpoint
+  # actually served (`/Users/drew/models/Qwen3.8-27B-4bit`), and a review that
+  # fails on an unknown model is reported by probe_llm_review as DEGRADED --
+  # which reads like "the review found problems", not "the review never ran".
   local path="$1" message="$2"
   cat > "$path" <<EOF
-{"/v1/chat/completions": {"status": 200, "body": {"choices": [{"index": 0, "finish_reason": "stop", "message": $message}]}}}
+{"/v1/models": {"status": 200, "body": {"object": "list", "data": [{"id": "stub-model", "object": "model"}]}},
+ "/v1/chat/completions": {"status": 200, "body": {"choices": [{"index": 0, "finish_reason": "stop", "message": $message}]}}}
 EOF
 }
 
@@ -142,5 +149,37 @@ run_review; run_review; run_review
 COLLIDE_COUNT="$(find "$EVIDENCE" -name 'llm_review_*.json' | wc -l | tr -d ' ')"
 assert_equals "3" "$COLLIDE_COUNT" "three runs in one second write three distinct files"
 stop_stubs
+
+# --- the endpoint names the model, and the failure is legible ---------------
+#
+# Two branches, both added 2026-09-11 and both previously untestable because
+# the model name was a constant.
+
+# An explicit MLX_MODEL must WIN over discovery: a caller pinning a model is
+# making a deliberate choice, and silently replacing it with whatever the
+# server happens to be serving would make a pinned run unreproducible.
+PINNED="$(mktemp -d)"; SANDBOXES+=("$PINNED")
+chat_fixture "$PINNED/fx.json" '{"role":"assistant","content":"{\"verdict\":\"PASS\",\"summary\":\"ok\",\"findings\":[]}"}'
+PORT=19331
+start_stub "$PORT" "$PINNED/fx.json"
+run_cmd env MLX_ENDPOINT="http://127.0.0.1:$PORT" MLX_MODEL="pinned-model" "$REVIEW" "$PILOT"
+assert_rc 0 "an explicitly pinned MLX_MODEL still runs"
+PINNED_MODEL="$(python3 -c "
+import glob, json, os
+files = glob.glob('$EVIDENCE/llm_review_*.json')
+newest = max(files, key=os.path.getmtime)
+print((json.load(open(newest)).get('reproducibility') or {}).get('model'))
+" 2>/dev/null)"
+assert_equals "pinned-model" "$PINNED_MODEL" "and is used verbatim, not replaced by discovery"
+stop_stubs
+
+# An unreachable endpoint must NOT be short-circuited by model discovery. The
+# first version of the discovery code exited 1 here with curl's failure, and
+# the suite above caught it: the contract is a DEGRADED artefact and exit 2, so
+# that a review which could not run still leaves a trace. Discovery therefore
+# falls back to the default rather than refusing, and this asserts it.
+run_cmd env MLX_ENDPOINT="http://127.0.0.1:1" "$REVIEW" "$PILOT"
+assert_rc 2 "a dead endpoint still reaches the DEGRADED path, not an early exit"
+assert_output_contains "DEGRADED" "and the run is recorded as degraded rather than vanishing"
 
 suite_summary

@@ -34,7 +34,11 @@
 #
 # Env overrides:
 #   MLX_ENDPOINT   default http://127.0.0.1:9000
-#   MLX_MODEL      default mlx-community/Qwen3.6-35B-A3B-4bit
+#   MLX_MODEL      asked of the endpoint (/v1/models) when unset; an
+#                  explicit value wins. Falls back to
+#                  mlx-community/Qwen3.6-35B-A3B-4bit if the endpoint
+#                  cannot be reached -- discovery is not a gate, the
+#                  DEGRADED record still has to get written.
 #   MLX_TIMEOUT    default 180 (seconds)
 #   LLM_REVIEW_THINKING  0 (default) | 1 -- see README.md "Determinism"
 #
@@ -66,7 +70,34 @@ EVIDENCE_DIR="$REPO_ROOT/evidence/$PILOT_NAME"
 mkdir -p "$EVIDENCE_DIR"
 
 export MLX_ENDPOINT="${MLX_ENDPOINT:-http://127.0.0.1:9000}"
-export MLX_MODEL="${MLX_MODEL:-mlx-community/Qwen3.6-35B-A3B-4bit}"
+# ASK THE ENDPOINT WHAT IT IS SERVING, do not hardcode it (2026-09-11).
+#
+# The default here was `mlx-community/Qwen3.6-35B-A3B-4bit`. The endpoint was
+# serving `/Users/drew/models/Qwen3.8-27B-4bit`. A review run would have failed
+# on an unknown model -- and `probe_llm_review` reports a failed run as
+# DEGRADED, which reads like "the review found problems" rather than "the
+# review never happened". A model name written down in two places drifts; the
+# server already knows the answer.
+#
+# An explicit MLX_MODEL still wins, so a caller can pin one deliberately.
+if [ -z "${MLX_MODEL:-}" ]; then
+  MLX_MODEL="$({ curl -s --max-time 10 "${MLX_ENDPOINT:-http://127.0.0.1:9000}/v1/models" 2>/dev/null \
+    | python3 -c 'import json,sys
+try:
+    d = json.load(sys.stdin)
+    print((d.get("data") or [{}])[0].get("id", ""))
+except Exception:
+    print("")' 2>/dev/null; } || true)"
+fi
+# DISCOVERY FAILING IS NOT A GATE. The first version of this exited 1 when the
+# endpoint named no model, and the existing suite caught what that destroyed:
+# an unreachable endpoint is supposed to produce a DEGRADED artefact and exit
+# 2, so that "the review could not run" is itself recorded as evidence. An
+# early exit leaves no trace at all -- silence, which is the one outcome this
+# whole directory exists to prevent. So discovery falls back and review.py
+# still gets to write the DEGRADED record.
+MLX_MODEL="${MLX_MODEL:-mlx-community/Qwen3.6-35B-A3B-4bit}"
+export MLX_MODEL
 export MLX_TIMEOUT="${MLX_TIMEOUT:-180}"
 export LLM_REVIEW_THINKING="${LLM_REVIEW_THINKING:-0}"
 

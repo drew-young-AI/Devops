@@ -247,46 +247,14 @@ ASKS = [
         ],
         "ref": "docs/Backlog.md",
     },
-    {
-        "id": "llm-review-artifacts",
-        "node": "llmreview",
-        "when": "已退役的 Compose 路徑",
-        "owner": "decision",
-        # CORRECTED 2026-09-11. This ask used to say the work was blocked on
-        # prodk8s ("要等 Kubernetes 產物，而那要等上面那個決定"). Measured
-        # today, that is false: the Kubernetes artefact EXISTS and is current.
-        # `platform/k8s/station2-twin/deploy.sh` writes
-        # evidence/station2-twin/deploy_develop_<sha>.json with kube_context,
-        # image_digest, color and health_status -- 33 of them on disk, the
-        # newest for today's commit -- and it deploys to the LOCAL lab cluster
-        # (k3d-devops-lab), so it never touches ubu at all.
-        #
-        # review.py wants four inputs. One of the four is already there, from
-        # the Kubernetes path. The three that are missing are:
-        #   build_<sha>.json        written by run_local_ci.sh / the retired
-        #                           compose deploy.sh, not by the k8s one
-        #   trivy_summary_*_<sha>   scan_image.sh, which needs trivy installed
-        #   sbom_summary_*_<sha>    same script, same missing binary
-        #
-        # So this is a decision about WHAT THE REVIEW SHOULD READ now that the
-        # image scan is not run here, not a wait on the production cluster.
-        "ask": "LLM 複審缺三個輸入，而**不是**在等 prod 叢集——Kubernetes 產物已經有了："
-               "`platform/k8s/station2-twin/deploy.sh` 對**本機 lab 叢集**寫出 "
-               "`deploy_develop_<sha>.json`（含 kube_context／image_digest／color），"
-               "最新一份就是今天的 commit。缺的是 `build_<sha>.json`、"
-               "`trivy_summary_*`、`sbom_summary_*`——後兩個要本機裝 trivy，"
-               "而 `trivy` 節點在 2026-09-10 已移除、標記為未量測。"
-               "所以這是「複審該讀什麼」的決定。",
-        "options": [
-            "把複審的輸入改成**現在真的有的東西**：`deploy_develop`（k8s）＋ "
-            "`sast_summary`（semgrep，10 份在磁碟上）＋ GHCR 建置產生的映像中繼資料"
-            "——改動最小，而且複審的對象變成實際在跑的那條路徑",
-            "把映像掃描接回來（本機裝 trivy 或改用 CI 的 `trivy-action`），"
-            "讓四個輸入都齊——涵蓋面最完整，但要決定掃描在哪裡跑",
-            "明確記錄「LLM 複審此階段不接回」，讓它從待辦變成已知取捨",
-        ],
-        "ref": "docs/Backlog.md",
-    },
+    # llm-review-artifacts was DELETED on 2026-09-11. Its condition -- the
+    # review's inputs coming from the retired Compose path -- is gone: the
+    # review now runs against the Kubernetes path's own artefact
+    # (deploy_develop_<sha>.json from the local lab cluster) and produced a
+    # verdict for 9daa7fa that reads the deployment and names what it could not
+    # see. What is still open is narrower and is registered as T46 (the node's
+    # green lasts 72h and deliberately has no cron behind it) and T47 (the
+    # review cannot see an image scan, and says so in every verdict).
     # epiweek-definition was DELETED on 2026-09-11, not merely stopped
     # matching. It asked the platform owner to obtain the week definition from
     # 疾管署, and its premise -- 「只有他們能給權威答案」 -- turned out to be

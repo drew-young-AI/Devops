@@ -1,9 +1,33 @@
 {
   "schema": "gha-status/1",
-  "fetched_at": "2026-09-11T14:57:41+08:00",
+  "fetched_at": "2026-09-11T15:27:44+08:00",
   "fetch_state": "ok",
   "detail": "fetched main",
   "runs": [
+    {
+      "conclusion": "success",
+      "createdAt": "2026-09-11T07:09:52Z",
+      "displayTitle": "docs: 更正 T43 的備份大小——433M 是八月舊檔，最近每份只有 76M",
+      "status": "completed",
+      "url": "https://github.com/drew-young-AI/Devops/actions/runs/34573108876",
+      "workflowName": "Platform Tests"
+    },
+    {
+      "conclusion": "success",
+      "createdAt": "2026-09-11T07:08:01Z",
+      "displayTitle": "chore(board): 刪掉 epiweek-definition 這筆 ask——它的前提已被推翻",
+      "status": "completed",
+      "url": "https://github.com/drew-young-AI/Devops/actions/runs/34572972485",
+      "workflowName": "Platform Tests"
+    },
+    {
+      "conclusion": "success",
+      "createdAt": "2026-09-11T07:04:52Z",
+      "displayTitle": "feat(dataops): 日↔週接起來了——查疾管署的表，不寫算式",
+      "status": "completed",
+      "url": "https://github.com/drew-young-AI/Devops/actions/runs/34572734716",
+      "workflowName": "Platform Tests"
+    },
     {
       "conclusion": "success",
       "createdAt": "2026-09-11T06:43:59Z",
@@ -59,30 +83,6 @@
       "status": "completed",
       "url": "https://github.com/drew-young-AI/Devops/actions/runs/34498889217",
       "workflowName": "Platform Tests"
-    },
-    {
-      "conclusion": "success",
-      "createdAt": "2026-09-10T15:45:07Z",
-      "displayTitle": "feat(quality): SQL 契約——把「猜錯欄位／猜錯值」變成推導出來的檢查",
-      "status": "completed",
-      "url": "https://github.com/drew-young-AI/Devops/actions/runs/34497681608",
-      "workflowName": "Platform Tests"
-    },
-    {
-      "conclusion": "success",
-      "createdAt": "2026-09-10T15:19:52Z",
-      "displayTitle": "chore(evidence): 09-10 收盤產物",
-      "status": "completed",
-      "url": "https://github.com/drew-young-AI/Devops/actions/runs/34494929057",
-      "workflowName": "Platform Tests"
-    },
-    {
-      "conclusion": "success",
-      "createdAt": "2026-09-10T15:17:48Z",
-      "displayTitle": "feat(board): 第三個維度——讀證據的人和寫證據的人對不對得上",
-      "status": "completed",
-      "url": "https://github.com/drew-young-AI/Devops/actions/runs/34494699475",
-      "workflowName": "pilot-image"
     }
   ]
 }
