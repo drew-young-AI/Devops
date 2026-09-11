@@ -387,6 +387,7 @@ does not have.
 | [`app/app.py`](app/app.py) | 服務常駐 | 數位分身的查詢／API 層 | `/health/ready` 與 `/health/live` 分開：**readiness 不是 liveness**，不符即拒收流量 |
 | [`app/surveillance.py`](app/surveillance.py) | 由 app 呼叫 | 分身的模型與**背離偵測** | 分身的價值不在複製現況，在於指出現況與模型預期**不一致**的地方 |
 | [`ingest/run.sh`](ingest/run.sh) | 排程 | 載入管線的入口，容器化執行 | 有 `--network host`（要抓政府 API），與 `mlops/run.sh` 相反 |
+| [`ingest/load_epiweek_calendar.py`](ingest/load_epiweek_calendar.py) | 排程（`epiweek` job）／對照表換新時 | 給每個「日」期間補上疾管署的流行病學**週**標籤，讓帶日期的事實能和週事實在 `(epi_year, epi_week)` 上相接 | **查表，不算式。** 疾管署 FAQ 寫的規則（週日起、第1週含1/4）2010 年起才和他們自己發的對照表一致，2007–2009 相反——那三年的週被截在跨年處（2009 第 1 週只有 1/1–1/3）。寫成算式會安靜地錯三年 |
 | [`ingest/load_geography.py`](ingest/load_geography.py) | 資料來源更新時 | 載入官方行政區地理與**宣告過的名稱別名** | 別名是**宣告**的不是猜的——行政區改名會讓歷史資料對不上，猜一個對應就是造假 |
 | [`mlops/run.sh`](mlops/run.sh) | 由 `retrain.sh` 呼叫 | 在釘住的執行環境裡跑 MLOps 腳本 | **沒有 `--network host`**：這一階段不得連外網——**能抓資料的特徵建置器就是能悄悄依賴未來資料的特徵建置器** |
 | [`mlops/publish_forecast.py`](mlops/publish_forecast.py) | 由 `retrain.sh` 呼叫 | 用全部可得資料重新擬合並發布預測——**如果模型配得上** | 輸給天真基準就不發布。這是這條線目前最有價值的機制，而且它**正在正確地擋著** |

@@ -1,9 +1,25 @@
 {
   "schema": "gha-status/1",
-  "fetched_at": "2026-09-11T14:27:38+08:00",
+  "fetched_at": "2026-09-11T14:57:41+08:00",
   "fetch_state": "ok",
   "detail": "fetched main",
   "runs": [
+    {
+      "conclusion": "success",
+      "createdAt": "2026-09-11T06:43:59Z",
+      "displayTitle": "fix(dataops): epiweek 的「只有疾管署能給權威答案」是錯的——他們自己就發布對照表",
+      "status": "completed",
+      "url": "https://github.com/drew-young-AI/Devops/actions/runs/34571190949",
+      "workflowName": "Platform Tests"
+    },
+    {
+      "conclusion": "success",
+      "createdAt": "2026-09-11T06:34:22Z",
+      "displayTitle": "fix(board): 兩筆 ask 的理由是錯的——llmreview 不等 ubu，epiweek 今天擋不到任何東西",
+      "status": "completed",
+      "url": "https://github.com/drew-young-AI/Devops/actions/runs/34570500838",
+      "workflowName": "Platform Tests"
+    },
     {
       "conclusion": "success",
       "createdAt": "2026-09-11T02:42:13Z",
@@ -67,22 +83,6 @@
       "status": "completed",
       "url": "https://github.com/drew-young-AI/Devops/actions/runs/34494699475",
       "workflowName": "pilot-image"
-    },
-    {
-      "conclusion": "success",
-      "createdAt": "2026-09-10T15:17:48Z",
-      "displayTitle": "feat(board): 第三個維度——讀證據的人和寫證據的人對不對得上",
-      "status": "completed",
-      "url": "https://github.com/drew-young-AI/Devops/actions/runs/34494699692",
-      "workflowName": "Platform Tests"
-    },
-    {
-      "conclusion": "success",
-      "createdAt": "2026-09-10T14:30:53Z",
-      "displayTitle": "feat(board): 登記簿列出 9 個未量測，三個看一眼就知道不該留著",
-      "status": "completed",
-      "url": "https://github.com/drew-young-AI/Devops/actions/runs/34489560326",
-      "workflowName": "Platform Tests"
     }
   ]
 }

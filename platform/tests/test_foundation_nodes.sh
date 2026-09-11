@@ -451,4 +451,85 @@ assert_output_contains "unknown|" "an empty forecast table is UNKNOWN: 'nothing 
 run_cmd sql_probe probe_gate_integrity "NULL" ""
 assert_output_contains "unknown|" "a database that did not answer is UNKNOWN"
 
+
+# ── epiweek: the crosswalk, and the day it runs out ────────────────────────
+#
+# This node used to count `time_period` rows with a NULL cal_date and call that
+# the gap. 1,027 of those rows are weeks and 21 are years, and neither IS a
+# date -- so it could only go green by writing a misleading value into a column
+# that means "this day" everywhere else. It measured a modelling artefact.
+#
+# It now measures joinability, filled from 疾管署's own published crosswalk.
+# The controls below matter more than usual because THE NUMBER MOVED IN THE
+# FLATTERING DIRECTION: DataOps gained a green node on the same day the person
+# who decided the old measurement was wrong was the one who benefited. So every
+# branch that can refuse has to be shown refusing.
+#
+# The horizon branch is the real silent failure: the snapshot ends 2026-12-31,
+# after which new days arrive unlabelled and every week-vs-day comparison
+# quietly stops including them.
+epiweek_probe() {  # <json>
+  python3 - "$FIX" "$1" <<'PY2'
+import json, os, sys
+root, doc = sys.argv[1], sys.argv[2]
+sys.path.insert(0, os.path.join(os.getcwd(), "platform", "statusdag"))
+import dag
+d = os.path.join(root, "epiweek_ev", "data")
+os.makedirs(d, exist_ok=True)
+if doc != "-":
+    with open(os.path.join(d, "epiweek_calendar.json"), "w") as fh:
+        fh.write(doc)
+dag.EVIDENCE = os.path.join(root, "epiweek_ev")
+print("%s|%s" % dag.probe_epiweek())
+PY2
+}
+
+epiweek_doc() {  # <total> <labelled> <crosswalk-last>
+  printf '{"day_periods":%s,"day_periods_labelled":%s,"crosswalk_last":"%s",' "$1" "$2" "$3"
+  printf '"weeks_joinable":558,"unlabelled_days":["2027-01-01"],'
+  printf '"source_url":"https://nidss.cdc.gov.tw/config/DIM_CAL.csv"}'
+}
+
+FAR="$(python3 -c "import datetime;print(datetime.date.today()+datetime.timedelta(days=400))")"
+SOON="$(python3 -c "import datetime;print(datetime.date.today()+datetime.timedelta(days=30))")"
+GONE="$(python3 -c "import datetime;print(datetime.date.today()-datetime.timedelta(days=1))")"
+
+run_cmd epiweek_probe "$(epiweek_doc 3885 3885 "$FAR")"
+assert_output_contains "ok|" "every day labelled and the crosswalk still has a year left is green"
+
+run_cmd epiweek_probe "$(epiweek_doc 3885 3800 "$FAR")"
+assert_output_contains "fail|" "days the crosswalk does not cover are FAIL, not a rounding error"
+assert_output_contains "2027-01-01" "and one of them is named"
+
+run_cmd epiweek_probe "$(epiweek_doc 3885 3885 "$SOON")"
+assert_output_contains "warn|" "a crosswalk that runs out in 30 days warns BEFORE it runs out"
+
+run_cmd epiweek_probe "$(epiweek_doc 3885 3885 "$GONE")"
+assert_output_contains "fail|" "a crosswalk that has already run out is FAIL"
+
+run_cmd epiweek_probe "$(epiweek_doc 0 0 "$FAR")"
+assert_output_contains "unknown|" "zero day periods is UNKNOWN: the enumeration broke, the database is not empty"
+
+run_cmd epiweek_probe -
+assert_output_contains "unknown|" "no evidence file is UNKNOWN, not a clean calendar"
+
+# The crosswalk must stay a LOOKUP. A rule would be wrong for 2007-2009, where
+# CDC truncated weeks at the calendar boundary: 2009 week 01 is Jan 1-3 and
+# week 02 starts Jan 4, contradicting CDC's own published rule. These three
+# dates are the exact cases an arithmetic implementation gets wrong, and they
+# are asserted against the vendored file so a "simplification" to a formula
+# cannot pass silently.
+run_cmd python3 - <<'PY3'
+import os, sys
+sys.path.insert(0, os.path.join(os.getcwd(), "pilots", "station2-twin", "ingest"))
+from load_epiweek_calendar import load_crosswalk
+cal = load_crosswalk()
+want = {"2008-12-28": (2008, 53), "2008-12-31": (2008, 53),
+        "2009-01-01": (2009, 1),  "2009-01-03": (2009, 1),
+        "2009-01-04": (2009, 2),  "2010-01-02": (2009, 53)}
+bad = {d: (cal.get(d), w) for d, w in want.items() if cal.get(d) != w}
+print("MISMATCH" if bad else "OK", bad or "")
+PY3
+assert_output_contains "OK" "the year-boundary weeks a formula would get wrong are read from the table"
+
 suite_summary

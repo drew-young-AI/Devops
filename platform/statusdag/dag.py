@@ -865,22 +865,52 @@ def probe_geo():
 
 
 def probe_epiweek():
-    """`Plan.md` 主線 B 的 B10 -- NOT `docs/Backlog.md` B10, which is the
-    Telegram token rotation. Two different blocked things share that id in this
-    repository; a bare "B10" in a comment sends the reader to whichever list
-    they open first. Found 2026-09-11 by platform/docs/xref.py.
+    """Can a dated record be placed into a CDC epidemiological week?
 
-    The blocked milestone, as a live number rather than a sentence in
-    a plan. Reported WARN, not FAIL: nothing is broken, a question is
-    unanswered -- and the two need to look different to a reader deciding
-    where to spend attention."""
-    null_dates = _n(psql("SELECT count(*) FROM time_period WHERE cal_date IS NULL;"))
-    total = _n(psql("SELECT count(*) FROM time_period;"))
-    if null_dates is None or total is None:
-        return UNKNOWN, "資料庫無回應"
-    if null_dates == 0:
-        return OK, f"{total} 個期間全數對到日曆日"
-    return WARN, f"{null_dates}/{total} 個期間無日曆日（待疾管署查證）"
+    WHAT THIS USED TO MEASURE, AND WHY IT WAS THE WRONG QUESTION (fixed
+    2026-09-11). It counted `time_period` rows with a NULL `cal_date` -- 1,048
+    of 4,933 -- and reported that as the gap. But 1,027 of those are `epi_week`
+    rows and 21 are `year` rows, and neither IS a date: a week is an interval
+    and a year is not a day. The node could therefore only ever go green by
+    writing a misleading value into a column that means "this day" everywhere
+    else. It was measuring a modelling artefact, not a capability.
+
+    The capability is joinability, and it now exists. `epi_year`/`epi_week` are
+    filled on `day` rows from 疾管署's own published crosswalk
+    (https://nidss.cdc.gov.tw/config/DIM_CAL.csv), so dated facts aggregate to
+    CDC weeks and join weekly facts on (epi_year, epi_week). No date is written
+    onto a week row, deliberately -- that would give one column two meanings.
+
+    THE CROSSWALK IS A SNAPSHOT AND IT ENDS (2026-12-31). That is this node's
+    real silent failure: the calendar runs out, new days arrive unlabelled, and
+    every week-vs-day comparison quietly stops including them. The horizon is
+    checked here, before it arrives.
+    """
+    data = load(os.path.join(EVIDENCE, "data", "epiweek_calendar.json"))
+    if not data:
+        return UNKNOWN, "沒有 epiweek_calendar.json（對照表載入器沒跑過）"
+    total = data.get("day_periods") or 0
+    done = data.get("day_periods_labelled") or 0
+    if not total:
+        return UNKNOWN, "0 個日期間——列舉壞了，不是資料庫空了"
+    if done < total:
+        sample = (data.get("unlabelled_days") or ["?"])[0]
+        return FAIL, (f"{total - done}/{total} 天對不到 CDC 週"
+                      f"（例如 {sample}）——對照表沒有涵蓋到它們")
+    last = data.get("crosswalk_last") or ""
+    days_left = None
+    try:
+        days_left = (datetime.strptime(last, "%Y-%m-%d").date()
+                     - datetime.now(timezone.utc).date()).days
+    except (TypeError, ValueError):
+        return WARN, "對照表沒有可讀的結束日期"
+    if days_left < 0:
+        return FAIL, f"對照表已於 {last} 用完，新的日期都對不到週"
+    if days_left < 90:
+        return WARN, (f"對照表 {last} 就用完（剩 {days_left} 天）——"
+                      f"到期後新的日期會安靜地對不到週，去 {data.get('source_url')} 換新的")
+    return OK, (f"{done:,} 天全數對到 CDC 週，{data.get('weeks_joinable')} 個週期間"
+                f"接得起來；對照表到 {last}")
 
 
 def probe_features():
@@ -2239,6 +2269,10 @@ EVIDENCE_READS = {
     "probe_capability_catalog": ("capabilities.json",
                                  ["capabilities[].path",
                                   "capabilities[].described|internal_to"]),
+    "probe_epiweek": ("data/epiweek_calendar.json",
+                      ["generated_at", "source_url", "crosswalk_last",
+                       "crosswalk_days", "day_periods",
+                       "day_periods_labelled", "weeks_joinable"]),
     "probe_xref": ("docs/xref.json",
                    ["generated_at", "namespaces_resolved", "counts.dangling",
                     "counts.undefined", "counts.colliding",
@@ -2336,6 +2370,7 @@ COVERAGE = {
     "job:logcov": "logcov",
     "job:catalog": "capcat",
     "job:xref": "xref",
+    "job:epiweek": "epiweek",
 }
 
 # A `None` above MUST appear here. The reason is the deliverable: an

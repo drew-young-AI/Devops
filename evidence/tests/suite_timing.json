@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-09-11T02:36:04Z",
+  "generated_at": "2026-09-11T07:02:51Z",
   "total_seconds": 384,
   "measured_seconds": 384,
   "suite_count": 43,
@@ -10,7 +10,7 @@
     {
       "suite": "test_bluegreen.sh",
       "tier": 3,
-      "seconds": 123,
+      "seconds": 122,
       "rc": 0
     },
     {
@@ -28,13 +28,13 @@
     {
       "suite": "test_scheduler.sh",
       "tier": 1,
-      "seconds": 25,
+      "seconds": 24,
       "rc": 0
     },
     {
       "suite": "test_data_contract_live.sh",
       "tier": 2,
-      "seconds": 25,
+      "seconds": 24,
       "rc": 0
     },
     {
@@ -46,13 +46,13 @@
     {
       "suite": "test_backup_coverage.sh",
       "tier": 3,
-      "seconds": 20,
+      "seconds": 17,
       "rc": 0
     },
     {
       "suite": "test_dataops_metrics.sh",
       "tier": 1,
-      "seconds": 14,
+      "seconds": 15,
       "rc": 0
     },
     {
@@ -62,15 +62,15 @@
       "rc": 0
     },
     {
-      "suite": "test_analytics_mirror.sh",
-      "tier": 1,
-      "seconds": 8,
+      "suite": "verify_networkpolicy.sh",
+      "tier": 3,
+      "seconds": 9,
       "rc": 0
     },
     {
-      "suite": "verify_networkpolicy.sh",
-      "tier": 3,
-      "seconds": 8,
+      "suite": "test_analytics_mirror.sh",
+      "tier": 1,
+      "seconds": 7,
       "rc": 0
     },
     {
@@ -92,6 +92,12 @@
       "rc": 0
     },
     {
+      "suite": "test_llm_review.sh",
+      "tier": 1,
+      "seconds": 4,
+      "rc": 0
+    },
+    {
       "suite": "test_evidence_contract.sh",
       "tier": 1,
       "seconds": 4,
@@ -110,12 +116,6 @@
       "rc": 0
     },
     {
-      "suite": "test_llm_review.sh",
-      "tier": 1,
-      "seconds": 3,
-      "rc": 0
-    },
-    {
       "suite": "test_capability_graph.sh",
       "tier": 1,
       "seconds": 3,
@@ -123,12 +123,6 @@
     },
     {
       "suite": "test_check_health.sh",
-      "tier": 1,
-      "seconds": 2,
-      "rc": 0
-    },
-    {
-      "suite": "test_stage_report.sh",
       "tier": 1,
       "seconds": 2,
       "rc": 0
@@ -152,13 +146,31 @@
       "rc": 0
     },
     {
-      "suite": "test_network_exposure.sh",
+      "suite": "test_ingress.sh",
       "tier": 1,
       "seconds": 1,
       "rc": 0
     },
     {
-      "suite": "test_runbook.sh",
+      "suite": "test_stage_report.sh",
+      "tier": 1,
+      "seconds": 1,
+      "rc": 0
+    },
+    {
+      "suite": "test_decisions.sh",
+      "tier": 1,
+      "seconds": 1,
+      "rc": 0
+    },
+    {
+      "suite": "test_gha_status.sh",
+      "tier": 1,
+      "seconds": 1,
+      "rc": 0
+    },
+    {
+      "suite": "test_coverage_closure.sh",
       "tier": 1,
       "seconds": 1,
       "rc": 0
@@ -182,7 +194,7 @@
       "rc": 0
     },
     {
-      "suite": "test_offline_report.sh",
+      "suite": "test_doc_graph.sh",
       "tier": 1,
       "seconds": 1,
       "rc": 0
@@ -194,25 +206,31 @@
       "rc": 0
     },
     {
-      "suite": "test_ingress.sh",
+      "suite": "test_duplicate_check.sh",
+      "tier": 1,
+      "seconds": 1,
+      "rc": 0
+    },
+    {
+      "suite": "test_sql_contract.sh",
+      "tier": 2,
+      "seconds": 1,
+      "rc": 0
+    },
+    {
+      "suite": "test_migration_observed.sh",
+      "tier": 3,
+      "seconds": 1,
+      "rc": 0
+    },
+    {
+      "suite": "test_network_exposure.sh",
       "tier": 1,
       "seconds": 0,
       "rc": 0
     },
     {
-      "suite": "test_decisions.sh",
-      "tier": 1,
-      "seconds": 0,
-      "rc": 0
-    },
-    {
-      "suite": "test_gha_status.sh",
-      "tier": 1,
-      "seconds": 0,
-      "rc": 0
-    },
-    {
-      "suite": "test_coverage_closure.sh",
+      "suite": "test_runbook.sh",
       "tier": 1,
       "seconds": 0,
       "rc": 0
@@ -236,7 +254,7 @@
       "rc": 0
     },
     {
-      "suite": "test_doc_graph.sh",
+      "suite": "test_offline_report.sh",
       "tier": 1,
       "seconds": 0,
       "rc": 0
@@ -244,24 +262,6 @@
     {
       "suite": "test_doc_freshness.sh",
       "tier": 1,
-      "seconds": 0,
-      "rc": 0
-    },
-    {
-      "suite": "test_duplicate_check.sh",
-      "tier": 1,
-      "seconds": 0,
-      "rc": 0
-    },
-    {
-      "suite": "test_sql_contract.sh",
-      "tier": 2,
-      "seconds": 0,
-      "rc": 0
-    },
-    {
-      "suite": "test_migration_observed.sh",
-      "tier": 3,
       "seconds": 0,
       "rc": 0
     }

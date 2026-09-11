@@ -175,9 +175,9 @@ devops_node_state{node="dcontract",layer="dataops",state="superseded"} 0
 devops_node_state{node="dcontract",layer="dataops",state="warn"} 0
 devops_node_state{node="dcontract",layer="dataops",state="unknown"} 0
 devops_node_state{node="dcontract",layer="dataops",state="fail"} 0
-devops_node_state{node="epiweek",layer="dataops",state="ok"} 0
+devops_node_state{node="epiweek",layer="dataops",state="ok"} 1
 devops_node_state{node="epiweek",layer="dataops",state="superseded"} 0
-devops_node_state{node="epiweek",layer="dataops",state="warn"} 1
+devops_node_state{node="epiweek",layer="dataops",state="warn"} 0
 devops_node_state{node="epiweek",layer="dataops",state="unknown"} 0
 devops_node_state{node="epiweek",layer="dataops",state="fail"} 0
 devops_node_state{node="features",layer="mlops",state="ok"} 1
@@ -272,7 +272,7 @@ devops_node_state_code{node="facts",layer="dataops"} 0
 devops_node_state_code{node="lineage",layer="dataops"} 0
 devops_node_state_code{node="ingestq",layer="dataops"} 0
 devops_node_state_code{node="dcontract",layer="dataops"} 0
-devops_node_state_code{node="epiweek",layer="dataops"} 2
+devops_node_state_code{node="epiweek",layer="dataops"} 0
 devops_node_state_code{node="features",layer="mlops"} 0
 devops_node_state_code{node="backtest",layer="mlops"} 0
 devops_node_state_code{node="mgate",layer="mlops"} 2
@@ -335,4 +335,4 @@ devops_node_impacted{node="bluegreen"} 0
 devops_node_impacted{node="prodk8s"} 0
 # HELP devops_board_generated_seconds Unix time this board was built.
 # TYPE devops_board_generated_seconds gauge
-devops_board_generated_seconds 1789108880
+devops_board_generated_seconds 1789109824

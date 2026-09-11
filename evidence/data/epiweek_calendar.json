@@ -1,0 +1,14 @@
+{
+  "generated_by": "pilots/station2-twin/ingest/load_epiweek_calendar.py --apply",
+  "generated_at": "2026-09-11T06:51:57Z",
+  "source_url": "https://nidss.cdc.gov.tw/config/DIM_CAL.csv",
+  "crosswalk_file": "pilots/station2-twin/ingest/reference/cdc_dim_cal_20260911.csv",
+  "crosswalk_sha256": "ce37df5869718dc0a1de167b366dcb565579da7c93d540d1fa4fdcde113113b7",
+  "crosswalk_days": 7305,
+  "crosswalk_first": "2007-01-01",
+  "crosswalk_last": "2026-12-31",
+  "day_periods": 3885,
+  "day_periods_labelled": 3885,
+  "unlabelled_days": [],
+  "weeks_joinable": 558
+}
