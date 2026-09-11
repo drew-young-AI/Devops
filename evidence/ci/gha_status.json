@@ -1,9 +1,33 @@
 {
   "schema": "gha-status/1",
-  "fetched_at": "2026-09-11T15:58:08+08:00",
+  "fetched_at": "2026-09-11T16:28:12+08:00",
   "fetch_state": "ok",
   "detail": "fetched main",
   "runs": [
+    {
+      "conclusion": "success",
+      "createdAt": "2026-09-11T08:23:49Z",
+      "displayTitle": "fix(observability): amtool 在 Linux 上讀不到自己要驗的設定檔——CI 抓到，Mac 看不見",
+      "status": "completed",
+      "url": "https://github.com/drew-young-AI/Devops/actions/runs/34578972866",
+      "workflowName": "Platform Tests"
+    },
+    {
+      "conclusion": "failure",
+      "createdAt": "2026-09-11T08:18:32Z",
+      "displayTitle": "test(notify): setup_notifications.sh 的郵件分支從來沒執行過——18 條斷言＋突變驗證",
+      "status": "completed",
+      "url": "https://github.com/drew-young-AI/Devops/actions/runs/34578537518",
+      "workflowName": "Platform Tests"
+    },
+    {
+      "conclusion": "success",
+      "createdAt": "2026-09-11T08:04:17Z",
+      "displayTitle": "test(notify): send_mail.sh 從來沒有任何測試——補上「沒設定」與「壞掉」的分界",
+      "status": "completed",
+      "url": "https://github.com/drew-young-AI/Devops/actions/runs/34577368054",
+      "workflowName": "Platform Tests"
+    },
     {
       "conclusion": "success",
       "createdAt": "2026-09-11T07:46:10Z",
@@ -58,30 +82,6 @@
       "displayTitle": "fix(board): 兩筆 ask 的理由是錯的——llmreview 不等 ubu，epiweek 今天擋不到任何東西",
       "status": "completed",
       "url": "https://github.com/drew-young-AI/Devops/actions/runs/34570500838",
-      "workflowName": "Platform Tests"
-    },
-    {
-      "conclusion": "success",
-      "createdAt": "2026-09-11T02:42:13Z",
-      "displayTitle": "chore(evidence): CI 轉綠後的收盤（gha 回 OK，DevOps 80.0%，工程端上限 83.3%）",
-      "status": "completed",
-      "url": "https://github.com/drew-young-AI/Devops/actions/runs/34555630386",
-      "workflowName": "Platform Tests"
-    },
-    {
-      "conclusion": "success",
-      "createdAt": "2026-09-11T02:38:20Z",
-      "displayTitle": "fix(board): 兩個會讓「落地了沒」那個數字虛高的缺陷，以及一個在 CI 才會現形的空檢查",
-      "status": "completed",
-      "url": "https://github.com/drew-young-AI/Devops/actions/runs/34555384575",
-      "workflowName": "Platform Tests"
-    },
-    {
-      "conclusion": "failure",
-      "createdAt": "2026-09-11T02:22:07Z",
-      "displayTitle": "feat(quality): 名字的生命週期檢查——第六份封閉檢查，抓「刪掉之後沒人改的文件」",
-      "status": "completed",
-      "url": "https://github.com/drew-young-AI/Devops/actions/runs/34554342705",
       "workflowName": "Platform Tests"
     }
   ]
