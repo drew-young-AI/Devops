@@ -1,9 +1,17 @@
 {
   "schema": "gha-status/1",
-  "fetched_at": "2026-09-11T09:57:08+08:00",
+  "fetched_at": "2026-09-11T10:27:11+08:00",
   "fetch_state": "ok",
   "detail": "fetched main",
   "runs": [
+    {
+      "conclusion": "failure",
+      "createdAt": "2026-09-11T02:22:07Z",
+      "displayTitle": "feat(quality): 名字的生命週期檢查——第六份封閉檢查，抓「刪掉之後沒人改的文件」",
+      "status": "completed",
+      "url": "https://github.com/drew-young-AI/Devops/actions/runs/34554342705",
+      "workflowName": "Platform Tests"
+    },
     {
       "conclusion": "success",
       "createdAt": "2026-09-10T15:58:34Z",
@@ -74,14 +82,6 @@
       "displayTitle": "feat(board): 刪掉退役節點，並用「對母體的封閉檢查」取代「再多寫一支測試」",
       "status": "completed",
       "url": "https://github.com/drew-young-AI/Devops/actions/runs/34454729332",
-      "workflowName": "Platform Tests"
-    },
-    {
-      "conclusion": "success",
-      "createdAt": "2026-09-10T07:37:07Z",
-      "displayTitle": "feat(board): 生產節點本身沒有被量——prodk8s 綠著也可能是一台磁碟滿了的機器",
-      "status": "completed",
-      "url": "https://github.com/drew-young-AI/Devops/actions/runs/34450857259",
       "workflowName": "Platform Tests"
     }
   ]

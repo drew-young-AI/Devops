@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-11T02:19:12Z",
-  "total_seconds": 380,
-  "measured_seconds": 379,
+  "generated_at": "2026-09-11T02:36:04Z",
+  "total_seconds": 384,
+  "measured_seconds": 384,
   "suite_count": 43,
   "platform_tiers": "1,2,3",
   "platform_suites": "",
@@ -10,13 +10,13 @@
     {
       "suite": "test_bluegreen.sh",
       "tier": 3,
-      "seconds": 121,
+      "seconds": 123,
       "rc": 0
     },
     {
       "suite": "test_static.sh",
       "tier": 1,
-      "seconds": 51,
+      "seconds": 52,
       "rc": 0
     },
     {
@@ -34,7 +34,7 @@
     {
       "suite": "test_data_contract_live.sh",
       "tier": 2,
-      "seconds": 24,
+      "seconds": 25,
       "rc": 0
     },
     {
@@ -46,37 +46,37 @@
     {
       "suite": "test_backup_coverage.sh",
       "tier": 3,
-      "seconds": 18,
+      "seconds": 20,
       "rc": 0
     },
     {
       "suite": "test_dataops_metrics.sh",
       "tier": 1,
-      "seconds": 15,
-      "rc": 0
-    },
-    {
-      "suite": "verify_networkpolicy.sh",
-      "tier": 3,
-      "seconds": 9,
+      "seconds": 14,
       "rc": 0
     },
     {
       "suite": "test_xref_lifecycle.sh",
       "tier": 1,
-      "seconds": 8,
+      "seconds": 9,
       "rc": 0
     },
     {
       "suite": "test_analytics_mirror.sh",
       "tier": 1,
-      "seconds": 7,
+      "seconds": 8,
+      "rc": 0
+    },
+    {
+      "suite": "verify_networkpolicy.sh",
+      "tier": 3,
+      "seconds": 8,
       "rc": 0
     },
     {
       "suite": "test_foundation_nodes.sh",
       "tier": 1,
-      "seconds": 6,
+      "seconds": 7,
       "rc": 0
     },
     {
@@ -98,6 +98,12 @@
       "rc": 0
     },
     {
+      "suite": "test_model_registry.sh",
+      "tier": 1,
+      "seconds": 4,
+      "rc": 0
+    },
+    {
       "suite": "test_sandbox_hygiene.sh",
       "tier": 1,
       "seconds": 3,
@@ -105,12 +111,6 @@
     },
     {
       "suite": "test_llm_review.sh",
-      "tier": 1,
-      "seconds": 3,
-      "rc": 0
-    },
-    {
-      "suite": "test_model_registry.sh",
       "tier": 1,
       "seconds": 3,
       "rc": 0
@@ -134,12 +134,6 @@
       "rc": 0
     },
     {
-      "suite": "test_source_frequency.sh",
-      "tier": 1,
-      "seconds": 2,
-      "rc": 0
-    },
-    {
       "suite": "test_exporter_freshness.sh",
       "tier": 1,
       "seconds": 2,
@@ -158,7 +152,7 @@
       "rc": 0
     },
     {
-      "suite": "test_decisions.sh",
+      "suite": "test_network_exposure.sh",
       "tier": 1,
       "seconds": 1,
       "rc": 0
@@ -170,7 +164,7 @@
       "rc": 0
     },
     {
-      "suite": "test_coverage_closure.sh",
+      "suite": "test_source_frequency.sh",
       "tier": 1,
       "seconds": 1,
       "rc": 0
@@ -188,7 +182,7 @@
       "rc": 0
     },
     {
-      "suite": "test_doc_graph.sh",
+      "suite": "test_offline_report.sh",
       "tier": 1,
       "seconds": 1,
       "rc": 0
@@ -200,25 +194,25 @@
       "rc": 0
     },
     {
-      "suite": "test_duplicate_check.sh",
-      "tier": 1,
-      "seconds": 1,
-      "rc": 0
-    },
-    {
       "suite": "test_ingress.sh",
       "tier": 1,
       "seconds": 0,
       "rc": 0
     },
     {
-      "suite": "test_network_exposure.sh",
+      "suite": "test_decisions.sh",
       "tier": 1,
       "seconds": 0,
       "rc": 0
     },
     {
       "suite": "test_gha_status.sh",
+      "tier": 1,
+      "seconds": 0,
+      "rc": 0
+    },
+    {
+      "suite": "test_coverage_closure.sh",
       "tier": 1,
       "seconds": 0,
       "rc": 0
@@ -242,13 +236,19 @@
       "rc": 0
     },
     {
-      "suite": "test_offline_report.sh",
+      "suite": "test_doc_graph.sh",
       "tier": 1,
       "seconds": 0,
       "rc": 0
     },
     {
       "suite": "test_doc_freshness.sh",
+      "tier": 1,
+      "seconds": 0,
+      "rc": 0
+    },
+    {
+      "suite": "test_duplicate_check.sh",
       "tier": 1,
       "seconds": 0,
       "rc": 0

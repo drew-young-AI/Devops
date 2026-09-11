@@ -1,6 +1,6 @@
 {
   "generated_by": "platform/docs/xref.py --catalog",
-  "generated_at": "2026-09-11T02:20:48Z",
+  "generated_at": "2026-09-11T02:37:08Z",
   "namespaces_resolved": 4,
   "counts": {
     "dangling": 0,
@@ -141,6 +141,7 @@
         "T4",
         "T40",
         "T41",
+        "T42",
         "T5",
         "T6",
         "T7",

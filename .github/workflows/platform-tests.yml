@@ -39,7 +39,12 @@ jobs:
           # test_deploy_contract.sh builds sandboxes with `git init`, and
           # review.sh resolves real refs; a shallow checkout is fine, but the
           # suite must not depend on repo history beyond HEAD.
-          fetch-depth: 1
+          # 0, not 1: platform/docs/xref.py derives the set of RETIRED names
+          # from git history. A shallow clone makes every retired set empty,
+          # which makes its DANGLING direction unreportable -- the check
+          # would pass by being unable to look. It now refuses instead
+          # (exit 2), so this depth is load-bearing.
+          fetch-depth: 0
 
       - name: Install test dependencies
         run: |

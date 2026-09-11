@@ -115,6 +115,21 @@ SKIP_DIRS = {".git", "node_modules", ".venv", "venv", "site-packages", "evidence
 TEXT_EXT = {".md", ".py", ".sh", ".yml", ".yaml", ".json", ".conf", ".sql"}
 
 
+def _shallow():
+    """A shallow clone cannot answer what this file asks.
+
+    `RETIRED` is derived from git history. With `fetch-depth: 1` there is no
+    history, every retired set comes back empty, and DANGLING becomes
+    unreportable -- the check passes by being unable to look. CI found this on
+    2026-09-11: the run was green locally and the assertion 「retired set is
+    empty」 fired on GitHub. Refusing is the only honest answer; the workflow
+    now checks out full history.
+    """
+    out = subprocess.run(["git", "rev-parse", "--is-shallow-repository"],
+                         cwd=ROOT, capture_output=True, text=True).stdout.strip()
+    return out == "true"
+
+
 def _git(*args):
     try:
         return subprocess.run(
@@ -267,6 +282,13 @@ def main():
         if silent:
             report["colliding"].append({"ns": "backlog", "name": name,
                                         "owners": owners, "silent": silent})
+
+    if _shallow():
+        print("REFUSED: shallow clone -- RETIRED is derived from git history, "
+              "and with no history every retired set is empty. That is a check "
+              "that cannot fail, not a clean repository. Use fetch-depth: 0.",
+              file=sys.stderr)
+        return 2
 
     for ns, (loader, patf) in NAMESPACES.items():
         cur, hist, src = loader()

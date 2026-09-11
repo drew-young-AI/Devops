@@ -1747,7 +1747,26 @@ def probe_prod_node():
     rc, out, err = run_diag(["kubectl", "--context", "ubu", "--request-timeout=8s",
                              "get", "node", "-o", "json"], timeout=15)
     if rc != 0:
-        return UNKNOWN, "生產節點讀不到：" + " ".join((err or "").split())[:70]
+        msg = " ".join((err or "").split())
+        # TWO CAUSES, ONE OLD MESSAGE (2026-09-11). Every non-zero rc read
+        # 「生產節點讀不到」, which made "the machine is not on the network" and
+        # "the machine answered and something is wrong" the same sentence.
+        # That is not cosmetic: `stage_report` binds ownership to the detail
+        # string, so an unreachable machine was indistinguishable from an
+        # engineering fault and defaulted to `eng` -- inflating
+        # `pct_ceiling_eng_only`, the number the landing standard reads.
+        #
+        # `prodk8s` already separated them because kubectl fails fast there.
+        # Here the name lookup HANGS and the 15s timeout fires first, so the
+        # error is a Python TimeoutExpired repr and the real cause was cut off
+        # by the 70-character truncation.
+        unreachable = any(k in msg for k in (
+            "no such host", "Name or service not known", "Temporary failure",
+            "TimeoutExpired", "timed out", "i/o timeout",
+            "No route to host", "Connection refused", "connection refused"))
+        if unreachable:
+            return UNKNOWN, "生產節點連不上（名稱解析或逾時）：" + msg[:60]
+        return UNKNOWN, "生產節點讀不到：" + msg[:70]
     try:
         items = json.loads(out or "{}").get("items") or []
     except json.JSONDecodeError:

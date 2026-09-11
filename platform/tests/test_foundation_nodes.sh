@@ -263,6 +263,38 @@ stats_doc() {  # <avail-bytes> <capacity-bytes>
   printf '{"node":{"fs":{"availableBytes":%s,"capacityBytes":%s}}}' "$1" "$2"
 }
 
+# The two ways a read can fail, which used to be one sentence.
+#
+# Every non-zero rc read 「生產節點讀不到」, so "the machine is not on the
+# network" and "the machine answered and something is wrong" were the same
+# string -- and `stage_report` binds OWNERSHIP to that string. An unreachable
+# machine therefore looked like an engineering fault, fell back to the `eng`
+# default, and raised `pct_ceiling_eng_only`, the number the landing standard
+# reads. Observed 2026-09-11 when ubu.local stopped resolving.
+prodnode_err() {  # <stderr-text>
+  python3 - "$1" <<'PY2'
+import os, sys
+err = sys.argv[1]
+sys.path.insert(0, os.path.join(os.getcwd(), "platform", "statusdag"))
+import dag
+dag.run = lambda cmd, timeout=25: (0, "ubu\nk3d-devops-lab\n")
+dag.run_diag = lambda cmd, timeout=25: (1, "", err)
+print("%s|%s" % dag.probe_prod_node())
+PY2
+}
+
+run_cmd prodnode_err "Unable to connect to the server: dial tcp: lookup ubu.local: no such host"
+assert_output_contains "連不上" "a name that does not resolve is reported as unreachable"
+
+run_cmd prodnode_err "Command '['kubectl', '--context', 'ubu']' timed out after 15 seconds"
+assert_output_contains "連不上" "a hung lookup that hits the timeout is unreachable too"
+
+# NEGATIVE CONTROL: a machine that IS reachable and answering wrongly must NOT
+# be absorbed into the question addressed to the user.
+run_cmd prodnode_err "error: You must be logged in to the server (Unauthorized)"
+assert_output_contains "讀不到" "a reachable node that refuses is still an engineering fault"
+assert_output_not_contains "連不上" "and is not reported as unreachable"
+
 run_cmd prodnode_probe "$(node_doc True False)" "$(stats_doc 88000000000 105000000000)"
 assert_output_contains "ok|" "a Ready node with 84% free is green"
 

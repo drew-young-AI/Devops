@@ -202,6 +202,26 @@ printf -- '---\ngenerator: platform/statusdag/stage_report.py\n---\n\n`beta` 節
 run_cmd env XREF_ROOT="$FIX" python3 "$XREF"
 assert_output_contains "beta" "a mention in a generated page does not count as documented"
 
+echo "== a shallow clone is refused: it cannot fail, so it cannot pass =="
+# CI found this, not the local run. `fetch-depth: 1` leaves no history, every
+# RETIRED set comes back empty, and the DANGLING direction becomes
+# unreportable -- a check that passes by being unable to look. Exactly the
+# vacuous-control shape this file's other two permanent controls are about,
+# arriving through the environment instead of through the code.
+build_fixture
+retire_beta
+SHALLOW="$FIX-shallow"
+rm -rf "$SHALLOW"
+git clone -q --depth 1 "file://$FIX" "$SHALLOW" 2>/dev/null
+if [ -d "$SHALLOW/.git" ]; then
+  run_cmd env XREF_ROOT="$SHALLOW" python3 "$XREF"
+  assert_rc 2 "a shallow clone refuses to answer rather than reporting clean"
+  assert_output_contains "shallow" "and says the history is what is missing"
+  rm -rf "$SHALLOW"
+else
+  _pass "SKIP: git could not make a shallow clone of the fixture"
+fi
+
 echo "== an enumeration that found nothing is refused, not reported clean =="
 build_fixture
 printf 'NODES = [\n]\n' > "$FIX/platform/statusdag/dag.py"

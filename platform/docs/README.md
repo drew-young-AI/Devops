@@ -160,5 +160,6 @@ stricter than the standard and would punish a legitimate new concept kind.
 | [`capability_graph.py`](capability_graph.py) | 排程／CI | 每支能力是否被某份**可達**文件描述 | **被程式呼叫不等於找得到**。內部元件可指向入口，**但那個入口本身必須被描述**——少了這半，豁免清單就是藏東西的地方 |
 | [`duplicate_check.py`](duplicate_check.py) | 排程／CI | 有沒有兩份東西在講同一件事 | 正規化後**完全比對**，刻意不做相似度評分——誤報是檢查被靜音的方式。「同一產物兩個生產者」只報告不判失敗 |
 | [`decisions.py`](decisions.py) | 排程／CI | 驗證決策紀錄並產生 `docs/decisions/index.md` | **每個帶量測的宣稱都附重跑指令，而那指令必須指向存在的東西**——指向六週前改名腳本的 `rerun:` 比沒有更糟 |
+| [`xref.py`](xref.py) | 排程（`xref` job）／CI | 這個倉庫裡的**名字還指得到東西嗎**——節點／ADR／Backlog 編號／告警規則四個命名空間 | 其他每一份檢查問的都是「X 現在有沒有被涵蓋」。這一支問**刪掉之後名字怎麼了**：已退役的名字還被誰講著（`DANGLING`）、引用了從來不存在的編號（`UNDEFINED`）、定義了卻沒有文件（`UNDOCUMENTED`）、以及**一個編號兩個主人**（`COLLIDING`，四個方向裡最像健康的那個）。退役集合從 **git 歷史推導**，不是手寫清單 |
 | [`context_cost.sh`](context_cost.sh) | 需要時 | agent 讀完這個平台的證據要花多少 token | 讓「給 AI 看的產物」的成本是數字而不是感覺 |
 | [`okf_check.py`](okf_check.py) | 排程／CI | OKF v0.1 frontmatter 一致性 | 每份文件都帶得走：type／title／description／tags 齊全且合法 |

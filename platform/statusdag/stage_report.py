@@ -229,6 +229,25 @@ ASKS = [
         "ref": "docs/Backlog.md",
     },
     {
+        "id": "prod-node-unreachable-host",
+        "node": "prodhost",
+        # Bound to the CLASSIFIED cause, not to 「讀不到」: a machine that is on
+        # the network and answering wrongly is an engineering fault and must
+        # not be absorbed into a question addressed to the user. Same
+        # discipline as smtp-credential matching the channel name.
+        "when": "連不上（名稱解析或逾時）",
+        "owner": "decision",
+        "ask": "生產節點現在連不上——`ubu.local` 解析不到（mDNS），kubectl 的名稱查詢"
+               "卡住直到逾時。和 `prodk8s` 同一個根因：B7 的固定 IP 與停用休眠都還沒做，"
+               "兩件都需要 root 或實體存取。",
+        "options": [
+            "在路由器保留 ubu 的位址，並在 ubu 上停用休眠（`docs/Backlog.md` 的 B7）",
+            "或在 `~/.ssh/config` 與 kubeconfig 寫死 IP——治標，換 IP 那天會再壞一次",
+            "明確記錄「生產節點此階段是盡力而為」，讓灰燈變成已知狀態",
+        ],
+        "ref": "docs/Backlog.md",
+    },
+    {
         "id": "llm-review-artifacts",
         "node": "llmreview",
         "when": "已退役的 Compose 路徑",
