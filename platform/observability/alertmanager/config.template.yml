@@ -44,14 +44,17 @@ route:
       group_wait: 10s
       repeat_interval: 1h
 
-inhibit_rules:
-  # A total production-like outage makes the generic long-scrape-failure
-  # alert redundant noise for the same service.
-  - source_matchers:
-      - alertname = "ProductionLikeAllColorsDown"
-    target_matchers:
-      - alertname = "ScrapeTargetDownProlonged"
-    equal: ["service"]
+# NO inhibit_rules, deliberately.
+#
+# There was one, and `ProductionLikeAllColorsDown` was REMOVED with
+# production-like Compose (commit d950a19, the retirement of station1-hello).
+# It suppressed ScrapeTargetDownProlonged for the same service; the rule was
+# left behind pointing at a `source_matchers` alertname that can no longer
+# exist -- a routing rule that cannot fire, in a file nobody re-reads.
+#
+# It suppressed nothing, so nothing broke, which is exactly why it survived
+# three weeks. Found 2026-09-11 by platform/docs/xref.py, which asks whether
+# the names in this repository still refer to anything.
 
 receivers:
   # Two receivers for one alert, not two routes. Telegram arrives in seconds and

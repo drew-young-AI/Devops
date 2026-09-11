@@ -306,6 +306,12 @@ MLOps/LLMOps：保留接口，延後擴充
 
 ### 主線 B — DataOps（綠）
 
+> **這裡的 A／B／C 編號是 `Plan.md` 自己的，和 `docs/Backlog.md` 的 B 系列不是
+> 同一份清單。** 兩邊都有 B1–B10，意思不同：本表的 **B10 是流行病學週↔日曆日**
+> （卡在疾管署），`docs/Backlog.md` 的 **B10 是 Telegram token 輪替**（卡在您本人）。
+> 引用時一律寫出是哪一份檔案的編號。2026-09-11 由 `platform/docs/xref.py` 的
+> 命名空間衝突檢查找出來。
+
 | # | 里程碑 | 狀態 | 證明方式（可重跑） |
 |---|---|---|---|
 | B1 | 來源以列舉發現，不猜 URL | ✅ | `ingest/discover_sources.py cdc` → 281 筆資源；最細的 feed 是這樣找到的 |

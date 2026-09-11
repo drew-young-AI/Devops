@@ -222,5 +222,5 @@ LLM 應先檢查範圍、資料與權限，再建立 Pilot，不應直接修改 
 原本的 `docs/Architecture.md` 已於 2026-09-09 刪除：它的控制平面圖停在
 `Production-like Compose -> NGINX`，並把 Kubernetes 寫成「future adapter，
 等平台契約通過再說」——而 ADR-0010 早已把 Kubernetes 定為目標執行環境，
-`prodlike` 節點在板面上是 `superseded`。**那份圖不是舊，是反的**，而它從
+`prodlike` 節點在板面上是 `superseded`（**`prodlike` 已於 2026-09-10 移除**，當時是 `superseded`；這句描述的是刪除前的狀態）。**那份圖不是舊，是反的**，而它從
 README 連得到、標題叫「平台架構決策」。上面這四條是它唯一還成立的內容。

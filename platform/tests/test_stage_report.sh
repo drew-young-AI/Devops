@@ -47,7 +47,7 @@ cat > "$HARNESS" <<'PYEOF'
 Each case mutates the imported module's metadata in memory. The module is
 re-imported fresh per process, so no case can leak into another.
 """
-import importlib.util, io, json, os, sys, contextlib
+import copy, importlib.util, io, json, os, sys, contextlib
 
 REPO = os.environ["REPO_ROOT"]
 spec = importlib.util.spec_from_file_location(
@@ -139,6 +139,55 @@ if case == "ask-duplicate-id":
     sr.ASKS.append(dict(sr.ASKS[0]))
     sys.exit(selfcheck_rc(expect_fail_substr="ask id 重複"))
 
+def _block_node(node_id, detail):
+    """Put ONE node into a state that blocks completion, with a chosen detail.
+
+    The fixture board is 47 green nodes, which is right for the coverage
+    guards and useless for anything about OWNERSHIP: with nothing blocking,
+    the ownership code never runs. A control that cannot enter the branch it
+    names measures the branch it already had.
+    """
+    b = copy.deepcopy(BOARD)
+    for n in b["nodes"]:
+        if n["id"] == node_id:
+            n["state"], n["detail"] = "warn", detail
+            return b
+    raise SystemExit("fixture has no node " + node_id)
+
+
+if case == "ask-ownership-regression":
+    # THE DEFECT, REPLAYED (2026-09-11). A node that is still blocking, whose
+    # ask stopped matching because the probe started describing the same
+    # situation in different words. `prodk8s` did exactly this when
+    # `ubu.local` stopped resolving: the ask fell away, the node dropped to the
+    # `eng` default, and DevOps' engineering ceiling rose to exactly the 90%
+    # landing standard. A number that decides "have we landed" must not move
+    # because a hostname stopped resolving.
+    a = sr.ASKS[0]
+    BOARD = _block_node(a["node"], a["when"])
+    if selfcheck_rc() != 0:
+        print("PRECONDITION FAILED: a blocking node WITH a matching ask must be clean")
+        sys.exit(1)
+    sr.ASKS[0] = dict(a, when="這個字串不可能出現在任何 detail 裡")
+    sys.exit(selfcheck_rc(expect_fail_substr="仍在擋完成度"))
+
+if case == "ask-regression-needs-no-owner":
+    # The inverse control: the SAME broken ask, on a node that is NOT
+    # blocking, must stay a NOTE -- otherwise every resolved problem breaks
+    # the build.
+    sr.ASKS[0] = dict(sr.ASKS[0], when="這個字串不可能出現在任何 detail 裡")
+    sys.exit(selfcheck_rc(expect_note_substr="條件已消失"))
+
+if case == "ask-second-ask-covers":
+    # A node may carry several asks and only one can match at a time. prodk8s
+    # has "reachable but empty" and "not reachable at all". The one that is
+    # quiet today is not a regression.
+    a = sr.ASKS[0]
+    BOARD = _block_node(a["node"], a["when"])
+    sr.ASKS.append(dict(a, id=a["id"] + "-alt",
+                        when="這個字串不可能出現在任何 detail 裡"))
+    sys.exit(selfcheck_rc(expect_note_substr="條件已消失"))
+
 if case == "ask-stale":
     # The condition the ask describes is gone. This is NOT an error -- it is a
     # deletion candidate, and the difference matters: treating it as an error
@@ -217,6 +266,21 @@ done
 
 run_cmd python3 "$HARNESS" ask-stale
 assert_rc 0 "an ask whose condition is gone is a NOTE, not a build failure"
+
+# ---- ownership cannot be lost quietly -------------------------------------
+#
+# `pct_ceiling_eng_only` counts every eng-owned blocker as closeable, and a
+# node with no matching ask falls back to eng. So an ask that stops matching
+# RAISES the ceiling -- the number moves in the flattering direction with
+# nothing in the repository changed. It happened on 2026-09-11.
+run_cmd python3 "$HARNESS" ask-ownership-regression
+assert_rc 0 "a blocking node that lost its only ask is a FAIL, not a note"
+
+run_cmd python3 "$HARNESS" ask-regression-needs-no-owner
+assert_rc 0 "the same broken ask on a node that is NOT blocking stays a note"
+
+run_cmd python3 "$HARNESS" ask-second-ask-covers
+assert_rc 0 "a node whose OTHER ask still matches is not a regression"
 
 # ---- the three renderings agree ------------------------------------------
 run_cmd python3 "$HARNESS" renderings

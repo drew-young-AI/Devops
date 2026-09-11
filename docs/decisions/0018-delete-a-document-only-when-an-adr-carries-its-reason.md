@@ -56,7 +56,8 @@ decision:
 
 | 檔案 | 矛盾在哪（量得到的） |
 |---|---|
-| `Architecture.md` | 控制平面圖停在 `Production-like Compose -> NGINX`，並把 Kubernetes 列在「Future adapters：等平台契約通過再說」。**ADR-0010 早已把 Kubernetes 定為目標執行環境**，而 `prodlike` 節點在板面上是 `superseded`。**它不是舊，是反的**——而它從 README 連得到，標題叫「平台架構決策」 |
+| `Architecture.md` | 控制平面圖停在 `Production-like Compose -> NGINX`，並把 Kubernetes 列在「Future adapters：等平台契約通過再說」。**ADR-0010 早已把 Kubernetes 定為目標執行環境**，而 `prodlike` 節點在板面上是 `superseded`（`prodlike` 已於 2026-09-10 **移除**，
+本列記錄的是決策當下的狀態）。**它不是舊，是反的**——而它從 README 連得到，標題叫「平台架構決策」 |
 | `IaC.md` | 「Tool baseline」列 OPA/Conftest、Ansible、Packer——`grep` 全 repo：**各 0 個引用檔**。它列的是打算用的，讀起來像已經在用的。真正在用的 OpenTofu／Checkov／conftest 政策都在 `platform/iac/README.md`，量得到 |
 | `Security.md` | 一張 P0 檢查清單，**六項全部沒打勾，而六項全部早就做完**（Vault 已 unsealed、機密已遷入、Gitleaks 每次測試都跑）。一份宣稱阻擋發行、而阻擋理由已不存在的清單，比沒有清單更糟 |
 | `Pilot-Validation.md` | 驗證狀態機以 `PRODUCTION_LIKE` 收尾，而該節點是 `superseded`；它又依賴第一輪刪掉的走查清單 |

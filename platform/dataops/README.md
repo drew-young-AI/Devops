@@ -50,6 +50,14 @@ SUCCESS, and evaluation fails every single cycle — so the rule reads as
 "configured" and can never fire. It shipped on 2026-08-28 and stood for 11
 hours. This is the origin of ADR-0007: *verify by evaluation, not by parsing*.
 
+## 這一層的告警規則（`prometheus/alerts/dataops.yml`）
+
+| 規則 | 什麼時候燒 | 為什麼是這個形狀 |
+|---|---|---|
+| `IngestRejectRatioHigh` | 某個來源最近一次載入的**退回比例**過高 | 上游改欄位的失效形狀是「整批退回」，而退回不是失敗：`ingest_runs` 照樣寫成功、`lineage` 的恆等式照樣成立、列數不會掉。三個綠燈，一個沒進來的來源 |
+| `DriftNotComputed` | 漂移指標**根本沒有被算出來** | 和 `WidespreadGeoDrift` 是一對。漂移規則不燒有兩個原因——沒有漂移，或沒有在算——而這兩者在儀表板上都是一條平的線 |
+| `WidespreadGeoDrift` | 跨行政區的漂移同時發生 | 見下一節：它需要 `group_left`，這是 ADR-0007 的來源 |
+
 ## Files
 
 | File | What it does |

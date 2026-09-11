@@ -149,6 +149,9 @@ def freshness_and_execution(lines):
         # An unclassified status is a hard error, not a default.
         #
         # The previous rule was `status <> 'ok'`, counted as failures. The only
+        # (`IngestRunsFailing` was REMOVED on 2026-09-03, Backlog §23 -- it is
+        # named here because it is why this code is shaped this way, not
+        # because it still exists.)
         # non-ok status any loader writes is `ok-with-conflicts`, which means
         # the SOURCE contained two rows with the same key and different values
         # -- a data-quality fact about the publisher, recorded deliberately with
@@ -262,7 +265,8 @@ def freshness_and_execution(lines):
         "found the source contradicting itself: same key, different values.",
         "# TYPE dataops_ingest_runs_conflicted_total counter",
     ]
-    # Split out of the failure counter on 2026-09-03. Merged, it made
+    # Split out of the failure counter on 2026-09-03, the same day
+    # `IngestRunsFailing` was REMOVED (Backlog §23). Merged, it made
     # IngestRunsFailing fire every time cdc-tb-caremag loaded and say
     # 「有失敗的載入批次」 about a run that succeeded -- and since caremag's
     # source carries the same conflict every week, that was a permanent red

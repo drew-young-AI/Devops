@@ -59,7 +59,14 @@ fi
 
 # ---- every other path it names exists too ----------------------------------
 MISSING_PATH=""
-for p in $(grep -oE '(docs|evidence)/[A-Za-z0-9_./-]+' "$RUNBOOK" | sed 's/[.,;)]*$//' \
+# The alternation needs a LEFT BOUNDARY. Without one this matched the tail of
+# any longer path: `platform/docs/xref.py` was extracted as `docs/xref.py`, a
+# file that does not exist, and the runbook was reported broken for naming a
+# script that is really there. Found 2026-09-11 when section 11 first cited a
+# tool under platform/docs/. The leading character is captured and then
+# stripped, because grep -oE has no lookbehind.
+for p in $(grep -oE '(^|[^A-Za-z0-9_./-])(docs|evidence)/[A-Za-z0-9_./-]+' "$RUNBOOK" \
+           | sed -E 's/^[^A-Za-z]//' | sed 's/[.,;)]*$//' \
            | sort -u); do
   case "$p" in */) continue ;; *[*?]*) continue ;; esac
   git -C "$REPO_ROOT" check-ignore -q "$p" 2>/dev/null && continue

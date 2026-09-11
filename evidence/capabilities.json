@@ -525,8 +525,12 @@
     },
     {
       "path": "platform/notify/send_mail.sh",
-      "described": false,
-      "internal_to": "platform/notify/emit_event.sh"
+      "described": true,
+      "described_in": "platform/notify/README.md",
+      "when": "由 setup_mail.sh 與告警路徑呼叫",
+      "what": "用 mail.conf 的設定把一封信交給 smarthost",
+      "guarantee": "沒有 mail.conf 就明確失敗，不會安靜地送到空的收件人",
+      "run": "platform/notify/send_mail.sh"
     },
     {
       "path": "platform/notify/setup_mail.sh",

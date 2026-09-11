@@ -183,6 +183,14 @@ SUITES=(
   # which is the point: being called is not being discoverable, and the next
   # person who cannot find one writes a second one.
   test_capability_graph.sh
+  # Both of the above ask "is this thing covered, now". Neither asks what
+  # happens to a NAME when the thing it names is deleted, and that is the gap
+  # a deletion falls through: four nodes were removed on 2026-09-10, every
+  # suite stayed green, and two documents went on describing one of them as a
+  # live board node while an Alertmanager routing rule matched an alertname
+  # that no longer existed. Four namespaces, one mechanism, and the retired
+  # set derived from git history rather than a list somebody maintains.
+  test_xref_lifecycle.sh
   # Reachability prevents one route to duplicate work -- you cannot find the
   # existing thing, so you build a second. It does nothing about the route that
   # actually happened: BOTH copies documented, BOTH reachable, drifted apart,

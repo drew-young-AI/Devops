@@ -78,7 +78,8 @@ def stage(name, nodes, why):
 
 LINES = [
     ("devops", "DevOps", "交付與維運", [
-        stage("基礎", ["vault", "audit", "scheduler", "certs", "rotation", "iac", "capcat"],
+        stage("基礎", ["vault", "audit", "scheduler", "certs", "rotation", "iac", "capcat",
+                       "xref"],
               "機密、身分、稽核軌跡與排程器——其他每一段都站在這上面"),
         stage("原始碼閘門", ["sast", "secrets"],
               "進建置之前擋下：原始碼弱點與歷史中的秘密"),
@@ -202,6 +203,28 @@ ASKS = [
             "在 ubu 上另起一套 Vault ＋ 資料庫（Backlog T7）——隔離最乾淨，"
             "但會產生第二組 unseal key，而那組鑰匙放哪裡只有您能決定",
             "明確記錄「prod 叢集此階段只證明它會回應，不承載服務」，讓黃燈變成已知狀態",
+        ],
+        "ref": "docs/Backlog.md",
+    },
+    {
+        "id": "prod-node-unreachable",
+        "node": "prodk8s",
+        # Matched on 連不上, NOT on any failure of prodk8s: if the cluster is
+        # reachable and broken, that is an engineering fault and must not be
+        # absorbed into a question addressed to the user. Same discipline as
+        # smtp-credential matching the channel name rather than 「沒接上」.
+        "when": "連不上",
+        "owner": "decision",
+        "ask": "prod 節點現在連不上——`ubu.local` 在這台機器上解析不到（mDNS），"
+               "不是叢集壞了。這是 B7 的兩件事還沒做：ubu 沒有固定 IP（要在路由器"
+               "保留位址），以及休眠沒有停用（ubu 上沒有免密碼 sudo）。"
+               "兩件都需要 root 或實體存取，agent 做不到。",
+        "options": [
+            "在路由器保留 ubu 的位址，並在 ubu 上停用休眠（`docs/Backlog.md` 的 B7）",
+            "或在 `~/.ssh/config` 寫死 IP，讓這條路徑不依賴 mDNS——"
+            "治標，換 IP 那天會再壞一次",
+            "明確記錄「prod 節點此階段是盡力而為，連不上不算缺陷」，"
+            "讓黃燈變成已知狀態",
         ],
         "ref": "docs/Backlog.md",
     },
@@ -754,11 +777,45 @@ def selfcheck(board=None):
         if not os.path.exists(ref):
             problems.append(f"ask {a['id']} 指向不存在的檔案 {a['ref']}")
 
+    # AN ASK THAT STOPPED MATCHING IS TWO DIFFERENT EVENTS, AND ONLY ONE OF
+    # THEM IS GOOD NEWS (2026-09-11).
+    #
+    # If the node went green, the question was answered and the ask is a
+    # deletion candidate -- a NOTE.
+    #
+    # If the node is STILL BLOCKING and the ask no longer matches, the node
+    # just lost its owner and fell back to `eng` by default. That default is
+    # wrong in the direction that flatters us: `pct_ceiling_eng_only` counts
+    # every eng-owned blocker as closeable, so the ceiling RISES.
+    #
+    # It happened the day this was written. `prodk8s` is blocked on a decision
+    # only the platform owner can make (Vault and Postgres are bound to
+    # 127.0.0.1 on the Mac). Its ask was bound to the detail 「沒有任何工作負載」.
+    # `ubu.local` stopped resolving, the probe switched to 「prod 叢集連不上」,
+    # the ask stopped matching, and DevOps' engineering ceiling moved to
+    # exactly 90.0% -- the landing standard -- because a hostname stopped
+    # resolving. A number that decides "have we landed" must not move for that
+    # reason, so this is a FAIL.
     live = {a["id"] for a in m["asks"]}
+    blocking = {n["id"] for l in m["lines"] for st in l["stages"]
+                for n in st["nodes"] if blocks_completion(n)}
+    # A node may carry SEVERAL asks -- prodk8s has one for "reachable but
+    # empty" and one for "not reachable at all", and exactly one of them can
+    # match at a time. The regression is a blocking node with NO matching ask,
+    # not an individual ask that happens to be the quiet one.
+    owned = {a["node"] for a in ASKS if a["id"] in live}
     for a in ASKS:
-        if a["id"] not in live:
+        if a["id"] in live:
+            continue
+        if a["node"] in blocking and a["node"] not in owned:
+            problems.append(
+                f"ask {a['id']} 對不到現況，但節點 {a['node']} 仍在擋完成度"
+                f"（detail 不再包含 \"{a['when']}\"）——這個節點剛剛掉回 eng 預設，"
+                "工程端上限會因此虛高。要嘛補一筆涵蓋新狀況的 ask，要嘛確認它真的"
+                "變成工程問題了")
+        else:
             notes.append(f"ask {a['id']} 目前沒有對應到任何現況"
-                         f"（節點 {a['node']} 已正常，或 detail 不再包含 \"{a['when']}\"）"
+                         f"（節點 {a['node']} 已正常，或該節點另有一筆 ask 正在對應）"
                          "——條件已消失，這筆該刪或該改")
 
     for l in m["lines"]:

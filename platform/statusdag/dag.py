@@ -865,7 +865,12 @@ def probe_geo():
 
 
 def probe_epiweek():
-    """B10, the blocked milestone, as a live number rather than a sentence in
+    """`Plan.md` 主線 B 的 B10 -- NOT `docs/Backlog.md` B10, which is the
+    Telegram token rotation. Two different blocked things share that id in this
+    repository; a bare "B10" in a comment sends the reader to whichever list
+    they open first. Found 2026-09-11 by platform/docs/xref.py.
+
+    The blocked milestone, as a live number rather than a sentence in
     a plan. Reported WARN, not FAIL: nothing is broken, a question is
     unanswered -- and the two need to look different to a reader deciding
     where to spend attention."""
@@ -1517,6 +1522,45 @@ def probe_dast_coverage():
     return OK, label
 
 
+def probe_xref():
+    """Do the names in this repository still refer to anything?
+
+    THE THIRD CLOSURE CHECK, and it asks the question the other two cannot.
+    `capability_graph.py` asks whether every script is described;
+    `COVERAGE` asks whether every service and job is watched. Both assume the
+    thing exists and ask whether something points AT it. This asks the reverse,
+    which is what breaks when something is DELETED: four nodes were removed on
+    2026-09-10, every suite stayed green, and two documents went on describing
+    `prodlike` as a live board node while an Alertmanager inhibit rule matched
+    on an alertname that had not existed for three weeks.
+
+    FOUR DIRECTIONS, and the fourth one looks most like health: an id with two
+    owners is neither dangling nor undocumented. `Plan.md` B10 and
+    `docs/Backlog.md` B10 are different blocked things, and `dag.py` cited the
+    bare id.
+
+    ZERO NAMESPACES IS UNKNOWN, not a clean repository.
+    """
+    data = load(os.path.join(EVIDENCE, "docs", "xref.json"))
+    if not data:
+        return UNKNOWN, "沒有 xref.json（xref job 沒跑過）"
+    if not data.get("namespaces_resolved"):
+        return UNKNOWN, "0 個命名空間——列舉壞了，不是倉庫沒有名字"
+    c = data.get("counts") or {}
+    bad = c.get("dangling", 0) + c.get("undefined", 0) + c.get("colliding", 0)
+    age_h = age_hours(data.get("generated_at"))
+    if age_h is not None and age_h > 48:
+        return WARN, f"名稱檢查 {age_h:.0f} 小時沒跑過"
+    if bad:
+        return FAIL, (f"{c.get('dangling',0)} 個指向已刪除的名字、"
+                      f"{c.get('undefined',0)} 個指向不存在的編號、"
+                      f"{c.get('colliding',0)} 個編號有兩個主人")
+    if c.get("undocumented"):
+        return WARN, f"{c['undocumented']} 個名字沒有任何非產生式文件提到"
+    return OK, (f"{data['namespaces_resolved']} 個命名空間，"
+                f"沒有孤兒、沒有懸空引用、沒有同名兩義")
+
+
 def probe_capability_catalog():
     """Every script described in a document somebody can click to.
 
@@ -2058,6 +2102,7 @@ NODES = [
     ("rotation",   "機密輪替",            "foundation",  probe_secret_rotation),
     ("iac",        "IaC 驗證",            "foundation",  probe_iac),
     ("capcat",     "能力目錄零孤兒",      "foundation",  probe_capability_catalog),
+    ("xref",       "名稱還指得到東西",    "foundation",  probe_xref),
     ("prodhost",   "prod 節點健康 (ubu)",  "k8s",        probe_prod_node),
 
     ("sast",       "SAST 原始碼",         "source",      lambda: probe_gate("security/sast_summary_*.json", stale_hours=24 * 8)),
@@ -2175,6 +2220,10 @@ EVIDENCE_READS = {
     "probe_capability_catalog": ("capabilities.json",
                                  ["capabilities[].path",
                                   "capabilities[].described|internal_to"]),
+    "probe_xref": ("docs/xref.json",
+                   ["generated_at", "namespaces_resolved", "counts.dangling",
+                    "counts.undefined", "counts.colliding",
+                    "counts.undocumented"]),
     "probe_secret_rotation": ("vault/rotation_summary_*.json",
                               ["gate_result", "total_secrets", "checked_secrets",
                                "exempt", "due", "without_record"]),
@@ -2267,6 +2316,7 @@ COVERAGE = {
     "job:dastcov": "dastcov",
     "job:logcov": "logcov",
     "job:catalog": "capcat",
+    "job:xref": "xref",
 }
 
 # A `None` above MUST appear here. The reason is the deliverable: an

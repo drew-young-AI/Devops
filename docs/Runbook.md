@@ -438,8 +438,9 @@ job——然後要求每一個都對應到一個板面節點，或是寫在 `dag
 | 要找什麼 | 去哪 |
 |---|---|
 | 為什麼這樣設計 | 各層的 `platform/*/README.md` |
-| 某個決定的理由與量測 | `docs/decisions/index.md`（18 筆 ADR） |
+| 某個決定的理由與量測 | `docs/decisions/index.md`（由 `platform/docs/decisions.py` 產生，不要手寫筆數——這裡原本寫「18 筆」，寫的當下就開始過期） |
 | 還沒做的事與觸發條件 | `docs/Backlog.md` §27 |
 | AI agent 接手 | `docs/Session-Handover.md`（Claude）、`AGENTS.md`（其他） |
-| 只有使用者本人能做的事 | `docs/Backlog.md` 的 B1–B10 |
+| 只有使用者本人能做的事 | **`docs/Backlog.md` 的** B1–B10（`Plan.md` 也有一組 B1–B10，是不同的清單，見該檔開頭的註記） |
 | 有沒有東西沒人在量 | `bash platform/tests/test_coverage_closure.sh`，理由見 ADR-0019 |
+| 刪掉的東西，名字還被誰講著 | `python3 platform/docs/xref.py`（板面節點 `xref`），理由見 ADR-0020 |

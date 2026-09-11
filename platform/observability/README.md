@@ -148,21 +148,33 @@ everyone — including a scheduled agent, which cannot look at a graph at all.
 | Alert | Fires when | Severity |
 |---|---|---|
 | `DevelopServiceDown` | develop target unscrapable 1m | warning |
-| `ProductionLikeAllColorsDown` | **no** blue/green color up for 1m | critical |
 | `ScrapeTargetDownProlonged` | any non-blue/green target down 10m | warning |
 | `HighErrorRate` | 404 ratio > 10% for 5m, with traffic > 0 | warning |
+| `DatabaseErrorsRising` | Postgres error rate climbing | warning |
+
+`ProductionLikeAllColorsDown` **已移除**（2026-09-11 修正本節）。它隨
+production-like Compose 一起退場（commit d950a19），但這份文件繼續把它列在
+上面的表格裡，還在下面宣稱它「fired critical」——讀的人會以為有一條 1 分鐘的
+critical 在守 blue/green，實際上沒有。
+
+現在守 blue/green 的是**另一條路徑**，而且代價要講清楚：`bluegreen` 是狀態板上
+的節點，全色下線由 `PlatformNodeFailed` 抓（`devops_node_state{state="fail"}`）。
+那是 **30 分鐘、warning**，不是 1 分鐘、critical——板面每 15 分鐘算一次，要連紅
+兩輪。要更快就得為 k8s blue/green 寫一條新規則，那是新範圍。
 
 Two of these encode a non-obvious correctness requirement:
 
 - **Blue/green makes a naive `up == 0` alert wrong.** Exactly one color
   serves traffic; the other is *supposed* to be down, and `deploy.sh promote`
   deliberately leaves the old color running for rollback. A per-target rule
-  fires forever on the parked color. `ProductionLikeAllColorsDown` uses
-  `sum(up{...}) == 0` instead, which is the real outage condition and keeps
-  working when a promote flips which color is idle. This was not theoretical:
-  the first version of `ScrapeTargetDownProlonged` was a bare `up == 0` and
-  was observed sitting in `pending` on the parked green target within
-  minutes, on its way to firing permanently.
+  fires forever on the parked color. The **removed**
+  `ProductionLikeAllColorsDown` used `sum(up{...}) == 0` instead, which is the
+  real outage condition and keeps working when a promote flips which color is
+  idle. This was not theoretical: the first version of
+  `ScrapeTargetDownProlonged` was a bare `up == 0` and was observed sitting in
+  `pending` on the parked green target within minutes, on its way to firing
+  permanently. **The lesson outlives the rule**: whatever replaces it for k8s
+  blue/green must aggregate across colors, not alert per target.
 - **`0/0` silently never fires.** An unguarded error-ratio expression yields
   `NaN` when there is no traffic, and `NaN > 0.10` is false — so the alert
   would look armed while being incapable of firing in exactly the low-traffic
@@ -176,7 +188,7 @@ Two of these encode a non-obvious correctness requirement:
 |---|---|
 | `docker stop` develop container | rule `inactive → pending` in ~10 s, `→ firing` at ~71 s (`for: 1m`), alert delivered to Alertmanager with correct labels, summary and runbook |
 | develop restarted | alert cleared and Alertmanager active list back to 0 within ~10 s |
-| `docker stop` production-like blue (green already parked) | `ProductionLikeAllColorsDown` fired **critical** — and did *not* fire while blue was still up, confirming the blue/green aggregation is right |
+| `docker stop` production-like blue (green already parked) | `ProductionLikeAllColorsDown` (since **removed** with production-like Compose) fired **critical** — and did *not* fire while blue was still up, confirming the blue/green aggregation is right |
 | both restored | back to `HEALTHY`, NGINX develop (18443) and production-like (19443) vhosts both returning 200 |
 
 ## `check_health.sh` — the scheduled-agent interface
@@ -239,9 +251,12 @@ curl -s http://127.0.0.1:19093/api/v2/receivers   # -> ["telegram","local-null"]
 細節、失效史與怎麼自己驗，見 [`platform/notify/README.md`](../notify/README.md)。
 **先讀那一份再動這裡的設定**——Telegram 曾經設定正確而且 74% 送不出去。
 
-`inhibit_rules` suppresses `ScrapeTargetDownProlonged` for a service already
-reporting `ProductionLikeAllColorsDown`, so a real outage produces one
-signal rather than two.
+There are **no** `inhibit_rules`. There was one: it suppressed
+`ScrapeTargetDownProlonged` for a service already reporting
+`ProductionLikeAllColorsDown`. That alert was **removed** with production-like
+Compose and the inhibit rule outlived it by three weeks, matching on an
+alertname that could no longer exist. A rule that suppresses nothing breaks
+nothing, which is why it survived; `platform/docs/xref.py` is what found it.
 
 ## Grafana Alertmanager datasource
 

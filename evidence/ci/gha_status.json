@@ -1,9 +1,25 @@
 {
   "schema": "gha-status/1",
-  "fetched_at": "2026-09-10T23:49:32+08:00",
+  "fetched_at": "2026-09-11T09:57:08+08:00",
   "fetch_state": "ok",
   "detail": "fetched main",
   "runs": [
+    {
+      "conclusion": "success",
+      "createdAt": "2026-09-10T15:58:34Z",
+      "displayTitle": "chore(evidence): 09-10 收盤",
+      "status": "completed",
+      "url": "https://github.com/drew-young-AI/Devops/actions/runs/34499127756",
+      "workflowName": "Platform Tests"
+    },
+    {
+      "conclusion": "success",
+      "createdAt": "2026-09-10T15:56:18Z",
+      "displayTitle": "feat(board): 「工程端自己的上限」變成產生式，不再每輪由我口頭解釋",
+      "status": "completed",
+      "url": "https://github.com/drew-young-AI/Devops/actions/runs/34498889217",
+      "workflowName": "Platform Tests"
+    },
     {
       "conclusion": "success",
       "createdAt": "2026-09-10T15:45:07Z",
@@ -25,16 +41,16 @@
       "createdAt": "2026-09-10T15:17:48Z",
       "displayTitle": "feat(board): 第三個維度——讀證據的人和寫證據的人對不對得上",
       "status": "completed",
-      "url": "https://github.com/drew-young-AI/Devops/actions/runs/34494699692",
-      "workflowName": "Platform Tests"
+      "url": "https://github.com/drew-young-AI/Devops/actions/runs/34494699475",
+      "workflowName": "pilot-image"
     },
     {
       "conclusion": "success",
       "createdAt": "2026-09-10T15:17:48Z",
       "displayTitle": "feat(board): 第三個維度——讀證據的人和寫證據的人對不對得上",
       "status": "completed",
-      "url": "https://github.com/drew-young-AI/Devops/actions/runs/34494699475",
-      "workflowName": "pilot-image"
+      "url": "https://github.com/drew-young-AI/Devops/actions/runs/34494699692",
+      "workflowName": "Platform Tests"
     },
     {
       "conclusion": "success",
@@ -66,22 +82,6 @@
       "displayTitle": "feat(board): 生產節點本身沒有被量——prodk8s 綠著也可能是一台磁碟滿了的機器",
       "status": "completed",
       "url": "https://github.com/drew-young-AI/Devops/actions/runs/34450857259",
-      "workflowName": "Platform Tests"
-    },
-    {
-      "conclusion": "success",
-      "createdAt": "2026-09-10T07:23:52Z",
-      "displayTitle": "feat(board): 「登記了」不等於「還在發布」——srcfresh 第一天就抓到一個",
-      "status": "completed",
-      "url": "https://github.com/drew-young-AI/Devops/actions/runs/34449746816",
-      "workflowName": "Platform Tests"
-    },
-    {
-      "conclusion": "success",
-      "createdAt": "2026-09-10T07:10:17Z",
-      "displayTitle": "feat(board): 擁有權重判，加上四個「有腳本、沒節點」的表面",
-      "status": "completed",
-      "url": "https://github.com/drew-young-AI/Devops/actions/runs/34448634821",
       "workflowName": "Platform Tests"
     }
   ]
