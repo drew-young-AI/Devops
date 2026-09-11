@@ -1,9 +1,17 @@
 {
   "schema": "gha-status/1",
-  "fetched_at": "2026-09-11T10:40:51+08:00",
+  "fetched_at": "2026-09-11T14:27:38+08:00",
   "fetch_state": "ok",
   "detail": "fetched main",
   "runs": [
+    {
+      "conclusion": "success",
+      "createdAt": "2026-09-11T02:42:13Z",
+      "displayTitle": "chore(evidence): CI 轉綠後的收盤（gha 回 OK，DevOps 80.0%，工程端上限 83.3%）",
+      "status": "completed",
+      "url": "https://github.com/drew-young-AI/Devops/actions/runs/34555630386",
+      "workflowName": "Platform Tests"
+    },
     {
       "conclusion": "success",
       "createdAt": "2026-09-11T02:38:20Z",
@@ -74,14 +82,6 @@
       "displayTitle": "feat(board): 登記簿列出 9 個未量測，三個看一眼就知道不該留著",
       "status": "completed",
       "url": "https://github.com/drew-young-AI/Devops/actions/runs/34489560326",
-      "workflowName": "Platform Tests"
-    },
-    {
-      "conclusion": "success",
-      "createdAt": "2026-09-10T08:24:10Z",
-      "displayTitle": "chore(evidence): 09-10 收尾產物",
-      "status": "completed",
-      "url": "https://github.com/drew-young-AI/Devops/actions/runs/34454960337",
       "workflowName": "Platform Tests"
     }
   ]

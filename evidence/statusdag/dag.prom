@@ -70,11 +70,11 @@ devops_node_state{node="secrets",layer="source",state="superseded"} 0
 devops_node_state{node="secrets",layer="source",state="warn"} 0
 devops_node_state{node="secrets",layer="source",state="unknown"} 0
 devops_node_state{node="secrets",layer="source",state="fail"} 0
-devops_node_state{node="gha",layer="build",state="ok"} 0
+devops_node_state{node="gha",layer="build",state="ok"} 1
 devops_node_state{node="gha",layer="build",state="superseded"} 0
 devops_node_state{node="gha",layer="build",state="warn"} 0
 devops_node_state{node="gha",layer="build",state="unknown"} 0
-devops_node_state{node="gha",layer="build",state="fail"} 1
+devops_node_state{node="gha",layer="build",state="fail"} 0
 devops_node_state{node="develop",layer="deploy",state="ok"} 1
 devops_node_state{node="develop",layer="deploy",state="superseded"} 0
 devops_node_state{node="develop",layer="deploy",state="warn"} 0
@@ -251,7 +251,7 @@ devops_node_state_code{node="xref",layer="foundation"} 0
 devops_node_state_code{node="prodhost",layer="k8s"} 3
 devops_node_state_code{node="sast",layer="source"} 0
 devops_node_state_code{node="secrets",layer="source"} 0
-devops_node_state_code{node="gha",layer="build"} 4
+devops_node_state_code{node="gha",layer="build"} 0
 devops_node_state_code{node="develop",layer="deploy"} 0
 devops_node_state_code{node="dast",layer="verify"} 0
 devops_node_state_code{node="dastcov",layer="verify"} 2
@@ -301,18 +301,18 @@ devops_node_impacted{node="prodhost"} 0
 devops_node_impacted{node="sast"} 0
 devops_node_impacted{node="secrets"} 0
 devops_node_impacted{node="gha"} 0
-devops_node_impacted{node="develop"} 1
-devops_node_impacted{node="dast"} 1
+devops_node_impacted{node="develop"} 0
+devops_node_impacted{node="dast"} 0
 devops_node_impacted{node="dastcov"} 0
-devops_node_impacted{node="llmreview"} 1
-devops_node_impacted{node="gate"} 1
-devops_node_impacted{node="nginx"} 1
-devops_node_impacted{node="prometheus"} 1
+devops_node_impacted{node="llmreview"} 0
+devops_node_impacted{node="gate"} 0
+devops_node_impacted{node="nginx"} 0
+devops_node_impacted{node="prometheus"} 0
 devops_node_impacted{node="loki"} 0
 devops_node_impacted{node="logcov"} 0
 devops_node_impacted{node="rollup"} 0
-devops_node_impacted{node="alertmgr"} 1
-devops_node_impacted{node="grafana"} 1
+devops_node_impacted{node="alertmgr"} 0
+devops_node_impacted{node="grafana"} 0
 devops_node_impacted{node="sources"} 0
 devops_node_impacted{node="srcfresh"} 0
 devops_node_impacted{node="mirror"} 0
@@ -331,8 +331,8 @@ devops_node_impacted{node="fcscore"} 0
 devops_node_impacted{node="fclead"} 0
 devops_node_impacted{node="retrain"} 0
 devops_node_impacted{node="k8s"} 0
-devops_node_impacted{node="bluegreen"} 1
-devops_node_impacted{node="prodk8s"} 1
+devops_node_impacted{node="bluegreen"} 0
+devops_node_impacted{node="prodk8s"} 0
 # HELP devops_board_generated_seconds Unix time this board was built.
 # TYPE devops_board_generated_seconds gauge
-devops_board_generated_seconds 1789093724
+devops_board_generated_seconds 1789107927

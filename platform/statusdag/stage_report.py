@@ -252,47 +252,78 @@ ASKS = [
         "node": "llmreview",
         "when": "已退役的 Compose 路徑",
         "owner": "decision",
-        # Also reclassified from eng, and for a derived reason: T30 says the
-        # work is "decide the shape of the Kubernetes artefact". That artefact
-        # does not exist until something is deployed to prod, which is the
-        # question above. Leaving it as eng implied someone could just go and
-        # do it.
-        "ask": "LLM 複審的輸入來自已退役的 Compose 路徑。要接回去得先有 Kubernetes 產物，"
-               "而那要等上面那個決定。",
+        # CORRECTED 2026-09-11. This ask used to say the work was blocked on
+        # prodk8s ("要等 Kubernetes 產物，而那要等上面那個決定"). Measured
+        # today, that is false: the Kubernetes artefact EXISTS and is current.
+        # `platform/k8s/station2-twin/deploy.sh` writes
+        # evidence/station2-twin/deploy_develop_<sha>.json with kube_context,
+        # image_digest, color and health_status -- 33 of them on disk, the
+        # newest for today's commit -- and it deploys to the LOCAL lab cluster
+        # (k3d-devops-lab), so it never touches ubu at all.
+        #
+        # review.py wants four inputs. One of the four is already there, from
+        # the Kubernetes path. The three that are missing are:
+        #   build_<sha>.json        written by run_local_ci.sh / the retired
+        #                           compose deploy.sh, not by the k8s one
+        #   trivy_summary_*_<sha>   scan_image.sh, which needs trivy installed
+        #   sbom_summary_*_<sha>    same script, same missing binary
+        #
+        # So this is a decision about WHAT THE REVIEW SHOULD READ now that the
+        # image scan is not run here, not a wait on the production cluster.
+        "ask": "LLM 複審缺三個輸入，而**不是**在等 prod 叢集——Kubernetes 產物已經有了："
+               "`platform/k8s/station2-twin/deploy.sh` 對**本機 lab 叢集**寫出 "
+               "`deploy_develop_<sha>.json`（含 kube_context／image_digest／color），"
+               "最新一份就是今天的 commit。缺的是 `build_<sha>.json`、"
+               "`trivy_summary_*`、`sbom_summary_*`——後兩個要本機裝 trivy，"
+               "而 `trivy` 節點在 2026-09-10 已移除、標記為未量測。"
+               "所以這是「複審該讀什麼」的決定。",
         "options": [
-            "先回答 prodk8s 那一題；這一項會跟著解開",
-            "或明確記錄「LLM 複審此階段不接回」，讓它從待辦變成已知取捨",
+            "把複審的輸入改成**現在真的有的東西**：`deploy_develop`（k8s）＋ "
+            "`sast_summary`（semgrep，10 份在磁碟上）＋ GHCR 建置產生的映像中繼資料"
+            "——改動最小，而且複審的對象變成實際在跑的那條路徑",
+            "把映像掃描接回來（本機裝 trivy 或改用 CI 的 `trivy-action`），"
+            "讓四個輸入都齊——涵蓋面最完整，但要決定掃描在哪裡跑",
+            "明確記錄「LLM 複審此階段不接回」，讓它從待辦變成已知取捨",
         ],
         "ref": "docs/Backlog.md",
-    },
-    {
-        "id": "smtp-credential",
-        "node": "alertmgr",
-        # Matched on the channel name, not just "沒接上": if telegram ever comes
-        # unwired too, that is an engineering fault and must NOT be absorbed
-        # into a question addressed to the user.
-        "when": "沒接上: email",
-        "owner": "decision",
-        "ask": "郵件通道從未接上：Vault 裡沒有 secret/devops/smtp 這一筆，"
-               "而 platform/notify/setup_mail.sh 讀的就是它。程式沒有壞，是那筆機密"
-               "從來沒有被建立，只有帳號持有人拿得到。"
-               "代價是實測過的——2026-09-07 到 09-10 Telegram 有三天送不出去，"
-               "而那三天沒有第二條通道可以退。",
-        "options": [
-            "取得一組 SMTP 帳號與 app password，寫進 Vault 的 secret/devops/smtp，"
-            "再跑 platform/notify/setup_mail.sh <address>（它會先實際寄一封才宣稱可用）",
-            "明確記錄「只用單一通道」及理由，讓它變成已知風險而不是待辦",
-        ],
-        "ref": "docs/Runbook.md",
     },
     {
         "id": "epiweek-definition",
         "node": "epiweek",
         "when": "無日曆日",
         "owner": "external",
-        "ask": "流行病學週對不上日曆日。週資料與日資料無法結合，中醫大個人級資料也接不進來。",
+        # MEASURED 2026-09-11, and it narrows the question considerably.
+        #
+        #   time_period: day 3885 rows, ALL with cal_date, NONE with epi_week
+        #                epi_week 1027 rows, ALL with epi_year/epi_week, NONE
+        #                with cal_date
+        #   facts:       day    = tb_under_management / tb_confirmed / tb_mdr
+        #                epi_week = nhi_visits / rods_ed_visits
+        #
+        # NO METRIC HAS BOTH. So the two obvious self-service routes are both
+        # closed: there is no overlapping series whose 7-day sums could be
+        # matched against a weekly total to recover the boundary empirically,
+        # and the loader takes 年/週 verbatim from the CDC CSV, so our own code
+        # contains no convention to read off either.
+        #
+        # It also means the stated cost is not today's cost: nothing we can
+        # currently compute is blocked, because the daily facts are TB case
+        # management and the weekly facts are influenza-like illness. Adding a
+        # week column to the day rows is trivial and would join nothing.
+        "ask": "流行病學週對不上日曆日。**實測後要修正這句話的代價**：日事實全是結核病"
+               "個案管理（`tb_*`），週事實全是類流感就診（`nhi_visits`／`rods_ed_visits`），"
+               "**沒有任何 metric 同時有日和週**——所以今天沒有任何分析被它擋住，"
+               "給日期加一個「週」欄位在機制上很簡單，但接不到任何東西。"
+               "它真正擋的是**未來**：中醫大個人級資料帶的是日期，要和 CDC 的週序列比對"
+               "就需要這個對照。而對照無法從我們手上的資料推導（沒有重疊序列可以用"
+               "七日加總反推），載入端也只是照抄 CSV 的「年」「週」兩欄。",
         "options": [
-            "向疾管署確認週界定義（起訖日、跨年週歸屬）——只有他們能給權威答案",
+            "先查 CDC open data 的資料集說明／資料字典有沒有寫週界（起訖日、跨年歸屬）"
+            "——這是**證據**而不是猜，而且不必等公文",
+            "或找一個同時帶日期與週次的 CDC feed，用它當對照表推導",
+            "向疾管署確認週界定義——只有他們能給權威答案，但這是最慢的一條",
+            "在中醫大個人級資料真的進來之前，明確記錄「此階段不做日↔週對照」，"
+            "讓它從紅燈變成已知取捨（現在它擋不到任何東西）",
         ],
         "ref": "docs/Backlog.md",
     },

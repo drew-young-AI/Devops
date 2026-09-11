@@ -1,0 +1,77 @@
+{
+  "verdict": "DEGRADED",
+  "exit_code": 1,
+  "checked_at": "2026-09-11T05:57:25Z",
+  "monitoring_integrity": [
+    {
+      "check": "prometheus_reachable",
+      "ok": true,
+      "detail": "api/v1/rules responded"
+    },
+    {
+      "check": "alert_rules_loaded",
+      "ok": true,
+      "detail": "22 rules"
+    },
+    {
+      "check": "alert_rules_evaluating",
+      "ok": true,
+      "detail": "all ok"
+    },
+    {
+      "check": "alertmanager_wired",
+      "ok": true,
+      "detail": "1 active"
+    },
+    {
+      "check": "alertmanager_reachable",
+      "ok": true,
+      "detail": "api/v2/alerts responded"
+    },
+    {
+      "check": "scrape_targets_visible",
+      "ok": true,
+      "detail": "4 targets"
+    }
+  ],
+  "integrity_blockers": [],
+  "active_alerts": [
+    {
+      "alertname": "SourcePublishedNothingNew",
+      "severity": "warning",
+      "environment": null,
+      "service": "dataops",
+      "summary": "cdc-rods-conjunctivitis 抓取成功但內容沒有變過，已超過發布週期的 3 倍",
+      "runbook": "psql: SELECT fetched_at, content_sha256 FROM ingest_runs WHERE source='cdc-rods-conjunctivitis' ORDER BY fetched_at DESC LIMIT 5; 兩份 sha 相同即為空抓取。再對照出版方頁面確認是否真的停發",
+      "started_at": "2026-09-11T01:18:52.011Z"
+    },
+    {
+      "alertname": "WidespreadGeoDrift",
+      "severity": "warning",
+      "environment": null,
+      "service": "dataops",
+      "summary": "COVID-19：超過 1/4 的地區年對年up 超出 0.5–2 倍區間",
+      "runbook": "platform/dataops/run.sh 後比對 yoy_geo_drift_count 與 comparable_count；集中在單一疾病較可能是真疫情",
+      "started_at": "2026-09-10T22:23:58.198Z"
+    },
+    {
+      "alertname": "SourcePublishedNothingNew",
+      "severity": "warning",
+      "environment": null,
+      "service": "dataops",
+      "summary": "cdc-tb-caremag 抓取成功但內容沒有變過，已超過發布週期的 3 倍",
+      "runbook": "psql: SELECT fetched_at, content_sha256 FROM ingest_runs WHERE source='cdc-tb-caremag' ORDER BY fetched_at DESC LIMIT 5; 兩份 sha 相同即為空抓取。再對照出版方頁面確認是否真的停發",
+      "started_at": "2026-09-11T01:18:52.011Z"
+    }
+  ],
+  "scrape_targets": {
+    "alertmanager/-": "up",
+    "platform-dag/-": "up",
+    "station2-twin/develop": "up",
+    "station2-twin-k8s/k8s": "up"
+  },
+  "sources": {
+    "prometheus": "http://127.0.0.1:19090",
+    "alertmanager": "http://127.0.0.1:19093"
+  }
+}
