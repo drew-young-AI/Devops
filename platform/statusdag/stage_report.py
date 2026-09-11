@@ -292,38 +292,48 @@ ASKS = [
         "node": "epiweek",
         "when": "無日曆日",
         "owner": "external",
-        # MEASURED 2026-09-11, and it narrows the question considerably.
+        # MEASURED 2026-09-11, twice, and the second measurement changed the
+        # answer. WHAT THIS ASK USED TO SAY -- 「只有他們能給權威答案」 -- is
+        # false: CDC publishes the crosswalk, machine-readable, no letter.
         #
-        #   time_period: day 3885 rows, ALL with cal_date, NONE with epi_week
-        #                epi_week 1027 rows, ALL with epi_year/epi_week, NONE
-        #                with cal_date
-        #   facts:       day    = tb_under_management / tb_confirmed / tb_mdr
-        #                epi_week = nhi_visits / rods_ed_visits
+        #   https://nidss.cdc.gov.tw/config/DIM_CAL.csv
+        #   CAL_YMD,CAL_YEAR,CAL_WEEK   7,305 rows, 2007-01-01 .. 2026-12-31
         #
-        # NO METRIC HAS BOTH. So the two obvious self-service routes are both
-        # closed: there is no overlapping series whose 7-day sums could be
-        # matched against a weekly total to recover the boundary empirically,
-        # and the loader takes 年/週 verbatim from the CDC CSV, so our own code
-        # contains no convention to read off either.
+        # AND THE RULE CANNOT BE USED INSTEAD OF THE TABLE. Their own FAQ says
+        # 「週別計算方式係以週日為當週第一天，週六為當週結束日，每年第1週為包含
+        # 1月4日之那一週」. That rule reproduces the table exactly from 2010
+        # onward and CONTRADICTS IT for 2007-2009, where CDC truncated weeks at
+        # the calendar boundary instead: 2009 week 01 is Jan 1-3 (three days)
+        # and week 02 starts Jan 4, so the stated rule is wrong about their own
+        # data. Six weeks in the file are not seven days long.
         #
-        # It also means the stated cost is not today's cost: nothing we can
-        # currently compute is blocked, because the daily facts are TB case
-        # management and the weekly facts are influenza-like illness. Adding a
-        # week column to the day rows is trivial and would join nothing.
-        "ask": "流行病學週對不上日曆日。**實測後要修正這句話的代價**：日事實全是結核病"
-               "個案管理（`tb_*`），週事實全是類流感就診（`nhi_visits`／`rods_ed_visits`），"
-               "**沒有任何 metric 同時有日和週**——所以今天沒有任何分析被它擋住，"
-               "給日期加一個「週」欄位在機制上很簡單，但接不到任何東西。"
-               "它真正擋的是**未來**：中醫大個人級資料帶的是日期，要和 CDC 的週序列比對"
-               "就需要這個對照。而對照無法從我們手上的資料推導（沒有重疊序列可以用"
-               "七日加總反推），載入端也只是照抄 CSV 的「年」「週」兩欄。",
+        # Our database agrees with the TABLE, not the rule: it holds 2009 week
+        # 53 across six RODS feeds, which no Sunday-start rule produces. So the
+        # 53rd week was never a loader defect.
+        #
+        # This is the same lesson as the SQL contract, one layer out: derive
+        # from the source, do not restate it. Here the source publishes a
+        # lookup, so the rule is the thing that must not be written down.
+        #
+        # What is still true: the day facts are TB case management and the week
+        # facts are influenza-like illness, so NO metric currently has both and
+        # nothing we can compute today is blocked. The crosswalk matters when
+        # 中醫大 individual-level data (dated) arrives.
+        "ask": "**外部那一半已經有答案了**：疾管署自己發布日↔週對照表 "
+               "`https://nidss.cdc.gov.tw/config/DIM_CAL.csv`"
+               "（`CAL_YMD,CAL_YEAR,CAL_WEEK`，7,305 列，2007-01-01 至 2026-12-31），"
+               "不需要發公文。**但不能改用規則算**：他們 FAQ 寫的「第1週為包含1月4日"
+               "那一週」在 2010 年以後和表一致，2007–2009 卻相反——那三年的週被截在"
+               "跨年處（2009 第 1 週只有 1/1–1/3 三天）。我們資料庫站在表這一邊"
+               "（六個 RODS feed 都有 2009 第 53 週），所以那不是載入缺陷。"
+               "剩下的是一個小決定：這份對照表要怎麼進來。",
         "options": [
-            "先查 CDC open data 的資料集說明／資料字典有沒有寫週界（起訖日、跨年歸屬）"
-            "——這是**證據**而不是猜，而且不必等公文",
-            "或找一個同時帶日期與週次的 CDC feed，用它當對照表推導",
-            "向疾管署確認週界定義——只有他們能給權威答案，但這是最慢的一條",
-            "在中醫大個人級資料真的進來之前，明確記錄「此階段不做日↔週對照」，"
-            "讓它從紅燈變成已知取捨（現在它擋不到任何東西）",
+            "當成**一個資料來源**用既有 ingest 流程收（和其他 CDC feed 同一條路）"
+            "——每年會延長，跟著更新；`srcfresh` 也就看得到它停沒停",
+            "或**快照 vendored** 進 repo 當 crosswalk（像 `geo_alias.csv` 那樣，"
+            "每筆帶 evidence）——不依賴網路，但要有人記得每年補",
+            "先不做：日事實是結核病、週事實是類流感，**今天沒有任何分析被它擋住**；"
+            "等中醫大個人級資料（帶日期）真的進來再做",
         ],
         "ref": "docs/Backlog.md",
     },
