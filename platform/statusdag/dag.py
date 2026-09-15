@@ -67,8 +67,25 @@ RANK = {OK: 0, SUPERSEDED: 1, WARN: 2, UNKNOWN: 3, FAIL: 4}
 # --------------------------------------------------------------------------
 
 def newest(pattern):
-    files = sorted(glob.glob(os.path.join(EVIDENCE, pattern)))
-    return files[-1] if files else None
+    """The most recently WRITTEN match, by mtime -- not the last by name.
+
+    Name order was wrong for any artefact whose filename does not start with
+    its timestamp. `llm_review_<sha>_<ts>.json` is the case that exposed it:
+    `llm_review_9daa7fa_20260911T071645Z` sorts AFTER
+    `llm_review_0b597bc_20260914T152818Z` because the sha comes first, so the
+    board reported a three-day-old review as current and `probe_llm_review`
+    called it stale while a fresh one sat beside it. Found 2026-09-14 after
+    re-running the review changed nothing on the board.
+
+    The other three callers (gate artefacts, gitleaks, rotation summaries) are
+    all `<name>_<timestamp>` and were already correct by name; mtime agrees
+    with name ordering for them, so this is a fix with no behaviour change
+    anywhere except the one that was broken.
+    """
+    files = glob.glob(os.path.join(EVIDENCE, pattern))
+    if not files:
+        return None
+    return max(files, key=os.path.getmtime)
 
 
 def load(path):
@@ -867,38 +884,51 @@ def probe_geo():
 def probe_epiweek():
     """Can a dated record be placed into a CDC epidemiological week?
 
-    WHAT THIS USED TO MEASURE, AND WHY IT WAS THE WRONG QUESTION (fixed
-    2026-09-11). It counted `time_period` rows with a NULL `cal_date` -- 1,048
-    of 4,933 -- and reported that as the gap. But 1,027 of those are `epi_week`
-    rows and 21 are `year` rows, and neither IS a date: a week is an interval
-    and a year is not a day. The node could therefore only ever go green by
-    writing a misleading value into a column that means "this day" everywhere
-    else. It was measuring a modelling artefact, not a capability.
+    THE MAPPING LIVES IN ITS OWN TABLE, AND THAT IS THE WHOLE LESSON.
 
-    The capability is joinability, and it now exists. `epi_year`/`epi_week` are
-    filled on `day` rows from 疾管署's own published crosswalk
-    (https://nidss.cdc.gov.tw/config/DIM_CAL.csv), so dated facts aggregate to
-    CDC weeks and join weekly facts on (epi_year, epi_week). No date is written
-    onto a week row, deliberately -- that would give one column two meanings.
+    It was first written into `time_period.epi_year/epi_week` on the `day`
+    rows. Those columns are part of the row's identity --
+    `UNIQUE NULLS NOT DISTINCT (time_level, epi_year, epi_week, cal_date)` --
+    so labelling a day row changed its natural key, `load_dimensional.py`'s
+    ON CONFLICT stopped matching, and one ingest duplicated every day row:
+    3,885 -> 7,777 periods, 4.1M -> 8.2M facts. Migration 019 moved the
+    crosswalk to `epi_calendar`, where it cannot collide with anything's
+    identity.
 
-    THE CROSSWALK IS A SNAPSHOT AND IT ENDS (2026-12-31). That is this node's
-    real silent failure: the calendar runs out, new days arrive unlabelled, and
-    every week-vs-day comparison quietly stops including them. The horizon is
-    checked here, before it arrives.
+    So this node checks THREE things, and the last two exist because the
+    regression would otherwise be invisible until the next ingest:
+      1. every day period maps to a week
+      2. no day row carries a week label   (the natural key is intact)
+      3. no date has duplicate day rows    (no ingest has re-inserted)
+
+    THE CROSSWALK IS A SNAPSHOT AND IT ENDS. That is the slow failure: the
+    calendar runs out, new days arrive unmappable, and every week-vs-day
+    comparison quietly stops including them.
     """
     data = load(os.path.join(EVIDENCE, "data", "epiweek_calendar.json"))
     if not data:
         return UNKNOWN, "沒有 epiweek_calendar.json（對照表載入器沒跑過）"
     total = data.get("day_periods") or 0
-    done = data.get("day_periods_labelled") or 0
     if not total:
         return UNKNOWN, "0 個日期間——列舉壞了，不是資料庫空了"
+    if not data.get("rows_in_epi_calendar"):
+        return UNKNOWN, "epi_calendar 是空的——對照表沒載進去"
+
+    labelled = data.get("day_rows_with_week_label")
+    dup = data.get("duplicate_day_dates")
+    if labelled:
+        return FAIL, (f"{labelled} 個日列又被寫上週標籤——自然鍵被破壞，"
+                      "下一次匯入會重複插入整批日列")
+    if dup:
+        return FAIL, f"{dup} 個日期有重複的日列——匯入已經重插過"
+
+    done = data.get("day_periods_mappable") or 0
     if done < total:
-        sample = (data.get("unlabelled_days") or ["?"])[0]
+        sample = (data.get("unmappable_days") or ["?"])[0]
         return FAIL, (f"{total - done}/{total} 天對不到 CDC 週"
                       f"（例如 {sample}）——對照表沒有涵蓋到它們")
+
     last = data.get("crosswalk_last") or ""
-    days_left = None
     try:
         days_left = (datetime.strptime(last, "%Y-%m-%d").date()
                      - datetime.now(timezone.utc).date()).days
@@ -908,9 +938,9 @@ def probe_epiweek():
         return FAIL, f"對照表已於 {last} 用完，新的日期都對不到週"
     if days_left < 90:
         return WARN, (f"對照表 {last} 就用完（剩 {days_left} 天）——"
-                      f"到期後新的日期會安靜地對不到週，去 {data.get('source_url')} 換新的")
+                      f"到期後新日期會安靜地對不到週，去 {data.get('source_url')} 換新的")
     return OK, (f"{done:,} 天全數對到 CDC 週，{data.get('weeks_joinable')} 個週期間"
-                f"接得起來；對照表到 {last}")
+                f"接得起來；對照表到 {last}；time_period 自然鍵完整")
 
 
 def probe_features():
@@ -2272,7 +2302,9 @@ EVIDENCE_READS = {
     "probe_epiweek": ("data/epiweek_calendar.json",
                       ["generated_at", "source_url", "crosswalk_last",
                        "crosswalk_days", "day_periods",
-                       "day_periods_labelled", "weeks_joinable"]),
+                       "day_periods_mappable", "weeks_joinable",
+                       "rows_in_epi_calendar", "day_rows_with_week_label",
+                       "duplicate_day_dates"]),
     "probe_xref": ("docs/xref.json",
                    ["generated_at", "namespaces_resolved", "counts.dangling",
                     "counts.undefined", "counts.colliding",
@@ -2361,6 +2393,7 @@ COVERAGE = {
     "job:offsite": "scheduler",
     "job:dast": "dast",
     "job:sast": "sast",
+    "job:secrets": "secrets",
     "job:restore": "restore",
     "job:rotation": "rotation",
     "job:retrain": "retrain",

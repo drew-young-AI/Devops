@@ -1,0 +1,1 @@
+{"at": "2026-09-12T23:21:56Z", "kind": "event", "event": "model-gate", "outcome": "blocked", "detail": "publish_forecast 拒絕發布（rc=1）：模型未勝過天真基準，閘門依設計擋下", "delivery": "sent", "subject": "[DevOps] 模型上線閘門被擋下"}

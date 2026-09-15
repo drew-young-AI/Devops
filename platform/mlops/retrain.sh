@@ -69,10 +69,35 @@ done
 # green, and nobody is told. That silence is the problem: a release that quietly
 # did not happen is indistinguishable from one nobody attempted. `blocked` is a
 # third outcome for exactly this, reported without pretending it is a fault.
-if step "4/5 publish"     "$MLOPS/run.sh" publish_forecast.py; then
+# PUBLISH ONCE PER TARGET, NOT ONCE (fixed 2026-09-14).
+#
+# This called publish_forecast.py with no --feature-set while the loop above
+# had just built TWO targets. publish_forecast refuses that on purpose -- "2
+# forecasting targets exist; --feature-set is required so that the published
+# disease is a choice and not a side effect of which set happened to be built
+# last" -- so the whole weekly job had been exiting 1 since the second target
+# was added, and `retrain` sat FAIL on the board.
+#
+# The fix is not to pick one disease here. Both targets were backtested; each
+# gets its own publish and its own gate verdict. A model that loses to its
+# baseline is still blocked, per target.
+PUBLISH_RC=0
+for i in "${!TARGETS[@]}"; do
+  D="${TARGETS[$i]}"; FS="${FSIDS[$i]}"
+  if step "4/5 publish [$D fs=$FS]" "$MLOPS/run.sh" publish_forecast.py --feature-set "$FS"; then
+    :
+  else
+    rc=$?
+    [ "$rc" -gt "$PUBLISH_RC" ] && PUBLISH_RC=$rc
+  fi
+done
+if [ "$PUBLISH_RC" -eq 0 ]; then
   :
 else
-  rc=$?
+  # $PUBLISH_RC, not $? -- $? here is the exit of the `[` test above, which is
+  # always 1 when we reach this branch and would report every gate refusal as
+  # the same generic code.
+  rc="$PUBLISH_RC"
   "$ROOT/platform/notify/emit_event.sh" model-gate blocked \
     "publish_forecast 拒絕發布（rc=${rc}）：模型未勝過天真基準，閘門依設計擋下" \
     >/dev/null 2>&1 || true

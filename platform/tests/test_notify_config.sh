@@ -122,4 +122,24 @@ else
   _pass "SKIP: no docker, so amtool could not be asked"
 fi
 
+echo "== every *_file the config names must actually be mounted =="
+#
+# THE DEFECT THIS CLOSES (2026-09-13). The config emits
+# `auth_password_file: /etc/alertmanager/smtp-password`, and compose.yaml
+# mounted config.yml and telegram-token and NOT that. amtool accepted the
+# config -- it validates syntax and never opens the file -- so the whole mail
+# path would have come up clean and failed at the first send, on the day
+# somebody finally configured it.
+#
+# Derived from both sides, never a list: the paths come out of a config this
+# suite generates, the mounts come out of compose.yaml. Neither is written
+# down twice.
+printf 'HOST=smtp.gmail.com\nFROM=fixture@example.invalid\nTO=ops@example.invalid\n' > "$MAILCONF"
+run_setup
+assert_rc 0 "a configured run generates a config to check the mounts against"
+
+run_cmd python3 "$REPO_ROOT/platform/tests/alertmanager_mount_check.py" "$OUT" "$REPO_ROOT/platform/observability/compose.yaml"
+assert_rc 0 "every *_file path in the generated config is mounted into the container"
+assert_output_contains "MOUNTS OK" "and says so explicitly rather than passing silently"
+
 suite_summary

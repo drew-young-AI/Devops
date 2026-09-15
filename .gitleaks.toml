@@ -1,0 +1,40 @@
+# gitleaks configuration for this repository.
+#
+# WHY IT EXISTS (2026-09-14). The first history scan in 31 days found exactly
+# one "leak":
+#
+#   rule   curl-auth-user
+#   file   platform/observability/scripts/setup_grafana_identity.sh
+#   match  curl -s -o /dev/null -w '%{http_code}' -u admin:admin
+#
+# That is not a credential being leaked. It is a NEGATIVE CONTROL: the script
+# resets Grafana's admin password to the Vault-held value and then deliberately
+# attempts Grafana's well-known default, so that "the default is dead" is
+# something it PROVES rather than assumes --
+#
+#     # Confirm the default is genuinely dead, rather than trusting the reset.
+#     if curl ... -u admin:admin ... | grep -q 200; then
+#       echo "WARNING: admin/admin STILL WORKS. Do not consider Grafana locked down."
+#
+# `admin:admin` is published in Grafana's own documentation. Removing it would
+# delete the check that the lockdown worked, which is the opposite of what a
+# secret scanner is for.
+#
+# Scoped to the literal default pair AND to that one file, so a real
+# `-u user:hunter2` anywhere -- including in this file -- still fails the scan.
+#
+# TWO THINGS I GOT WRONG BEFORE THIS WORKED, both worth keeping:
+#   1. I diagnosed the CURRENT file at the reported line number. The finding
+#      came from a 2026-08-15 commit, whose line 110 is a different line. Read
+#      the `Match` field, not the file.
+#   2. An allowlist regex matches the captured SECRET by default, not the line.
+#      A regex describing the surrounding syntax silently never fires.
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Grafana's published default credential, used as a negative control to prove it is rejected"
+paths = ['''platform/observability/scripts/setup_grafana_identity\.sh''']
+regexTarget = "match"
+regexes = ['''-u\s+admin:admin\b''']

@@ -291,12 +291,37 @@ import json;d=json.load(open('$REPO_ROOT/evidence/scheduler/${PROV_JOB}_last.jso
 print(d.get('trigger'), d.get('last_scheduled_at') is not None)" 2>/dev/null || echo "err")"
 assert_equals "scheduled True" "$PROV_SCHED" "a launchd-spawned run records trigger=scheduled"
 
-"$RUN_JOB" "$PROV_JOB" >/dev/null 2>&1 || true
-PROV_MANUAL="$(python3 -c "
+# PROVE THE RUN ACTUALLY HAPPENED BEFORE READING ITS RECORD.
+#
+# `|| true` used to swallow every outcome, including the one where run_job.sh
+# exits without running because the same job is already in flight. The state
+# file then still holds the PREVIOUS run, and the assertion compares a stale
+# record: observed 2026-09-14 as `expected 'manual True', got 'scheduled True'`
+# while a launchd-spawned copy of the same job was running. Red for a reason
+# that has nothing to do with the code under test is how a suite teaches people
+# that red means "run it again".
+PROV_BEFORE="$(python3 -c "
+import json;d=json.load(open('$REPO_ROOT/evidence/scheduler/${PROV_JOB}_last.json'))
+print(d.get('started_at'))" 2>/dev/null || echo "none")"
+PROV_ADVANCED=0
+for _ in 1 2 3 4 5 6 7 8 9 10; do
+  "$RUN_JOB" "$PROV_JOB" >/dev/null 2>&1 || true
+  PROV_NOW="$(python3 -c "
+import json;d=json.load(open('$REPO_ROOT/evidence/scheduler/${PROV_JOB}_last.json'))
+print(d.get('started_at'))" 2>/dev/null || echo "none")"
+  [ "$PROV_NOW" != "$PROV_BEFORE" ] && { PROV_ADVANCED=1; break; }
+  sleep 2
+done
+if [ "$PROV_ADVANCED" -ne 1 ]; then
+  _fail "the manual run never executed (a concurrent copy held the lock for 20s); \
+the provenance record could not be checked"
+else
+  PROV_MANUAL="$(python3 -c "
 import json;d=json.load(open('$REPO_ROOT/evidence/scheduler/${PROV_JOB}_last.json'))
 print(d.get('trigger'), d.get('last_scheduled_at') is not None)" 2>/dev/null || echo "err")"
-assert_equals "manual True" "$PROV_MANUAL" \
-  "a manual run records trigger=manual WITHOUT erasing the schedule evidence"
+  assert_equals "manual True" "$PROV_MANUAL" \
+    "a manual run records trigger=manual WITHOUT erasing the schedule evidence"
+fi
 
 UNCONDITIONAL="$(grep -cE '^\s*launchctl bootout .*\$\{label\}' "$REPO_ROOT/platform/scheduler/install.sh" || true)"
 if [ "$UNCONDITIONAL" -le 2 ]; then

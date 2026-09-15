@@ -65,7 +65,25 @@ LOCAL_DIR="$SCRIPT_DIR/archives"
 # re-deriving one on every run.
 RCLONE_DIR="${RCLONE_DIR:-$SCRIPT_DIR/.rclone}"
 RCLONE_CONF="$RCLONE_DIR/rclone.conf"
+# FALL BACK TO ~/.env WHEN THE ENVIRONMENT IS EMPTY (2026-09-12).
+#
+# The scheduler runs this as `offsite|86400|1800|platform/backup/sync_remote.sh`
+# with no environment of its own, so a remote that exists and works still
+# reported "not configured" on every scheduled run -- the setup was done and
+# the board would never have noticed. Same source of truth the notification
+# setup already uses (~/.env), same read-one-key-by-name shape, and an explicit
+# RCLONE_REMOTE still wins so a caller can point this at somewhere else.
+#
+# rclone.conf remains the authority for the CREDENTIALS. This reads one
+# non-secret value: which remote to write to.
+ENV_FILE="${BACKUP_ENV_FILE:-$HOME/.env}"
 REMOTE="${RCLONE_REMOTE:-}"
+if [ -z "$REMOTE" ] && [ -f "$ENV_FILE" ]; then
+  # sed, not a python heredoc. The first version put a heredoc inside a command
+  # substitution and bash mis-parsed everything after it -- `MODE` came out
+  # unbound three lines later. One key, one line, no nesting.
+  REMOTE="$(sed -n 's/^RCLONE_REMOTE[[:space:]]*=[[:space:]]*"\{0,1\}\([^"]*\)"\{0,1\}.*/\1/p' "$ENV_FILE" 2>/dev/null | head -1)"
+fi
 RCLONE_IMAGE="${RCLONE_IMAGE:-rclone/rclone:latest}"
 
 MODE="sync"

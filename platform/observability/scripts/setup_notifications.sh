@@ -109,6 +109,14 @@ print("  mail receiver: %s" % ("to " + mto if mto else "not configured (telegram
 PY
 chmod 600 "$CONFIG"
 
+# The compose file bind-mounts this path into the container, so it must exist
+# even before anyone configures mail -- a dangling bind mount stops
+# Alertmanager from starting at all. Empty is safe: with no mail.conf the
+# generated config carries no email_configs block and never reads it.
+PW_FILE="$AM_DIR/smtp-password"
+[ -f "$PW_FILE" ] || : > "$PW_FILE"
+chmod 600 "$PW_FILE"
+
 # Validate with Alertmanager's OWN parser before claiming success.
 #
 # Not paranoia -- this caught a real defect the day it was added. An

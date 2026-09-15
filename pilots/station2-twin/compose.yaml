@@ -65,6 +65,21 @@ services:
       platform.data_class: internal
     ports:
       - "127.0.0.1:${HOST_PORT:-18090}:8080"
+    # DEFAULT TO THE VAULT APPROLE, so that a plain `docker compose up -d twin`
+    # is not a silent downgrade.
+    #
+    # VAULT_ROLE_ID / VAULT_SECRET_ID live in .env.vault (chmod 600, gitignored,
+    # written by platform/vault/scripts/write_pilot_approle_env.sh). Without
+    # them the app falls back to the static PGPASSWORD below and still reports
+    # `ready` -- just with `credentials.mode = static` instead of `vault`.
+    # Observed 2026-09-14: restarting this service without --env-file dropped it
+    # from dynamic Vault credentials to the bootstrap password, and the only
+    # thing that noticed was the parity check against the k8s copy.
+    #
+    # required: false so a fresh clone without the file still starts.
+    env_file:
+      - path: .env.vault
+        required: false
     environment:
       PGHOST: db
       PGPORT: 5432
@@ -72,7 +87,12 @@ services:
       PGUSER: ${PGUSER:-twin}
       PGPASSWORD: ${PGPASSWORD:-twin-bootstrap}
       APP_VERSION: ${APP_VERSION:-station2-dev}
-      EXPECTED_SCHEMA_VERSION: ${EXPECTED_SCHEMA_VERSION:-18}
+      # 19 since migration 019 (epi_calendar). The default here and
+      # EXPECTED_SCHEMA_VERSION in pilots/station2-twin/config.example.env
+      # must move together: readiness compares this against the database,
+      # so a stale default makes the copy answer schema_mismatch forever
+      # while the deploy itself looks like it succeeded.
+      EXPECTED_SCHEMA_VERSION: ${EXPECTED_SCHEMA_VERSION:-19}
       GRACEFUL_DRAIN_SECONDS: ${GRACEFUL_DRAIN_SECONDS:-3}
       # Vault AppRole. When both are set the service fetches a
       # short-lived database credential instead of using PGPASSWORD.
@@ -81,8 +101,11 @@ services:
       # operator who believes rotation is happening and is wrong has
       # no other way to find out.
       VAULT_ADDR: ${VAULT_ADDR:-http://host.docker.internal:18200}
-      VAULT_ROLE_ID: ${VAULT_ROLE_ID:-}
-      VAULT_SECRET_ID: ${VAULT_SECRET_ID:-}
+      # NOT listed here on purpose. `environment:` is interpolated from the
+      # HOST shell at parse time, so `${VAULT_ROLE_ID:-}` resolved to empty
+      # and OVERRODE whatever env_file supplied -- the first attempt at this
+      # fix changed nothing and the copy stayed on static credentials.
+      # env_file above injects them into the container directly.
       VAULT_DB_ROLE: ${VAULT_DB_ROLE:-station2-twin}
       # How close to expiry a Vault credential may get before the pool is
       # rebuilt with a fresh one. Declared here so it can be driven from the

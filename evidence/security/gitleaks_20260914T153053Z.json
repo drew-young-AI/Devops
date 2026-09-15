@@ -1,0 +1,23 @@
+[
+ {
+  "RuleID": "curl-auth-user",
+  "Description": "Discovered a potential basic authorization token provided in a curl command, which could compromise the curl accessed resource.",
+  "StartLine": 110,
+  "EndLine": 110,
+  "StartColumn": 7,
+  "EndColumn": 60,
+  "Match": "curl -s -o /dev/null -w '%{http_code}' -u admin:admin ",
+  "Secret": "admin:admin",
+  "File": "platform/observability/scripts/setup_grafana_identity.sh",
+  "SymlinkFile": "",
+  "Commit": "a2086fa2579c5f28cbe91f2c357145901ad689da",
+  "Link": "https://github.com/drew-young-AI/Devops/blob/a2086fa2579c5f28cbe91f2c357145901ad689da/platform/observability/scripts/setup_grafana_identity.sh#L110",
+  "Entropy": 2.5503407,
+  "Author": "Drew (DevOps Automation)",
+  "Email": "r06341047@g.ntu.edu.tw",
+  "Date": "2026-08-15T11:56:49Z",
+  "Message": "feat(observability): alerting, log data governance, and Grafana access control\n\nAlerting: Alertmanager plus four version-controlled rules, replacing \"a\nhuman looks at a dashboard\" with a reproducible verdict. Two rules encode\nnon-obvious correctness. Blue/green makes a naive `up == 0` wrong -- the\nparked colour is *supposed* to be down, so the rule aggregates with\n`sum(up{...}) == 0`; the first version was observed entering `pending` on\nthe idle colour within minutes. And an unguarded error ratio yields NaN at\nzero traffic, so the alert looks armed while being incapable of firing in\nexactly the low-traffic conditions where a bad deploy hides.\n\ncheck_health.sh gives a scheduled agent a graded exit code (0/1/2/3). Exit 3\nis the reason it exists: a dead Prometheus reports zero active alerts and so\ndoes a healthy one, so the checker refuses to read an empty alert list as\ngood news until it has proven something was watching.\n\nAlso fixed a real hole: production-like was not scraped at all. The\nenvironment carrying traffic had zero monitoring while develop had full\ncoverage.\n\nLog data governance, in order: classify (services declare\nplatform.data_class via a Docker label -- declarative, not a hardcoded list\nthat goes stale), redact (at WRITE time; a query-time filter is a promise\nthat everyone will remember it, and once an unmasked identifier is stored\nthe only remedy is rebuilding the store), separate (different Loki TENANTS,\nnot labels -- a label can be filtered out by a query someone chooses not to\nwrite, a tenant is enforced on every request). Restricted data is retained\nfor LESS time, not more: how long sensitive material exists is itself a\ncontrol. Redaction is v1: three high-confidence patterns, and it will not\ncatch free-text names or unexpected formats.\n\nDisk pressure is guarded in two places because they fail differently: Loki\nlimits protect Loki, Docker json-file rotation protects the host disk.\n\nGrafana anonymous access is off. The trap this closes:\nGF_SECURITY_ADMIN_PASSWORD is only honoured on FIRST database init, so on an\nexisting volume it is silently ignored. Setting it and stopping there is\nworse than doing nothing -- it converts \"everyone is a viewer\" into \"anyone\nwho tries admin/admin is an admin\" while the config reads as locked down.\nObserved exactly that. The script now resets the live password and asserts\nboth that the Vault credential works and that admin/admin no longer does.\n\nVerified by generating real PII: the stored line is fully masked,\ncross-tenant queries return zero rows, and a query with no X-Scope-OrgID is\nrejected 401. Alerting verified by stopping containers, not by reading\nconfig.\n\nCo-Authored-By: Claude Opus 5 \u003cnoreply@anthropic.com\u003e",
+  "Tags": [],
+  "Fingerprint": "a2086fa2579c5f28cbe91f2c357145901ad689da:platform/observability/scripts/setup_grafana_identity.sh:curl-auth-user:110"
+ }
+]

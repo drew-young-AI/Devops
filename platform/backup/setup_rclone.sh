@@ -224,11 +224,40 @@ Close whatever is holding it and re-run."
   # Detached, and NOT --rm. The container must outlive this script so the
   # link stays clickable, and its logs must survive its exit so the next
   # invocation can read the token out of them. --rm would delete both.
+  # THE PUBLISHED PORT CANNOT REACH RCLONE DIRECTLY (found 2026-09-12).
+  #
+  # `rclone authorize` binds 127.0.0.1:53682 -- the CONTAINER's loopback. A
+  # published port forwards to the container's eth0, not to its loopback, so
+  # `-p 127.0.0.1:53682:53682` maps to nothing at all: the browser got
+  # ERR_EMPTY_RESPONSE and `curl` got http=000, while `netstat` inside the
+  # container showed the listener up. The link this script printed could never
+  # have worked, and nothing checked it before telling the user to click it.
+  #
+  # `--network host` does not fix it on this machine: on Docker Desktop for
+  # macOS the container's loopback is the Linux VM's, not the Mac's. Measured
+  # -- a listener on 127.0.0.1 inside a --network host container is still
+  # unreachable from macOS (http=000).
+  #
+  # So the published port lands on a FORWARDER (53683 on eth0) that relays into
+  # the container's own loopback. Verified end to end before this went in.
   docker rm -f "$AUTH_CONTAINER" >/dev/null 2>&1
   docker run -d --name "$AUTH_CONTAINER" \
-    -p 127.0.0.1:53682:53682 \
+    -p 127.0.0.1:53682:53683 \
     "$RCLONE_IMAGE" authorize drive >/dev/null 2>&1 \
     || die "Could not start the authorisation listener."
+
+  # Two steps on purpose. Folding them into one detached `sh -c` looked tidier
+  # and did not work: the install and the listener raced, and the failure was
+  # invisible because the whole thing was detached and redirected to /dev/null.
+  # Install SYNCHRONOUSLY so a failure is a failure, then start the forwarder.
+  if ! docker exec "$AUTH_CONTAINER" sh -c 'command -v socat >/dev/null 2>&1' 2>/dev/null; then
+    docker exec "$AUTH_CONTAINER" apk add --no-cache socat >/dev/null 2>&1 \
+      || die "Could not install the port forwarder inside the authorisation
+container. It needs network access to the alpine package index once."
+  fi
+  docker exec -d "$AUTH_CONTAINER" \
+    socat TCP-LISTEN:53683,fork,reuseaddr TCP:127.0.0.1:53682 >/dev/null 2>&1 \
+    || die "Could not start the port forwarder inside the authorisation container."
 
   URL=""
   for _ in $(seq 1 30); do
@@ -241,6 +270,44 @@ Close whatever is holding it and re-run."
     echo "rclone never printed an authorisation URL. Its output was:" >&2
     auth_log >&2
     docker rm -f "$AUTH_CONTAINER" >/dev/null 2>&1
+    exit 1
+  fi
+
+  # PROVE THE PORT IS REACHABLE WITHOUT SPEAKING TO IT.
+  #
+  # Two earlier versions of this check broke the thing they checked. The first
+  # fetched $URL -- but /auth?state=... is not an observable endpoint, it IS
+  # the authorisation step, so rclone treated the probe as the user arriving
+  # and exited with the state consumed. The second fetched / instead, and that
+  # also ended the process: rclone's one-shot OAuth server does not survive an
+  # unexpected request.
+  #
+  # A TCP connect is an observation; an HTTP request is an interaction. Connect
+  # and close: that proves the published port reaches the forwarder and the
+  # forwarder reaches rclone, and it sends no bytes.
+  REACHABLE=0
+  for _ in $(seq 1 25); do
+    if python3 - <<'PROBE' 2>/dev/null
+import socket, sys
+s = socket.socket()
+s.settimeout(2)
+try:
+    s.connect(("127.0.0.1", 53682))
+except Exception:
+    sys.exit(1)
+finally:
+    s.close()
+PROBE
+    then REACHABLE=1; break; fi
+    sleep 1
+  done
+  if [ "$REACHABLE" -ne 1 ]; then
+    echo "REFUSING: nothing is accepting connections on 127.0.0.1:53682." >&2
+    echo "rclone listens on the CONTAINER's loopback; a socat forwarder bridges" >&2
+    echo "it to the published port, and that forwarder is not up. Check:" >&2
+    echo "  docker exec $AUTH_CONTAINER netstat -ltn" >&2
+    echo "  docker logs $AUTH_CONTAINER" >&2
+    echo "Then: platform/backup/setup_rclone.sh --cancel  and try again." >&2
     exit 1
   fi
 

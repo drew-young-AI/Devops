@@ -33,17 +33,26 @@ contract one layer out -- derive from the source, never restate it. Here the
 source publishes a lookup, so the rule is precisely the thing that must not be
 written down.
 
-WHAT THIS FILLS, AND WHAT IT DELIBERATELY DOES NOT.
+WHERE IT WRITES, AND WHY NOT time_period (corrected 2026-09-14).
 
-`time_period` already has `epi_year` and `epi_week`; they are NULL on `day`
-rows. This fills those two columns and touches nothing else -- no migration,
-and `cal_date` is not overloaded. A week row's identity stays (year, week) and
-a day row's stays its date; the JOIN KEY between daily and weekly facts is
-(epi_year, epi_week), which is what this makes possible.
+The first version filled `time_period.epi_year/epi_week` on the `day` rows.
+That was wrong, and the way it was wrong is worth keeping: those two columns
+are part of the row's identity --
 
-It does NOT put a date on `epi_week` rows. A week is an interval, and writing
-one date into a column that means "this day" on every other row would give one
-column two meanings -- the failure `platform/docs/xref.py` calls COLLIDING.
+    time_period_natural  UNIQUE NULLS NOT DISTINCT
+                         (time_level, epi_year, epi_week, cal_date)
+
+-- so a day row's natural key is (day, NULL, NULL, <date>). Labelling it
+changed that key, `load_dimensional.py`'s ON CONFLICT stopped matching, and one
+ingest inserted a second copy of every day row: 3,885 -> 7,777 periods,
+4.1M -> 8.2M day facts. The next run of this job then failed on the unique
+constraint it had itself made unsatisfiable. Rolled back on 2026-09-14
+(3,885 periods and 4,104,117 facts deleted inside one transaction with
+post-conditions), and the mapping moved to its own table by migration 019.
+
+The crosswalk is reference data about the CALENDAR, not an attribute of a
+period. In `epi_calendar` it cannot collide with anything's identity, and the
+join is time_period.cal_date -> epi_calendar.cal_date -> (epi_year, epi_week).
 
 Usage:
   load_epiweek_calendar.py            report what would change, write nothing
@@ -114,9 +123,8 @@ def main(argv):
     clear = "--clear" in argv
 
     if clear:
-        psql("UPDATE time_period SET epi_year = NULL, epi_week = NULL "
-             "WHERE time_level = 'day';")
-        print("cleared epi_year/epi_week on day rows")
+        psql("DELETE FROM epi_calendar;")
+        print("cleared epi_calendar")
         return 0
 
     cal = load_crosswalk()
@@ -124,47 +132,52 @@ def main(argv):
         "SELECT to_char(cal_date,'YYYY-MM-DD') FROM time_period "
         "WHERE time_level='day' ORDER BY cal_date;").splitlines() if d]
     if not days:
-        raise SystemExit("REFUSING: no day periods found -- nothing to label")
+        raise SystemExit("REFUSING: no day periods found -- nothing to map")
 
     hit = [d for d in days if d in cal]
     miss = [d for d in days if d not in cal]
     print("crosswalk  %d days  %s .. %s" % (len(cal), min(cal), max(cal)))
     print("day rows   %d       %s .. %s" % (len(days), days[0], days[-1]))
-    print("labelled   %d" % len(hit))
-    print("unlabelled %d%s" % (len(miss), ("  first: " + miss[0]) if miss else ""))
+    print("mappable   %d" % len(hit))
+    print("unmappable %d%s" % (len(miss), ("  first: " + miss[0]) if miss else ""))
 
     if not apply_:
         print("\n(dry run -- pass --apply to write)")
         return 0
 
-    # One statement per (year, week), not per day: 3,885 day rows collapse to
-    # ~560 groups, and a per-row round trip through `docker exec` would take
-    # minutes for no benefit.
-    groups = {}
-    for d in hit:
-        groups.setdefault(cal[d], []).append(d)
-    for (y, w), dates in sorted(groups.items()):
-        lit = ",".join("'%s'" % d for d in dates)
-        psql("UPDATE time_period SET epi_year=%d, epi_week=%d "
-             "WHERE time_level='day' AND cal_date IN (%s);" % (y, w, lit))
+    # Batched multi-row upsert. Idempotent by construction: cal_date is the
+    # primary key and the row is replaced, so re-running changes nothing.
+    items = sorted(cal.items())
+    BATCH = 800
+    for i in range(0, len(items), BATCH):
+        vals = ",".join("('%s',%d,%d)" % (d, y, w) for d, (y, w) in items[i:i + BATCH])
+        psql("INSERT INTO epi_calendar (cal_date, epi_year, epi_week) VALUES %s "
+             "ON CONFLICT (cal_date) DO UPDATE SET epi_year=EXCLUDED.epi_year, "
+             "epi_week=EXCLUDED.epi_week;" % vals)
 
-    filled = psql("SELECT count(*) FROM time_period "
-                  "WHERE time_level='day' AND epi_week IS NOT NULL;")
-    print("\nwrote %s day rows" % filled)
-    if int(filled) != len(hit):
-        raise SystemExit("post-condition failed: wrote %s, expected %d"
-                         % (filled, len(hit)))
+    loaded = int(psql("SELECT count(*) FROM epi_calendar;"))
+    if loaded != len(cal):
+        raise SystemExit("post-condition failed: loaded %d, crosswalk has %d"
+                         % (loaded, len(cal)))
 
-    # The crosswalk is a SNAPSHOT and it ends. `probe_epiweek` has to be able
-    # to see that horizon, and it cannot: it reads the database, and "the
-    # calendar runs out in December" is a property of the file. So the horizon
-    # is written where a probe can read it -- same shape as every other
-    # evidence artefact here.
-    joinable = psql(
-        "SELECT count(*) FROM (SELECT DISTINCT epi_year, epi_week FROM time_period "
-        "WHERE time_level='day' AND epi_week IS NOT NULL) d "
-        "JOIN (SELECT epi_year, epi_week FROM time_period "
-        "WHERE time_level='epi_week') w USING (epi_year, epi_week);")
+    # time_period MUST be untouched: no day row may carry a week label, or the
+    # natural key breaks again exactly as it did on 2026-09-13.
+    labelled = int(psql("SELECT count(*) FROM time_period "
+                        "WHERE time_level='day' AND epi_week IS NOT NULL;"))
+    if labelled:
+        raise SystemExit("post-condition failed: %d day rows carry a week label; "
+                         "that is what broke the ingest natural key" % labelled)
+    dup = int(psql("SELECT count(*) FROM (SELECT cal_date FROM time_period "
+                   "WHERE time_level='day' GROUP BY 1 HAVING count(*)>1) x;"))
+    if dup:
+        raise SystemExit("post-condition failed: %d dates have duplicate day rows" % dup)
+
+    joinable = int(psql(
+        "SELECT count(*) FROM (SELECT DISTINCT c.epi_year, c.epi_week "
+        "FROM time_period tp JOIN epi_calendar c ON c.cal_date=tp.cal_date "
+        "WHERE tp.time_level='day') d JOIN (SELECT epi_year, epi_week FROM time_period "
+        "WHERE time_level='epi_week') w USING (epi_year, epi_week);"))
+
     payload = {
         "generated_by": "pilots/station2-twin/ingest/load_epiweek_calendar.py --apply",
         "generated_at": _now(),
@@ -175,9 +188,12 @@ def main(argv):
         "crosswalk_first": min(cal),
         "crosswalk_last": max(cal),
         "day_periods": len(days),
-        "day_periods_labelled": int(filled),
-        "unlabelled_days": miss[:50],
-        "weeks_joinable": int(joinable),
+        "day_periods_mappable": len(hit),
+        "unmappable_days": miss[:50],
+        "weeks_joinable": joinable,
+        "rows_in_epi_calendar": loaded,
+        "day_rows_with_week_label": labelled,
+        "duplicate_day_dates": dup,
     }
     out = os.path.join(_repo_root(), "evidence", "data", "epiweek_calendar.json")
     os.makedirs(os.path.dirname(out), exist_ok=True)
@@ -186,9 +202,9 @@ def main(argv):
         json.dump(payload, fh, indent=2, ensure_ascii=False)
         fh.write("\n")
     os.replace(tmp, out)
-    print("wrote evidence/data/epiweek_calendar.json "
-          "(crosswalk ends %s, %s weeks joinable)"
-          % (payload["crosswalk_last"], joinable))
+    print("\nloaded %d rows into epi_calendar; %d week periods joinable; "
+          "time_period untouched (0 labels, 0 duplicate dates)"
+          % (loaded, joinable))
     return 0
 
 

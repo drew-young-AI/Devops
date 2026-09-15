@@ -75,6 +75,21 @@ services:
       # Token as a FILE, not an env var: env vars are visible in
       # `docker inspect` to anyone who can reach the daemon socket.
       - ./alertmanager/telegram-token:/etc/alertmanager/telegram-token:ro
+      # THE MAIL PASSWORD WAS NEVER MOUNTED (found 2026-09-13).
+      #
+      # setup_mail.sh writes ./alertmanager/smtp-password on the host, and
+      # setup_notifications.sh emits `auth_password_file:
+      # /etc/alertmanager/smtp-password` into the config -- a path that did not
+      # exist inside this container. `amtool check-config` accepts it, because
+      # it validates syntax and never opens the file. So the whole mail path
+      # would have come up clean and failed at the first send, on the day
+      # somebody finally configured it: exactly the 2026-08-19 shape this
+      # block's own comment warns about, one file over.
+      #
+      # setup_notifications.sh now creates the file (empty, 0600) when it is
+      # absent, so this mount never dangles and the container still refuses to
+      # start when config.yml or the telegram token is missing.
+      - ./alertmanager/smtp-password:/etc/alertmanager/smtp-password:ro
       - alertmanager-data:/alertmanager
     # 127.0.0.1 only, matching Prometheus/Loki/Grafana/Vault. Alert state is
     # internal platform tooling; it is never reached from outside this Mac

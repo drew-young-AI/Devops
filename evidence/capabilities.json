@@ -1,7 +1,7 @@
 {
   "generated_by": "platform/docs/capability_graph.py --catalog",
   "root": "README.md",
-  "count": 102,
+  "count": 104,
   "capabilities": [
     {
       "path": "pilots/station2-twin/app/app.py",
@@ -43,6 +43,15 @@
       "what": "疫情事實表與維度",
       "guarantee": "星狀模型的主線；upsert 與衝突判定在載入時決定，不留給查詢端",
       "run": "pilots/station2-twin/ingest/load_dimensional.py"
+    },
+    {
+      "path": "pilots/station2-twin/ingest/load_epiweek_calendar.py",
+      "described": true,
+      "described_in": "pilots/station2-twin/README.md",
+      "when": "排程（epiweek job）／對照表換新時",
+      "what": "給每個「日」期間補上疾管署的流行病學週標籤，讓帶日期的事實能和週事實在 (epi_year, epi_week) 上相接",
+      "guarantee": "查表，不算式。 疾管署 FAQ 寫的規則（週日起、第1週含1/4）2010 年起才和他們自己發的對照表一致，2007–2009 相反——那三年的週被截在跨年處（2009 第 1 週只有 1/1–1/3）。寫成算式會安靜地錯三年",
+      "run": "pilots/station2-twin/ingest/load_epiweek_calendar.py"
     },
     {
       "path": "pilots/station2-twin/ingest/load_geography.py",
@@ -371,6 +380,15 @@
       "run": "platform/docs/okf_check.py"
     },
     {
+      "path": "platform/docs/xref.py",
+      "described": true,
+      "described_in": "platform/docs/README.md",
+      "when": "排程（xref job）／CI",
+      "what": "這個倉庫裡的名字還指得到東西嗎——節點／ADR／Backlog 編號／告警規則四個命名空間",
+      "guarantee": "其他每一份檢查問的都是「X 現在有沒有被涵蓋」。這一支問刪掉之後名字怎麼了：已退役的名字還被誰講著（DANGLING）、引用了從來不存在的編號（UNDEFINED）、定義了卻沒有文件（UNDOCUMENTED）、以及一個編號兩個主人（COLLIDING，四個方向裡最像健康的那個）。退役集合從 git 歷史推導，不是手寫清單",
+      "run": "platform/docs/xref.py"
+    },
+    {
       "path": "platform/ingress/ingress.sh",
       "described": true,
       "described_in": "platform/ingress/README.md",
@@ -529,7 +547,7 @@
       "described_in": "platform/notify/README.md",
       "when": "由 setup_mail.sh 與告警路徑呼叫",
       "what": "用 mail.conf 的設定把一封信交給 smarthost",
-      "guarantee": "沒有 mail.conf 就明確失敗，不會安靜地送到空的收件人",
+      "guarantee": "「沒設定」和「設定了但壞掉」是兩個不同的離開碼：78 是沒設定（呼叫端據此跳過），1 是設定在但寄不出去（有人得去看）。把這兩者合成一個，正是這個平台付過兩次代價的那種靜默——2026-08-19 告警燒進空 receiver 3h55m，09-07 起 Telegram 388 次送出失敗 287 次而沒人知道。控制項在 platform/tests/test_send_mail.sh，包含最危險的那個形狀：主機接受了連線然後拒絕往下走（某個東西在聽，所以任何可達性檢查都會說它健康）",
       "run": "platform/notify/send_mail.sh"
     },
     {

@@ -45,6 +45,9 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import io
+import re
+import subprocess
 import html
 import importlib.util
 import json
@@ -255,6 +258,23 @@ ASKS = [
     # see. What is still open is narrower and is registered as T46 (the node's
     # green lasts 72h and deliberately has no cron behind it) and T47 (the
     # review cannot see an image scan, and says so in every verdict).
+    # smtp-credential was DELETED BY ACCIDENT in commit 0380166, and this note
+    # is the record of it rather than a tidy-up.
+    #
+    # It sat between llm-review-artifacts and epiweek-definition. An edit that
+    # rewrote the first sliced text from that id to the third and took the
+    # entry in the middle with it -- the unbounded-blast-radius shape this
+    # repository already had written down as a known failure mode. Nothing
+    # caught it: --selfcheck validated the asks that existed and had no way to
+    # ask whether one had stopped existing. `alertmgr` lost its owner, fell
+    # back to the `eng` default, and pct_ceiling_eng_only rose in the
+    # flattering direction with nobody asked for anything.
+    #
+    # By the time it surfaced (2026-09-13) the question had been answered: the
+    # Gmail app password is in Vault, mail.conf is written, and the running
+    # Alertmanager config carries the email receiver. So the entry is correctly
+    # absent NOW -- but that is luck, not process, which is why the check above
+    # this list exists and why this comment does not simply say "obsolete".
     # epiweek-definition was DELETED on 2026-09-11, not merely stopped
     # matching. It asked the platform owner to obtain the week definition from
     # 疾管署, and its premise -- 「只有他們能給權威答案」 -- turned out to be
@@ -736,6 +756,31 @@ def render_json(m):
 # be wrong without anything failing, so it is the only part with a test.
 # --------------------------------------------------------------------------
 
+def _own_source():
+    """This file's current text, for checking that a deletion was declared."""
+    try:
+        return io.open(__file__, encoding="utf-8").read()
+    except Exception:
+        return ""
+
+
+def _asks_ever_defined():
+    """Every ask id this file has ever carried, from git history.
+
+    Same principle as platform/docs/xref.py: a hand-written record of what was
+    removed is one more thing the person who removed something by accident can
+    also fail to write.
+    """
+    try:
+        out = subprocess.run(
+            ["git", "log", "-p", "--", "platform/statusdag/stage_report.py"],
+            cwd=REPO_ROOT, capture_output=True, text=True, timeout=120).stdout
+    except Exception:
+        return set()
+    # Only ids that appear as an ASKS entry key, on any side of any diff.
+    return set(re.findall(r'^[-+ ]?\s*"id":\s*"([a-z0-9][a-z0-9-]*)"', out, re.M))
+
+
 def selfcheck(board=None):
     # board is threaded through for the same reason stage_model takes it: the
     # metadata this validates (stages, asks, node coverage) does not depend on
@@ -782,6 +827,30 @@ def selfcheck(board=None):
     # exactly 90.0% -- the landing standard -- because a hostname stopped
     # resolving. A number that decides "have we landed" must not move for that
     # reason, so this is a FAIL.
+    # AN ASK THAT VANISHED LEAVES NO TRACE AT ALL (added 2026-09-13).
+    #
+    # The check below this one catches an ask that stopped MATCHING. It cannot
+    # see an ask that stopped EXISTING, and that is what actually happened:
+    # `smtp-credential` sat between `llm-review-artifacts` and
+    # `epiweek-definition` in this list, an edit sliced from the first id to
+    # the third, and the entry in the middle went with it. `alertmgr` lost its
+    # owner, fell back to the `eng` default, and `pct_ceiling_eng_only` rose --
+    # silently, in the flattering direction, with nobody asked for anything.
+    #
+    # Derived from git, never a declared list of "asks we deleted": that list
+    # is one more thing the person who deleted an ask by accident can also
+    # forget to update. Deliberate deletions already carry a note saying so;
+    # an accidental one carries nothing, which is exactly the difference.
+    ever = _asks_ever_defined()
+    gone = sorted(ever - {a["id"] for a in ASKS})
+    for aid in gone:
+        marked = any(aid in ln and re.search(r"DELETED|REMOVED|移除|刪除", ln)
+                     for ln in _own_source().splitlines())
+        if not marked:
+            problems.append(
+                f"ask {aid} 曾經存在，現在不在 ASKS 裡，而且檔案裡沒有任何一行"
+                f"同時提到它和「已刪除」——刪得掉但沒人說，節點會安靜掉回 eng 預設")
+
     live = {a["id"] for a in m["asks"]}
     blocking = {n["id"] for l in m["lines"] for st in l["stages"]
                 for n in st["nodes"] if blocks_completion(n)}

@@ -1,0 +1,10 @@
+{
+  "checked_secrets": 2,
+  "default_interval_days": 90,
+  "due": 0,
+  "exempt": 2,
+  "gate_result": "FAIL",
+  "total_secrets": 4,
+  "within_interval": 1,
+  "without_record": 1
+}

@@ -117,3 +117,16 @@
 {"at": "2026-09-10T21:13:52Z", "job": "health", "from": "ok", "to": "degraded", "severity": "warning", "summary": "[WARN] health: ok -> degraded"}
 {"at": "2026-09-10T21:44:41Z", "job": "health", "from": "degraded", "to": "ok", "severity": "recovered", "summary": "[OK] health: degraded -> ok"}
 {"at": "2026-09-10T22:29:49Z", "job": "health", "from": "ok", "to": "degraded", "severity": "warning", "summary": "[WARN] health: ok -> degraded"}
+{"at": "2026-09-11T21:36:10Z", "job": "health", "from": "degraded", "to": "ok", "severity": "recovered", "summary": "[OK] health: degraded -> ok"}
+{"at": "2026-09-11T22:36:21Z", "job": "health", "from": "ok", "to": "degraded", "severity": "warning", "summary": "[WARN] health: ok -> degraded"}
+{"at": "2026-09-12T20:52:50Z", "job": "offsite", "from": "not-configured", "to": "ok", "severity": "recovered", "summary": "[OK] offsite: not-configured -> ok"}
+{"at": "2026-09-12T23:00:07Z", "job": "rotation", "from": "ok", "to": "failed", "severity": "critical", "summary": "[FAIL] rotation: ok -> failed"}
+{"at": "2026-09-12T23:22:01Z", "job": "retrain", "from": "ok", "to": "failed", "severity": "critical", "summary": "[FAIL] retrain: ok -> failed"}
+{"at": "2026-09-12T23:40:07Z", "job": "epiweek", "from": "ok", "to": "failed", "severity": "critical", "summary": "[FAIL] epiweek: ok -> failed"}
+{"at": "2026-09-13T04:05:33Z", "job": "health", "from": "degraded", "to": "ok", "severity": "recovered", "summary": "[OK] health: degraded -> ok"}
+{"at": "2026-09-13T04:20:39Z", "job": "health", "from": "ok", "to": "degraded", "severity": "warning", "summary": "[WARN] health: ok -> degraded"}
+{"at": "2026-09-14T15:24:59Z", "job": "rotation", "from": "failed", "to": "ok", "severity": "recovered", "summary": "[OK] rotation: failed -> ok"}
+{"at": "2026-09-14T15:29:38Z", "job": "retrain", "from": "failed", "to": "ok", "severity": "recovered", "summary": "[OK] retrain: failed -> ok"}
+{"at": "2026-09-14T15:35:41Z", "job": "epiweek", "from": "failed", "to": "ok", "severity": "recovered", "summary": "[OK] epiweek: failed -> ok"}
+{"at": "2026-09-14T20:12:20Z", "job": "health", "from": "degraded", "to": "ok", "severity": "recovered", "summary": "[OK] health: degraded -> ok"}
+{"at": "2026-09-14T22:12:46Z", "job": "health", "from": "ok", "to": "degraded", "severity": "warning", "summary": "[WARN] health: ok -> degraded"}

@@ -484,15 +484,27 @@ print("%s|%s" % dag.probe_epiweek())
 PY2
 }
 
-epiweek_doc() {  # <total> <labelled> <crosswalk-last>
-  printf '{"day_periods":%s,"day_periods_labelled":%s,"crosswalk_last":"%s",' "$1" "$2" "$3"
-  printf '"weeks_joinable":558,"unlabelled_days":["2027-01-01"],'
+epiweek_doc() {  # <total> <mappable> <crosswalk-last> [labelled] [dupdates]
+  printf '{"day_periods":%s,"day_periods_mappable":%s,"crosswalk_last":"%s",' "$1" "$2" "$3"
+  printf '"day_rows_with_week_label":%s,"duplicate_day_dates":%s,' "${4:-0}" "${5:-0}"
+  printf '"rows_in_epi_calendar":7305,"weeks_joinable":558,'
+  printf '"unmappable_days":["2027-01-01"],'
   printf '"source_url":"https://nidss.cdc.gov.tw/config/DIM_CAL.csv"}'
 }
 
-FAR="$(python3 -c "import datetime;print(datetime.date.today()+datetime.timedelta(days=400))")"
-SOON="$(python3 -c "import datetime;print(datetime.date.today()+datetime.timedelta(days=30))")"
-GONE="$(python3 -c "import datetime;print(datetime.date.today()-datetime.timedelta(days=1))")"
+# UTC, and never within a day of a boundary.
+#
+# The first version used `date.today()` -- LOCAL time -- while probe_epiweek
+# compares against `datetime.now(timezone.utc).date()`. In UTC+8 the two
+# disagree for eight hours out of every day, so "yesterday" locally could still
+# be "today" in UTC: days_left came out 0 instead of -1, WARN instead of FAIL,
+# and the suite went red on 2026-09-13 for no reason but the clock. A control
+# that depends on the hour is worse than no control -- it teaches people that
+# red means "run it again".
+_utc_day() { python3 -c "import datetime;print((datetime.datetime.now(datetime.timezone.utc).date()+datetime.timedelta(days=$1)))"; }
+FAR="$(_utc_day 400)"
+SOON="$(_utc_day 30)"
+GONE="$(_utc_day -3)"
 
 run_cmd epiweek_probe "$(epiweek_doc 3885 3885 "$FAR")"
 assert_output_contains "ok|" "every day labelled and the crosswalk still has a year left is green"
@@ -513,6 +525,29 @@ assert_output_contains "unknown|" "zero day periods is UNKNOWN: the enumeration 
 run_cmd epiweek_probe -
 assert_output_contains "unknown|" "no evidence file is UNKNOWN, not a clean calendar"
 
+# THE REGRESSION THAT COST 4.1M ROWS (2026-09-13, rolled back 09-14).
+#
+# The crosswalk was first written into time_period.epi_year/epi_week on the day
+# rows. Those columns are part of
+#   UNIQUE NULLS NOT DISTINCT (time_level, epi_year, epi_week, cal_date)
+# so labelling a day row changed its natural key, load_dimensional.py's
+# ON CONFLICT stopped matching, and one ingest inserted a second copy of every
+# day row: 3,885 -> 7,777 periods and 4.1M -> 8.2M facts. Nothing noticed until
+# the labelling job itself failed on the constraint it had made unsatisfiable.
+#
+# Migration 019 moved the mapping to its own table. These two controls are what
+# makes a relapse loud instead of silent -- a day row carrying a week label is
+# the defect, not a symptom of it.
+run_cmd epiweek_probe "$(epiweek_doc 3892 3892 "$FAR" 17 0)"
+assert_output_contains "fail|" "a day row carrying a week label is FAIL: the natural key is broken"
+assert_output_contains "自然鍵" "and says the natural key is what broke"
+
+run_cmd epiweek_probe "$(epiweek_doc 3892 3892 "$FAR" 0 5)"
+assert_output_contains "fail|" "duplicate day rows for one date are FAIL: an ingest already re-inserted"
+
+run_cmd epiweek_probe "$(epiweek_doc 3892 3892 "$FAR" 0 0)"
+assert_output_contains "ok|" "and a clean natural key with a live crosswalk is green"
+
 # The crosswalk must stay a LOOKUP. A rule would be wrong for 2007-2009, where
 # CDC truncated weeks at the calendar boundary: 2009 week 01 is Jan 1-3 and
 # week 02 starts Jan 4, contradicting CDC's own published rule. These three
@@ -531,5 +566,31 @@ bad = {d: (cal.get(d), w) for d, w in want.items() if cal.get(d) != w}
 print("MISMATCH" if bad else "OK", bad or "")
 PY3
 assert_output_contains "OK" "the year-boundary weeks a formula would get wrong are read from the table"
+
+echo "== newest() must mean most-recently-written, not last-by-name =="
+#
+# `llm_review_<sha>_<ts>.json` puts the sha before the timestamp, so name order
+# and time order disagree: llm_review_9daa7fa_20260911 sorts AFTER
+# llm_review_0b597bc_20260914. The board read a three-day-old review as current
+# and called it stale while a fresh one sat beside it (2026-09-14). Re-running
+# the review changed nothing, which is how a wrong "newest" hides -- the output
+# is a real artefact, just not the right one.
+run_cmd python3 - <<'PY4'
+import os, sys, tempfile, time
+sys.path.insert(0, os.path.join(os.getcwd(), "platform", "statusdag"))
+import dag
+d = tempfile.mkdtemp()
+older_name_higher = os.path.join(d, "llm_review_9daa7fa_20260911T071645Z.json")
+newer_name_lower  = os.path.join(d, "llm_review_0b597bc_20260914T152818Z.json")
+open(older_name_higher, "w").write("{}")
+time.sleep(1.1)
+open(newer_name_lower, "w").write("{}")        # written LAST, sorts FIRST by name
+dag.EVIDENCE = d
+got = os.path.basename(dag.newest("llm_review_*.json") or "")
+print("PICKED", got)
+print("CORRECT" if got == os.path.basename(newer_name_lower) else "WRONG")
+PY4
+assert_rc 0 "newest() runs against a directory where name order and time order disagree"
+assert_output_contains "CORRECT" "and returns the file written last, not the one sorting last"
 
 suite_summary

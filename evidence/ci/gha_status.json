@@ -1,9 +1,17 @@
 {
   "schema": "gha-status/1",
-  "fetched_at": "2026-09-11T16:28:12+08:00",
+  "fetched_at": "2026-09-15T08:24:24+08:00",
   "fetch_state": "ok",
   "detail": "fetched main",
   "runs": [
+    {
+      "conclusion": "success",
+      "createdAt": "2026-09-11T08:28:24Z",
+      "displayTitle": "chore(evidence): 排程產物（Telegram 自我測試通過：API 回 ok:true）",
+      "status": "completed",
+      "url": "https://github.com/drew-young-AI/Devops/actions/runs/34579345848",
+      "workflowName": "Platform Tests"
+    },
     {
       "conclusion": "success",
       "createdAt": "2026-09-11T08:23:49Z",
@@ -74,14 +82,6 @@
       "displayTitle": "fix(dataops): epiweek 的「只有疾管署能給權威答案」是錯的——他們自己就發布對照表",
       "status": "completed",
       "url": "https://github.com/drew-young-AI/Devops/actions/runs/34571190949",
-      "workflowName": "Platform Tests"
-    },
-    {
-      "conclusion": "success",
-      "createdAt": "2026-09-11T06:34:22Z",
-      "displayTitle": "fix(board): 兩筆 ask 的理由是錯的——llmreview 不等 ubu，epiweek 今天擋不到任何東西",
-      "status": "completed",
-      "url": "https://github.com/drew-young-AI/Devops/actions/runs/34570500838",
       "workflowName": "Platform Tests"
     }
   ]
