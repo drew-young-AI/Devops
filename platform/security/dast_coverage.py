@@ -44,11 +44,13 @@ if the patterns stop matching, this exits non-zero instead of reporting a
 comfortable "0 gaps" derived from 0 routes.
 
 Usage:
-  dast_coverage.py [--app PATH] [--out PATH] [--prom PATH] [--json]
+  dast_coverage.py [--app PATH] [--observed PATH] [--out PATH] [--prom PATH]
+                   [--json]
 
 Exit codes:
   0  coverage computed
   2  the parser matched fewer routes than the floor -- refusing to report
+  3  no scan observation -- refusing to fall back to a declared number
 """
 
 import json
@@ -122,30 +124,77 @@ def parse_routes(source):
     return routes
 
 
-def classify(route):
-    """Can a passive GET spider, starting from /, reach this route?
+def _template_regex(path):
+    """A template matches the concrete paths the dispatcher would route to it."""
+    parts = [seg for seg in path.split("/") if seg]
+    pieces = []
+    for seg in parts:
+        if seg.startswith("{p") and seg.endswith("}"):
+            pieces.append(r"[^/]+")
+        else:
+            pieces.append(re.escape(seg))
+    return re.compile(r"^/" + "/".join(pieces) + r"/?$")
 
-    Three reasons it cannot, and they are different reasons worth keeping
-    apart -- lumping them into one "uncovered" count would hide that the write
-    path is a category of its own:
 
-      write        the verb is not GET. A baseline scan never sends it.
-      parameterised  the path has a segment the spider must invent. It will
-                   not guess an asset id or a county name.
-      unlinked     reachable in principle, but nothing links to it from the
-                   root of a JSON API, so the spider never finds it.
+def _literal_count(path):
+    return sum(1 for seg in path.split("/")
+               if seg and not (seg.startswith("{p") and seg.endswith("}")))
+
+
+def attribute(routes, observed):
+    """Which route template each observed request belongs to.
+
+    MOST-LITERAL WINS, because that is how the dispatcher itself resolves:
+    `if parts == ["surveillance", "scan"]` is tested before
+    `if len(parts) == 2 and parts[0] == "surveillance"`. Attributing an
+    observed /surveillance/scan to the parameterised route would report the
+    literal one as never reached while the scanner had just reached it, and
+    would credit the parameterised route with a request that never carried a
+    parameter -- one observation, two wrong answers.
     """
+    hits = {}
+    ordered = sorted(routes, key=lambda r: -_literal_count(r["path"]))
+    compiled = [(r, _template_regex(r["path"])) for r in ordered]
+    for request in observed:
+        for route, pattern in compiled:
+            if route["method"] == request.get("method") and pattern.match(request.get("path", "")):
+                hits.setdefault((route["method"], route["path"]), []).append(request)
+                break
+    return hits
+
+
+def classify(route, hits):
+    """Did the scan actually touch this route, and if not, why not?
+
+    THIS USED TO BE A DECLARATION. Until 2026-09-15 the reachable set was a
+    four-element tuple of paths written into this file: a claim about what the
+    spider finds, which stayed true by assertion no matter what any scan did.
+    It survived the scan being repointed at a different application. It would
+    have survived the scanner being broken. A coverage number that cannot be
+    wrong is not a measurement, and this file's whole argument is that the
+    denominator is the part that decides what a PASS is worth.
+
+    Now `reachable` means one thing only: THE TARGET LOGGED THIS REQUEST FROM
+    THE SCANNER, during the scan window. The reasons below explain a route the
+    scan did NOT touch, and they still say different things to a reader:
+
+      write        the verb is not GET. The scan profile never sends it, and
+                   must not -- that endpoint inserts into a 6.5M-row table.
+      parameterised  the path needs a value the scan was not given. Fixable by
+                   seeding (platform/security/dast_seed.py), not by the spider.
+      unlinked     a plain GET nothing links to, so a spider starting at the
+                   root never finds it. Also fixable by seeding.
+    """
+    if (route["method"], route["path"]) in hits:
+        return "reachable", True
     if route["method"] != "GET":
         return "write", False
     if "{p" in route["path"]:
         return "parameterised", False
-    # The two the spider does find: the root-adjacent literals it is pointed at.
-    if route["path"] in ("/health/live", "/health/ready", "/version", "/metrics"):
-        return "reachable", True
     return "unlinked", False
 
 
-def build(app_path):
+def build(app_path, observation):
     with open(app_path, "r") as handle:
         source = handle.read()
     routes = parse_routes(source)
@@ -153,10 +202,12 @@ def build(app_path):
     if len(routes) < MIN_EXPECTED_ROUTES:
         return None, routes
 
+    hits = attribute(routes, observation.get("requests") or [])
     for route in routes:
-        reason, covered = classify(route)
+        reason, covered = classify(route, hits)
         route["reason"] = reason
         route["reachable_by_baseline"] = covered
+        route["observed_requests"] = len(hits.get((route["method"], route["path"]), []))
 
     covered = [r for r in routes if r["reachable_by_baseline"]]
     gaps = [r for r in routes if not r["reachable_by_baseline"]]
@@ -168,7 +219,15 @@ def build(app_path):
         "schema": "dast-coverage/1",
         "generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
         "source": os.path.relpath(app_path, REPO_ROOT),
-        "scan_profile": "zap-baseline (passive rules + spider, GET only)",
+        "scan_profile": "zap-api-scan -S (passive rules over a verified seed, GET only)",
+        # Provenance, because this number used to be declared and now is not.
+        # A reader must be able to tell which kind it is looking at without
+        # reading this file.
+        "coverage_provenance": "observed",
+        "observed_from": observation.get("_path"),
+        "observed_window": observation.get("window"),
+        "observed_source": observation.get("source"),
+        "observed_requests_total": len(observation.get("requests") or []),
         "routes_total": len(routes),
         "routes_reachable": len(covered),
         "routes_unreachable": len(gaps),
@@ -208,6 +267,29 @@ def render_prom(cov):
     return "\n".join(lines) + "\n"
 
 
+def newest_observation(evidence_dir):
+    """The most recent scan observation, by mtime.
+
+    BY MTIME, NOT BY NAME. Sorting these by filename reads whichever stamp
+    sorts last as current, and this repository has already shipped that bug
+    once: the board read a three-day-old LLM review as the latest because the
+    names happened to order that way. The newest file is the one most recently
+    written, and nothing else.
+    """
+    import glob
+    files = glob.glob(os.path.join(evidence_dir, "dast_observed_*.json"))
+    if not files:
+        return None
+    return max(files, key=os.path.getmtime)
+
+
+def load_observation(path):
+    with open(path, "r") as handle:
+        doc = json.load(handle)
+    doc["_path"] = os.path.relpath(path, REPO_ROOT)
+    return doc
+
+
 def write_atomic(path, content):
     os.makedirs(os.path.dirname(path), exist_ok=True)
     tmp = path + ".tmp"
@@ -222,6 +304,7 @@ def main(argv):
     prom_path = DEFAULT_PROM
     as_json = False
     write = True
+    observed_path = None
 
     index = 0
     while index < len(argv):
@@ -234,13 +317,28 @@ def main(argv):
             prom_path = argv[index + 1]; index += 2
         elif arg == "--json":
             as_json = True; index += 1
+        elif arg == "--observed":
+            observed_path = argv[index + 1]; index += 2
         elif arg == "--no-write":
             write = False; index += 1
         else:
             sys.stderr.write("unknown argument: %s\n" % arg)
             return 2
 
-    cov, routes = build(app_path)
+    if observed_path is None:
+        observed_path = newest_observation(os.path.dirname(DEFAULT_OUT))
+    if observed_path is None or not os.path.exists(observed_path):
+        sys.stderr.write(
+            "REFUSED: no scan observation found.\n"
+            "  Coverage is now what the scanner ACTUALLY touched, read from the\n"
+            "  target's own request log (platform/security/dast_observe.py).\n"
+            "  With no observation the only available answer is a declared one,\n"
+            "  and a declared coverage number is precisely the defect this was\n"
+            "  changed to remove. Run platform/security/scan_dast.sh first.\n")
+        return 3
+
+    observation = load_observation(observed_path)
+    cov, routes = build(app_path, observation)
     if cov is None:
         sys.stderr.write(
             "REFUSED: parsed only %d route(s) from %s, expected at least %d.\n"

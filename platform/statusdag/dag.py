@@ -121,7 +121,17 @@ def age_hours_iso(stamp):
 
     A guard that cannot fire reads exactly like a guard that has nothing to
     report. This one was found by a fixture dated 2020 that came back OK.
+
+    THE TRAILING `Z` IS TRANSLATED, NOT ASSUMED (2026-09-15). This
+    interpreter is Python 3.9, where `fromisoformat` accepts `+00:00` and
+    REJECTS `Z` -- and every timestamp this repository writes with
+    `strftime("%Y-%m-%dT%H:%M:%SZ")` ends in `Z`. So this helper, written to
+    fix exactly this class of silent failure, had the same hole for every
+    UTC-shaped stamp: caught, None, staleness branch never taken. Found by a
+    dast_coverage fixture dated 40 days back that came back green.
     """
+    if isinstance(stamp, str) and stamp.endswith("Z"):
+        stamp = stamp[:-1] + "+00:00"
     try:
         when = datetime.fromisoformat(stamp)
     except (ValueError, TypeError):
@@ -1562,6 +1572,21 @@ def probe_dast_coverage():
     and the denominator is the part that decides what it is worth. Reporting
     the verdict without the denominator is how "we scan the pilot" becomes
     true and misleading in the same sentence.
+
+    UPDATED 2026-09-15. Five of those six were never a property of the
+    application -- they were a property of the scan configuration, reported
+    back to us as a fact about the pilot. The scan now seeds the operations it
+    cannot discover (platform/security/dast_seed.py, every parameter resolved
+    from a real source and verified), and coverage is read from the target's
+    OWN request log rather than from a whitelist in the reporter. 9 of 10, and
+    the tenth is the write endpoint, which stays unscanned on purpose.
+
+    AGE IS TAKEN FROM THE OBSERVATION, NOT FROM THE REPORT. `generated_at`
+    only says when the arithmetic was last done; the claim's real age is the
+    age of the scan it describes. Recomputing yesterday's coverage from a scan
+    six weeks old would refresh the timestamp and change nothing about how
+    stale the evidence is -- the precise shape of "a fresh wrapper on a stale
+    fact" that this repository keeps rediscovering.
     """
     data = load(os.path.join(EVIDENCE, "security", "dast_coverage.json"))
     if not data:
@@ -1569,14 +1594,31 @@ def probe_dast_coverage():
     total = data.get("routes_total") or 0
     if not total:
         return UNKNOWN, "路由表是空的——沒有分母就沒有覆蓋率"
+    # A coverage number that is not derived from an observation is a declared
+    # number, and the whole point of the 2026-09-15 change was to stop having
+    # one of those. An older artifact has no such field: say so rather than
+    # silently treating it as measured.
+    if data.get("coverage_provenance") != "observed":
+        return UNKNOWN, "這份覆蓋率不是實測的（沒有 coverage_provenance=observed）——請重跑 dast 再跑 dastcov"
     reach = data.get("routes_reachable") or 0
     ratio = reach / total
     why = data.get("unreachable_by_reason") or {}
     tail = ("；掃不到的原因：" + "、".join(f"{k} {v}" for k, v in sorted(why.items()))) if why else ""
-    hours = age_hours(data.get("generated_at"))
-    label = f"掃得到 {reach}/{total} 條路由（{100 * ratio:.0f}%）{tail}"
+    # age_hours_iso, NOT age_hours. Both stamps here are ISO-8601
+    # (`%Y-%m-%dT%H:%M:%SZ`), and `age_hours` parses the compact
+    # `%Y%m%dT%H%M%SZ` that evidence FILENAMES use -- it raises on this shape,
+    # catches, and returns None. So the staleness branch below, written on
+    # 2026-09-01, had never once been able to fire: an eight-week-old coverage
+    # report read as current. Found on 2026-09-15 by a fixture dated 40 days
+    # back that came back green. This is the third time this exact pair has
+    # been confused here; see age_hours_iso's own docstring for the first two.
+    window = data.get("observed_window") or {}
+    hours = age_hours_iso(window.get("to"))
+    if hours is None:
+        hours = age_hours_iso(data.get("generated_at"))
+    label = f"掃得到 {reach}/{total} 條路由（{100 * ratio:.0f}%，實測）{tail}"
     if hours is not None and hours > 24 * 8:
-        return WARN, f"{label}；這份覆蓋率已 {hours / 24:.0f} 天"
+        return WARN, f"{label}；這次掃描已 {hours / 24:.0f} 天"
     if ratio < 0.5:
         return WARN, label
     return OK, label

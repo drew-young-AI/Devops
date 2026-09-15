@@ -1,9 +1,17 @@
 {
   "schema": "gha-status/1",
-  "fetched_at": "2026-09-15T08:24:24+08:00",
+  "fetched_at": "2026-09-15T22:56:06+08:00",
   "fetch_state": "ok",
   "detail": "fetched main",
   "runs": [
+    {
+      "conclusion": "success",
+      "createdAt": "2026-09-15T00:44:00Z",
+      "displayTitle": "feat(closure): 第六道封閉檢查——識別碼生命週期，以及本輪實測修復",
+      "status": "completed",
+      "url": "https://github.com/drew-young-AI/Devops/actions/runs/34914391175",
+      "workflowName": "Platform Tests"
+    },
     {
       "conclusion": "success",
       "createdAt": "2026-09-11T08:28:24Z",
@@ -74,14 +82,6 @@
       "displayTitle": "feat(dataops): 日↔週接起來了——查疾管署的表，不寫算式",
       "status": "completed",
       "url": "https://github.com/drew-young-AI/Devops/actions/runs/34572734716",
-      "workflowName": "Platform Tests"
-    },
-    {
-      "conclusion": "success",
-      "createdAt": "2026-09-11T06:43:59Z",
-      "displayTitle": "fix(dataops): epiweek 的「只有疾管署能給權威答案」是錯的——他們自己就發布對照表",
-      "status": "completed",
-      "url": "https://github.com/drew-young-AI/Devops/actions/runs/34571190949",
       "workflowName": "Platform Tests"
     }
   ]

@@ -76,8 +76,36 @@ PY
   fi
 }
 
-run_cov() {  # <app-path> <sandbox>
-  run_cmd python3 "$COV" --app "$1" \
+OBS="$REPO_ROOT/platform/security/dast_observe.py"
+
+# An observation file in the shape scan_dast.sh produces. Requests are given as
+# "METHOD PATH" words; with no argument it names every GET route the fixture
+# dispatcher serves, which is what a fully seeded scan reaches.
+fixture_obs() {  # <path> [request ...]
+  local path="$1"; shift
+  local reqs=("$@")
+  if [ "${#reqs[@]}" -eq 0 ]; then
+    reqs=("GET /health/live" "GET /health/ready" "GET /version" "GET /metrics"
+          "GET /forecast" "GET /surveillance/scan" "GET /twin/pump-01"
+          "GET /twin/pump-01/history" "GET /surveillance/09020")
+  fi
+  python3 - "$path" "${reqs[@]}" <<'OBSPY'
+import json, sys
+out, pairs = sys.argv[1], [a for a in sys.argv[2:] if a.strip()]
+json.dump({
+    "schema": "dast-observed/1",
+    "window": {"from": "2026-09-15T00:00:00Z", "to": "2026-09-15T00:01:00Z"},
+    "source": "fixture", "target": "http://fixture",
+    "agent_mark": "ZAP-DAST/fixture", "scanner_seen": bool(pairs),
+    "requests": [{"method": p.split()[0], "path": p.split()[1], "status": 200}
+                 for p in pairs],
+}, open(out, "w"))
+OBSPY
+}
+
+run_cov() {  # <app-path> <sandbox> [observed-path]
+  local obs="${3:-$2/obs.json}"
+  run_cmd python3 "$COV" --app "$1" --observed "$obs" \
     --out "$2/cov.json" --prom "$2/cov.prom" --json
 }
 
@@ -90,12 +118,20 @@ print(json.load(open(sys.argv[1]))[sys.argv[2]])" "$1" "$2" 2>/dev/null || echo 
 # --- the shape of the answer ------------------------------------------------
 BOX="$(mktemp -d)"
 fixture_app "$BOX/app.py"
+# The scan as it was before 2026-09-15: a spider that found only the four
+# root-adjacent literals. It is written as an OBSERVATION now, and that is the
+# whole change -- the same four used to be a tuple inside the reporter, true by
+# assertion no matter what any scan did.
+fixture_obs "$BOX/obs.json" "GET /health/live" "GET /health/ready" \
+  "GET /version" "GET /metrics"
 run_cov "$BOX/app.py" "$BOX"
 assert_rc 0 "reports coverage for a well-formed dispatcher"
 assert_equals "9" "$(field "$BOX/cov.json" routes_total)" \
   "finds every route the dispatcher serves, literal and parameterised"
 assert_equals "4" "$(field "$BOX/cov.json" routes_reachable)" \
-  "only the four unparameterised GET endpoints are reachable by a GET spider"
+  "credits exactly the four routes the scan was observed to request"
+assert_equals "observed" "$(field "$BOX/cov.json" coverage_provenance)" \
+  "the report states that its coverage is measured, not declared"
 
 # The write path must be its own category. Counting it as just another
 # uncovered route would bury the one finding that changes what someone does.
@@ -127,6 +163,8 @@ assert_equals "parameterised=2,unlinked=2,write=1" "$REASONS" \
 BEFORE="$(field "$BOX/cov.json" coverage_ratio)"
 GROWN="$(mktemp -d)"
 fixture_app "$GROWN/app.py" "/admin/debug"
+fixture_obs "$GROWN/obs.json" "GET /health/live" "GET /health/ready" \
+  "GET /version" "GET /metrics"
 run_cov "$GROWN/app.py" "$GROWN"
 assert_rc 0 "reports coverage for a dispatcher that grew a route"
 assert_equals "10" "$(field "$GROWN/cov.json" routes_total)" \
@@ -138,6 +176,151 @@ print('yes' if float(sys.argv[2]) < float(sys.argv[1]) else 'no')" "$BEFORE" "$A
 assert_equals "yes" "$LOWER" "catches: an unlinked new endpoint drives coverage DOWN ($BEFORE -> $AFTER)"
 rm -rf "$GROWN"
 
+# --- control: coverage must respond to THE SCAN, not just to the source -----
+#
+# THE CONTROL THE OLD DESIGN COULD NOT HAVE. Until 2026-09-15 `reachable` was a
+# four-path tuple inside the reporter, so coverage was a function of the source
+# alone: the scanner could be broken, misconfigured, or pointed at a different
+# application entirely and this number would not move. Two observations over
+# the SAME dispatcher must produce two different numbers, or the measurement is
+# not a measurement.
+SEEDED="$(mktemp -d)"
+fixture_app "$SEEDED/app.py"
+fixture_obs "$SEEDED/obs.json"          # every GET route, i.e. a seeded scan
+run_cov "$SEEDED/app.py" "$SEEDED"
+assert_rc 0 "reports coverage for a seeded scan"
+assert_equals "8" "$(field "$SEEDED/cov.json" routes_reachable)" \
+  "a seeded scan reaches every GET route, including the parameterised ones"
+assert_equals "write=1" "$(python3 -c "
+import json,sys
+d=json.load(open(sys.argv[1]))
+print(','.join('%s=%d' % kv for kv in sorted(d['unreachable_by_reason'].items())))" \
+  "$SEEDED/cov.json" 2>/dev/null || echo ERR)" \
+  "the only route left unscanned is the write endpoint, and it says so"
+
+# ...and the same dispatcher with a scan that touched almost nothing.
+STARVED="$(mktemp -d)"
+fixture_app "$STARVED/app.py"
+fixture_obs "$STARVED/obs.json" "GET /health/live"
+run_cov "$STARVED/app.py" "$STARVED"
+assert_equals "1" "$(field "$STARVED/cov.json" routes_reachable)" \
+  "catches: a scan that requested one route cannot report the coverage of nine"
+
+# ...and a scan that ran but touched nothing at all. This is the shape the real
+# run produced on 2026-09-15 when the User-Agent filter matched nothing, and
+# the honest answer is 0%, never the previous run's number.
+DEAD="$(mktemp -d)"
+fixture_app "$DEAD/app.py"
+fixture_obs "$DEAD/obs.json" ""
+run_cov "$DEAD/app.py" "$DEAD"
+assert_equals "0" "$(field "$DEAD/cov.json" routes_reachable)" \
+  "catches: an unobservable scan reports 0%, not the last run's coverage"
+rm -rf "$SEEDED" "$STARVED" "$DEAD"
+
+# --- control: an observed request is attributed the way the DISPATCHER routes -
+#
+# /surveillance/scan matches both the literal route and the parameterised
+# /surveillance/{p1}. The dispatcher tests the literal first, so crediting the
+# parameterised one would report the literal route as never reached while the
+# scanner had just reached it, AND credit a parameterised route with a request
+# that carried no parameter. One observation, two wrong answers.
+PREC="$(mktemp -d)"
+fixture_app "$PREC/app.py"
+fixture_obs "$PREC/obs.json" "GET /surveillance/scan"
+run_cov "$PREC/app.py" "$PREC"
+assert_equals "/surveillance/scan" "$(python3 -c "
+import json,sys
+d=json.load(open(sys.argv[1]))
+print(','.join(r['path'] for r in d['routes'] if r['reachable_by_baseline']))" \
+  "$PREC/cov.json" 2>/dev/null || echo ERR)" \
+  "the literal route takes the request, exactly as the dispatcher would"
+
+# A request for a path the dispatcher does not serve must inflate nothing.
+STRAY="$(mktemp -d)"
+fixture_app "$STRAY/app.py"
+fixture_obs "$STRAY/obs.json" "GET /not-a-route" "GET /health/live/extra"
+run_cov "$STRAY/app.py" "$STRAY"
+assert_equals "0" "$(field "$STRAY/cov.json" routes_reachable)" \
+  "catches: requests to paths this app does not serve credit no route"
+rm -rf "$PREC" "$STRAY"
+
+# --- control: no observation at all must REFUSE -----------------------------
+#
+# The fallback that must not exist. If the reporter answered from its old
+# whitelist when the scan had not run, every one of the controls above could
+# pass while the number on the board came from nowhere.
+NOOBS="$(mktemp -d)"
+fixture_app "$NOOBS/app.py"
+run_cmd python3 "$COV" --app "$NOOBS/app.py" --observed "$NOOBS/absent.json" \
+  --out "$NOOBS/cov.json" --prom "$NOOBS/cov.prom" --json
+assert_rc 3 "refuses to report coverage with no scan observation"
+assert_output_contains "declared coverage number" \
+  "says why refusing beats falling back to a declared number"
+if [ -f "$NOOBS/cov.json" ]; then
+  _fail "writes no coverage document when it has no observation" "cov.json was created"
+else
+  _pass "writes no coverage document when it has no observation"
+fi
+rm -rf "$NOOBS"
+
+# --- the observer: the User-Agent filter is load-bearing --------------------
+#
+# The health probe hits /health/live every 10s and /metrics every 15s. Any scan
+# window wide enough to hold a scan also holds those, so a window-only filter
+# credits the scan with three routes it never sent -- and the emptier the scan,
+# the larger the share of its apparent coverage that came from the health
+# probe. Measured on the real pilot 2026-09-15: ZAP's DEFAULT agent is a plain
+# browser string, so the first version of this filter matched nothing at all.
+OBSBOX="$(mktemp -d)"
+python3 - "$OBSBOX/log.jsonl" <<'LOGPY'
+import json, sys
+lines = [
+    {"event": "http_request", "agent": "ZAP-DAST/stamp",
+     "message": '"GET /forecast HTTP/1.1" 200 -'},
+    {"event": "http_request", "agent": "ZAP-DAST/stamp",
+     "message": '"GET /twin/pump-01?weeks=4 HTTP/1.1" 200 -'},
+    {"event": "http_request", "agent": "Python-urllib/3.12",
+     "message": '"GET /health/live HTTP/1.1" 200 -'},
+    {"event": "http_request", "agent": "Prometheus/3.5.0",
+     "message": '"GET /metrics HTTP/1.1" 200 -'},
+    {"event": "db_error", "agent": "ZAP-DAST/stamp", "message": "not a request"},
+]
+with open(sys.argv[1], "w") as fh:
+    for line in lines:
+        fh.write(json.dumps(line) + "\n")
+LOGPY
+run_cmd bash -c "python3 '$OBS' --out '$OBSBOX/obs.json' --from A --to B \
+  --source fixture --target http://fixture --agent-mark 'ZAP-DAST/stamp' \
+  < '$OBSBOX/log.jsonl'"
+assert_rc 0 "the observer reads an application log"
+assert_equals "GET /forecast,GET /twin/pump-01" "$(python3 -c "
+import json,sys
+d=json.load(open(sys.argv[1]))
+print(','.join('%s %s' % (r['method'], r['path']) for r in d['requests']))" \
+  "$OBSBOX/obs.json" 2>/dev/null || echo ERR)" \
+  "catches: the health probe and Prometheus are not credited to the scan"
+assert_equals "True" "$(field "$OBSBOX/obs.json" scanner_seen)" \
+  "records that the scanner was seen at all, separately from what it touched"
+# The query string is not part of the route. Keeping it would make every
+# distinct query a distinct 'path' and match no template.
+QS="$(python3 -c "
+import json,sys
+d=json.load(open(sys.argv[1]))
+print('yes' if any('?' in r['path'] for r in d['requests']) else 'no')" \
+  "$OBSBOX/obs.json" 2>/dev/null || echo ERR)"
+assert_equals "no" "$QS" "the query string is stripped, so a route is a route"
+
+# The same log with an agent mark nothing carries: the scan is unobservable,
+# and that must be visible rather than read as a clean zero.
+run_cmd bash -c "python3 '$OBS' --out '$OBSBOX/blind.json' --from A --to B \
+  --source fixture --target http://fixture --agent-mark 'NOBODY/0' \
+  < '$OBSBOX/log.jsonl'"
+assert_equals "False" "$(field "$OBSBOX/blind.json" scanner_seen)" \
+  "catches: a User-Agent filter that matches nothing is reported, not hidden"
+assert_output_contains "unobservable" \
+  "says the scan was unobservable rather than reporting a quiet 0"
+rm -rf "$OBSBOX"
+
 # --- control: a dispatcher it can no longer read must be REFUSED ------------
 #
 # If the parser rots, the comfortable output is "0 uncovered routes", derived
@@ -145,6 +328,7 @@ rm -rf "$GROWN"
 # the reporter has to refuse rather than divide by a surface it cannot see.
 BLIND="$(mktemp -d)"
 printf 'class H:\n    def do_GET(self):\n        return route_table[path]()\n' > "$BLIND/app.py"
+fixture_obs "$BLIND/obs.json"
 run_cov "$BLIND/app.py" "$BLIND"
 assert_rc 2 "refuses a dispatcher whose routes it cannot parse"
 assert_output_contains "0 gaps out of 0" "says why refusing beats reporting a comfortable zero"
@@ -156,7 +340,8 @@ fi
 rm -rf "$BLIND"
 
 # --- the emitted metrics must be parseable ----------------------------------
-run_cmd python3 "$COV" --app "$BOX/app.py" --out "$BOX/c2.json" --prom "$BOX/c2.prom"
+run_cmd python3 "$COV" --app "$BOX/app.py" --observed "$BOX/obs.json" \
+  --out "$BOX/c2.json" --prom "$BOX/c2.prom"
 assert_rc 0 "writes the textfile output"
 assert_file_exists "$BOX/c2.prom" "textfile metrics written for the collector"
 BAD="$(python3 -c "

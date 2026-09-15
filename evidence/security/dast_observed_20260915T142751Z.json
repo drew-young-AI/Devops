@@ -1,0 +1,20 @@
+{
+  "schema": "dast-observed/1",
+  "window": {
+    "from": "2026-09-15T14:27:52Z",
+    "to": "2026-09-15T14:28:07Z"
+  },
+  "source": "container:station2-twin-twin-1",
+  "target": "http://host.docker.internal:18090",
+  "agent_mark": "ZAP-DAST/20260915T142751Z",
+  "log_lines_considered": 13,
+  "malformed_lines": 0,
+  "other_agents_in_window": [
+    "Mozilla",
+    "Prometheus",
+    "Python-urllib",
+    "dast-seed"
+  ],
+  "scanner_seen": false,
+  "requests": []
+}

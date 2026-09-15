@@ -117,6 +117,41 @@ if ! curl -sk -o /dev/null --max-time 10 "$PROBE_URL"; then
   exit 1
 fi
 
+# --- seed the scan with the URLs a spider can never invent --------------------
+#
+# WHY THIS IS HERE (2026-09-15). The baseline profile reached 4 of 10 routes
+# and `dast_coverage.py` reported 40% every day. Five of the six it missed were
+# never a scanner limitation -- two plain GETs nothing links to, three that
+# need a real asset id or county code. Those are properties of the SCAN
+# CONFIGURATION, and reporting them as permanent coverage loss was reporting
+# our own configuration back to ourselves as a fact about the application.
+#
+# `dast_seed.py` derives the operations from the dispatcher, resolves every
+# parameter from a REAL source (the API's own published data, or the pilot
+# database) and VERIFIES each resolved URL against the running target. It
+# refuses rather than invent a value, because a made-up id yields a 404, the
+# scanner passively scans the 404 page, and coverage rises over a route that
+# was never examined.
+#
+# The output is an OpenAPI document because ZAP already reads one, which keeps
+# the scanning inside the scanner instead of in a bespoke URL loop here.
+SPEC_FILE="$WORK_DIR/openapi.json"
+if ! python3 "$SCRIPT_DIR/dast_seed.py" --target "$PROBE_URL" --spec-out "$SPEC_FILE"; then
+  echo "DAST FAILED: could not build a verified seed for $TARGET." >&2
+  exit 1
+fi
+chmod 644 "$SPEC_FILE"
+
+# -S is load-bearing: safe mode skips the ACTIVE scan and performs a baseline
+# (passive) scan over everything the spec imports. Without it `zap-api-scan.py`
+# attacks the target by default -- and this target's write path inserts into a
+# 6.5M-row table. Passive rules over nine real GET responses is the whole point;
+# attack traffic is a separate decision nobody has made.
+#
+# -O overrides the spec's server so ZAP resolves the target from INSIDE the
+# container, where `host.docker.internal` is the correct name and 127.0.0.1 is
+# the container itself.
+
 # -I: do not use the exit code to signal warnings. The gate decision is made
 # below from the report, so that the policy lives in one readable place
 # instead of being split between a CLI flag and this script.
@@ -153,18 +188,42 @@ trap 'cleanup_zap; rm -rf "$WORK_DIR"' EXIT
 
 RC_FILE="$WORK_DIR/.zap_rc"
 
+# A RUN-SCOPED User-Agent, set through ZAP's own network options rather than
+# by wrapping requests here.
+#
+# MEASURED 2026-09-15: ZAP's default User-Agent is a plain browser string
+# ("Mozilla/5.0 (Windows NT 10.0; ...)"), which is indistinguishable from any
+# other client in the target's log. The first version of this filter looked for
+# the substring "zap" and matched nothing at all -- the coverage report then
+# REFUSED rather than report a number, which is the behaviour we want from a
+# filter that fails, and is how this was found.
+#
+# Scoping the agent to $STAMP rather than to a constant means two scans whose
+# windows overlap cannot credit each other.
+#
+# THE KEY IS `connection.defaultUserAgent`, NOT `network.defaultUserAgent`.
+# ZAP 2.17 moved most HTTP options into the network add-on, so the network one
+# is the plausible guess -- and it is silently ignored: a run with only that
+# key set left every request identifying as Mozilla. Measured both ways on
+# 2026-09-15 against this pilot's request log. There is no error for an
+# unknown -config key, so the wrong one fails as "the filter matched nothing".
+SCAN_AGENT="ZAP-DAST/${STAMP}"
+SCAN_FROM="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
 set +e
 ( docker run --rm --name "$CONTAINER_NAME" \
   -v "$WORK_DIR:/zap/wrk:rw" \
   --add-host=host.docker.internal:host-gateway \
   --add-host=raw.githubusercontent.com:127.0.0.1 \
   --add-host=github.com:127.0.0.1 \
-  "$ZAP_IMAGE" zap-baseline.py \
-    -t "$TARGET" \
+  "$ZAP_IMAGE" zap-api-scan.py \
+    -t /zap/wrk/openapi.json \
+    -f openapi \
+    -O "$TARGET" \
+    -S \
     -J report.json \
     -I \
-    -m "$SPIDER_MINUTES" \
     -T "$ZAP_MAX_MINUTES" \
+    -z "-config connection.defaultUserAgent=$SCAN_AGENT" \
   > "$WORK_DIR/zap.log" 2>&1; echo $? > "$RC_FILE" ) &
 DOCKER_PID=$!
 disown 2>/dev/null || true
@@ -209,6 +268,41 @@ if [ ! -f "$WORK_DIR/report.json" ]; then
 fi
 
 cp "$WORK_DIR/report.json" "$RAW_FILE"
+
+# --- what the scan ACTUALLY touched, asked at the target ---------------------
+#
+# Coverage used to be a four-path list inside `dast_coverage.py`: a DECLARED
+# claim about what the spider finds, which stayed true-by-assertion no matter
+# what the scan did. This replaces it with an observation made at the other end
+# of the wire -- the application's own request log, for the window this scan
+# ran in, filtered to the scanner's User-Agent.
+#
+# THE USER-AGENT FILTER IS NOT OPTIONAL. The health probe hits /health/live
+# every 10s and /metrics every 15s; a window-only filter would credit the scan
+# with three routes it never requested and coverage would read high on a scan
+# that did nothing.
+#
+# The container is derived from the target's published port rather than named,
+# so pointing this script at a different deployment cannot silently keep
+# reading the old one's log.
+SCAN_TO="$(date -u '+%Y-%m-%dT%H:%M:%SZ')"
+TARGET_PORT="$(printf '%s' "$TARGET" | sed -n 's|.*:\([0-9][0-9]*\).*|\1|p')"
+OBSERVED_FILE="$EVIDENCE_DIR/dast_observed_${STAMP}.json"
+TARGET_CONTAINER="$(docker ps --filter "publish=$TARGET_PORT" --format '{{.Names}}' | head -1)"
+if [ -z "$TARGET_CONTAINER" ]; then
+  echo "DAST FAILED: no container publishes port $TARGET_PORT, so what the scan" >&2
+  echo "  touched cannot be observed. Coverage would have to be declared, and a" >&2
+  echo "  declared coverage number is the defect this replaced." >&2
+  exit 1
+fi
+docker logs "$TARGET_CONTAINER" --since "$SCAN_FROM" 2>&1 \
+  | python3 "$SCRIPT_DIR/dast_observe.py" \
+      --out "$OBSERVED_FILE" \
+      --from "$SCAN_FROM" --to "$SCAN_TO" \
+      --source "container:$TARGET_CONTAINER" \
+      --target "$TARGET" \
+      --agent-mark "$SCAN_AGENT"
+echo "artifact=$OBSERVED_FILE"
 
 # set +e around the gate block: it exits non-zero to signal "blocked", and
 # under `set -e` that terminated the script instantly -- skipping the

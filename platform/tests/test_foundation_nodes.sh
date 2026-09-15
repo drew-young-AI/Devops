@@ -364,15 +364,39 @@ run_cmd json_probe observability health_rollup.json   "{\"generated_at\":\"$NOW\
 assert_output_contains "unknown|" "a rollup over zero snapshots is UNKNOWN, never a clean month"
 
 # -- dast coverage ---------------------------------------------------------
-run_cmd json_probe security dast_coverage.json   "{\"generated_at\":\"$NOW\",\"routes_total\":10,\"routes_reachable\":9,\"unreachable_by_reason\":{\"write\":1}}"   probe_dast_coverage
+#
+# `coverage_provenance` and `observed_window` are part of every fixture from
+# 2026-09-15 on, because the probe now refuses a coverage document that does
+# not state it was measured -- see the two controls at the end of this block.
+OBSW="\"observed_window\":{\"from\":\"$NOW\",\"to\":\"$NOW\"},\"coverage_provenance\":\"observed\""
+
+run_cmd json_probe security dast_coverage.json   "{\"generated_at\":\"$NOW\",$OBSW,\"routes_total\":10,\"routes_reachable\":9,\"unreachable_by_reason\":{\"write\":1}}"   probe_dast_coverage
 assert_output_contains "ok|" "9 of 10 routes reachable is green"
 
-run_cmd json_probe security dast_coverage.json   "{\"generated_at\":\"$NOW\",\"routes_total\":10,\"routes_reachable\":4,\"unreachable_by_reason\":{\"write\":1,\"parameterised\":3,\"unlinked\":2}}"   probe_dast_coverage
+run_cmd json_probe security dast_coverage.json   "{\"generated_at\":\"$NOW\",$OBSW,\"routes_total\":10,\"routes_reachable\":4,\"unreachable_by_reason\":{\"write\":1,\"parameterised\":3,\"unlinked\":2}}"   probe_dast_coverage
 assert_output_contains "warn|" "a scan reaching under half the routes is WARN however green its verdict was"
 assert_output_contains "parameterised 3" "and the reasons are carried: which six were missed decides whether it matters"
 
-run_cmd json_probe security dast_coverage.json   "{\"generated_at\":\"$NOW\",\"routes_total\":0,\"routes_reachable\":0}"   probe_dast_coverage
+run_cmd json_probe security dast_coverage.json   "{\"generated_at\":\"$NOW\",$OBSW,\"routes_total\":0,\"routes_reachable\":0}"   probe_dast_coverage
 assert_output_contains "unknown|" "an empty route table is UNKNOWN: no denominator, no coverage"
+
+# A coverage document with no provenance is one written before coverage was
+# measured -- or by something that declared it. Either way the number is not
+# evidence of what the scan touched, and reading it as though it were is the
+# exact defect the 2026-09-15 change removed. It must not quietly go green.
+run_cmd json_probe security dast_coverage.json   "{\"generated_at\":\"$NOW\",\"routes_total\":10,\"routes_reachable\":9,\"unreachable_by_reason\":{\"write\":1}}"   probe_dast_coverage
+assert_output_contains "unknown|" "catches: a coverage number that does not say it was measured is UNKNOWN, not green"
+
+# AGE COMES FROM THE SCAN, NOT FROM THE ARITHMETIC. `dastcov` recomputes daily,
+# so `generated_at` is always fresh; if the probe aged on that, a scan that had
+# not run for six weeks would still read as current. This fixture is the shape
+# that produces: today's report over a long-dead observation.
+STALEW="$(python3 -c "
+import datetime
+print((datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(days=40)).strftime('%Y-%m-%dT%H:%M:%SZ'))")"
+run_cmd json_probe security dast_coverage.json   "{\"generated_at\":\"$NOW\",\"observed_window\":{\"from\":\"$STALEW\",\"to\":\"$STALEW\"},\"coverage_provenance\":\"observed\",\"routes_total\":10,\"routes_reachable\":9,\"unreachable_by_reason\":{\"write\":1}}"   probe_dast_coverage
+assert_output_contains "warn|" "catches: a fresh report over a 40-day-old scan is WARN, not green"
+assert_output_contains "40 天" "and it says how old the SCAN is, not how old the report is"
 
 # -- capability catalogue --------------------------------------------------
 run_cmd json_probe . capabilities.json   '{"capabilities":[{"path":"a.sh","described":true},{"path":"b.py","internal_to":"a.sh"}]}'   probe_capability_catalog
@@ -566,6 +590,44 @@ bad = {d: (cal.get(d), w) for d, w in want.items() if cal.get(d) != w}
 print("MISMATCH" if bad else "OK", bad or "")
 PY3
 assert_output_contains "OK" "the year-boundary weeks a formula would get wrong are read from the table"
+
+echo "== age_hours_iso must parse the stamps this repo actually writes =="
+#
+# THE ROOT CAUSE, TESTED DIRECTLY. The dast-coverage fixture above catches this
+# end to end, but only for one probe. The helper is shared, and the failure is
+# silent by construction: an unparseable stamp is caught and returned as None,
+# which every caller reads as "no age known" and therefore "not stale". A guard
+# that cannot fire reads exactly like a guard with nothing to report.
+#
+# Two shapes are in use here and BOTH must work:
+#   2026-09-09T20:31:07+08:00   isoformat() with a local offset (gha_status)
+#   2026-09-15T14:26:34Z        strftime("%Y-%m-%dT%H:%M:%SZ") (everything else)
+# On Python 3.9 `fromisoformat` accepts the first and REJECTS the second.
+# A HEREDOC INSIDE $( ) IS WHY THIS IS A FILE. The first version nested
+# `<<'AGEPY'` inside a command substitution; bash accepted it, the substitution
+# produced an empty string, and the assertion failed with no diagnostic at all.
+# The same shape broke sync_remote.sh earlier this month.
+AGEPROBE="$(mktemp)"
+cat > "$AGEPROBE" <<'AGEPY'
+import datetime, importlib.util, sys
+spec = importlib.util.spec_from_file_location("dag", sys.argv[1])
+dag = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(dag)
+past = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=48)
+out = []
+for label, stamp in (
+        ("Z", past.strftime("%Y-%m-%dT%H:%M:%SZ")),
+        ("offset", past.astimezone().isoformat(timespec="seconds")),
+        ("naive", past.strftime("%Y-%m-%dT%H:%M:%S")),
+):
+    hours = dag.age_hours_iso(stamp)
+    out.append("%s=%s" % (label, "none" if hours is None else round(hours)))
+print(",".join(out))
+AGEPY
+AGES="$(python3 "$AGEPROBE" "$REPO_ROOT/platform/statusdag/dag.py" 2>&1)"
+rm -f "$AGEPROBE"
+assert_equals "Z=48,offset=48,naive=48" "$AGES" \
+  "catches: a trailing Z is an age, not an unparseable stamp silently read as fresh"
 
 echo "== newest() must mean most-recently-written, not last-by-name =="
 #

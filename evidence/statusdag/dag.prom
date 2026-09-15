@@ -55,10 +55,10 @@ devops_node_state{node="xref",layer="foundation",state="superseded"} 0
 devops_node_state{node="xref",layer="foundation",state="warn"} 0
 devops_node_state{node="xref",layer="foundation",state="unknown"} 0
 devops_node_state{node="xref",layer="foundation",state="fail"} 0
-devops_node_state{node="prodhost",layer="k8s",state="ok"} 0
+devops_node_state{node="prodhost",layer="k8s",state="ok"} 1
 devops_node_state{node="prodhost",layer="k8s",state="superseded"} 0
 devops_node_state{node="prodhost",layer="k8s",state="warn"} 0
-devops_node_state{node="prodhost",layer="k8s",state="unknown"} 1
+devops_node_state{node="prodhost",layer="k8s",state="unknown"} 0
 devops_node_state{node="prodhost",layer="k8s",state="fail"} 0
 devops_node_state{node="sast",layer="source",state="ok"} 1
 devops_node_state{node="sast",layer="source",state="superseded"} 0
@@ -85,9 +85,9 @@ devops_node_state{node="dast",layer="verify",state="superseded"} 0
 devops_node_state{node="dast",layer="verify",state="warn"} 0
 devops_node_state{node="dast",layer="verify",state="unknown"} 0
 devops_node_state{node="dast",layer="verify",state="fail"} 0
-devops_node_state{node="dastcov",layer="verify",state="ok"} 0
+devops_node_state{node="dastcov",layer="verify",state="ok"} 1
 devops_node_state{node="dastcov",layer="verify",state="superseded"} 0
-devops_node_state{node="dastcov",layer="verify",state="warn"} 1
+devops_node_state{node="dastcov",layer="verify",state="warn"} 0
 devops_node_state{node="dastcov",layer="verify",state="unknown"} 0
 devops_node_state{node="dastcov",layer="verify",state="fail"} 0
 devops_node_state{node="llmreview",layer="verify",state="ok"} 1
@@ -248,13 +248,13 @@ devops_node_state_code{node="rotation",layer="foundation"} 0
 devops_node_state_code{node="iac",layer="foundation"} 0
 devops_node_state_code{node="capcat",layer="foundation"} 0
 devops_node_state_code{node="xref",layer="foundation"} 0
-devops_node_state_code{node="prodhost",layer="k8s"} 3
+devops_node_state_code{node="prodhost",layer="k8s"} 0
 devops_node_state_code{node="sast",layer="source"} 0
 devops_node_state_code{node="secrets",layer="source"} 0
 devops_node_state_code{node="gha",layer="build"} 0
 devops_node_state_code{node="develop",layer="deploy"} 0
 devops_node_state_code{node="dast",layer="verify"} 0
-devops_node_state_code{node="dastcov",layer="verify"} 2
+devops_node_state_code{node="dastcov",layer="verify"} 0
 devops_node_state_code{node="llmreview",layer="verify"} 0
 devops_node_state_code{node="gate",layer="gate"} 0
 devops_node_state_code{node="nginx",layer="release"} 0
@@ -335,4 +335,4 @@ devops_node_impacted{node="bluegreen"} 0
 devops_node_impacted{node="prodk8s"} 0
 # HELP devops_board_generated_seconds Unix time this board was built.
 # TYPE devops_board_generated_seconds gauge
-devops_board_generated_seconds 1789432841
+devops_board_generated_seconds 1789484596

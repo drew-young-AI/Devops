@@ -242,7 +242,18 @@ class Handler(BaseHTTPRequestHandler):
     protocol_version = "HTTP/1.1"
 
     def log_message(self, fmt, *args):
-        log("http_request", message=fmt % args, correlation_id=self._cid())
+        # The User-Agent is part of the record on purpose, not decoration.
+        #
+        # An access log that cannot say WHO made a request cannot answer
+        # "which routes did the security scan actually touch" -- and that
+        # question is the whole basis of DAST route coverage. Without it the
+        # scan window is polluted by the health probe hitting /health/live
+        # every 10s and /metrics every 15s, which would credit the scanner
+        # with three routes it never requested. Coverage assembled from a log
+        # that cannot attribute is a declared number wearing a measurement's
+        # clothes. See platform/security/dast_coverage.py.
+        log("http_request", message=fmt % args, correlation_id=self._cid(),
+            agent=(self.headers.get("User-Agent") or "")[:200])
 
     def _cid(self):
         return self.headers.get("X-Correlation-Id") or f"gen-{int(time.time()*1000)}"

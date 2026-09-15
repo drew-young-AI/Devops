@@ -198,6 +198,8 @@ incorrectly — when the last-matching pattern is itself a negation).
 ```bash
 platform/security/scan_sast.sh              # source  -> evidence/security/sast_summary_*.json
 platform/security/scan_dast.sh              # runtime -> evidence/security/dast_summary_*.json
+platform/security/dast_seed.py             # 驗證過的 OpenAPI 種子 (scan_dast.sh 呼叫)
+platform/security/dast_observe.py          # 掃描實際碰到什麼 -> evidence/security/dast_observed_*.json
 
 ```
 
@@ -374,6 +376,56 @@ python3 platform/security/dast_coverage.py
 這是這個平台最老的缺陷形狀穿上資安的衣服：**一條綠燈，實際內容是
 「幾乎什麼都沒檢查」**。VACUOUS 不是 PASS。
 
+## 40% 是我們自己的設定，不是這個應用的性質（2026-09-15）
+
+上面那段話對了一半。十條裡碰不到六條，但**其中五條從來就不是掃描器的限制**：
+
+| 原因 | 幾條 | 真正的意思 |
+|---|---|---|
+| `write` | 1 | POST。被動掃描不送，也**不該送**——那個端點寫進 650 萬列的表 |
+| `unlinked` | 2 | 純 GET，只是沒有任何東西連到它。spider 從根出發找不到，但**沒人告訴過它網址** |
+| `parameterised` | 3 | 路徑要一個值。spider 不會去猜 asset id 或縣市代碼，**也不該猜** |
+
+後面五條是**掃描設定**的性質，我們卻把它當成關於這個應用的事實，每天回報 40%。
+
+現在：
+
+- [`dast_seed.py`](dast_seed.py) 從 dispatcher 推出每一條 GET 路由，
+  把每個參數**從真實來源解析**（`/surveillance/scan` 自己公布的 county_code，
+  或 `observations` 表裡的 asset id），再**對執行中的目標驗證**一次。
+  解析不到、或驗證回 404，就**拒絕**——不會編一個值。
+  編出來的 id 會得到 404，掃描器去被動掃一張 404 頁，覆蓋率上升而什麼都沒檢查。
+- 輸出是 **OpenAPI 文件**，因為 ZAP 本來就讀得懂（`zap-api-scan.py -f openapi`）。
+  掃描留在掃描器裡，而不是在這裡寫一圈自製的 URL 迴圈。
+  `-S`（safe mode）是關鍵：跳過主動掃描，只對規格匯入的每個操作跑被動規則。
+  沒有 `-S`，`zap-api-scan.py` 預設會**攻擊**目標。
+- POST **在建構時就被排除**（`EXCLUDE_WRITES`），不是靠設定關掉。
+  一份描述了寫入端點的規格，遲早有一次執行會去 POST 它。
+
+而覆蓋率本身不再是宣稱的：
+
+- [`dast_observe.py`](dast_observe.py) 讀**目標自己的 request log**，
+  取這次掃描視窗內、帶著這次掃描 User-Agent 的請求。
+  在此之前 `dast_coverage.py` 裡寫著一個四條路徑的 tuple——
+  一個**永遠為真**的宣稱，掃描器壞掉、指到別的應用，它都不會變。
+  **不可能錯的數字不是量測。**
+
+```
+python3 platform/security/dast_coverage.py
+  9 of 10 routes reachable (90%)     # 實測，唯一沒掃的是 POST
+```
+
+**User-Agent 過濾不是可選的**：health probe 每 10 秒打 `/health/live`、
+每 15 秒打 `/metrics`。只用時間視窗過濾，會把三條路由算到掃描頭上——
+而掃描愈空，它的「覆蓋率」裡來自 health probe 的比例就愈高。
+
+**實測到的坑**：ZAP 2.17 的預設 User-Agent 是一個普通瀏覽器字串。
+設定的 key 是 `connection.defaultUserAgent`，**不是** `network.defaultUserAgent`
+（2.17 把多數 HTTP 選項搬進 network add-on，所以後者是看起來合理的那個猜法，
+而它會被安靜忽略）。`-config` 給錯 key 沒有任何錯誤，只會表現成
+「過濾器什麼都沒比對到」——第一次執行就是這樣，而**覆蓋率報告當場拒絕出數字**，
+這正是我們要的失敗方式。
+
 ### 三個原因分開算，因為處置不同
 
 | 原因 | 數量 | 該做什麼 |
@@ -448,7 +500,9 @@ decision about what may be attacked and when」。上面那段就是那個決定
 |---|---|---|---|
 | [`scan_sast.sh`](scan_sast.sh) | CI / 排程 | Semgrep OSS 讀原始碼 | 補上真正的洞：其他掃描看的是**產物**（Trivy／SBOM／Cosign）、**基礎設施**（Checkov／OPA）或**歷史**（Gitleaks），沒有一個讀原始碼 |
 | [`scan_dast.sh`](scan_dast.sh) | CI / 排程 | OWASP ZAP baseline 對執行中的服務掃 | 抓 SAST 結構上看不到的：只在執行期才存在的東西（缺少的安全標頭、實際的錯誤回應） |
-| [`dast_coverage.py`](dast_coverage.py) | 排程 `dastcov` | 回報 DAST **沒有看**哪些路由 | ZAP baseline 是 GET 爬蟲，碰不到寫入端點——實測十條路由只涵蓋四條。**PASS 的涵蓋範圍必須是可見的** |
+| [`dast_coverage.py`](dast_coverage.py) | 排程 `dastcov` | 回報 DAST **實際碰到**哪些路由 | 覆蓋率必須是量測不是宣稱。沒有掃描觀測就拒絕出數字（rc 3）——**PASS 的涵蓋範圍必須是可見的** |
+| [`dast_seed.py`](dast_seed.py) | `scan_dast.sh` 內 | 產生 OpenAPI 規格，把 spider 猜不到的網址交給掃描器 | 參數一律從真實來源解析並驗證；解析不到就拒絕。**編一個 id 只會讓掃描器去掃 404 頁** |
+| [`dast_observe.py`](dast_observe.py) | `scan_dast.sh` 內 | 從目標自己的 request log 讀出這次掃描碰過什麼 | 覆蓋率的來源必須在**線的另一端**。掃描器沒被看到就明說，不會安靜回報 0 |
 | [`scan_secrets.sh`](scan_secrets.sh) | CI / 排程 | Gitleaks 掃**完整 commit 歷史**（`--all`） | 不只掃工作目錄：commit 過再刪掉的 secret 仍然外洩，且在 repo 存在期間都取得回來 |
 | [`sign_artifact.sh`](sign_artifact.sh) | build 後 | Cosign 簽章與驗章 | 金鑰式簽章（不走 Sigstore keyless），不需要 OIDC；但 Cosign v3 預設仍會寫 Rekor 透明日誌條目 |
 | [`redaction_check.py`](redaction_check.py) | 排程 | 量化 v1 遮蔽**實際抓到多少** | 遮蔽是緩解不是保證；這支把「抓到幾成」變成數字，而不是一句自我宣稱 |
