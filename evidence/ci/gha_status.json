@@ -1,14 +1,22 @@
 {
   "schema": "gha-status/1",
-  "fetched_at": "2026-09-15T23:26:08+08:00",
+  "fetched_at": "2026-09-15T23:42:47+08:00",
   "fetch_state": "ok",
   "detail": "fetched main",
   "runs": [
     {
-      "conclusion": "",
+      "conclusion": "success",
+      "createdAt": "2026-09-15T15:40:45Z",
+      "displayTitle": "feat(mlops): 註冊 RidgeCV——把「朝零收縮」這個假說真正實作並量完四格",
+      "status": "completed",
+      "url": "https://github.com/drew-young-AI/Devops/actions/runs/34990048832",
+      "workflowName": "Platform Tests"
+    },
+    {
+      "conclusion": "success",
       "createdAt": "2026-09-15T15:26:07Z",
       "displayTitle": "docs(backlog): T51 — ili t+1 是 MLOps 唯一擋住閘門的 horizon，兩個模型家族都輸",
-      "status": "queued",
+      "status": "completed",
       "url": "https://github.com/drew-young-AI/Devops/actions/runs/34988418071",
       "workflowName": "Platform Tests"
     },
@@ -74,14 +82,6 @@
       "displayTitle": "test(notify): send_mail.sh 從來沒有任何測試——補上「沒設定」與「壞掉」的分界",
       "status": "completed",
       "url": "https://github.com/drew-young-AI/Devops/actions/runs/34577368054",
-      "workflowName": "Platform Tests"
-    },
-    {
-      "conclusion": "success",
-      "createdAt": "2026-09-11T07:46:10Z",
-      "displayTitle": "docs: 更正 T43 兩次——rclone 不用裝，SMTP 路徑也已驗到只剩憑證",
-      "status": "completed",
-      "url": "https://github.com/drew-young-AI/Devops/actions/runs/34575939542",
       "workflowName": "Platform Tests"
     }
   ]

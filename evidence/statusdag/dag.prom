@@ -70,9 +70,9 @@ devops_node_state{node="secrets",layer="source",state="superseded"} 0
 devops_node_state{node="secrets",layer="source",state="warn"} 0
 devops_node_state{node="secrets",layer="source",state="unknown"} 0
 devops_node_state{node="secrets",layer="source",state="fail"} 0
-devops_node_state{node="gha",layer="build",state="ok"} 0
+devops_node_state{node="gha",layer="build",state="ok"} 1
 devops_node_state{node="gha",layer="build",state="superseded"} 0
-devops_node_state{node="gha",layer="build",state="warn"} 1
+devops_node_state{node="gha",layer="build",state="warn"} 0
 devops_node_state{node="gha",layer="build",state="unknown"} 0
 devops_node_state{node="gha",layer="build",state="fail"} 0
 devops_node_state{node="develop",layer="deploy",state="ok"} 1
@@ -251,7 +251,7 @@ devops_node_state_code{node="xref",layer="foundation"} 0
 devops_node_state_code{node="prodhost",layer="k8s"} 0
 devops_node_state_code{node="sast",layer="source"} 0
 devops_node_state_code{node="secrets",layer="source"} 0
-devops_node_state_code{node="gha",layer="build"} 2
+devops_node_state_code{node="gha",layer="build"} 0
 devops_node_state_code{node="develop",layer="deploy"} 0
 devops_node_state_code{node="dast",layer="verify"} 0
 devops_node_state_code{node="dastcov",layer="verify"} 0
@@ -335,4 +335,4 @@ devops_node_impacted{node="bluegreen"} 0
 devops_node_impacted{node="prodk8s"} 0
 # HELP devops_board_generated_seconds Unix time this board was built.
 # TYPE devops_board_generated_seconds gauge
-devops_board_generated_seconds 1789486788
+devops_board_generated_seconds 1789486980
