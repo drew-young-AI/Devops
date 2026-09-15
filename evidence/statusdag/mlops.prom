@@ -10,34 +10,34 @@
 # TYPE mlops_run_margin_ratio gauge
 # HELP mlops_run_trained_timestamp_seconds When that run was trained.
 # TYPE mlops_run_trained_timestamp_seconds gauge
-mlops_run_mae{project="station2-twin",target="pct_flu",horizon="1",algorithm="HistGradientBoostingRegressor",feature_set="100"} 0.00069257168915865
-mlops_run_baseline_mae{project="station2-twin",target="pct_flu",horizon="1",algorithm="HistGradientBoostingRegressor",feature_set="100"} 0.0006920116857046005
-mlops_run_margin_ratio{project="station2-twin",target="pct_flu",horizon="1",algorithm="HistGradientBoostingRegressor",feature_set="100"} -0.0008092398807966406
-mlops_run_trained_timestamp_seconds{project="station2-twin",target="pct_flu",horizon="1",algorithm="HistGradientBoostingRegressor",feature_set="100"} 1789399599
-mlops_run_mae{project="station2-twin",target="pct_flu",horizon="2",algorithm="HistGradientBoostingRegressor",feature_set="100"} 0.0009935110222747353
-mlops_run_baseline_mae{project="station2-twin",target="pct_flu",horizon="2",algorithm="HistGradientBoostingRegressor",feature_set="100"} 0.0011088473501746929
-mlops_run_margin_ratio{project="station2-twin",target="pct_flu",horizon="2",algorithm="HistGradientBoostingRegressor",feature_set="100"} 0.1040146129057232
-mlops_run_trained_timestamp_seconds{project="station2-twin",target="pct_flu",horizon="2",algorithm="HistGradientBoostingRegressor",feature_set="100"} 1789399624
-mlops_run_mae{project="station2-twin",target="pct_ili",horizon="1",algorithm="HistGradientBoostingRegressor",feature_set="99"} 0.001320096242858898
-mlops_run_baseline_mae{project="station2-twin",target="pct_ili",horizon="1",algorithm="HistGradientBoostingRegressor",feature_set="99"} 0.0011786207784898071
-mlops_run_margin_ratio{project="station2-twin",target="pct_ili",horizon="1",algorithm="HistGradientBoostingRegressor",feature_set="99"} -0.12003476177500147
-mlops_run_trained_timestamp_seconds{project="station2-twin",target="pct_ili",horizon="1",algorithm="HistGradientBoostingRegressor",feature_set="99"} 1789399551
-mlops_run_mae{project="station2-twin",target="pct_ili",horizon="2",algorithm="HistGradientBoostingRegressor",feature_set="99"} 0.0016554088552485269
-mlops_run_baseline_mae{project="station2-twin",target="pct_ili",horizon="2",algorithm="HistGradientBoostingRegressor",feature_set="99"} 0.0016941412844703946
-mlops_run_margin_ratio{project="station2-twin",target="pct_ili",horizon="2",algorithm="HistGradientBoostingRegressor",feature_set="99"} 0.022862573255793075
-mlops_run_trained_timestamp_seconds{project="station2-twin",target="pct_ili",horizon="2",algorithm="HistGradientBoostingRegressor",feature_set="99"} 1789399574
+mlops_run_mae{project="station2-twin",target="pct_flu",horizon="1",algorithm="HistGradientBoostingRegressor",feature_set="198"} 0.0006914528394375876
+mlops_run_baseline_mae{project="station2-twin",target="pct_flu",horizon="1",algorithm="HistGradientBoostingRegressor",feature_set="198"} 0.0006944466897161197
+mlops_run_margin_ratio{project="station2-twin",target="pct_flu",horizon="1",algorithm="HistGradientBoostingRegressor",feature_set="198"} 0.004311130462376965
+mlops_run_trained_timestamp_seconds{project="station2-twin",target="pct_flu",horizon="1",algorithm="HistGradientBoostingRegressor",feature_set="198"} 1789484797
+mlops_run_mae{project="station2-twin",target="pct_flu",horizon="2",algorithm="HistGradientBoostingRegressor",feature_set="198"} 0.00099469596208854
+mlops_run_baseline_mae{project="station2-twin",target="pct_flu",horizon="2",algorithm="HistGradientBoostingRegressor",feature_set="198"} 0.0011149433639071988
+mlops_run_margin_ratio{project="station2-twin",target="pct_flu",horizon="2",algorithm="HistGradientBoostingRegressor",feature_set="198"} 0.10785068166804884
+mlops_run_trained_timestamp_seconds{project="station2-twin",target="pct_flu",horizon="2",algorithm="HistGradientBoostingRegressor",feature_set="198"} 1789484838
+mlops_run_mae{project="station2-twin",target="pct_ili",horizon="1",algorithm="HistGradientBoostingRegressor",feature_set="197"} 0.0013187663290750908
+mlops_run_baseline_mae{project="station2-twin",target="pct_ili",horizon="1",algorithm="HistGradientBoostingRegressor",feature_set="197"} 0.0011797575270506562
+mlops_run_margin_ratio{project="station2-twin",target="pct_ili",horizon="1",algorithm="HistGradientBoostingRegressor",feature_set="197"} -0.11782828152150107
+mlops_run_trained_timestamp_seconds{project="station2-twin",target="pct_ili",horizon="1",algorithm="HistGradientBoostingRegressor",feature_set="197"} 1789484722
+mlops_run_mae{project="station2-twin",target="pct_ili",horizon="2",algorithm="HistGradientBoostingRegressor",feature_set="197"} 0.0016565969771289513
+mlops_run_baseline_mae{project="station2-twin",target="pct_ili",horizon="2",algorithm="HistGradientBoostingRegressor",feature_set="197"} 0.0016985855665802108
+mlops_run_margin_ratio{project="station2-twin",target="pct_ili",horizon="2",algorithm="HistGradientBoostingRegressor",feature_set="197"} 0.02471973757306543
+mlops_run_trained_timestamp_seconds{project="station2-twin",target="pct_ili",horizon="2",algorithm="HistGradientBoostingRegressor",feature_set="197"} 1789484756
 
 # HELP mlops_runs_total Candidate runs at this horizon in the current feature set.
 # TYPE mlops_runs_total gauge
 # HELP mlops_horizon_gate_passed 1 if any run at this horizon has ever beaten both baselines.
 # TYPE mlops_horizon_gate_passed gauge
-mlops_runs_total{project="station2-twin",target="pct_flu",horizon="1"} 3
-mlops_horizon_gate_passed{project="station2-twin",target="pct_flu",horizon="1"} 0
-mlops_runs_total{project="station2-twin",target="pct_flu",horizon="2"} 3
+mlops_runs_total{project="station2-twin",target="pct_flu",horizon="1"} 1
+mlops_horizon_gate_passed{project="station2-twin",target="pct_flu",horizon="1"} 1
+mlops_runs_total{project="station2-twin",target="pct_flu",horizon="2"} 1
 mlops_horizon_gate_passed{project="station2-twin",target="pct_flu",horizon="2"} 1
-mlops_runs_total{project="station2-twin",target="pct_ili",horizon="1"} 4
+mlops_runs_total{project="station2-twin",target="pct_ili",horizon="1"} 1
 mlops_horizon_gate_passed{project="station2-twin",target="pct_ili",horizon="1"} 0
-mlops_runs_total{project="station2-twin",target="pct_ili",horizon="2"} 3
+mlops_runs_total{project="station2-twin",target="pct_ili",horizon="2"} 1
 mlops_horizon_gate_passed{project="station2-twin",target="pct_ili",horizon="2"} 1
 
 # HELP mlops_deployed_margin_ratio Relative advantage over persistence of the run behind the newest published forecast.
@@ -46,12 +46,15 @@ mlops_horizon_gate_passed{project="station2-twin",target="pct_ili",horizon="2"} 
 # TYPE mlops_deployed_run_id gauge
 # HELP mlops_deployed_published_timestamp_seconds When that forecast was written.
 # TYPE mlops_deployed_published_timestamp_seconds gauge
-mlops_deployed_margin_ratio{project="station2-twin",target="pct_flu",horizon="2"} 0.1040146129057232
-mlops_deployed_run_id{project="station2-twin",target="pct_flu",horizon="2"} 29
-mlops_deployed_published_timestamp_seconds{project="station2-twin",target="pct_flu",horizon="2"} 1789399648
-mlops_deployed_margin_ratio{project="station2-twin",target="pct_ili",horizon="2"} 0.022862573255793075
-mlops_deployed_run_id{project="station2-twin",target="pct_ili",horizon="2"} 27
-mlops_deployed_published_timestamp_seconds{project="station2-twin",target="pct_ili",horizon="2"} 1789399647
+mlops_deployed_margin_ratio{project="station2-twin",target="pct_flu",horizon="1"} 0.004311130462376965
+mlops_deployed_run_id{project="station2-twin",target="pct_flu",horizon="1"} 32
+mlops_deployed_published_timestamp_seconds{project="station2-twin",target="pct_flu",horizon="1"} 1789484879
+mlops_deployed_margin_ratio{project="station2-twin",target="pct_flu",horizon="2"} 0.10785068166804884
+mlops_deployed_run_id{project="station2-twin",target="pct_flu",horizon="2"} 33
+mlops_deployed_published_timestamp_seconds{project="station2-twin",target="pct_flu",horizon="2"} 1789484879
+mlops_deployed_margin_ratio{project="station2-twin",target="pct_ili",horizon="2"} 0.02471973757306543
+mlops_deployed_run_id{project="station2-twin",target="pct_ili",horizon="2"} 31
+mlops_deployed_published_timestamp_seconds{project="station2-twin",target="pct_ili",horizon="2"} 1789484878
 
 # HELP mlops_forecast_scored_total Published forecasts whose target week has arrived and was compared.
 # TYPE mlops_forecast_scored_total gauge
@@ -59,11 +62,14 @@ mlops_deployed_published_timestamp_seconds{project="station2-twin",target="pct_i
 # TYPE mlops_forecast_pending_total gauge
 # HELP mlops_forecast_beat_baseline_total Of the scored ones, how many were closer than the value at origin.
 # TYPE mlops_forecast_beat_baseline_total gauge
+mlops_forecast_scored_total{project="station2-twin",horizon="1",target="pct_flu"} 0
+mlops_forecast_pending_total{project="station2-twin",horizon="1",target="pct_flu"} 1
+mlops_forecast_beat_baseline_total{project="station2-twin",horizon="1",target="pct_flu"} 0
 mlops_forecast_scored_total{project="station2-twin",horizon="2",target="pct_flu"} 0
-mlops_forecast_pending_total{project="station2-twin",horizon="2",target="pct_flu"} 1
+mlops_forecast_pending_total{project="station2-twin",horizon="2",target="pct_flu"} 2
 mlops_forecast_beat_baseline_total{project="station2-twin",horizon="2",target="pct_flu"} 0
 mlops_forecast_scored_total{project="station2-twin",horizon="2",target="pct_ili"} 2
-mlops_forecast_pending_total{project="station2-twin",horizon="2",target="pct_ili"} 1
+mlops_forecast_pending_total{project="station2-twin",horizon="2",target="pct_ili"} 2
 mlops_forecast_beat_baseline_total{project="station2-twin",horizon="2",target="pct_ili"} 2
 
 # HELP mlops_feature_rows Rows available for training, per feature set.
@@ -72,6 +78,8 @@ mlops_feature_rows{project="station2-twin",feature_set="1",target="pct_ili"} 554
 mlops_feature_rows{project="station2-twin",feature_set="55",target="pct_ili"} 556
 mlops_feature_rows{project="station2-twin",feature_set="99",target="pct_ili"} 557
 mlops_feature_rows{project="station2-twin",feature_set="100",target="pct_flu"} 557
+mlops_feature_rows{project="station2-twin",feature_set="197",target="pct_ili"} 558
+mlops_feature_rows{project="station2-twin",feature_set="198",target="pct_flu"} 558
 
 # HELP mlops_policy_backtest_n Origins at which a REPLAY of the publishing decision would have published. A simulation, not the live record.
 # TYPE mlops_policy_backtest_n gauge
@@ -84,25 +92,25 @@ mlops_feature_rows{project="station2-twin",feature_set="100",target="pct_flu"} 5
 # HELP mlops_policy_backtest_generated_timestamp_seconds When that replay ran.
 # TYPE mlops_policy_backtest_generated_timestamp_seconds gauge
 mlops_policy_backtest_n{project="station2-twin",target="pct_flu",horizon="1",mode="policy"} 203
-mlops_policy_backtest_origins{project="station2-twin",target="pct_flu",horizon="1",mode="policy"} 452
+mlops_policy_backtest_origins{project="station2-twin",target="pct_flu",horizon="1",mode="policy"} 453
 mlops_policy_backtest_win_rate{project="station2-twin",target="pct_flu",horizon="1",mode="policy"} 0.4187192118226601
 mlops_policy_backtest_margin_ratio{project="station2-twin",target="pct_flu",horizon="1",mode="policy"} -0.06355180920369564
-mlops_policy_backtest_generated_timestamp_seconds{project="station2-twin",target="pct_flu",horizon="1",mode="policy"} 1789399748
-mlops_policy_backtest_n{project="station2-twin",target="pct_flu",horizon="2",mode="policy"} 431
-mlops_policy_backtest_origins{project="station2-twin",target="pct_flu",horizon="2",mode="policy"} 451
-mlops_policy_backtest_win_rate{project="station2-twin",target="pct_flu",horizon="2",mode="policy"} 0.5197215777262181
-mlops_policy_backtest_margin_ratio{project="station2-twin",target="pct_flu",horizon="2",mode="policy"} 0.0658134603328744
-mlops_policy_backtest_generated_timestamp_seconds{project="station2-twin",target="pct_flu",horizon="2",mode="policy"} 1789399775
+mlops_policy_backtest_generated_timestamp_seconds{project="station2-twin",target="pct_flu",horizon="1",mode="policy"} 1789485076
+mlops_policy_backtest_n{project="station2-twin",target="pct_flu",horizon="2",mode="policy"} 432
+mlops_policy_backtest_origins{project="station2-twin",target="pct_flu",horizon="2",mode="policy"} 452
+mlops_policy_backtest_win_rate{project="station2-twin",target="pct_flu",horizon="2",mode="policy"} 0.5208333333333334
+mlops_policy_backtest_margin_ratio{project="station2-twin",target="pct_flu",horizon="2",mode="policy"} 0.07046800262746357
+mlops_policy_backtest_generated_timestamp_seconds{project="station2-twin",target="pct_flu",horizon="2",mode="policy"} 1789485149
 mlops_policy_backtest_n{project="station2-twin",target="pct_ili",horizon="1",mode="policy"} 39
-mlops_policy_backtest_origins{project="station2-twin",target="pct_ili",horizon="1",mode="policy"} 452
+mlops_policy_backtest_origins{project="station2-twin",target="pct_ili",horizon="1",mode="policy"} 453
 mlops_policy_backtest_win_rate{project="station2-twin",target="pct_ili",horizon="1",mode="policy"} 0.48717948717948717
 mlops_policy_backtest_margin_ratio{project="station2-twin",target="pct_ili",horizon="1",mode="policy"} -0.11774561538732761
-mlops_policy_backtest_generated_timestamp_seconds{project="station2-twin",target="pct_ili",horizon="1",mode="policy"} 1789399673
-mlops_policy_backtest_n{project="station2-twin",target="pct_ili",horizon="2",mode="policy"} 431
-mlops_policy_backtest_origins{project="station2-twin",target="pct_ili",horizon="2",mode="policy"} 451
-mlops_policy_backtest_win_rate{project="station2-twin",target="pct_ili",horizon="2",mode="policy"} 0.5290023201856149
-mlops_policy_backtest_margin_ratio{project="station2-twin",target="pct_ili",horizon="2",mode="policy"} 0.00012008569189972828
-mlops_policy_backtest_generated_timestamp_seconds{project="station2-twin",target="pct_ili",horizon="2",mode="policy"} 1789399724
+mlops_policy_backtest_generated_timestamp_seconds{project="station2-twin",target="pct_ili",horizon="1",mode="policy"} 1789484937
+mlops_policy_backtest_n{project="station2-twin",target="pct_ili",horizon="2",mode="policy"} 432
+mlops_policy_backtest_origins{project="station2-twin",target="pct_ili",horizon="2",mode="policy"} 452
+mlops_policy_backtest_win_rate{project="station2-twin",target="pct_ili",horizon="2",mode="policy"} 0.5300925925925926
+mlops_policy_backtest_margin_ratio{project="station2-twin",target="pct_ili",horizon="2",mode="policy"} 0.00227332360050681
+mlops_policy_backtest_generated_timestamp_seconds{project="station2-twin",target="pct_ili",horizon="2",mode="policy"} 1789485006
 
 # HELP mlops_policy_backtest_margin_ci_low Lower bound of a 95% paired-bootstrap interval on the replay's margin.
 # TYPE mlops_policy_backtest_margin_ci_low gauge
@@ -112,22 +120,22 @@ mlops_policy_backtest_generated_timestamp_seconds{project="station2-twin",target
 # TYPE mlops_policy_backtest_sign_test_p gauge
 # HELP mlops_policy_backtest_lag1_autocorrelation Lag-1 autocorrelation of the weekly paired differences. Both procedures assume independence, so a large value means the interval is too NARROW.
 # TYPE mlops_policy_backtest_lag1_autocorrelation gauge
-mlops_policy_backtest_margin_ci_low{project="station2-twin",target="pct_flu",horizon="1",mode="policy"} -0.21761015173371717
-mlops_policy_backtest_margin_ci_high{project="station2-twin",target="pct_flu",horizon="1",mode="policy"} 0.06267958245813839
+mlops_policy_backtest_margin_ci_low{project="station2-twin",target="pct_flu",horizon="1",mode="policy"} -0.21761015173371742
+mlops_policy_backtest_margin_ci_high{project="station2-twin",target="pct_flu",horizon="1",mode="policy"} 0.06267958245813861
 mlops_policy_backtest_sign_test_p{project="station2-twin",target="pct_flu",horizon="1",mode="policy"} 0.024466825359215676
-mlops_policy_backtest_lag1_autocorrelation{project="station2-twin",target="pct_flu",horizon="1",mode="policy"} 0.21932150309678955
-mlops_policy_backtest_margin_ci_low{project="station2-twin",target="pct_flu",horizon="2",mode="policy"} -0.030853458496404165
-mlops_policy_backtest_margin_ci_high{project="station2-twin",target="pct_flu",horizon="2",mode="policy"} 0.14803076106423876
-mlops_policy_backtest_sign_test_p{project="station2-twin",target="pct_flu",horizon="2",mode="policy"} 0.44092515908856456
-mlops_policy_backtest_lag1_autocorrelation{project="station2-twin",target="pct_flu",horizon="2",mode="policy"} 0.3745545534193413
-mlops_policy_backtest_margin_ci_low{project="station2-twin",target="pct_ili",horizon="1",mode="policy"} -0.6028480876269172
-mlops_policy_backtest_margin_ci_high{project="station2-twin",target="pct_ili",horizon="1",mode="policy"} 0.034726009779059555
+mlops_policy_backtest_lag1_autocorrelation{project="station2-twin",target="pct_flu",horizon="1",mode="policy"} 0.2193215030967895
+mlops_policy_backtest_margin_ci_low{project="station2-twin",target="pct_flu",horizon="2",mode="policy"} -0.02410225023422354
+mlops_policy_backtest_margin_ci_high{project="station2-twin",target="pct_flu",horizon="2",mode="policy"} 0.15127993302301218
+mlops_policy_backtest_sign_test_p{project="station2-twin",target="pct_flu",horizon="2",mode="policy"} 0.4134370556396559
+mlops_policy_backtest_lag1_autocorrelation{project="station2-twin",target="pct_flu",horizon="2",mode="policy"} 0.38004471257440564
+mlops_policy_backtest_margin_ci_low{project="station2-twin",target="pct_ili",horizon="1",mode="policy"} -0.6028480876269173
+mlops_policy_backtest_margin_ci_high{project="station2-twin",target="pct_ili",horizon="1",mode="policy"} 0.034726009779059375
 mlops_policy_backtest_sign_test_p{project="station2-twin",target="pct_ili",horizon="1",mode="policy"} 1.0
-mlops_policy_backtest_lag1_autocorrelation{project="station2-twin",target="pct_ili",horizon="1",mode="policy"} -0.17381321596942392
-mlops_policy_backtest_margin_ci_low{project="station2-twin",target="pct_ili",horizon="2",mode="policy"} -0.07363523466750974
-mlops_policy_backtest_margin_ci_high{project="station2-twin",target="pct_ili",horizon="2",mode="policy"} 0.06284485209722987
-mlops_policy_backtest_sign_test_p{project="station2-twin",target="pct_ili",horizon="2",mode="policy"} 0.24763455094166162
-mlops_policy_backtest_lag1_autocorrelation{project="station2-twin",target="pct_ili",horizon="2",mode="policy"} 0.2617049269658722
+mlops_policy_backtest_lag1_autocorrelation{project="station2-twin",target="pct_ili",horizon="1",mode="policy"} -0.17381321596942387
+mlops_policy_backtest_margin_ci_low{project="station2-twin",target="pct_ili",horizon="2",mode="policy"} -0.07026518734398986
+mlops_policy_backtest_margin_ci_high{project="station2-twin",target="pct_ili",horizon="2",mode="policy"} 0.06462926716205403
+mlops_policy_backtest_sign_test_p{project="station2-twin",target="pct_ili",horizon="2",mode="policy"} 0.22900876062749975
+mlops_policy_backtest_lag1_autocorrelation{project="station2-twin",target="pct_ili",horizon="2",mode="policy"} 0.26312462710179196
 
 # HELP mlops_replacement_margin_ratio Relative MAE improvement a challenger needs to replace the champion (ADR-0016). Read from publish_forecast.py.
 # TYPE mlops_replacement_margin_ratio gauge
@@ -135,4 +143,4 @@ mlops_replacement_margin_ratio{project="station2-twin"} 0.02
 
 # HELP mlops_metrics_generated_timestamp_seconds When this file was written.
 # TYPE mlops_metrics_generated_timestamp_seconds gauge
-mlops_metrics_generated_timestamp_seconds 1789481597
+mlops_metrics_generated_timestamp_seconds 1789485207
