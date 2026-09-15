@@ -173,6 +173,45 @@ def _build_ridge(hp):
         Ridge(**hp))
 
 
+def _build_ridge_cv(hp):
+    """Ridge whose alpha is chosen INSIDE each training fold, never by us.
+
+    WHY THIS ENTRY EXISTS (2026-09-15), stated before the number was known.
+
+    `ili t+1` is the one horizon that loses to persistence, and it loses in a
+    specific shape: direction accuracy 57% -- there IS signal about which way
+    next week moves -- while MAE is 12% WORSE than "assume no change". A model
+    that knows the direction and still loses on magnitude is over-committing:
+    every prediction it makes away from zero delta costs more than the
+    direction is worth.
+
+    The structural answer to that is SHRINKAGE toward zero, and the delta
+    reframing above already makes zero mean persistence. So the family is
+    right; the existing `Ridge` entry simply never implemented it. `alpha=1.0`
+    on standardised features with ~500 rows and ~20 columns is close to no
+    penalty at all -- it is sklearn's default, not a shrinkage decision. It
+    measured -21.3% at this horizon, WORSE than the tree, which is what an
+    unregularised linear model on a noisy delta should do.
+
+    RidgeCV picks alpha by leave-one-out CV over `alphas`, fitted on the
+    TRAINING ROWS OF THAT FOLD ONLY -- inside the same Pipeline, so
+    rolling-origin's guarantee is unchanged and no test row is ever seen. This
+    is therefore not a second hypothesis and not a search over results: it is
+    the first estimator that actually does what the recorded reason asked for.
+
+    Deterministic: LOO ridge has a closed form, the grid is fixed, and there is
+    no random_state anywhere in the path.
+    """
+    from sklearn.impute import SimpleImputer
+    from sklearn.linear_model import RidgeCV
+    from sklearn.pipeline import make_pipeline
+    from sklearn.preprocessing import StandardScaler
+    return make_pipeline(
+        SimpleImputer(strategy="median", add_indicator=True),
+        StandardScaler(),
+        RidgeCV(**hp))
+
+
 MODELS = {
     "HistGradientBoostingRegressor": {
         "family": "梯度提升樹（tree ensemble）",
@@ -189,6 +228,25 @@ MODELS = {
         "handles_nan": False,
         "nan_policy": "median-impute + missing indicator, fitted per fold "
                       "inside the pipeline (never on test rows)",
+        "deterministic": True,
+    },
+    "RidgeCV": {
+        # A DIFFERENT ENTRY, NOT A CHANGED ONE. `Ridge` at alpha=1.0 is a
+        # recorded measurement (runs 15/16, and -21.3% at ili t+1 on
+        # feature_set 197). Editing its hyperparams would rewrite what those
+        # rows mean; the registry exists so a second answer sits BESIDE the
+        # first rather than on top of it.
+        "family": "統計／線性（L2，alpha 每折內部 LOO-CV 選）",
+        "build": _build_ridge_cv,
+        # The grid spans "almost no penalty" to "almost all shrinkage", so the
+        # fold can land anywhere including on the existing Ridge's alpha=1.0.
+        # Fixed and declared: a grid chosen per run would be the search this
+        # file warns about, one indirection removed.
+        "hyperparams": {"alphas": [0.1, 1.0, 10.0, 100.0, 1000.0, 10000.0]},
+        "handles_nan": False,
+        "nan_policy": "median-impute + missing indicator, fitted per fold "
+                      "inside the pipeline (never on test rows); alpha is "
+                      "selected by LOO-CV over the training rows of that fold",
         "deterministic": True,
     },
 }

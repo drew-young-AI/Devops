@@ -29,6 +29,7 @@ pilots/station2-twin/mlops/run.sh backtest.py --list-models
 |---|---|---|---|---|
 | `HistGradientBoostingRegressor` | 梯度提升樹 | 是 | —（原生支援） | 是 |
 | `Ridge` | 統計／線性（L2） | 否 | 中位數填補 ＋ 缺值指示欄，**每折在 pipeline 內擬合** | 是 |
+| `RidgeCV` | 統計／線性（L2，**alpha 每折內部 LOO-CV 選**） | 否 | 同上，另加：alpha 只用該折的訓練列選 | 是 |
 
 **同一批折、同樣的基準，實測（2026-09-08，feature_set 55、556 列、n_test 451）**：
 
@@ -36,6 +37,32 @@ pilots/station2-twin/mlops/run.sh backtest.py --list-models
 |---|---|---|---|
 | HistGradientBoosting | −12.1% | **+0.6%** | 63.8% |
 | Ridge | −22.0% | −11.0% | 62.0% |
+
+**第三個家族，以及它為什麼不是「再試一個」（2026-09-15，feature_set 197／198，558 列，n_test 453）**：
+
+`ili t+1` 是唯一擋住上線閘門的 horizon，而它輸的形狀很specific：**方向準確度 57%——確實知道下週往哪走——MAE 卻比「假設不變」差 12%**。知道方向卻在幅度上輸，是**過度下注**：每一次偏離零變化都付出比方向價值更高的代價。結構上的答案是**朝零收縮**，而 delta 重構已經讓零＝持平基準。所以家族是對的，是上面那筆 `Ridge` 從來沒有實作它——`alpha=1.0` 是 sklearn 的預設值，不是收縮決定。
+
+| 模型 | ili t+1 | ili t+2 | flu t+1 | flu t+2 |
+|---|---|---|---|---|
+| Ridge（alpha=1.0，固定） | −21.3% | — | — | — |
+| HistGradientBoosting | −11.8% | **+2.5%** | **+0.4%** | **+10.8%** |
+| RidgeCV（alpha 每折 LOO-CV） | **−6.7%** | −5.6% | −10.3% | −6.1% |
+
+**收縮假說在方向上被證實**（ili t+1：−21.3% → −11.8% → −6.7%，單調），**但三個家族都沒有贏過持平基準**，而 RidgeCV 在其他三個 horizon 輸給樹。四個 (target, horizon) **全部**跑過並寫入 `model_run` 34–37，不挑 horizon——只跑贏的那一格，就是用登記表做搜尋。
+
+板面因此讀成「挑戰者四項全輸，現役三項在贏」，兩邊並列：
+
+```
+flu t+1 最新 run36 RidgeCV -10.34%（線上 run32 +0.43%）
+ili t+1 最新 run34 RidgeCV  -6.74%（尚未上線）
+```
+
+登記第三個家族也暴露了一條**斷言**的缺陷（不是匯出器的）：`test_mlops_metrics.sh`
+把「兩個 horizon 都在」寫死成「恰好 2 列 `mlops_run_mae`」，而那個數字只在
+「每個 target 只有一個演算法」時成立。`mlops_run_mae` 一直帶著 `algorithm`
+標籤，兩個家族佔的是不同 series，什麼都沒有被覆蓋——列數從來就不是不變量。
+已改成數**相異的 horizon**，並補上真正的不變量：沒有兩筆 run 可以落在同一條
+series 上，而且每一條都必須指名演算法。
 
 這兩筆 Ridge 已經**寫進 `model_run`（run 15／16），不是 dry-run 的紙上數字**。
 板面因此長成這樣，而且這一行就是「新模型 vs 目前線上模型」：

@@ -14,30 +14,46 @@ mlops_run_mae{project="station2-twin",target="pct_flu",horizon="1",algorithm="Hi
 mlops_run_baseline_mae{project="station2-twin",target="pct_flu",horizon="1",algorithm="HistGradientBoostingRegressor",feature_set="198"} 0.0006944466897161197
 mlops_run_margin_ratio{project="station2-twin",target="pct_flu",horizon="1",algorithm="HistGradientBoostingRegressor",feature_set="198"} 0.004311130462376965
 mlops_run_trained_timestamp_seconds{project="station2-twin",target="pct_flu",horizon="1",algorithm="HistGradientBoostingRegressor",feature_set="198"} 1789484797
+mlops_run_mae{project="station2-twin",target="pct_flu",horizon="1",algorithm="RidgeCV",feature_set="198"} 0.000766266759098712
+mlops_run_baseline_mae{project="station2-twin",target="pct_flu",horizon="1",algorithm="RidgeCV",feature_set="198"} 0.0006944466897161197
+mlops_run_margin_ratio{project="station2-twin",target="pct_flu",horizon="1",algorithm="RidgeCV",feature_set="198"} -0.10342056553246931
+mlops_run_trained_timestamp_seconds{project="station2-twin",target="pct_flu",horizon="1",algorithm="RidgeCV",feature_set="198"} 1789486131
 mlops_run_mae{project="station2-twin",target="pct_flu",horizon="2",algorithm="HistGradientBoostingRegressor",feature_set="198"} 0.00099469596208854
 mlops_run_baseline_mae{project="station2-twin",target="pct_flu",horizon="2",algorithm="HistGradientBoostingRegressor",feature_set="198"} 0.0011149433639071988
 mlops_run_margin_ratio{project="station2-twin",target="pct_flu",horizon="2",algorithm="HistGradientBoostingRegressor",feature_set="198"} 0.10785068166804884
 mlops_run_trained_timestamp_seconds{project="station2-twin",target="pct_flu",horizon="2",algorithm="HistGradientBoostingRegressor",feature_set="198"} 1789484838
+mlops_run_mae{project="station2-twin",target="pct_flu",horizon="2",algorithm="RidgeCV",feature_set="198"} 0.001183095553305733
+mlops_run_baseline_mae{project="station2-twin",target="pct_flu",horizon="2",algorithm="RidgeCV",feature_set="198"} 0.0011149433639071988
+mlops_run_margin_ratio{project="station2-twin",target="pct_flu",horizon="2",algorithm="RidgeCV",feature_set="198"} -0.061126144703621633
+mlops_run_trained_timestamp_seconds{project="station2-twin",target="pct_flu",horizon="2",algorithm="RidgeCV",feature_set="198"} 1789486133
 mlops_run_mae{project="station2-twin",target="pct_ili",horizon="1",algorithm="HistGradientBoostingRegressor",feature_set="197"} 0.0013187663290750908
 mlops_run_baseline_mae{project="station2-twin",target="pct_ili",horizon="1",algorithm="HistGradientBoostingRegressor",feature_set="197"} 0.0011797575270506562
 mlops_run_margin_ratio{project="station2-twin",target="pct_ili",horizon="1",algorithm="HistGradientBoostingRegressor",feature_set="197"} -0.11782828152150107
 mlops_run_trained_timestamp_seconds{project="station2-twin",target="pct_ili",horizon="1",algorithm="HistGradientBoostingRegressor",feature_set="197"} 1789484722
+mlops_run_mae{project="station2-twin",target="pct_ili",horizon="1",algorithm="RidgeCV",feature_set="197"} 0.0012592353370034467
+mlops_run_baseline_mae{project="station2-twin",target="pct_ili",horizon="1",algorithm="RidgeCV",feature_set="197"} 0.0011797575270506562
+mlops_run_margin_ratio{project="station2-twin",target="pct_ili",horizon="1",algorithm="RidgeCV",feature_set="197"} -0.06736791936516112
+mlops_run_trained_timestamp_seconds{project="station2-twin",target="pct_ili",horizon="1",algorithm="RidgeCV",feature_set="197"} 1789486126
 mlops_run_mae{project="station2-twin",target="pct_ili",horizon="2",algorithm="HistGradientBoostingRegressor",feature_set="197"} 0.0016565969771289513
 mlops_run_baseline_mae{project="station2-twin",target="pct_ili",horizon="2",algorithm="HistGradientBoostingRegressor",feature_set="197"} 0.0016985855665802108
 mlops_run_margin_ratio{project="station2-twin",target="pct_ili",horizon="2",algorithm="HistGradientBoostingRegressor",feature_set="197"} 0.02471973757306543
 mlops_run_trained_timestamp_seconds{project="station2-twin",target="pct_ili",horizon="2",algorithm="HistGradientBoostingRegressor",feature_set="197"} 1789484756
+mlops_run_mae{project="station2-twin",target="pct_ili",horizon="2",algorithm="RidgeCV",feature_set="197"} 0.00179381370977238
+mlops_run_baseline_mae{project="station2-twin",target="pct_ili",horizon="2",algorithm="RidgeCV",feature_set="197"} 0.0016985855665802108
+mlops_run_margin_ratio{project="station2-twin",target="pct_ili",horizon="2",algorithm="RidgeCV",feature_set="197"} -0.0560632005038719
+mlops_run_trained_timestamp_seconds{project="station2-twin",target="pct_ili",horizon="2",algorithm="RidgeCV",feature_set="197"} 1789486128
 
 # HELP mlops_runs_total Candidate runs at this horizon in the current feature set.
 # TYPE mlops_runs_total gauge
 # HELP mlops_horizon_gate_passed 1 if any run at this horizon has ever beaten both baselines.
 # TYPE mlops_horizon_gate_passed gauge
-mlops_runs_total{project="station2-twin",target="pct_flu",horizon="1"} 1
+mlops_runs_total{project="station2-twin",target="pct_flu",horizon="1"} 2
 mlops_horizon_gate_passed{project="station2-twin",target="pct_flu",horizon="1"} 1
-mlops_runs_total{project="station2-twin",target="pct_flu",horizon="2"} 1
+mlops_runs_total{project="station2-twin",target="pct_flu",horizon="2"} 2
 mlops_horizon_gate_passed{project="station2-twin",target="pct_flu",horizon="2"} 1
-mlops_runs_total{project="station2-twin",target="pct_ili",horizon="1"} 1
+mlops_runs_total{project="station2-twin",target="pct_ili",horizon="1"} 2
 mlops_horizon_gate_passed{project="station2-twin",target="pct_ili",horizon="1"} 0
-mlops_runs_total{project="station2-twin",target="pct_ili",horizon="2"} 1
+mlops_runs_total{project="station2-twin",target="pct_ili",horizon="2"} 2
 mlops_horizon_gate_passed{project="station2-twin",target="pct_ili",horizon="2"} 1
 
 # HELP mlops_deployed_margin_ratio Relative advantage over persistence of the run behind the newest published forecast.
@@ -143,4 +159,4 @@ mlops_replacement_margin_ratio{project="station2-twin"} 0.02
 
 # HELP mlops_metrics_generated_timestamp_seconds When this file was written.
 # TYPE mlops_metrics_generated_timestamp_seconds gauge
-mlops_metrics_generated_timestamp_seconds 1789485207
+mlops_metrics_generated_timestamp_seconds 1789486251

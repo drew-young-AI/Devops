@@ -1,9 +1,41 @@
 {
   "schema": "gha-status/1",
-  "fetched_at": "2026-09-15T22:56:06+08:00",
+  "fetched_at": "2026-09-15T23:26:08+08:00",
   "fetch_state": "ok",
   "detail": "fetched main",
   "runs": [
+    {
+      "conclusion": "",
+      "createdAt": "2026-09-15T15:26:07Z",
+      "displayTitle": "docs(backlog): T51 — ili t+1 是 MLOps 唯一擋住閘門的 horizon，兩個模型家族都輸",
+      "status": "queued",
+      "url": "https://github.com/drew-young-AI/Devops/actions/runs/34988418071",
+      "workflowName": "Platform Tests"
+    },
+    {
+      "conclusion": "success",
+      "createdAt": "2026-09-15T15:21:24Z",
+      "displayTitle": "chore(mlops): 用第 36 週資料跑既有排程 retrain",
+      "status": "completed",
+      "url": "https://github.com/drew-young-AI/Devops/actions/runs/34987885451",
+      "workflowName": "Platform Tests"
+    },
+    {
+      "conclusion": "success",
+      "createdAt": "2026-09-15T15:04:15Z",
+      "displayTitle": "feat(dast): 覆蓋率從宣稱改成實測，40% -> 90%",
+      "status": "completed",
+      "url": "https://github.com/drew-young-AI/Devops/actions/runs/34985931559",
+      "workflowName": "pilot-image"
+    },
+    {
+      "conclusion": "success",
+      "createdAt": "2026-09-15T15:04:15Z",
+      "displayTitle": "feat(dast): 覆蓋率從宣稱改成實測，40% -> 90%",
+      "status": "completed",
+      "url": "https://github.com/drew-young-AI/Devops/actions/runs/34985931429",
+      "workflowName": "Platform Tests"
+    },
     {
       "conclusion": "success",
       "createdAt": "2026-09-15T00:44:00Z",
@@ -50,38 +82,6 @@
       "displayTitle": "docs: 更正 T43 兩次——rclone 不用裝，SMTP 路徑也已驗到只剩憑證",
       "status": "completed",
       "url": "https://github.com/drew-young-AI/Devops/actions/runs/34575939542",
-      "workflowName": "Platform Tests"
-    },
-    {
-      "conclusion": "success",
-      "createdAt": "2026-09-11T07:40:48Z",
-      "displayTitle": "feat(llm-review): 接回公衛 pilot 的 K8s 路徑——真正擋住的是模型名分岔，不是產物",
-      "status": "completed",
-      "url": "https://github.com/drew-young-AI/Devops/actions/runs/34575512871",
-      "workflowName": "Platform Tests"
-    },
-    {
-      "conclusion": "success",
-      "createdAt": "2026-09-11T07:09:52Z",
-      "displayTitle": "docs: 更正 T43 的備份大小——433M 是八月舊檔，最近每份只有 76M",
-      "status": "completed",
-      "url": "https://github.com/drew-young-AI/Devops/actions/runs/34573108876",
-      "workflowName": "Platform Tests"
-    },
-    {
-      "conclusion": "success",
-      "createdAt": "2026-09-11T07:08:01Z",
-      "displayTitle": "chore(board): 刪掉 epiweek-definition 這筆 ask——它的前提已被推翻",
-      "status": "completed",
-      "url": "https://github.com/drew-young-AI/Devops/actions/runs/34572972485",
-      "workflowName": "Platform Tests"
-    },
-    {
-      "conclusion": "success",
-      "createdAt": "2026-09-11T07:04:52Z",
-      "displayTitle": "feat(dataops): 日↔週接起來了——查疾管署的表，不寫算式",
-      "status": "completed",
-      "url": "https://github.com/drew-young-AI/Devops/actions/runs/34572734716",
       "workflowName": "Platform Tests"
     }
   ]

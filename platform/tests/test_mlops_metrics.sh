@@ -120,10 +120,36 @@ assert_output_contains 'target="pct_flu"' \
 # The two targets must not share a series. If they did, the newest rebuild
 # would silently overwrite the other one's numbers -- which is exactly what
 # happened to the replay artifacts before they were keyed on the target.
-ILI_MAE="$(grep -c '^mlops_run_mae{.*target="pct_ili"' "$OUT" | tr -d ' ')"
-FLU_MAE="$(grep -c '^mlops_run_mae{.*target="pct_flu"' "$OUT" | tr -d ' ')"
+#
+# COUNT DISTINCT HORIZONS, NOT ROWS (fixed 2026-09-15). This asserted `2` rows
+# per target, which was the right number only while each target had exactly one
+# algorithm. Registering RidgeCV beside HistGradientBoostingRegressor made it 4
+# and this went red -- on a correct exporter. `mlops_run_mae` has always
+# carried an `algorithm` label, so the two families occupy DIFFERENT series and
+# nothing is overwritten; the row count simply was never the invariant. The
+# invariant is "both horizons are present for this target", and it is asserted
+# below as such, plus the collision check the comment above is actually about.
+ILI_MAE="$(grep -o '^mlops_run_mae{.*target="pct_ili".*horizon="[0-9]*"' "$OUT" \
+  | grep -o 'horizon="[0-9]*"' | sort -u | grep -c . | tr -d ' ')"
+FLU_MAE="$(grep -o '^mlops_run_mae{.*target="pct_flu".*horizon="[0-9]*"' "$OUT" \
+  | grep -o 'horizon="[0-9]*"' | sort -u | grep -c . | tr -d ' ')"
 assert_equals "2" "$ILI_MAE" "both horizons are emitted for pct_ili"
 assert_equals "2" "$FLU_MAE" "and both for pct_flu, in their own series"
+
+# THE INVARIANT THE ROW COUNT WAS STANDING IN FOR: no two runs may land on one
+# series. Two algorithms at the same (target, horizon) is the case that breaks
+# an under-labelled exporter -- the second rebuild silently overwrites the
+# first and the board shows one family's number under the other's name. Every
+# mlops_run_mae line must therefore be unique on its full label set.
+TOTAL_MAE="$(grep -c '^mlops_run_mae{' "$OUT" | tr -d ' ')"
+UNIQUE_MAE="$(grep -o '^mlops_run_mae{[^}]*}' "$OUT" | sort -u | grep -c . | tr -d ' ')"
+assert_equals "$TOTAL_MAE" "$UNIQUE_MAE" \
+  "catches: two runs collapsing onto one series ($TOTAL_MAE lines, $UNIQUE_MAE distinct label sets)"
+
+# ...and the label that keeps them apart must actually be there. Dropping it is
+# how the collision above would be reintroduced.
+NO_ALGO="$(grep '^mlops_run_mae{' "$OUT" | grep -vc 'algorithm=' | tr -d ' ')"
+assert_equals "0" "$NO_ALGO" "every run series names the algorithm that produced it"
 
 # THE POST-HOC SCORE MUST BE ATTRIBUTABLE, NOT MERELY CORRECT.
 #
