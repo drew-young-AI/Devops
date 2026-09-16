@@ -79,8 +79,10 @@ python3 -c "import json;d=json.load(open('docs/Stage-Report.json'));\
 [print(l['id'], l['completion']['verdict'], l['completion']['pct_strict'],
        l['completion']['blocking_by_owner']) for l in d['lines']]"
 
-# 3. 探針自己有沒有壞 —— 綠燈也可能是探針瞎了
-python3 platform/statusdag/dag.py --selfcheck
+# 3. ask 對不對得上現況 —— 綠燈也可能是探針瞎了
+#    注意：--selfcheck 只有 stage_report.py 有，dag.py 沒有這個旗標。
+#    （這一行本來寫成兩支都有，實跑第一次就報 unrecognized arguments --
+#     產生式文件的規矩只在有人真的跑過的時候才成立。）
 python3 platform/statusdag/stage_report.py --selfcheck
 ```
 
@@ -95,7 +97,7 @@ python3 platform/statusdag/stage_report.py --selfcheck
 | `scheduler/status.sh` | 每個作業上次何時跑、是否逾期 | 作業跑了有沒有**效果**（`ok` 只代表 rc=0） |
 | `dag.py` | 每個節點此刻的顏色與理由 | 有沒有**該有而沒有**的節點 |
 | `stage_report.py` | 誰欠什麼、三態判定 | ask 寫的是不是還成立 |
-| `--selfcheck` | ask 對不對得上現況、探針有沒有讀不到證據 | 探針的**邏輯**對不對 |
+| `stage_report.py --selfcheck` | ask 對不對得上現況 | 探針的**邏輯**對不對；`dag.py` **沒有**這個旗標 |
 | `xref.py` | 名字有沒有指向已刪除的東西 | 名字指到的東西是不是**還是對的** |
 | `capability_graph.py --check` | 有沒有沒人找得到的腳本 | 找得到的腳本是不是還能跑 |
 | `run_all.sh` | 所有守衛此刻都通過 | 守衛**涵蓋**的範圍夠不夠（見 T40） |
@@ -143,6 +145,8 @@ until [ "$(bash platform/scheduler/status.sh | head -1)" = "scheduler: OK" ]; do
 | 作業在跑但沒效果 | `status.sh` 全 `ok`，但 `dag.py` 的節點 detail 裡的時間戳沒動 |
 | 探針讀不到證據 | `--selfcheck` 會講；節點會是 `unknown` 不是 `ok`——**`unknown` 不是壞消息的靜音版，是「我沒看到」** |
 | ask 已經不成立 | `stage_report.py --selfcheck` 報 `NOTE ... 條件已消失` |
+| 掃描跑了但沒碰到目標 | 作業 exit 0、報告看起來正常，而目標的 log 裡沒有它的請求。2026-09-15 實測過一次（T52），現在 `scan_dast.sh` 會在這種情況直接失敗 |
+| **剛安裝的週作業**（看起來像排程壞掉） | `status.sh` 的 `NEVER FIRED` 對兩件事同形：排程真的沒接上、以及**週作業還沒輪到第一個時段**。分辨方式是看 plist 的下一個時間點，不是看 `runs = 0`：`launchctl print gui/$(id -u)/devops.platform.<job>`。2026-09-16 的 `secrets` 就是後者——`StartCalendarInterval` 週日 06:40，而它 09-14 才裝 |
 
 **`unknown` 和 `ok` 的差別要看清楚。** 這個 repo 的探針被設計成「看不到就說
 看不到」，而不是「看不到就當作沒事」。一個 `unknown` 節點需要的動作跟一個

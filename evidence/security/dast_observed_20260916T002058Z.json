@@ -1,0 +1,65 @@
+{
+  "schema": "dast-observed/1",
+  "window": {
+    "from": "2026-09-16T00:20:59Z",
+    "to": "2026-09-16T00:21:14Z"
+  },
+  "source": "container:station2-twin-twin-1",
+  "target": "http://host.docker.internal:18090",
+  "agent_mark": "ZAP-DAST/20260916T002058Z",
+  "log_lines_considered": 18,
+  "malformed_lines": 0,
+  "other_agents_in_window": [
+    "Prometheus",
+    "Python-urllib",
+    "dast-seed"
+  ],
+  "scanner_seen": true,
+  "requests": [
+    {
+      "method": "GET",
+      "path": "/forecast",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/health/live",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/health/ready",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/metrics",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/surveillance/09020",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/surveillance/scan",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/twin/pump-01",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/twin/pump-01/history",
+      "status": 200
+    },
+    {
+      "method": "GET",
+      "path": "/version",
+      "status": 200
+    }
+  ]
+}

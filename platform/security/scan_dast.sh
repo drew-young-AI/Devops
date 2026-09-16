@@ -304,6 +304,39 @@ docker logs "$TARGET_CONTAINER" --since "$SCAN_FROM" 2>&1 \
       --agent-mark "$SCAN_AGENT"
 echo "artifact=$OBSERVED_FILE"
 
+# AN UNOBSERVABLE SCAN IS A FAILED JOB, NOT A 0% RESULT.
+#
+# MEASURED 2026-09-15. Run by hand: 9 routes touched. Run by the scheduler
+# eighteen minutes of wall-clock later, same script, same target: ZAP's
+# requests never reached the application at all -- the seed verified all nine
+# with 200s, ZAP reported a site and 7 alert URLs, and the target's log for
+# that window contains no request from it. The job exited 0, `dastcov` read
+# the honest 0% the next time it ran, and the board went amber a day later
+# with nothing pointing at the cause.
+#
+# The 0% was CORRECT -- coverage must never inherit the previous run's number.
+# What was wrong is that it was quiet. A scan whose traffic cannot be observed
+# at the other end has not been verified to have happened, and the moment to
+# say so is now, in the job that ran it, not tomorrow in a percentage.
+#
+# Registered as T52 because the root cause is not yet known: reproducing it
+# needs the scheduler's environment, not a shell.
+if ! python3 -c "
+import json, sys
+print('' if json.load(open(sys.argv[1])).get('scanner_seen') else 'unseen')" \
+    "$OBSERVED_FILE" | grep -q '^$'; then
+  echo "DAST FAILED: the scan ran but none of its traffic was observed at the" >&2
+  echo "  target. Coverage would be 0%, which is honest, but a scan nobody can" >&2
+  echo "  see is not a scan that passed." >&2
+  echo "  Check, in this order:" >&2
+  echo "    1. Did ZAP reach the target?  grep -c http $WORK_DIR/zap.log" >&2
+  echo "    2. Is the agent mark set?     the -z flag uses connection.defaultUserAgent," >&2
+  echo "       NOT network.defaultUserAgent -- the wrong key is silently ignored." >&2
+  echo "    3. Is $TARGET_CONTAINER still the container serving $TARGET_PORT?" >&2
+  echo "  Observation: $OBSERVED_FILE" >&2
+  exit 1
+fi
+
 # set +e around the gate block: it exits non-zero to signal "blocked", and
 # under `set -e` that terminated the script instantly -- skipping the
 # cleanup, the failure message and the artifact path, so a blocked scan
