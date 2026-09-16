@@ -1,7 +1,7 @@
 {
-  "generated_at": "2026-09-15T15:39:22Z",
-  "total_seconds": 397,
-  "measured_seconds": 397,
+  "generated_at": "2026-09-16T00:18:14Z",
+  "total_seconds": 393,
+  "measured_seconds": 393,
   "suite_count": 45,
   "platform_tiers": "1,2,3",
   "platform_suites": "",
@@ -10,13 +10,13 @@
     {
       "suite": "test_bluegreen.sh",
       "tier": 3,
-      "seconds": 122,
+      "seconds": 121,
       "rc": 0
     },
     {
       "suite": "test_static.sh",
       "tier": 1,
-      "seconds": 57,
+      "seconds": 58,
       "rc": 0
     },
     {
@@ -34,19 +34,19 @@
     {
       "suite": "test_mlops_metrics.sh",
       "tier": 1,
-      "seconds": 23,
-      "rc": 0
-    },
-    {
-      "suite": "test_analytics_mirror.sh",
-      "tier": 1,
-      "seconds": 20,
+      "seconds": 24,
       "rc": 0
     },
     {
       "suite": "test_backup_coverage.sh",
       "tier": 3,
       "seconds": 20,
+      "rc": 0
+    },
+    {
+      "suite": "test_analytics_mirror.sh",
+      "tier": 1,
+      "seconds": 19,
       "rc": 0
     },
     {
@@ -62,32 +62,32 @@
       "rc": 0
     },
     {
-      "suite": "test_foundation_nodes.sh",
-      "tier": 1,
-      "seconds": 9,
-      "rc": 0
-    },
-    {
       "suite": "verify_networkpolicy.sh",
       "tier": 3,
       "seconds": 9,
       "rc": 0
     },
     {
-      "suite": "test_health_rollup.sh",
+      "suite": "test_foundation_nodes.sh",
       "tier": 1,
-      "seconds": 7,
+      "seconds": 8,
       "rc": 0
     },
     {
-      "suite": "test_no_lookahead.sh",
-      "tier": 2,
+      "suite": "test_health_rollup.sh",
+      "tier": 1,
       "seconds": 6,
       "rc": 0
     },
     {
       "suite": "test_evidence_contract.sh",
       "tier": 1,
+      "seconds": 5,
+      "rc": 0
+    },
+    {
+      "suite": "test_no_lookahead.sh",
+      "tier": 2,
       "seconds": 5,
       "rc": 0
     },
@@ -106,19 +106,13 @@
     {
       "suite": "test_notify_config.sh",
       "tier": 1,
-      "seconds": 4,
+      "seconds": 3,
       "rc": 0
     },
     {
       "suite": "test_sandbox_hygiene.sh",
       "tier": 1,
-      "seconds": 3,
-      "rc": 0
-    },
-    {
-      "suite": "test_capability_graph.sh",
-      "tier": 1,
-      "seconds": 3,
+      "seconds": 2,
       "rc": 0
     },
     {
@@ -129,12 +123,6 @@
     },
     {
       "suite": "test_stage_report.sh",
-      "tier": 1,
-      "seconds": 2,
-      "rc": 0
-    },
-    {
-      "suite": "test_host_capacity.sh",
       "tier": 1,
       "seconds": 2,
       "rc": 0
@@ -164,6 +152,12 @@
       "rc": 0
     },
     {
+      "suite": "test_capability_graph.sh",
+      "tier": 1,
+      "seconds": 2,
+      "rc": 0
+    },
+    {
       "suite": "test_deploy_contract.sh",
       "tier": 1,
       "seconds": 1,
@@ -182,19 +176,43 @@
       "rc": 0
     },
     {
+      "suite": "test_coverage_closure.sh",
+      "tier": 1,
+      "seconds": 1,
+      "rc": 0
+    },
+    {
       "suite": "test_source_frequency.sh",
       "tier": 1,
       "seconds": 1,
       "rc": 0
     },
     {
-      "suite": "test_doc_graph.sh",
+      "suite": "test_host_capacity.sh",
+      "tier": 1,
+      "seconds": 1,
+      "rc": 0
+    },
+    {
+      "suite": "test_offline_report.sh",
       "tier": 1,
       "seconds": 1,
       "rc": 0
     },
     {
       "suite": "test_loki_coverage.sh",
+      "tier": 1,
+      "seconds": 1,
+      "rc": 0
+    },
+    {
+      "suite": "test_doc_freshness.sh",
+      "tier": 1,
+      "seconds": 1,
+      "rc": 0
+    },
+    {
+      "suite": "test_send_mail.sh",
       "tier": 1,
       "seconds": 1,
       "rc": 0
@@ -230,12 +248,6 @@
       "rc": 0
     },
     {
-      "suite": "test_coverage_closure.sh",
-      "tier": 1,
-      "seconds": 0,
-      "rc": 0
-    },
-    {
       "suite": "test_readme_index.sh",
       "tier": 1,
       "seconds": 0,
@@ -254,19 +266,7 @@
       "rc": 0
     },
     {
-      "suite": "test_offline_report.sh",
-      "tier": 1,
-      "seconds": 0,
-      "rc": 0
-    },
-    {
-      "suite": "test_doc_freshness.sh",
-      "tier": 1,
-      "seconds": 0,
-      "rc": 0
-    },
-    {
-      "suite": "test_send_mail.sh",
+      "suite": "test_doc_graph.sh",
       "tier": 1,
       "seconds": 0,
       "rc": 0

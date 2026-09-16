@@ -1,86 +1,88 @@
 {
   "schema": "dast-coverage/1",
-  "generated_at": "2026-09-15T15:03:05Z",
+  "generated_at": "2026-09-15T23:00:04Z",
   "source": "pilots/station2-twin/app/app.py",
   "scan_profile": "zap-api-scan -S (passive rules over a verified seed, GET only)",
   "coverage_provenance": "observed",
-  "observed_from": "evidence/security/dast_observed_20260915T142906Z.json",
+  "observed_from": "evidence/security/dast_observed_20260915T211018Z.json",
   "observed_window": {
-    "from": "2026-09-15T14:29:07Z",
-    "to": "2026-09-15T14:29:22Z"
+    "from": "2026-09-15T21:10:19Z",
+    "to": "2026-09-15T21:10:35Z"
   },
   "observed_source": "container:station2-twin-twin-1",
-  "observed_requests_total": 9,
+  "observed_requests_total": 0,
   "routes_total": 10,
-  "routes_reachable": 9,
-  "routes_unreachable": 1,
-  "coverage_ratio": 0.9,
+  "routes_reachable": 0,
+  "routes_unreachable": 10,
+  "coverage_ratio": 0.0,
   "unreachable_by_reason": {
+    "unlinked": 6,
+    "parameterised": 3,
     "write": 1
   },
   "routes": [
     {
       "method": "GET",
       "path": "/health/live",
-      "reason": "reachable",
-      "reachable_by_baseline": true,
-      "observed_requests": 1
+      "reason": "unlinked",
+      "reachable_by_baseline": false,
+      "observed_requests": 0
     },
     {
       "method": "GET",
       "path": "/health/ready",
-      "reason": "reachable",
-      "reachable_by_baseline": true,
-      "observed_requests": 1
+      "reason": "unlinked",
+      "reachable_by_baseline": false,
+      "observed_requests": 0
     },
     {
       "method": "GET",
       "path": "/version",
-      "reason": "reachable",
-      "reachable_by_baseline": true,
-      "observed_requests": 1
+      "reason": "unlinked",
+      "reachable_by_baseline": false,
+      "observed_requests": 0
     },
     {
       "method": "GET",
       "path": "/metrics",
-      "reason": "reachable",
-      "reachable_by_baseline": true,
-      "observed_requests": 1
+      "reason": "unlinked",
+      "reachable_by_baseline": false,
+      "observed_requests": 0
     },
     {
       "method": "GET",
       "path": "/forecast",
-      "reason": "reachable",
-      "reachable_by_baseline": true,
-      "observed_requests": 1
+      "reason": "unlinked",
+      "reachable_by_baseline": false,
+      "observed_requests": 0
     },
     {
       "method": "GET",
       "path": "/surveillance/scan",
-      "reason": "reachable",
-      "reachable_by_baseline": true,
-      "observed_requests": 1
+      "reason": "unlinked",
+      "reachable_by_baseline": false,
+      "observed_requests": 0
     },
     {
       "method": "GET",
       "path": "/twin/{p1}",
-      "reason": "reachable",
-      "reachable_by_baseline": true,
-      "observed_requests": 1
+      "reason": "parameterised",
+      "reachable_by_baseline": false,
+      "observed_requests": 0
     },
     {
       "method": "GET",
       "path": "/twin/{p1}/history",
-      "reason": "reachable",
-      "reachable_by_baseline": true,
-      "observed_requests": 1
+      "reason": "parameterised",
+      "reachable_by_baseline": false,
+      "observed_requests": 0
     },
     {
       "method": "GET",
       "path": "/surveillance/{p1}",
-      "reason": "reachable",
-      "reachable_by_baseline": true,
-      "observed_requests": 1
+      "reason": "parameterised",
+      "reachable_by_baseline": false,
+      "observed_requests": 0
     },
     {
       "method": "POST",

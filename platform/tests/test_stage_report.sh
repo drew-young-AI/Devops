@@ -433,4 +433,81 @@ assert_rc 0 "the per-node ownership model renders"
 assert_output_contains "NEIGHBOUR dastcov=eng" \
   "a blocking node with no ask of its own is engineering's, even when a neighbour in the same stage is waiting on someone else"
 
+echo "== the landing verdict must be able to say NO (ADR-0021) =="
+#
+# THE CONTROL THAT DECIDES WHETHER ADR-0021 IS A GOALPOST MOVE.
+#
+# The ADR introduces CEILING-BOUND, which lets a line below 90% stop being
+# reported as unfinished work. That is defensible only while CEILING-BOUND
+# CANNOT swallow a line that still has engineering debt. The third fixture
+# below is that exact shape -- 87.5%, one eng blocker -- and it must read
+# ENG-DEBT. If it ever reads CEILING-BOUND, the ADR really is just a lower bar
+# and this assertion is how anyone finds that out.
+#
+# Called directly rather than through a board fixture: the verdict is pure
+# arithmetic over (nodes_ok, nodes_total, eng_blockers), and driving it through
+# a whole rendered board would test the renderer, not the rule.
+VERDICTS="$(python3 - "$REPO_ROOT/platform/statusdag/stage_report.py" <<'VPY'
+import importlib.util, sys
+spec = importlib.util.spec_from_file_location("sr", sys.argv[1])
+sr = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(sr)
+cases = [
+    # (nodes_ok, nodes_total, eng_blockers, label)
+    (9, 9, 0, "perfect"),
+    (28, 30, 0, "above-target-no-debt"),
+    (28, 30, 1, "above-target-with-debt"),
+    (7, 8, 0, "below-target-no-debt"),
+    (7, 8, 1, "below-target-with-debt"),
+    (27, 30, 0, "exactly-90"),
+    (0, 0, 0, "empty-line"),
+]
+print(" ".join("%s=%s" % (label, sr._verdict(ok, total, eng))
+               for ok, total, eng, label in cases))
+VPY
+)"
+run_cmd echo "$VERDICTS"
+assert_output_contains "perfect=LANDED" "a line with every node green and no debt has landed"
+assert_output_contains "above-target-no-debt=LANDED" "93.3% with nothing stuck on us is landed"
+assert_output_contains "above-target-with-debt=ENG-DEBT" \
+  "catches: a high percentage does not excuse work still stuck on us"
+assert_output_contains "below-target-no-debt=CEILING-BOUND" \
+  "87.5% with nothing stuck on us is ceiling-bound, which is not landed"
+assert_output_contains "below-target-with-debt=ENG-DEBT" \
+  "catches: CEILING-BOUND must not swallow a line that still has engineering debt"
+assert_output_contains "exactly-90=LANDED" "the target is >= 90, not > 90"
+assert_output_contains "empty-line=UNKNOWN" \
+  "zero nodes is a broken enumeration, never a clean sheet"
+
+# The three states must be mutually exclusive AND exhaustive over the inputs
+# that can occur, or a line could end up with no verdict at all -- which reads
+# on a board as a blank cell, i.e. as nothing wrong.
+UNCOVERED="$(python3 - "$REPO_ROOT/platform/statusdag/stage_report.py" <<'VPY2'
+import importlib.util, sys
+spec = importlib.util.spec_from_file_location("sr", sys.argv[1])
+sr = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(sr)
+allowed = {"LANDED", "ENG-DEBT", "CEILING-BOUND", "UNKNOWN"}
+bad = 0
+for total in range(0, 13):
+    for ok in range(0, total + 1):
+        for eng in range(0, (total - ok) + 1):
+            if sr._verdict(ok, total, eng) not in allowed:
+                bad += 1
+print(bad)
+VPY2
+)"
+assert_equals "0" "$UNCOVERED" "every reachable (ok, total, eng) combination gets one of the four verdicts"
+
+# And the verdict the live board publishes must be one of them, not absent.
+LIVE_VERDICTS="$(python3 -c "
+import json,sys
+d=json.load(open(sys.argv[1]))
+print(','.join(l['completion'].get('verdict','MISSING') for l in d['lines']))" \
+  "$OUT_DIR/Stage-Report.json" 2>/dev/null || echo ERR)"
+case "$LIVE_VERDICTS" in
+  *MISSING*|ERR) _fail "every line on the real board carries a verdict" "got '$LIVE_VERDICTS'" ;;
+  *) _pass "every line on the real board carries a verdict ($LIVE_VERDICTS)" ;;
+esac
+
 suite_summary

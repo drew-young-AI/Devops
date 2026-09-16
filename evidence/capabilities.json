@@ -1,7 +1,7 @@
 {
   "generated_by": "platform/docs/capability_graph.py --catalog",
   "root": "README.md",
-  "count": 104,
+  "count": 106,
   "capabilities": [
     {
       "path": "pilots/station2-twin/app/app.py",
@@ -691,9 +691,27 @@
       "described": true,
       "described_in": "platform/security/README.md",
       "when": "排程 dastcov",
-      "what": "回報 DAST 沒有看哪些路由",
-      "guarantee": "ZAP baseline 是 GET 爬蟲，碰不到寫入端點——實測十條路由只涵蓋四條。PASS 的涵蓋範圍必須是可見的",
+      "what": "回報 DAST 實際碰到哪些路由",
+      "guarantee": "覆蓋率必須是量測不是宣稱。沒有掃描觀測就拒絕出數字（rc 3）——PASS 的涵蓋範圍必須是可見的",
       "run": "platform/security/dast_coverage.py"
+    },
+    {
+      "path": "platform/security/dast_observe.py",
+      "described": true,
+      "described_in": "platform/security/README.md",
+      "when": "scan_dast.sh 內",
+      "what": "從目標自己的 request log 讀出這次掃描碰過什麼",
+      "guarantee": "覆蓋率的來源必須在線的另一端。掃描器沒被看到就明說，不會安靜回報 0",
+      "run": "platform/security/dast_observe.py"
+    },
+    {
+      "path": "platform/security/dast_seed.py",
+      "described": true,
+      "described_in": "platform/security/README.md",
+      "when": "scan_dast.sh 內",
+      "what": "產生 OpenAPI 規格，把 spider 猜不到的網址交給掃描器",
+      "guarantee": "參數一律從真實來源解析並驗證；解析不到就拒絕。編一個 id 只會讓掃描器去掃 404 頁",
+      "run": "platform/security/dast_seed.py"
     },
     {
       "path": "platform/security/redaction_check.py",

@@ -233,6 +233,7 @@ Prometheus 停了它不會安靜變綠、而是連同整組規則消失，
 | harness 工程觀察 | [`docs/Harness-Engineering-Notes.md`](docs/Harness-Engineering-Notes.md) | 學性質，不抄程式碼 |
 | 機器可讀證據 | `evidence/` | 不放 secret、token 或完整敏感 payload |
 | 服務接入契約 | [`NEW_SERVICE_GUIDE.md`](NEW_SERVICE_GUIDE.md) | 新服務進平台的最低要求 |
+| **落地後怎麼持續觀察** | [`docs/Watch.md`](docs/Watch.md) | 人打開哪一個網址、多久看一次、什麼時候才需要出手；agent 跑哪幾條指令、每一條**證明什麼**與**答不出什麼**、以及一個 stale 的答案長什麼樣 |
 | **新 session 接手** | [`docs/Session-Handover.md`](docs/Session-Handover.md) | 讀什麼、什麼順序、哪些坑讀 repo 得不到；不含數字 |
 | **非 Claude 的 agent 接手** | [`AGENTS.md`](AGENTS.md) | codex／copilot／agy／gemini 依慣例讀的入口。**薄指標，不複製內容**——它只指向上一列那份，外加對所有 agent 都成立的硬規則 |
 | **模型怎麼擴充** | [`docs/MLOps-Model-Extension.md`](docs/MLOps-Model-Extension.md) | 模型註冊表：加一個模型要動什麼、動之前必須先回答什麼（缺值 51.8%、556 列、這台機器的時間上限）；統計／深度學習／混合模態各自卡在哪 |

@@ -556,3 +556,10 @@
 {"job": "disk", "gap_seconds": 1201, "gap_minutes": 20.0, "expected_interval_seconds": 300, "missed_runs": 3, "from": "2026-09-13T06:28:32Z", "to": "2026-09-13T06:48:33Z"}
 {"job": "disk", "gap_seconds": 1201, "gap_minutes": 20.0, "expected_interval_seconds": 300, "missed_runs": 3, "from": "2026-09-13T08:19:20Z", "to": "2026-09-13T08:39:21Z"}
 {"job": "disk", "gap_seconds": 1201, "gap_minutes": 20.0, "expected_interval_seconds": 300, "missed_runs": 3, "from": "2026-09-13T09:39:53Z", "to": "2026-09-13T09:59:54Z"}
+{"job": "stagereport", "gap_seconds": 2711, "gap_minutes": 45.2, "expected_interval_seconds": 900, "missed_runs": 2, "from": "2026-09-15T16:17:09Z", "to": "2026-09-15T17:02:20Z"}
+{"job": "dag", "gap_seconds": 2710, "gap_minutes": 45.2, "expected_interval_seconds": 900, "missed_runs": 2, "from": "2026-09-15T16:17:19Z", "to": "2026-09-15T17:02:29Z"}
+{"job": "disk", "gap_seconds": 2098, "gap_minutes": 35.0, "expected_interval_seconds": 300, "missed_runs": 5, "from": "2026-09-15T16:28:18Z", "to": "2026-09-15T17:03:16Z"}
+{"job": "board", "gap_seconds": 2698, "gap_minutes": 45.0, "expected_interval_seconds": 900, "missed_runs": 1, "from": "2026-09-15T16:27:52Z", "to": "2026-09-15T17:12:50Z"}
+{"job": "disk", "gap_seconds": 1200, "gap_minutes": 20.0, "expected_interval_seconds": 300, "missed_runs": 3, "from": "2026-09-15T19:09:24Z", "to": "2026-09-15T19:29:24Z"}
+{"job": "disk", "gap_seconds": 1201, "gap_minutes": 20.0, "expected_interval_seconds": 300, "missed_runs": 3, "from": "2026-09-15T20:55:09Z", "to": "2026-09-15T21:15:10Z"}
+{"job": "disk", "gap_seconds": 1201, "gap_minutes": 20.0, "expected_interval_seconds": 300, "missed_runs": 3, "from": "2026-09-15T23:11:11Z", "to": "2026-09-15T23:31:12Z"}

@@ -170,6 +170,35 @@ LINES = [
 # asked for anything, engineering owns it.
 # --------------------------------------------------------------------------
 
+# The landing standard, as a function rather than as a paragraph (ADR-0021).
+LANDING_TARGET_PCT = 90.0
+
+
+def _verdict(n_ok, n_total, eng_blockers):
+    """LANDED / ENG-DEBT / CEILING-BOUND for one line.
+
+    The three states answer two DIFFERENT questions that the old single
+    percentage conflated:
+
+      "is anything still stuck on us"      -> eng_blockers
+      "is the platform as green as we said" -> pct_strict
+
+    UNKNOWN for an empty line: zero nodes is a broken enumeration, not a clean
+    sheet, and this repository has shipped that confusion before.
+    """
+    if not n_total:
+        return "UNKNOWN"
+    pct = round(100.0 * n_ok / n_total, 1)
+    if eng_blockers:
+        return "ENG-DEBT"
+    if pct >= LANDING_TARGET_PCT:
+        return "LANDED"
+    # eng_blockers == 0 implies pct_ceiling_eng_only == pct_strict, so there is
+    # no third arithmetic case to handle: engineering has closed everything it
+    # can and the line still sits below the target.
+    return "CEILING-BOUND"
+
+
 ASKS = [
     {
         "id": "offsite-destination",
@@ -573,6 +602,34 @@ def stage_model(board=None):
                 # thing -- and a board that goes green by no longer reporting
                 # the bad news is the failure this whole platform is built
                 # against. So the split is published next to the percentage.
+                # THE VERDICT, COMPUTED (ADR-0021, 2026-09-16).
+                #
+                # The Runbook's landing rule was two conditions ANDed together,
+                # and two lines were failing it for OPPOSITE reasons: DevOps
+                # had the percentage and still had work stuck on us; MLOps had
+                # nothing stuck on us and could not reach the percentage from
+                # inside this repository at all. One boolean cannot say which,
+                # so every round somebody wrote the distinction out in prose
+                # and argued it again.
+                #
+                # ENG-DEBT IS TESTED FIRST, ON PURPOSE. A line with engineering
+                # debt is ENG-DEBT however green it reads -- that is STRICTER
+                # than the old rule, where a high percentage read as success
+                # while `alertmgr` sat in our hands. If this ordering were
+                # reversed, the verdict would flatter exactly the case it
+                # exists to expose.
+                #
+                # CEILING-BOUND IS NOT AN ALIAS FOR LANDED. It claims one
+                # narrow, checkable thing: every node that is not green has
+                # already been assigned, by a written ask with options, to
+                # decision/research/external. The percentage does not change;
+                # what changes is the answer to "is there any point putting
+                # more engineering into this line this round".
+                "verdict": _verdict(
+                    n_ok, n_total,
+                    sum(1 for n in lnodes
+                        if n["state"] != dag.OK and n not in retired
+                        and (owner_of.get(n["id"]) or "eng") == "eng")),
                 "blocking": [
                     {"id": n["id"], "state": n["state"],
                      "owner": (owner_of.get(n["id"]) or "eng"),

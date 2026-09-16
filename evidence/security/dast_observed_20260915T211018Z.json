@@ -1,0 +1,17 @@
+{
+  "schema": "dast-observed/1",
+  "window": {
+    "from": "2026-09-15T21:10:19Z",
+    "to": "2026-09-15T21:10:35Z"
+  },
+  "source": "container:station2-twin-twin-1",
+  "target": "http://host.docker.internal:18090",
+  "agent_mark": "ZAP-DAST/20260915T211018Z",
+  "log_lines_considered": 1,
+  "malformed_lines": 0,
+  "other_agents_in_window": [
+    "Python-urllib"
+  ],
+  "scanner_seen": false,
+  "requests": []
+}

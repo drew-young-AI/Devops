@@ -1,9 +1,25 @@
 {
   "schema": "gha-status/1",
-  "fetched_at": "2026-09-15T23:42:47+08:00",
+  "fetched_at": "2026-09-16T08:11:40+08:00",
   "fetch_state": "ok",
   "detail": "fetched main",
   "runs": [
+    {
+      "conclusion": "success",
+      "createdAt": "2026-09-15T15:48:29Z",
+      "displayTitle": "docs(backlog): T26 補一條不需要外部分母的路徑",
+      "status": "completed",
+      "url": "https://github.com/drew-young-AI/Devops/actions/runs/34990903404",
+      "workflowName": "Platform Tests"
+    },
+    {
+      "conclusion": "success",
+      "createdAt": "2026-09-15T15:43:22Z",
+      "displayTitle": "chore(evidence): CI 綠燈後的看板讀數（gha 節點回綠）",
+      "status": "completed",
+      "url": "https://github.com/drew-young-AI/Devops/actions/runs/34990339067",
+      "workflowName": "Platform Tests"
+    },
     {
       "conclusion": "success",
       "createdAt": "2026-09-15T15:40:45Z",
@@ -66,22 +82,6 @@
       "displayTitle": "fix(observability): amtool 在 Linux 上讀不到自己要驗的設定檔——CI 抓到，Mac 看不見",
       "status": "completed",
       "url": "https://github.com/drew-young-AI/Devops/actions/runs/34578972866",
-      "workflowName": "Platform Tests"
-    },
-    {
-      "conclusion": "failure",
-      "createdAt": "2026-09-11T08:18:32Z",
-      "displayTitle": "test(notify): setup_notifications.sh 的郵件分支從來沒執行過——18 條斷言＋突變驗證",
-      "status": "completed",
-      "url": "https://github.com/drew-young-AI/Devops/actions/runs/34578537518",
-      "workflowName": "Platform Tests"
-    },
-    {
-      "conclusion": "success",
-      "createdAt": "2026-09-11T08:04:17Z",
-      "displayTitle": "test(notify): send_mail.sh 從來沒有任何測試——補上「沒設定」與「壞掉」的分界",
-      "status": "completed",
-      "url": "https://github.com/drew-young-AI/Devops/actions/runs/34577368054",
       "workflowName": "Platform Tests"
     }
   ]
