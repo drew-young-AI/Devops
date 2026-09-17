@@ -192,7 +192,115 @@ assert_rc 1 "catches: a source that has quietly lost a diagram"
 assert_output_contains "invisible by definition" "says why a short build is refused rather than shipped"
 rm -rf "$SANDBOX"
 
-# --- 6. the LAN route serves the built page and NOT the source --------------
+# --- 6. the plates must still be a projection of dag.py ---------------------
+#
+# WHY (2026-09-17). The plates claimed "every box is a board node" from the day
+# they were drawn, and nothing checked it. Fifteen days later plate 02 still
+# drew CI, Trivy, Registry and production-like -- four nodes retired on 09-10 --
+# and eighteen live nodes appeared on no plate at all. The page opened, every
+# diagram rendered, and it described a platform that no longer existed, to the
+# reader least able to notice.
+#
+# The convention that makes this checkable: a mermaid node whose id starts with
+# a LOWERCASE letter is a dag.py node, and its label's first line is that node's
+# label verbatim. Uppercase ids are context (a database, a machine, a reader)
+# and are free. So:
+#   a. every dag node appears on some plate, labelled as the board labels it
+#   b. no lowercase id is anything other than a live dag node (retired names fail)
+#   c. every dag edge is drawn somewhere
+#   d. no arrow between two dag nodes asserts a dependency dag.py does not have
+plates_vs_dag() {  # <plates.src.html> -> prints "ok" or the violations
+  python3 - "$1" "$REPO_ROOT/platform/statusdag/dag.py" <<'PYDAG'
+import importlib.util
+import re
+import sys
+
+spec = importlib.util.spec_from_file_location("dag", sys.argv[2])
+dag = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(dag)
+labels = {n[0]: n[1] for n in dag.NODES}
+edges = {tuple(e) for e in dag.EDGES}
+
+doc = open(sys.argv[1], encoding="utf-8").read()
+doc = re.sub(r"<style>[\s\S]*?</style>", "", doc)
+doc = re.sub(r"<script[\s\S]*?</script>", "", doc)
+SHAPE = r'([A-Za-z_]\w*)\s*(?:\[\(|\(\[|\(\(|\{\{|\[|\()\s*"([^"]*)"'
+ARROW = r"\s*(?:-->|-\.->|==>|---|-\.-)\s*(?:\|\"[^\"]*\"\|\s*)?"
+seen, drawn, bad = {}, set(), []
+for body in re.findall(r'<pre class="mermaid">([\s\S]*?)</pre>', doc):
+    for line in body.splitlines():
+        s = line.strip()
+        if not s or s.startswith(("%%", "classDef", "class ", "style ", "subgraph", "direction", "end", "flowchart")):
+            continue
+        for nid, label in re.findall(SHAPE, s):
+            seen.setdefault(nid, set()).add(label.split("<br/>")[0])
+        flat = re.sub(r'(?:\[\(|\(\[|\(\(|\{\{|\[|\()\s*"[^"]*"\s*(?:\)\]|\]\)|\)\)|\}\}|\]|\))', "", s)
+        ids = [re.match(r"\s*([A-Za-z_]\w*)", seg).group(1)
+               for seg in re.split(ARROW, flat) if re.match(r"\s*[A-Za-z_]", seg)]
+        if re.search(ARROW, flat) and len(ids) >= 2:
+            for a, b in zip(ids, ids[1:]):
+                if a[0].islower() and b[0].islower():
+                    drawn.add((a, b))
+for nid, ls in sorted(seen.items()):
+    if not nid[0].islower():
+        continue
+    if nid not in labels:
+        bad.append("not a live dag node: %s" % nid)
+    elif ls != {labels[nid]}:
+        bad.append("label drift: %s drawn as %s, board says %s" % (nid, sorted(ls), labels[nid]))
+bad += ["missing node: %s (%s)" % (n, l) for n, l in labels.items() if n not in seen]
+bad += ["missing edge: %s -> %s" % e for e in sorted(edges - drawn)]
+bad += ["invented edge: %s -> %s" % e for e in sorted(drawn - edges)]
+print("\n".join(bad) if bad else "ok")
+PYDAG
+}
+assert_equals "ok" "$(plates_vs_dag "$SRC")" \
+  "every dag node and edge is on the plates, and nothing retired or invented is"
+
+# The controls: a guard never shown to fail is indistinguishable from one that
+# cannot. Each mutation is one the real drift actually took.
+CTRL="$(mktemp -d)"
+# Each mutation must actually change the file. The first version used literal
+# string replacement; the plates were re-laid-out the same day, one pattern
+# stopped matching, and that control silently became "run the check on the
+# unmodified source" -- which passes, and so reported the guard as broken
+# only because the assertion happened to expect a failure. A control that can
+# be a no-op is the thing it exists to catch.
+run_cmd python3 - "$SRC" "$CTRL" <<'PY'
+import re
+import sys
+src, d = sys.argv[1], sys.argv[2]
+doc = open(src, encoding="utf-8").read()
+inject = "\n  trivy[\"映像漏洞掃描\"]\n"
+mutations = {
+    "retired": re.subn(r'(<pre class="mermaid">\n%%[^\n]*\nflowchart [A-Z]{2})', lambda m: m.group(1) + inject, doc, count=1),
+    "lostedge": re.subn(r"\bbackup(\[\"[^\"]*\"\])?\s*-->\s*(\|\"[^\"]*\"\|\s*)?restore\b", "backup ~~~ restore", doc),
+    "invented": re.subn(r"(<pre class=\"mermaid\">\n%%[^\n]*\nflowchart [A-Z]{2})", r'\1' + "\n  nginx[\"NGINX 入口\"] --> grafana[\"Grafana 檢視\"]\n", doc, count=1),
+}
+for name, (text, n) in mutations.items():
+    if n == 0:
+        print("MUTATION DID NOT APPLY: %s" % name)
+        sys.exit(1)
+    open("%s/%s.html" % (d, name), "w", encoding="utf-8").write(text)
+PY
+assert_rc 0 "every control mutation actually changed the source (none is a no-op)"
+run_cmd plates_vs_dag "$CTRL/retired.html"
+assert_output_contains "not a live dag node: trivy" "catches: a plate still drawing a retired node"
+run_cmd plates_vs_dag "$CTRL/lostedge.html"
+assert_output_contains "missing edge: backup -> restore" "catches: a dag edge no plate draws"
+run_cmd plates_vs_dag "$CTRL/invented.html"
+assert_output_contains "invented edge: nginx -> grafana" "catches: an arrow asserting a dependency dag.py does not have"
+rm -rf "$CTRL"
+
+# The Artifact host injects its own mermaid runtime into the page it serves.
+# Reading the published page back and saving it as the source carried that
+# block into git on 2026-09-02, and build.sh copied it into the offline page:
+# a second renderer that calls mermaid.render() for every diagram at once --
+# exactly defect #2 above -- in the host's palette instead of this one.
+INJECTED="$(grep -l 'claude-mermaid-runtime\|/_runtime/mermaid' "$SRC" "$OUT" 2>/dev/null | tr '\n' ' ')"
+assert_equals "" "$INJECTED" "no host-injected mermaid runtime in the source or the offline page"
+
+# --- 7. the LAN route serves the built page and NOT the source --------------
 #
 # Conditional on the status vhost being up, like the README's own URL checks:
 # on a machine without the platform this can only fail structurally, and an

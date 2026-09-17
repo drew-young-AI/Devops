@@ -160,8 +160,8 @@
     color: var(--ink-soft);
   }
 
-  /* ---- status band: real measured numbers, so the plates are read as a
-     description of something running, not a proposal ---- */
+  /* ---- legend band: what each colour means and where the live state is.
+     The numbers that used to live here went stale inside a week. ---- */
   .band {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(148px, 1fr));
@@ -335,7 +335,7 @@
 <div class="wrap">
   <nav class="rail" aria-label="圖號索引">
     <p class="rail-title">三線平台圖譜</p>
-    <p class="rail-sub">8 plates · 2026-09-01</p>
+    <p class="rail-sub">8 plates · 結構對齊 dag.py</p>
     <ol>
       <li><a class="d" href="#p1"><span class="n">01</span><span>DevOps 架構</span></a></li>
       <li><a class="d" href="#p2"><span class="n">02</span><span>DevOps 流程</span></a></li>
@@ -356,21 +356,18 @@
   <main>
     <header class="masthead">
       <h1>三線平台圖譜</h1>
-      <p>八張圖，每一張都能單獨看懂。第 1–6 張各講一條線的架構與流程，第 7–8 張把三條線合起來看。所有節點與連線都取自
+      <p>八張圖，每一張都能單獨看懂。第 1–6 張各講一條線的架構與流程，第 7–8 張把三條線合起來看。第 1–7 張上每一個具名的檢查點，都是
       <code style="font-family:'IBM Plex Mono',monospace;font-size:13px">platform/statusdag/dag.py</code>
-      的實際定義，不是示意圖——圖上有的東西，板面上都跑得出來。</p>
+      裡一個會自己變色的板面節點；每一條連接兩個檢查點的箭頭，都是它的一條實際相依邊。這件事由測試逐節點、逐邊比對，不是靠人記得更新。</p>
 
       <dl class="band">
-        <div><dt>測試</dt><dd>全通過<small>三層全跑，285 秒</small></dd></div>
-        <div><dt>靜態守衛</dt><dd>290<small>斷言，0 失敗</small></dd></div>
-        <div><dt>告警規則</dt><dd>15<small>全部評估中</small></dd></div>
-        <div><dt>失敗節點</dt><dd>0<small>板面無紅燈，3 個刻意的黃燈</small></dd></div>
-        <div><dt>監測涵蓋率</dt><dd>83.6%<small>1,520 份健康快照</small></dd></div>
-        <div><dt>回滾</dt><dd>1 秒<small>藍綠實測，8/8</small></dd></div>
-        <div><dt>DAST 涵蓋</dt><dd>40%<small>10 條路由掃到 4 條</small></dd></div>
-        <div><dt>日誌遮蔽</dt><dd>4/10<small>類別，6 類沒被找過</small></dd></div>
+        <div><dt>藍 · DevOps</dt><dd>變更<small>安全地上線，隨時能退回</small></dd></div>
+        <div><dt>綠 · DataOps</dt><dd>資料<small>值得信任才往下游送</small></dd></div>
+        <div><dt>棕 · MLOps</dt><dd>預測<small>只在贏過基準時發布</small></dd></div>
+        <div><dt>灰</dt><dd>共用<small>基礎、人工關卡與觀測</small></dd></div>
+        <div><dt>現在是什麼顏色</dt><dd>看板面<small>每 15 分鐘重新產生</small></dd></div>
       </dl>
-      <p class="band-note">數字為 2026-09-01 實測，全部可重跑：<code style="font-family:'IBM Plex Mono',monospace">bash platform/tests/run_all.sh</code></p>
+      <p class="band-note">這份圖<b>刻意不放數字與燈號</b>：數字一週就過期，而過期的圖比沒有圖更糟。現況看<a href="../Stage-Report.html">階段報告</a>（落地百分比與三態判定），或 Grafana「三線階段燈號」。</p>
     </header>
 
     <!-- ============================ PLATE 1 ============================ -->
@@ -378,64 +375,75 @@
       <div class="titleblock">
         <span class="plate-no">圖 01</span>
         <h2>DevOps 架構</h2>
-        <span class="tag">藍 · 基礎/建置/執行/觀測</span>
+        <span class="tag">藍 · 兩台機器、雲端建置、共用基礎</span>
       </div>
-      <p class="question">這條線<b>由哪些東西組成</b>，以及誰依賴誰。四層由下而上：機密與排程在最底，建置產出映像，叢集執行它，觀測層看著它。</p>
+      <p class="question">這條線<b>由哪些東西組成、放在哪台機器上</b>，以及誰依賴誰。最底下是三條線共用的基礎，中間是雲端建置與兩台執行機器，最上面是觀測。</p>
       <div class="sheet">
 <pre class="mermaid">
 %%{init:{"theme":"base","themeVariables":{"background":"#FBFBF9","primaryColor":"#E4EDF7","primaryTextColor":"#1A1F26","primaryBorderColor":"#1F5FA8","lineColor":"#8A94A0","fontFamily":"IBM Plex Sans, Noto Sans TC, sans-serif","fontSize":"13px"}}}%%
-flowchart TB
-  subgraph OBS["觀測層"]
-    direction LR
-    PROM["Prometheus<br/>15 條規則評估中"]
-    LOKI["Loki<br/>日誌"]
-    AM["Alertmanager<br/>告警路由"]
-    GRAF["Grafana<br/>唯一驗證身分的入口"]
+flowchart BT
+  subgraph FND["共用基礎 — 三條線都站在上面"]
+    subgraph SEC["身分與機密"]
+      vault["Vault 機密/身分"] --> audit["稽核軌跡"]
+      audit ~~~ rotation["機密輪替"]
+      rotation ~~~ certs["憑證到期"]
+    end
+    subgraph OPS["排程與復原"]
+      scheduler["排程器"] --> backup["備份"]
+      backup --> restore["還原演練<br/>還原得回來才算備份"]
+      restore ~~~ hostdisk["主機磁碟<br/>滿了會停掉整個平台"]
+    end
+    subgraph SELF["自我檢查"]
+      iac["IaC 驗證"] ~~~ capcat["能力目錄零孤兒<br/>每支腳本都找得到說明"]
+      capcat ~~~ xref["名稱還指得到東西<br/>不指向已刪除的東西"]
+    end
   end
-  subgraph RUN["執行層"]
-    direction LR
-    K3D["k3d 叢集 (arm64)<br/>station2-twin 藍綠"]
-    NGINX["NGINX 入口"]
+  subgraph BLD["建置 · 雲端"]
+    gha["GitHub Actions<br/>建出兩種架構的映像"]
   end
-  subgraph BLD["建置層"]
-    direction LR
-    GHA["GitHub Actions<br/>x86 雲端 runner"]
-    REG["本機 Registry<br/>k3d-registry:5111"]
+  subgraph MAC["mac.local · arm64"]
+    REG["本機映像庫<br/>未量測，已登記"] --> bluegreen["藍綠切換<br/>一個指令退回上一版"]
+    k8s["k3d 叢集"] --> bluegreen
+    bluegreen --> nginx["NGINX 入口"]
   end
-  subgraph FND["基礎層"]
-    direction LR
-    VAULT["Vault<br/>機密與身分"]
-    SCHED["排程器 launchd<br/>16 個工作"]
-    BKP["備份"]
-    RST["還原演練"]
+  subgraph UBU["ubu.local · amd64 正式環境"]
+    prodhost["prod 節點健康 (ubu)<br/>機器本身健不健康"] ~~~ prodk8s["prod 叢集 (ubu/amd64)"]
   end
-
-  VAULT --> K3D
-  VAULT --> GRAF
-  SCHED --> BKP
-  BKP --> RST
-  SCHED --> PROM
-  GHA --> REG
-  REG --> K3D
-  K3D --> NGINX
-  K3D --> PROM
-  PROM --> AM
-  PROM --> GRAF
-  LOKI --> GRAF
-  AM --> GRAF
-
+  subgraph OBS["觀測 — 看著上面每一層"]
+    prometheus["Prometheus 指標<br/>告警規則在這裡評估"] --> alertmgr["Alertmanager 告警<br/>送到通知管道"]
+    alertmgr --> grafana["Grafana 檢視<br/>唯一驗證身分的入口"]
+    prometheus --> grafana
+    loki["Loki 日誌"] --> grafana
+    logcov["日誌真的有進來<br/>容器活著不等於有收到"] ~~~ rollup["健康史彙總<br/>快照濃縮成歷史"]
+  end
+  certs ~~~ gha
+  hostdisk ~~~ k8s
+  xref ~~~ prodhost
+  certs ~~~ REG
+  vault --> gha
+  vault --> grafana
+  gha -->|"amd64 映像 · ghcr"| prodk8s
+  bluegreen --> prometheus
+  nginx ~~~ loki
+  prodk8s ~~~ logcov
   classDef dev fill:#1F5FA8,stroke:#153F70,color:#FFFFFF,stroke-width:1px;
   classDef sup fill:#5A6470,stroke:#3D444D,color:#FFFFFF,stroke-width:1px;
-  class PROM,LOKI,AM,GRAF,K3D,NGINX,GHA,REG dev;
-  class VAULT,SCHED,BKP,RST sup;
+  classDef ctx fill:#FFFFFF,stroke:#8A94A0,color:#1A1F26,stroke-width:1px,stroke-dasharray:4 3;
+  class prometheus,alertmgr,loki,logcov,rollup,grafana,gha,k8s,bluegreen,nginx,prodk8s,prodhost dev;
+  class vault,audit,rotation,certs,scheduler,backup,restore,hostdisk,iac,capcat,xref sup;
+  class REG ctx;
   style OBS fill:#F0F4F9,stroke:#C3CEDC
-  style RUN fill:#F0F4F9,stroke:#C3CEDC
   style BLD fill:#F0F4F9,stroke:#C3CEDC
+  style MAC fill:#F0F4F9,stroke:#C3CEDC
+  style UBU fill:#F0F4F9,stroke:#C3CEDC
   style FND fill:#EFF1F4,stroke:#C9CFD8
+  style SEC fill:#F7F8FA,stroke:#C9CFD8
+  style OPS fill:#F7F8FA,stroke:#C9CFD8
+  style SELF fill:#F7F8FA,stroke:#C9CFD8
 </pre>
       </div>
-      <p class="readnote"><b>要看的一件事：</b>建置在雲端（x86），執行在本機（arm64）。兩台機器指令集不同，所以映像必須帶對應架構的 manifest——這件事有測試在守（<code>test_image_arch.sh</code>），因為它每一步都會「成功」，只有 kubelet 最後才說不行。</p>
-      <p class="src">來源 · platform/statusdag/dag.py LINES：foundation / build / release / observe</p>
+      <p class="readnote"><b>要看的一件事：</b>兩台機器是兩種指令集。本機 k3d 跑 arm64，正式環境 ubu 跑 amd64，所以映像必須由雲端建出兩種架構——這件事每一步都會「成功」，只有機器真的去跑時才說不行，因此有測試在守（<code>test_image_arch.sh</code>，決策 ADR-0008）。虛線框是<b>沒有板面節點</b>的東西：畫出來，是為了讓「沒有在量」被看見，而不是被省略。</p>
+      <p class="src">來源 · platform/statusdag/dag.py NODES（foundation / build / release / observe / k8s）與 EDGES</p>
     </section>
 
     <!-- ============================ PLATE 2 ============================ -->
@@ -445,36 +453,56 @@ flowchart TB
         <h2>DevOps 流程</h2>
         <span class="tag">藍 · 原始碼到上線</span>
       </div>
-      <p class="question">一次變更<b>從程式碼走到上線要經過哪些關卡</b>，以及哪些關卡能擋下它。灰色是閘門，擋得住就不會有下一步。</p>
+      <p class="question">一次變更<b>從程式碼走到上線要經過哪些關卡</b>，以及哪一道關卡真的能擋下它。灰色六角形是人工關卡。</p>
       <div class="sheet">
 <pre class="mermaid">
 %%{init:{"theme":"base","themeVariables":{"background":"#FBFBF9","primaryColor":"#E4EDF7","primaryTextColor":"#1A1F26","primaryBorderColor":"#1F5FA8","lineColor":"#8A94A0","fontFamily":"IBM Plex Sans, Noto Sans TC, sans-serif","fontSize":"13px"}}}%%
-flowchart LR
-  SAST["SAST<br/>原始碼掃描"] --> CI["CI 建置"]
-  SEC["Secret<br/>歷史掃描"] --> CI
-  CI --> TRIVY["映像漏洞掃描"]
-  TRIVY --> REG["Registry 推送"]
-  CI --> DEV["develop 部署"]
-  DEV --> DAST["DAST<br/>執行中系統"]
-  DEV --> LLM["LLM 複審<br/>建議性，不擋"]
-  DAST --> GATE{{"真人 PROMOTE<br/>刻意不自動化"}}
-  LLM --> GATE
-  GATE --> PROD["production-like"]
-  PROD --> NGINX["NGINX 入口"]
-  REG --> BG["藍綠切換<br/>k8s"]
-  K3D["k3d 叢集"] --> BG
-
+flowchart TB
+  scheduler["排程器"]
+  subgraph SRC["原始碼"]
+    direction LR
+    sast["SAST 原始碼<br/>每週掃描"]
+    secrets["Secret 歷史掃描"]
+  end
+  gha["GitHub Actions<br/>建置與推送映像"]
+  develop["develop 部署"]
+  prodk8s["prod 叢集 (ubu/amd64)"]
+  subgraph VER["驗證"]
+    direction LR
+    dast["DAST 執行中系統"]
+    dastcov["DAST 掃到多少<br/>PASS 之外還要問涵蓋率"]
+    llmreview["LLM 複審<br/>只給建議，沒有否決權"]
+  end
+  gate{{"真人 PROMOTE<br/>刻意不自動化"}}
+  k8s["k3d 叢集"]
+  bluegreen["藍綠切換"]
+  nginx["NGINX 入口"]
+  prometheus["Prometheus 指標<br/>上線起就被觀測"]
+  scheduler --> sast
+  scheduler --> dast
+  sast --> gha
+  secrets --> gha
+  gha --> develop
+  gha -->|"amd64 映像"| prodk8s
+  develop --> dast
+  develop --> llmreview
+  dast --> gate
+  llmreview --> gate
+  gate --> bluegreen
+  k8s --> bluegreen
+  bluegreen --> nginx
+  develop --> prometheus
+  bluegreen --> prometheus
   classDef dev fill:#1F5FA8,stroke:#153F70,color:#FFFFFF,stroke-width:1px;
   classDef gate fill:#5A6470,stroke:#3D444D,color:#FFFFFF,stroke-width:1px;
-  class SAST,SEC,CI,TRIVY,REG,DEV,DAST,LLM,PROD,NGINX,BG,K3D dev;
-  class GATE gate;
+  class sast,secrets,gha,develop,dast,dastcov,llmreview,k8s,bluegreen,nginx,prometheus,prodk8s dev;
+  class gate,scheduler gate;
+  style SRC fill:#F0F4F9,stroke:#C3CEDC
+  style VER fill:#F0F4F9,stroke:#C3CEDC
 </pre>
       </div>
-      <p class="readnote"><b>另一件要看的：</b>DAST 那一格回報 PASS，而它涵蓋的是這個服務
-      <b>十條路由中的四條</b>。ZAP baseline 是被動規則加 GET spider，這個 pilot 提供的是沒有連結的
-      JSON API，所以唯一的寫入端點 <code>POST /twin/&lt;asset&gt;/observation</code>
-      在原理上碰不到。這個 40% 現在是板面上的一個數字（面板 105–107），不再是沒人知道的事。</p>
-      <p class="readnote"><b>要看的一件事：</b>LLM 複審接在流程裡，但它<b>沒有否決權</b>——verdict 是建議性的，FAIL 不會讓燈變紅。把判斷權交給模型，和把判斷權交給沒人看的紅燈，是同一種失效。真正擋下發布的是 <code>真人 PROMOTE</code> 這道閘門。</p>
+      <p class="readnote"><b>要看的一件事：</b>LLM 複審接在流程裡，但它<b>沒有否決權</b>——結論是建議性的，不會讓燈變紅。把判斷權交給模型，和把判斷權交給沒人看的紅燈，是同一種失效。真正擋下發布的是<code>真人 PROMOTE</code>。</p>
+      <p class="readnote"><b>另一件要看的：</b><code>DAST 執行中系統</code>與<code>DAST 掃到多少</code>是兩個節點。掃描回報 PASS，只代表<b>掃到的</b>路由沒有問題；掃不到的寫入端點在原理上碰不到。所以涵蓋率單獨成為一個會變色的數字，而不是藏在 PASS 後面。</p>
       <p class="src">來源 · platform/statusdag/dag.py EDGES（source → build → deploy → verify → gate → release）</p>
     </section>
 
@@ -485,48 +513,58 @@ flowchart LR
         <h2>DataOps 架構</h2>
         <span class="tag">綠 · 來源到可查詢</span>
       </div>
-      <p class="question">資料<b>存在哪裡、以什麼形態存</b>。同一份事實有兩種儲存：單點查詢走 Postgres，大量彙總走欄式鏡像。</p>
+      <p class="question">資料<b>從哪裡來、存在哪裡、由什麼守著</b>。同一份事實有兩種儲存：單點查詢走 Postgres，大量彙總走欄式鏡像。</p>
       <div class="sheet">
 <pre class="mermaid">
 %%{init:{"theme":"base","themeVariables":{"background":"#FBFBF9","primaryColor":"#E2F0E8","primaryTextColor":"#1A1F26","primaryBorderColor":"#2E7D52","lineColor":"#8A94A0","fontFamily":"IBM Plex Sans, Noto Sans TC, sans-serif","fontSize":"13px"}}}%%
 flowchart TB
-  subgraph UP["上游"]
+  subgraph UP["上游 — 公開資料來源"]
     direction LR
-    SRC["來源登記<br/>22 個登記來源"]
-    GEO["地理權威<br/>8,059 個行政區"]
+    sources["來源登記<br/>每個來源登記發布週期"]
+    srcfresh["來源仍在發布<br/>登記了不等於還在發"]
+    geo["地理權威<br/>行政區代碼的唯一依據"]
   end
-  subgraph STORE["儲存"]
+  subgraph IN["載入"]
     direction LR
-    PG[("Postgres<br/>監測 6.5M 列<br/>人口 632k 列")]
-    MIRROR[("欄式鏡像 Parquet<br/>彙總快 300-425 倍")]
+    facts["事實載入"]
+    ingestq["抓取品質<br/>抓得到不等於收得進"]
+  end
+  subgraph STORE["儲存 — 同一份事實、兩種形態"]
+    direction LR
+    PG[("Postgres<br/>真相所在 · 單點查詢")]
+    MIR[("欄式鏡像 DuckDB<br/>大量彙總")]
+    mirror["分析鏡像一致<br/>鏡像落後就拒答"]
   end
   subgraph GOV["治理"]
     direction LR
-    LIN["血緣算術<br/>39 批次收斂"]
-    CON["資料契約<br/>CHECK 約束執行中"]
+    lineage["血緣算術<br/>每批列數必須收斂"]
+    dcontract["資料契約"]
+    epiweek["週↔日曆對照"]
   end
-  METRICS["DataOps 指標<br/>新鮮度 / 漂移 / 執行健康"]
-
-  SRC --> PG
-  GEO --> PG
-  PG --> MIRROR
-  PG --> LIN
-  LIN --> CON
-  CON --> METRICS
-  MIRROR --> METRICS
-  METRICS --> PROM["Prometheus"]
-
+  ML(["下游：MLOps 特徵集"])
+  sources --> facts
+  geo --> facts
+  facts --> PG
+  PG --> MIR
+  MIR -.- mirror
+  facts --> lineage
+  lineage --> dcontract
+  facts --> epiweek
+  dcontract --> ML
   classDef data fill:#2E7D52,stroke:#1E5537,color:#FFFFFF,stroke-width:1px;
-  classDef sup fill:#5A6470,stroke:#3D444D,color:#FFFFFF,stroke-width:1px;
-  class SRC,GEO,PG,MIRROR,LIN,CON,METRICS data;
-  class PROM sup;
+  classDef store fill:#E2F0E8,stroke:#2E7D52,color:#1A1F26,stroke-width:1px;
+  classDef out fill:#5A6470,stroke:#3D444D,color:#FFFFFF,stroke-width:1px;
+  class sources,srcfresh,geo,facts,ingestq,mirror,lineage,dcontract,epiweek data;
+  class PG,MIR store;
+  class ML out;
   style UP fill:#EDF5F0,stroke:#BFD8CB
+  style IN fill:#EDF5F0,stroke:#BFD8CB
   style STORE fill:#EDF5F0,stroke:#BFD8CB
   style GOV fill:#EDF5F0,stroke:#BFD8CB
 </pre>
       </div>
-      <p class="readnote"><b>要看的一件事：</b>鏡像是<b>衍生品，不是第二個真相</b>。它落後時會拒絕回答，而不是回答錯的東西——這條選擇有量測支撐，記在決策 ADR-0001。</p>
-      <p class="src">來源 · platform/statusdag/dag.py LINES：dataops；數字取自板面實際探測</p>
+      <p class="readnote"><b>要看的一件事：</b>鏡像是<b>衍生品，不是第二個真相</b>。它落後時會拒絕回答，而不是快速地回答上週的答案——這個選擇有量測支撐，記在決策 ADR-0001。上游那兩格也是同一個道理：<code>來源登記</code>的數字永遠不會變少，所以另有<code>來源仍在發布</code>去問它們是不是還活著。</p>
+      <p class="src">來源 · platform/statusdag/dag.py NODES：dataops；EDGES：sources/geo → facts → lineage → dcontract</p>
     </section>
 
     <!-- ============================ PLATE 4 ============================ -->
@@ -534,30 +572,41 @@ flowchart TB
       <div class="titleblock">
         <span class="plate-no">圖 04</span>
         <h2>DataOps 流程</h2>
-        <span class="tag">綠 · 載入到契約</span>
+        <span class="tag">綠 · 抓取到契約</span>
       </div>
       <p class="question">一批資料<b>進來之後依序發生什麼</b>，以及哪一步是後面所有事情的前提。</p>
       <div class="sheet">
 <pre class="mermaid">
 %%{init:{"theme":"base","themeVariables":{"background":"#FBFBF9","primaryColor":"#E2F0E8","primaryTextColor":"#1A1F26","primaryBorderColor":"#2E7D52","lineColor":"#8A94A0","fontFamily":"IBM Plex Sans, Noto Sans TC, sans-serif","fontSize":"13px"}}}%%
-flowchart LR
-  SRC["來源登記"] --> FACT["事實載入"]
-  GEO["地理權威<br/>載入的前提"] --> FACT
-  FACT --> LIN["血緣算術<br/>每批必須收斂"]
-  LIN --> CON["資料契約<br/>PASS 才算完成"]
-  FACT --> EPI["週↔日曆對照<br/>1045/4912 期間無日曆日"]
-  CON --> DOWN(["下游：MLOps 特徵集"])
-
+flowchart TB
+  subgraph ASK["每次抓取都要問的兩件事"]
+    direction LR
+    srcfresh["來源仍在發布"]
+    ingestq["抓取品質"]
+  end
+  sources["來源登記"]
+  geo["地理權威<br/>載入的前提"]
+  facts["事實載入"]
+  lineage["血緣算術<br/>不收斂的批次停在這裡"]
+  epiweek["週↔日曆對照<br/>對不到的週次標出來，不塗綠"]
+  dcontract["資料契約<br/>PASS 才算完成"]
+  features["特徵集<br/>MLOps 的起點"]
+  srcfresh ~~~ sources
+  sources --> facts
+  geo --> facts
+  facts --> lineage
+  facts --> epiweek
+  lineage --> dcontract
+  dcontract -->|"契約 PASS 才往下"| features
   classDef data fill:#2E7D52,stroke:#1E5537,color:#FFFFFF,stroke-width:1px;
-  classDef warn fill:#B8863B,stroke:#8A6329,color:#FFFFFF,stroke-width:1px;
-  classDef out fill:#5A6470,stroke:#3D444D,color:#FFFFFF,stroke-width:1px;
-  class SRC,GEO,FACT,LIN,CON data;
-  class EPI warn;
-  class DOWN out;
+  classDef ml fill:#8A5A34,stroke:#5E3D23,color:#FFFFFF,stroke-width:1px;
+  class sources,geo,srcfresh,ingestq,facts,lineage,dcontract,epiweek data;
+  class features ml;
+  style ASK fill:#EDF5F0,stroke:#BFD8CB
 </pre>
       </div>
-      <p class="readnote"><b>要看的一件事：</b><code>週↔日曆對照</code> 是黃的，而且刻意讓它黃著。4,912 個期間裡有 1,045 個對不到日曆日，成因待疾管署查證——<b>把它塗綠只會讓後面每一個用到週定義的數字帶著一個沒人記得的假設</b>。血緣則是硬條件：不收斂的批次不會進到契約。</p>
-      <p class="src">來源 · platform/statusdag/dag.py EDGES：sources/geo → facts → lineage → dcontract；facts → epiweek</p>
+      <p class="readnote"><b>要看的一件事：</b>血緣是硬條件——「檔案列數 = 接受 + 拒絕 + 重複」不成立的批次，不會進到契約。但算術成立不代表資料有收進來：一個來源可以每一列都被拒絕、而帳仍然是平的，所以<code>抓取品質</code>單獨問。<code>週↔日曆對照</code>則是刻意誠實的那一格：對不到日曆日的週次會被標出來，<b>把它塗綠只會讓後面每一個用到週定義的數字，帶著一個沒人記得的假設</b>。</p>
+      <p class="src">來源 · platform/statusdag/dag.py EDGES：sources/geo → facts → lineage → dcontract → features；facts → epiweek</p>
     </section>
 
     <!-- ============================ PLATE 5 ============================ -->
@@ -567,29 +616,58 @@ flowchart LR
         <h2>MLOps 架構</h2>
         <span class="tag">棕 · 特徵到預測</span>
       </div>
-      <p class="question">模型這一側<b>有哪些成品，各自被什麼綁定</b>。重點是每一個成品都可追溯到產生它的那份程式碼。</p>
+      <p class="question">模型這一側<b>有哪些成品、各自被什麼綁定、由誰檢查</b>。重點是每一筆對外預測都追得回產生它的那次訓練。</p>
       <div class="sheet">
 <pre class="mermaid">
 %%{init:{"theme":"base","themeVariables":{"background":"#FBFBF9","primaryColor":"#F1E8DF","primaryTextColor":"#1A1F26","primaryBorderColor":"#8A5A34","lineColor":"#8A94A0","fontFamily":"IBM Plex Sans, Noto Sans TC, sans-serif","fontSize":"13px"}}}%%
 flowchart TB
-  CON["資料契約<br/>（DataOps 交界）"] --> FS["特徵集<br/>綁定 code_sha256<br/>554 特徵列"]
-  FS --> BT["回測 rolling-origin<br/>9 次"]
-  BT --> GATE{{"上線閘門<br/>贏過持平基準才准上線"}}
-  GATE --> FC["已發布預測<br/>1 筆"]
-  SCHED["排程器"] --> RT["排程重訓<br/>每週"]
-  RT --> BT
-  FC --> EV[("模型執行紀錄<br/>evidence")]
-
+  subgraph EDGE["DataOps 交界"]
+    dcontract["資料契約"]
+  end
+  subgraph TRAIN["訓練與評估"]
+    direction LR
+    scheduler["排程器"]
+    retrain["排程重訓"]
+    features["特徵集<br/>綁定產生它的程式碼 code_sha256"]
+    backtest["回測（rolling-origin）<br/>只用當時已知的資料"]
+    RUNS[("訓練紀錄 model_run<br/>每次訓練都留檔")]
+  end
+  subgraph DECIDE["決策"]
+    direction LR
+    mgate{{"上線閘門<br/>贏過基準才准上線"}}
+    gateleak["閘門沒有被繞過<br/>每筆預測回溯到贏的那次訓練"]
+  end
+  subgraph OUT["對外與事後"]
+    direction LR
+    forecast["已發布預測"]
+    fcscore["預測事後評分<br/>實際值出來後再打分數"]
+    fclead["預測領先實際值<br/>停發會被發現"]
+  end
+  dcontract --> features
+  scheduler --> retrain
+  retrain --> backtest
+  features --> backtest
+  backtest --> RUNS
+  backtest --> mgate
+  mgate --> forecast
+  forecast --> fcscore
+  RUNS -.- gateleak
   classDef ml fill:#8A5A34,stroke:#5E3D23,color:#FFFFFF,stroke-width:1px;
   classDef data fill:#2E7D52,stroke:#1E5537,color:#FFFFFF,stroke-width:1px;
   classDef gate fill:#5A6470,stroke:#3D444D,color:#FFFFFF,stroke-width:1px;
-  class FS,BT,FC,RT,EV ml;
-  class CON data;
-  class GATE,SCHED gate;
+  classDef store fill:#F1E8DF,stroke:#8A5A34,color:#1A1F26,stroke-width:1px;
+  class features,backtest,retrain,gateleak,forecast,fcscore,fclead ml;
+  class dcontract data;
+  class mgate,scheduler gate;
+  class RUNS store;
+  style EDGE fill:#EDF5F0,stroke:#BFD8CB
+  style TRAIN fill:#F5EEE7,stroke:#DCC9B6
+  style DECIDE fill:#F5EEE7,stroke:#DCC9B6
+  style OUT fill:#F5EEE7,stroke:#DCC9B6
 </pre>
       </div>
-      <p class="readnote"><b>要看的一件事：</b>特徵集綁 <code>code_sha256</code>。這代表「哪一版程式碼算出這批特徵」不是靠記憶或註解，是資料本身帶著的欄位——<b>換了程式碼卻沿用舊特徵</b>這件事會被擋下，而不是等到預測變差才回頭猜。</p>
-      <p class="src">來源 · platform/statusdag/dag.py LINES：mlops；數字取自板面實際探測</p>
+      <p class="readnote"><b>要看的一件事：</b>閘門有兩層保證。第一層是發布程式只挑贏過基準的訓練；第二層是<code>閘門沒有被繞過</code>回頭問資料本身——每一筆已發布預測是否都追得回一次贏的訓練。<b>「程式碼這樣寫」不是證據</b>，一個被改掉的條件式不會留下痕跡，所以問的是結果，不是程式。</p>
+      <p class="src">來源 · platform/statusdag/dag.py NODES：mlops；EDGES：dcontract → features → backtest → mgate → forecast → fcscore</p>
     </section>
 
     <!-- ============================ PLATE 6 ============================ -->
@@ -597,31 +675,45 @@ flowchart TB
       <div class="titleblock">
         <span class="plate-no">圖 06</span>
         <h2>MLOps 流程</h2>
-        <span class="tag">棕 · 閘門與現況</span>
+        <span class="tag">棕 · 重訓、閘門、事後評分</span>
       </div>
-      <p class="question">一次重訓<b>要通過什麼才能變成對外的預測</b>，以及現在卡在哪裡。</p>
+      <p class="question">一次重訓<b>要通過什麼才能變成對外的預測</b>，沒通過時發生什麼，發布之後誰來檢查它。</p>
       <div class="sheet">
 <pre class="mermaid">
 %%{init:{"theme":"base","themeVariables":{"background":"#FBFBF9","primaryColor":"#F1E8DF","primaryTextColor":"#1A1F26","primaryBorderColor":"#8A5A34","lineColor":"#8A94A0","fontFamily":"IBM Plex Sans, Noto Sans TC, sans-serif","fontSize":"13px"}}}%%
-flowchart LR
-  RT["排程重訓<br/>每週觸發"] --> FS["重建特徵集"]
-  FS --> BT["rolling-origin 回測"]
-  BT --> CMP{{"對比持平基準"}}
-  CMP -->|"贏"| PUB["發布預測"]
-  CMP -->|"輸"| HOLD["不發布<br/>目前狀態"]
-  HOLD -.->|"下一週重試"| RT
-  NOW["現況 t+1 −12.31%<br/>t+2 +0.32%"] -.-> HOLD
-
+flowchart TB
+  scheduler["排程器"]
+  retrain["排程重訓<br/>每週觸發"]
+  features["特徵集"]
+  backtest["回測（rolling-origin）"]
+  mgate{{"上線閘門<br/>與持平基準比較"}}
+  forecast["已發布預測"]
+  HOLD["不發布<br/>線上維持上一個贏過的模型"]
+  subgraph AFTER["發布之後的三個檢查"]
+    direction LR
+    fcscore["預測事後評分"]
+    fclead["預測領先實際值"]
+    gateleak["閘門沒有被繞過"]
+  end
+  scheduler --> retrain
+  retrain --> backtest
+  features --> backtest
+  backtest --> mgate
+  mgate -->|"贏"| forecast
+  mgate -.->|"輸"| HOLD
+  HOLD -.->|"下一週再試"| retrain
+  forecast --> fcscore
   classDef ml fill:#8A5A34,stroke:#5E3D23,color:#FFFFFF,stroke-width:1px;
   classDef gate fill:#5A6470,stroke:#3D444D,color:#FFFFFF,stroke-width:1px;
   classDef hold fill:#B8863B,stroke:#8A6329,color:#FFFFFF,stroke-width:1px;
-  class RT,FS,BT,PUB ml;
-  class CMP gate;
-  class HOLD,NOW hold;
+  class retrain,features,backtest,forecast,fcscore,fclead,gateleak ml;
+  class mgate,scheduler gate;
+  class HOLD hold;
+  style AFTER fill:#F5EEE7,stroke:#DCC9B6
 </pre>
       </div>
-      <p class="readnote"><b>要看的一件事：</b>閘門現在是<b>擋著的</b>，而這是它在正常運作。模型還沒贏過「下週跟這週一樣」這個基準，所以不准上線。一個從不擋下任何東西的閘門，和沒有閘門，在系統上完全等價——<b>會擋，才證明它存在</b>。</p>
-      <p class="src">來源 · platform/statusdag/dag.py EDGES：dcontract → features → backtest → mgate → forecast；scheduler → retrain → backtest</p>
+      <p class="readnote"><b>要看的一件事：</b>「輸」那條路是閘門<b>正常運作</b>的樣子，不是故障。模型沒贏過「下週跟這週一樣」這個基準就不准上線；一個從不擋下任何東西的閘門，和沒有閘門在系統上完全等價。閘門此刻是開是關，看階段報告的 MLOps 那一欄。</p>
+      <p class="src">來源 · platform/statusdag/dag.py EDGES：scheduler → retrain → backtest → mgate → forecast → fcscore</p>
     </section>
 
     <!-- ============================ PLATE 7 ============================ -->
@@ -631,43 +723,40 @@ flowchart LR
         <h2>大統整流程圖</h2>
         <span class="tag">三色分段 · 一次變更走完全程</span>
       </div>
-      <p class="question">把三條線接起來看：<b>一次變更從程式碼一路走到對外的預測</b>，中間跨過哪兩個交界。</p>
+      <p class="question">把三條線接起來看：<b>程式碼、資料、模型各自走完自己的關卡</b>，中間跨過哪兩個交界，最後落到誰眼前。</p>
       <div class="sheet">
 <pre class="mermaid">
 %%{init:{"theme":"base","themeVariables":{"background":"#FBFBF9","primaryColor":"#EDEFF2","primaryTextColor":"#1A1F26","lineColor":"#8A94A0","fontFamily":"IBM Plex Sans, Noto Sans TC, sans-serif","fontSize":"13px"}}}%%
 flowchart LR
-  subgraph A["DevOps — 讓變更安全地上線"]
-    direction LR
-    A1["原始碼掃描"] --> A2["CI 建置"] --> A3["映像掃描"] --> A4["部署 develop"]
-    A4 --> A5["DAST"] --> A6{{"真人 PROMOTE"}} --> A7["藍綠上線"]
+  subgraph A["DevOps · 變更安全上線"]
+    direction TB
+    sast["SAST 原始碼"] --> gha["GitHub Actions"] --> develop["develop 部署"] --> dast["DAST 執行中系統"] --> gate{{"真人 PROMOTE"}} --> bluegreen["藍綠切換"]
   end
-  subgraph B["DataOps — 讓資料值得被信任"]
-    direction LR
-    B1["來源登記"] --> B2["事實載入"] --> B3["血緣收斂"] --> B4["資料契約"]
+  subgraph B["DataOps · 資料值得信任"]
+    direction TB
+    sources["來源登記"] --> facts["事實載入"] --> lineage["血緣算術"] --> dcontract["資料契約"]
   end
-  subgraph C["MLOps — 讓預測只在贏的時候出去"]
-    direction LR
-    C1["特徵集"] --> C2["回測"] --> C3{{"上線閘門"}} --> C4["已發布預測"]
+  subgraph C["MLOps · 贏了才發布"]
+    direction TB
+    features["特徵集"] --> backtest["回測（rolling-origin）"] --> mgate{{"上線閘門"}} --> forecast["已發布預測"] --> fcscore["預測事後評分"]
   end
-
-  A7 -->|"執行環境"| B2
-  B4 -->|"契約 PASS 才建特徵"| C1
-
+  A -->|"共用平台"| B
+  B -->|"契約 PASS"| C
   classDef dev fill:#1F5FA8,stroke:#153F70,color:#FFFFFF,stroke-width:1px;
   classDef data fill:#2E7D52,stroke:#1E5537,color:#FFFFFF,stroke-width:1px;
   classDef ml fill:#8A5A34,stroke:#5E3D23,color:#FFFFFF,stroke-width:1px;
   classDef gate fill:#5A6470,stroke:#3D444D,color:#FFFFFF,stroke-width:1px;
-  class A1,A2,A3,A4,A5,A7 dev;
-  class B1,B2,B3,B4 data;
-  class C1,C2,C4 ml;
-  class A6,C3 gate;
+  class sast,gha,develop,dast,bluegreen dev;
+  class sources,facts,lineage,dcontract data;
+  class features,backtest,forecast,fcscore ml;
+  class gate,mgate gate;
   style A fill:#EDF2F8,stroke:#1F5FA8
   style B fill:#EDF5F0,stroke:#2E7D52
   style C fill:#F5EEE7,stroke:#8A5A34
 </pre>
       </div>
-      <p class="readnote"><b>要看的一件事：</b>兩個交界都是<b>單向且有條件</b>的。DevOps 提供執行環境給 DataOps；DataOps 的契約沒過，MLOps 連特徵都不該建。三條線不是三個並排的專案，是一條有兩個檢查點的鏈——<b>而鏈的強度等於最弱的那個檢查點</b>。</p>
-      <p class="src">來源 · 圖 02、圖 04、圖 06 的三條路徑，接在 dag.py 的實際交界邊上</p>
+      <p class="readnote"><b>要看的一件事：</b>兩個交界都是<b>單向且有條件</b>的。DevOps 提供部署、排程、機密與觀測給另外兩條線；DataOps 的契約沒過，MLOps 連特徵都不該建。三條線不是三個並排的專案，是一條有兩道人或規則把關的鏈——<b>鏈的強度等於最弱的那個檢查點</b>。</p>
+      <p class="src">來源 · 圖 02、圖 04、圖 06 的主幹；「契約 PASS」那條交界即 dag.py 的 dcontract → features</p>
     </section>
 
     <!-- ============================ PLATE 8 ============================ -->
@@ -677,83 +766,84 @@ flowchart LR
         <h2>大統整架構圖</h2>
         <span class="tag">三色分段 · 誰站在誰上面</span>
       </div>
-      <p class="question">同一個系統換成<b>分層來看</b>：底下是所有線共用的基礎，上面三條線各自堆疊，最上面是所有人實際會打開的那一層。</p>
+      <p class="question">同一個系統換成<b>分層來看</b>，由下往上疊：① 實體機器 → ② 三條線共用的基礎 → ③ 三條線各自的組成 → ④ 橫跨它們的觀測 → ⑤ 人實際會打開的那一層。</p>
       <div class="sheet">
 <pre class="mermaid">
 %%{init:{"theme":"base","themeVariables":{"background":"#FBFBF9","primaryColor":"#EDEFF2","primaryTextColor":"#1A1F26","lineColor":"#8A94A0","fontFamily":"IBM Plex Sans, Noto Sans TC, sans-serif","fontSize":"13px"}}}%%
-flowchart TB
-  subgraph VIEW["看得到的一層 — 長官與維運實際打開的東西"]
+flowchart BT
+  subgraph HOST["① 機器"]
     direction LR
-    V1["三線階段燈號"]
-    V2["服務總覽"]
-    V3["階段報告 靜態可轉寄"]
-    V4["告警 → 通知"]
+    H1["mac.local · arm64<br/>k3d · 資料庫 · 觀測"]
+    H2["ubu.local · amd64<br/>正式環境叢集"]
+    H3["GitHub Actions<br/>雲端建置"]
   end
-  subgraph LINES["三條線"]
+  subgraph BASE["② 共用基礎 — 三條線都站在上面"]
     direction LR
-    subgraph L1["DevOps 藍"]
-      direction TB
-      D1["CI / 映像 / Registry"]
-      D2["k3d 叢集 · 藍綠"]
+    F1["Vault<br/>機密 · 稽核 · 輪替 · 憑證"]
+    F2["排程器"]
+    F3["備份 · 還原演練"]
+    F4["自我檢查<br/>能力目錄 · 名稱 · 文件樹"]
+    F5["證據 evidence/<br/>每個判斷都留檔"]
+  end
+  subgraph LINES["③ 三條線"]
+    direction LR
+    subgraph L3["MLOps 棕"]
+      direction BT
+      M1["特徵集 · 回測 · 重訓"] ~~~ M2["上線閘門 · 預測 · 事後評分"]
     end
     subgraph L2["DataOps 綠"]
-      direction TB
-      T1["Postgres · 欄式鏡像"]
-      T2["血緣 · 契約"]
+      direction BT
+      T1["來源 · 載入 · 地理權威"] ~~~ T2["Postgres · 欄式鏡像"] ~~~ T3["血緣 · 資料契約"]
     end
-    subgraph L3["MLOps 棕"]
-      direction TB
-      M1["特徵集 · 回測"]
-      M2["上線閘門 · 預測"]
+    subgraph L1["DevOps 藍"]
+      direction BT
+      D1["原始碼掃描 · 雲端建置"] ~~~ D2["真人 PROMOTE · 藍綠上線"]
     end
   end
-  subgraph BASE["共用基礎 — 三條線都站在上面"]
+  subgraph OBS["④ 觀測 — 橫跨三條線"]
     direction LR
-    F1["Vault<br/>機密與身分"]
-    F2["排程器<br/>16 個工作"]
-    F3["備份 · 還原演練"]
-    F4["證據 evidence/<br/>每個判斷都留檔"]
+    O1["Prometheus 指標"]
+    O2["Loki 日誌"]
+    O3["Alertmanager 告警"]
   end
-  subgraph OBS["觀測 — 橫跨三條線"]
+  subgraph VIEW["⑤ 看得到的一層"]
     direction LR
-    O1["Prometheus"]
-    O2["Loki"]
-    O3["Alertmanager"]
-    O4["Grafana"]
+    V1["Grafana<br/>三線階段燈號"]
+    V2["階段報告<br/>靜態、可轉寄"]
+    V3["告警 → 通知"]
+    V4["八張圖<br/>這份文件"]
   end
-
-  BASE --> LINES
-  LINES --> OBS
-  OBS --> VIEW
-
+  H1 --> F3
+  F3 --> T1
+  T3 --> O2
+  O2 --> V2
   classDef dev fill:#1F5FA8,stroke:#153F70,color:#FFFFFF,stroke-width:1px;
   classDef data fill:#2E7D52,stroke:#1E5537,color:#FFFFFF,stroke-width:1px;
   classDef ml fill:#8A5A34,stroke:#5E3D23,color:#FFFFFF,stroke-width:1px;
   classDef sup fill:#5A6470,stroke:#3D444D,color:#FFFFFF,stroke-width:1px;
   class D1,D2 dev;
-  class T1,T2 data;
+  class T1,T2,T3 data;
   class M1,M2 ml;
-  class F1,F2,F3,F4,O1,O2,O3,O4,V1,V2,V3,V4 sup;
+  class F1,F2,F3,F4,F5,O1,O2,O3,V1,V2,V3,V4,H1,H2,H3 sup;
   style L1 fill:#EDF2F8,stroke:#1F5FA8
   style L2 fill:#EDF5F0,stroke:#2E7D52
   style L3 fill:#F5EEE7,stroke:#8A5A34
   style BASE fill:#EFF1F4,stroke:#B4BECB
   style OBS fill:#EFF1F4,stroke:#B4BECB
   style VIEW fill:#EFF1F4,stroke:#B4BECB
+  style HOST fill:#EFF1F4,stroke:#B4BECB
   style LINES fill:#FBFBF9,stroke:#DFE1DC
 </pre>
       </div>
-      <p class="readnote"><b>要看的一件事：</b>最上面那一層存在，是因為<b>下面全部正常運作，和有人被告知，是兩件事</b>。這個平台實測過一次 73.7 小時的監測中斷：探針每 15 分鐘忠實把它寫進證據，寫了三天約 200 份，沒有人打開過任何一份。所以「看得到的一層」不是裝飾，它是這張圖裡唯一負責讓下面五層產生後果的部分。</p>
-      <p class="src">來源 · platform/statusdag/dag.py 全部 11 個 layer，依相依方向重新分組</p>
+      <p class="readnote"><b>要看的一件事：</b>最上面那一層存在，是因為<b>下面全部正常運作，和有人被告知，是兩件事</b>。這個平台實測過一次 73.7 小時的監測中斷：探針每 15 分鐘忠實把它寫進證據，寫了三天約 200 份，沒有人打開過任何一份。所以「看得到的一層」不是裝飾，它是這張圖裡唯一負責讓下面各層產生後果的部分。</p>
+      <p class="src">來源 · platform/statusdag/dag.py 全部 layer 依相依方向重新分組；機器層見 ADR-0008</p>
     </section>
 
     <footer>
-      <p><b>怎麼重跑這些圖背後的東西</b>：節點與連線來自 <code style="font-family:'IBM Plex Mono',monospace">platform/statusdag/dag.py</code>，
-      現況數字來自 <code style="font-family:'IBM Plex Mono',monospace">bash platform/tests/run_all.sh</code> 與 <code style="font-family:'IBM Plex Mono',monospace">python3 platform/statusdag/dag.py</code>。
-      圖上任何一個方塊，都對得到板面上一個會自己變色的節點。</p>
-      <p><b>刻意留著的三個黃燈</b>：週↔日曆對照（待疾管署查證）、上線閘門（模型還沒贏基準）、資料來源已 14 天未更新。
-      這三個不是待辦事項漏了，是<b>系統正確地說出它現在不知道什麼</b>——把它們塗綠是最容易做、也最沒有價值的一件事。</p>
-      <p><b>同一個原則，三個當天實測的例子</b>：DAST 涵蓋 40%、健康監測涵蓋 83.6%、
+      <p><b>怎麼確認這些圖還是真的</b>：節點與連線來自 <code style="font-family:'IBM Plex Mono',monospace">platform/statusdag/dag.py</code>；
+      <code style="font-family:'IBM Plex Mono',monospace">bash platform/tests/test_offline_report.sh</code> 逐一比對——板面多了一個節點、少了一條邊、或圖上還留著已退役的名字，測試就轉紅。</p>
+      <p><b>現況在哪裡看</b>：落地百分比、三態判定（已落地／工程欠債／受研究上限）與誰欠什麼，在<a href="../Stage-Report.html">階段報告</a>；它每 15 分鐘由板面重新產生，所以永遠比這份圖新。</p>
+      <p><b>同一個原則，2026-09-01 當天實測的三個例子</b>：DAST 涵蓋 40%、健康監測涵蓋 83.6%、
       而秘密輪替閘門的 <code style="font-family:'IBM Plex Mono',monospace">ROTATION PASS</code>
       是在三把秘密全部豁免的情況下、對空集合量化得出的。
       三個數字都不好看，而它們在被量出來之前<b>全部顯示為綠色</b>。
@@ -770,80 +860,3 @@ flowchart TB
     </footer>
   </main>
 </div>
-
-<!--claude-mermaid-runtime-begin:3477-->
-<style>.mermaid-diagram{margin-block:4px}.mermaid-diagram svg{display:block;margin:0 auto;max-width:100%;height:auto}</style>
-<script src="/_runtime/mermaid-11.16.1.min.js"></script>
-<script>(function(){
-var CFG={"palettes":{"light":{"surface":"#f4efe4","text":"#42392e","line":"#8a7f6d","border":"#7a6c52","bg":"#fffdf8"},"dark":{"surface":"#262b34","text":"#f2f3f5","line":"#a8adb8","border":"#9aa4b8","bg":"#1f232b"}}};
-if(typeof mermaid==='undefined')return;
-var pres=Array.prototype.slice.call(document.querySelectorAll('pre.mermaid')).filter(function(p){if(p.hasAttribute('data-claude-mermaid-claimed'))return false;p.setAttribute('data-claude-mermaid-claimed','1');return true;});
-if(!pres.length)return;
-var mq=window.matchMedia?window.matchMedia('(prefers-color-scheme: dark)'):null;
-var root=document.documentElement;
-var items=pres.map(function(pre){
-var mount=document.createElement('div');mount.className='mermaid-diagram';
-return {pre:pre,mount:mount,src:pre.textContent||''};
-});
-var seq=0;
-var renderGen=0;
-var lastKey='';
-function pageBg(fallback){
-var els=[document.body,document.documentElement];
-for(var i=0;i<els.length;i++){
-var c=els[i]&&getComputedStyle(els[i]).backgroundColor;
-if(c&&c!=='transparent'&&c!=='rgba(0, 0, 0, 0)')return c;
-}
-return fallback;
-}
-function render(){
-var theme=root.getAttribute('data-theme');
-var dark=theme==='dark'||(!!(mq&&mq.matches)&&theme!=='light');
-var pal=dark?CFG.palettes.dark:CFG.palettes.light;
-var bg=pageBg(pal.bg);
-var key=(dark?'d':'l')+'|'+bg;
-if(key===lastKey)return;
-lastKey=key;
-var gen=++renderGen;
-var font=getComputedStyle(document.body).fontFamily||'sans-serif';
-var nat={useMaxWidth:false};
-mermaid.initialize({
-startOnLoad:false,securityLevel:'strict',theme:'base',
-flowchart:nat,sequence:nat,er:nat,state:nat,class:nat,pie:nat,
-gantt:nat,journey:nat,timeline:nat,gitGraph:nat,mindmap:nat,xyChart:nat,
-quadrantChart:nat,sankey:nat,c4:nat,requirement:nat,block:nat,
-packet:nat,kanban:nat,architecture:nat,radar:nat,
-themeVariables:{background:bg,mainBkg:pal.surface,primaryColor:pal.surface,
-primaryTextColor:pal.text,lineColor:pal.line,primaryBorderColor:pal.border,
-nodeBorder:pal.border,clusterBorder:pal.border,edgeLabelBackground:bg,
-clusterBkg:'rgba(127,127,127,0.07)',titleColor:pal.text,
-darkMode:dark,rowOdd:bg,rowEven:'rgba(127,127,127,0.07)',
-attributeBackgroundColorOdd:bg,attributeBackgroundColorEven:'rgba(127,127,127,0.07)',
-fontSize:'16px',fontFamily:font},
-themeCSS:'.node rect, .node circle, .node polygon, .node path, .cluster rect { stroke-width: 2px; }'
-});
-items.forEach(function(it){
-var id='claude-mermaid-'+seq++;
-mermaid.render(id,it.src).then(function(r){
-if(gen!==renderGen)return;
-var prev=it.pre.previousElementSibling;
-if(prev&&prev.className==='mermaid-diagram'&&prev!==it.mount)return;
-it.mount.innerHTML=r.svg;
-if(!it.mount.parentNode)it.pre.parentNode.insertBefore(it.mount,it.pre);
-it.pre.style.display='none';
-},function(){
-var scratch=document.getElementById(id);
-if(scratch)scratch.parentNode.removeChild(scratch);
-scratch=document.getElementById('d'+id);
-if(scratch)scratch.parentNode.removeChild(scratch);
-if(gen!==renderGen)return;
-if(it.mount.parentNode)it.mount.parentNode.removeChild(it.mount);
-it.pre.style.display='';
-});
-});
-}
-render();
-if(mq&&mq.addEventListener)mq.addEventListener('change',render);
-if(typeof MutationObserver!=='undefined')new MutationObserver(render).observe(root,{attributes:true,attributeFilter:['data-theme']});
-})();</script>
-<!--claude-mermaid-runtime-end-->

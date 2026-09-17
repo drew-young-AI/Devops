@@ -108,7 +108,7 @@ python3 platform/statusdag/stage_report.py --selfcheck
 python3 platform/docs/xref.py            # 名字的生命週期
 python3 platform/docs/capability_graph.py --check   # 孤兒能力
 python3 platform/docs/doc_graph.py       # 連不到的文件
-bash platform/tests/run_all.sh           # 全套件（約 400s，45 suites）
+bash platform/tests/run_all.sh           # 全套件（約 7–12 分鐘，45 suites；2026-09-17 兩次實測 516s／711s，隨主機負載變動）
 ```
 
 這四條回答的不是「東西壞了嗎」，是「**有沒有東西是沒有人在問的**」
