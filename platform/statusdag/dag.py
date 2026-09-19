@@ -181,7 +181,18 @@ def run_diag(cmd, timeout=25):
         p = subprocess.run(cmd, cwd=REPO_ROOT, capture_output=True,
                            text=True, timeout=timeout)
         return p.returncode, p.stdout, p.stderr
-    except (subprocess.TimeoutExpired, OSError) as e:
+    except subprocess.TimeoutExpired as e:
+        # KEEP WHAT THE PROCESS ALREADY SAID (2026-09-19). TimeoutExpired
+        # carries the output captured before the deadline, and kubectl writes
+        # the real cause there every few seconds while it retries
+        # ("dial tcp: lookup ubu.local: no such host"). Falling back to the
+        # exception repr threw that away and put a sentence ending mid-flag
+        # ('--request-timeout=) on the page the README sends a first-time
+        # reader to. The repr says only that we gave up; the stderr says why.
+        partial = e.stderr.decode(errors="replace") if isinstance(e.stderr, bytes) else (e.stderr or "")
+        lines = [ln.strip() for ln in partial.splitlines() if ln.strip()]
+        return None, "", (lines[-1] if lines else f"{timeout}s 內沒有任何回應")
+    except OSError as e:
         return None, "", str(e)[:120]
 
 
@@ -1819,6 +1830,15 @@ def probe_gate_integrity():
     return OK, f"{total} 筆已發布預測全部來自贏過兩個基準的 model_run"
 
 
+def _tail(msg, n):
+    """The last n characters, marked when something was dropped.
+
+    Error strings in this repo put the cause last. Head-truncating them
+    produces a line that reads like an error and names nothing."""
+    msg = msg or ""
+    return msg if len(msg) <= n else "…" + msg[-n:]
+
+
 def probe_prod_node():
     """The production NODE, which is not the production cluster.
 
@@ -1864,11 +1884,19 @@ def probe_prod_node():
         # by the 70-character truncation.
         unreachable = any(k in msg for k in (
             "no such host", "Name or service not known", "Temporary failure",
-            "TimeoutExpired", "timed out", "i/o timeout",
+            "TimeoutExpired", "timed out", "i/o timeout", "內沒有任何回應",
             "No route to host", "Connection refused", "connection refused"))
+        # KEEP THE END, NOT THE BEGINNING (2026-09-19). The comment above
+        # already records that truncation once cut the real cause off; the
+        # head-truncation it left behind put
+        # 「Command '['kubectl', '--context', 'ubu', '--request-timeout=」 on the
+        # page the README sends a first-time reader to -- a sentence that ends
+        # mid-flag and names no cause. Both message shapes carry the cause at
+        # the END ("... timed out after 15 seconds", "... lookup ubu.local: no
+        # such host"), so the tail is the part worth the characters.
         if unreachable:
-            return UNKNOWN, "生產節點連不上（名稱解析或逾時）：" + msg[:60]
-        return UNKNOWN, "生產節點讀不到：" + msg[:70]
+            return UNKNOWN, "生產節點連不上（名稱解析或逾時）：" + _tail(msg, 80)
+        return UNKNOWN, "生產節點讀不到：" + _tail(msg, 80)
     try:
         items = json.loads(out or "{}").get("items") or []
     except json.JSONDecodeError:

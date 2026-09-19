@@ -14,10 +14,40 @@ timestamp: 2026-08-11T20:05:56+08:00
 縮小版企業 DevOps／DataOps／MLOps 控制面，跑在**兩台機器、兩種 CPU 指令集**上。
 不是產品，也不是完整企業 HA 環境。
 
-> **接手這個專案（新 session／新的人）**：先讀
-> [`docs/Session-Handover.md`](docs/Session-Handover.md)。
-> 它裡面**沒有任何數字**——現況一律由指令產生，那份文件只放
-> 「去哪裡取得真相」與「讀 repo 得不到的坑」。
+## 這個平台在做什麼（一段話）
+
+用**一個真實的公衛監測題目**，把 DevOps、DataOps、MLOps 三條線從頭到尾走完一遍，
+並且**證明每一步都真的在跑**，而不是寫在投影片上。
+
+- **題目**：疾管署等公開來源的傳染病監測資料（急診就診、健保就診統計等，
+  登記在案的來源二十多個），載入後做疫情週次的預測。
+- **Pilot**：[`pilots/station2-twin`](pilots/station2-twin/README.md)——
+  一支 PostgreSQL 上的 HTTP 服務，是這個平台第一個**有狀態**的服務。
+  會選有狀態的，是因為備份、還原、資料庫遷移、憑證輪替這些真正會出事的地方，
+  無狀態服務驗不到。
+- **三條線各自要證明的事**：DevOps＝變更能安全上線且退得回來；
+  DataOps＝資料值得被信任才往下游送；MLOps＝預測只在**贏過「下週和這週一樣」
+  這個基準**時才發布。
+- **不寫數字在這裡**：列數與預測筆數每天都在變，寫下來會過期而讀起來不會。
+  要現在的數字，跑
+  `docker exec station2-twin-db-1 psql -U twin -d twin -tAc "select count(*) from surveillance_fact"`，
+  或直接看[階段報告](http://mac.local:18085/Stage-Report.html)。
+
+## 從這裡開始：三種讀者，三個起點
+
+**這份 README 是唯一的起始閱讀點。** 每一份文件都要從這裡點得到，
+`platform/docs/doc_graph.py --check` 會在出現孤兒或斷鏈時轉紅。所以找東西不必翻目錄，
+從這張表往下走就好。
+
+| 你是誰 | 先開這一個 | 接著 |
+|---|---|---|
+| **長官／第一次看這個平台** | [階段報告](http://mac.local:18085/Stage-Report.html)：三條線各一個百分比與一個判定，看完就知道哪一條沒到標準、誰欠什麼 | ① [八張圖](http://mac.local:18085/report/plates.offline.html)，**從圖 07 開始**看（看圖順序見 [`docs/report/README.md`](docs/report/README.md)）<br>② 之後每天 30 秒怎麼看、**什麼情況才需要你出手**：[`docs/Watch.md`](docs/Watch.md) 第一節「人怎麼觀察」 |
+| **維運／接手的人（含新 session）** | [`docs/Session-Handover.md`](docs/Session-Handover.md)：**沒有任何數字**，只放「去哪裡取得真相」與「讀 repo 得不到的坑」 | 出事了看 [`docs/Runbook.md`](docs/Runbook.md)；要持續觀察看 [`docs/Watch.md`](docs/Watch.md) |
+| **Agent／程式** | [`docs/Watch.md`](docs/Watch.md) 的開場指令（先問排程活著沒有，再讀看板） | 機器讀的入口：[`docs/Stage-Report.json`](docs/Stage-Report.json)（schema `stage-report/1`） |
+
+**為什麼要有這條慣例**：孤兒功能找不到，下一個人或下一隻 agent 就會再寫一支。
+可達性擋的是重複開發，不是整潔——四層檢查各自證明什麼、證不到什麼，見
+[`docs/Reachability.md`](docs/Reachability.md)。
 
 | 環境 | 機器 | 叢集 | 架構 | 角色 |
 |---|---|---|---|---|
@@ -125,8 +155,14 @@ Prometheus 規則 → Alertmanager → Telegram      失敗 0  ✅ 活的
 每小時重複；warning 30 秒、每 4 小時重複。**resolved 也會送**——
 只告訴你壞了、不告訴你好了，等於逼人每則都手動追，那是通道被忽略的開始。
 
-**19 個告警規則全部帶 `runbook:` 註解**，所以 Telegram 訊息本身就含處置指令，
-不需要再去翻文件。
+**每一條告警規則都帶 `runbook:` 註解**，所以 Telegram 訊息本身就含處置指令，
+不需要再去翻文件。規則數量會變（這行原本寫死「19 個」，2026-09-19 實測是 21 條），
+所以這裡只寫那個不會變的性質，數量自己數：
+
+```bash
+grep -rh '^\s*- alert:' platform/observability/prometheus/alerts/*.yml | wc -l   # 規則數
+grep -rhc 'runbook:' platform/observability/prometheus/alerts/*.yml | paste -sd+ - | bc  # 帶 runbook 的數量，兩者必須相等
+```
 
 ### 2026-09-03 補上的那一格：磁碟
 

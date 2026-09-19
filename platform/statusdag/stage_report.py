@@ -200,18 +200,18 @@ def _verdict(n_ok, n_total, eng_blockers):
 
 
 ASKS = [
-    {
-        "id": "offsite-destination",
-        "node": "scheduler",
-        "when": "not configured: offsite",
-        "owner": "decision",
-        "ask": "異地備份沒有目的地。備份目前只存在這台筆電上——筆電遺失等於備份一起遺失。",
-        "options": [
-            "選一個目的地（NAS / 物件儲存 / 另一台機器）並設定 sync_remote.sh",
-            "明確記錄「此階段不做異地備份」及理由，讓它變成已知風險而不是紅燈",
-        ],
-        "ref": "docs/Backlog.md",
-    },
+    # offsite-destination was DELETED on 2026-09-19. The decision it was
+    # asking for has been made and carried out: the `offsite` job runs daily
+    # against an rclone crypt remote and its last run verified 402 encrypted
+    # files at gdrive-crypt: with zero differences (evidence/scheduler/
+    # offsite_last.json). The scheduler node's detail therefore no longer
+    # contains "not configured: offsite", and --selfcheck raised it as a FAIL
+    # rather than a NOTE because the node was still blocking completion while
+    # its only ask matched nothing -- which inflates the engineering ceiling.
+    #
+    # What the node blocks on NOW is `late: ...`, and that is engineering, not
+    # a question for the platform owner. Deleting the ask is what makes the
+    # board say that.
     {
         "id": "prod-workload-reachability",
         "node": "prodk8s",
@@ -333,6 +333,19 @@ OWNER_LABEL = {
     "eng": "工程自理",
 }
 OWNER_ORDER = ["decision", "external", "research", "eng"]
+
+# The three-state verdict in the words a reader who has not read ADR-0021 will
+# understand. ADDED 2026-09-19: the verdict and the completion percentages
+# existed in the JSON and the Markdown, and NOT in the HTML -- which is the one
+# the README sends a first-time reader to. The page answered "which stage needs
+# attention" and never answered "how far along is each line", which is the
+# question that page exists for.
+VERDICT_LABEL = {
+    "LANDED": ("已落地", "沒有東西卡在工程端，而且已達標準"),
+    "ENG-DEBT": ("工程欠債", "還有東西卡在工程端，不管百分比多高"),
+    "CEILING-BOUND": ("工程已到頂", "工程端做完了，剩下的不是工程問題"),
+    "UNKNOWN": ("無法判定", "這一條線量不到足夠的節點"),
+}
 
 STATE_ORDER = {dag.OK: 0, dag.SUPERSEDED: 1, dag.WARN: 2, dag.UNKNOWN: 3, dag.FAIL: 4}
 STATE_LABEL = {dag.OK: "正常", dag.SUPERSEDED: "已被取代", dag.WARN: "注意",
@@ -1065,6 +1078,26 @@ def render_html(m):
 
     unified = plate_links("unified", "三線統整")
 
+    landing = "".join(
+        '<tr><td>{name}</td><td class="num">{pct}% <small>({ok}/{total})</small></td>'
+        '<td class="num">{ceil}%</td>'
+        '<td><span class="verdict v-{cls}">{vlabel}</span><small>{vwhy}</small></td>'
+        '<td>{blockers}</td></tr>'.format(
+            name=esc(l["name"]),
+            pct=l["completion"]["pct_strict"],
+            ok=l["completion"]["nodes_ok"],
+            total=l["completion"]["nodes_total"],
+            ceil=l["completion"]["pct_ceiling_eng_only"],
+            cls=l["completion"]["verdict"].lower().replace("-", ""),
+            vlabel=esc(VERDICT_LABEL.get(l["completion"]["verdict"],
+                                         (l["completion"]["verdict"], ""))[0]),
+            vwhy=esc(VERDICT_LABEL.get(l["completion"]["verdict"], ("", ""))[1]),
+            blockers=esc("、".join(
+                f"{OWNER_LABEL.get(o, o)} {n}"
+                for o, n in l["completion"]["blocking_by_owner"].items()) or "無"),
+        )
+        for l in m["lines"])
+
     tally = "".join(
         f'<div class="{l["id"]}"><span class="n">{l["green"]} / {l["total"]}</span>'
         f'<span class="k">{esc(l["name"])}</span></div>' for l in m["lines"])
@@ -1087,6 +1120,20 @@ def render_html(m):
       {tally}
     </div>
   </header>
+
+  <section>
+    <h3>三條線的落地程度</h3>
+    <p class="note">分母是<strong>節點</strong>，不是上面那一行的階段：階段只要有一個節點不綠就整段不綠，
+      它答的是「哪一段要注意」，不是「做完多少」。標準是節點綠燈 {LANDING_TARGET_PCT:.0f}%。
+      <strong>「工程端上限」是把所有「工程自理」的項目都關掉會得到的百分比</strong>——
+      它低於標準，就代表這個 repo 裡再多的工作也到不了標準。</p>
+    <table class="landing">
+      <thead><tr><th>線</th><th>節點綠燈</th><th>工程端上限</th><th>判定</th><th>下一步在誰手上</th></tr></thead>
+      <tbody>{landing}</tbody>
+    </table>
+    <p class="note">判定的定義與「工程已到頂不等於已落地」的理由，見
+      <a href="/decisions/0021-landing-is-a-three-state-verdict.md">ADR-0021</a>。</p>
+  </section>
 
   <section>
     <h3>需要注意的階段</h3>
@@ -1207,6 +1254,17 @@ figcaption{font-family:"IBM Plex Mono",ui-monospace,monospace;font-size:.72rem;
 .plates a{font-weight:600;text-decoration:none;border-bottom:1px solid currentColor}
 .plates small{display:block;margin-top:.3rem;color:var(--muted);font-size:.72rem}
 
+table.landing{width:100%;border-collapse:collapse;margin:.9rem 0 .6rem;font-size:.92rem}
+table.landing th{text-align:left;font-size:.75rem;letter-spacing:.06em;color:var(--faint);
+  font-weight:500;padding:0 .7rem .45rem 0;border-bottom:1px solid var(--rule)}
+table.landing td{padding:.6rem .7rem .6rem 0;border-bottom:1px solid var(--rule);vertical-align:top}
+table.landing td.num{font-family:"IBM Plex Mono",ui-monospace,monospace;font-variant-numeric:tabular-nums}
+table.landing td small{display:block;color:var(--faint);font-size:.75rem;margin-top:.15rem}
+.verdict{font-weight:700}
+.verdict.vlanded{color:var(--ok,#2E7D52)}
+.verdict.vengdebt{color:var(--warn,#B8863B)}
+.verdict.vceilingbound{color:var(--soft)}
+.verdict.vunknown{color:var(--faint)}
 .groups{display:flex;flex-direction:column;gap:1.5rem}
 .grp{background:var(--surface);border:1px solid var(--rule-soft);border-radius:3px;
   border-top:3px solid var(--tone);padding:1.1rem 1.3rem;--tone:var(--faint);--tone-w:var(--sunk)}

@@ -35,9 +35,20 @@ docker exec station2-twin-db-1 psql -U twin -d twin -tAc \
    union all select 'demographic_fact',count(*) from demographic_fact"
 ```
 
-**blue/green 尚未接上**——它的 compose 把資料庫與
-應用綁在同一份檔案，第二個顏色會撞到同一個 host port 與同一個具名 volume，
-拆分見 `../docs/Backlog.md`。
+**blue/green 跑在 Kubernetes 上，不在 Compose 上**（2026-09-19 更正：這段原本寫
+「blue/green 尚未接上」，那句話在 K8s 轉向之後就不再成立，而它讀起來像整個平台
+沒有藍綠部署）。現況分兩邊講：
+
+- **Kubernetes（`k3d devops-lab`）已接上**：`station2-twin-blue` 與
+  `station2-twin-green` 兩份部署同時在跑，Service 指向其中一個顏色，
+  切換與回滾由 [`platform/k8s/station2-twin/deploy.sh`](../platform/k8s/station2-twin/deploy.sh)
+  執行，守衛是 [`platform/k8s/station2-twin/test_bluegreen.sh`](../platform/k8s/station2-twin/test_bluegreen.sh)。
+  要看現在流量在哪一個顏色：
+  `kubectl --context k3d-devops-lab -n station2 get svc station2-twin -o jsonpath='{.spec.selector}'`
+- **Compose 那一份仍是單色**，理由沒有變：它把資料庫與應用綁在同一份檔案，
+  第二個顏色會撞到同一個 host port 與同一個具名 volume。拆分登記在
+  [`../docs/Backlog.md`](../docs/Backlog.md)。轉向 K8s 的理由見
+  [ADR-0010](../docs/decisions/0010-kubernetes-target-runtime-k3s.md)。
 
 這裡放用來驗證 DevOps 平台的 POC、Pilot 與測試服務。
 
