@@ -30,7 +30,7 @@ Vault 動態資料庫憑證、四個公衛 feed、Prometheus/Grafana/告警規�
 一步會告訴你它不再是真的。要現在的數字就跑：
 
 ```bash
-docker exec station2-twin-db-1 psql -U twin -d twin -tAc \
+platform/db/pilot_db.sh psql -c \
   "select 'surveillance_fact',count(*) from surveillance_fact
    union all select 'demographic_fact',count(*) from demographic_fact"
 ```

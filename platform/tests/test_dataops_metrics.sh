@@ -127,7 +127,7 @@ fi
 # what the database actually holds, which is the half an exit-on-unknown cannot
 # prove by itself: it only fires if such a row is reached, and a source that
 # stops loading stops being reached.
-if timeout 20 docker exec station2-twin-db-1 true >/dev/null 2>&1; then
+if timeout 20 "$REPO_ROOT/platform/db/pilot_db.sh" exec true >/dev/null 2>&1; then
   UNCLASSIFIED="$(python3 - <<'PY'
 import re, subprocess
 src = open("platform/dataops/pipeline_metrics.py", encoding="utf-8").read()
@@ -136,7 +136,8 @@ def lst(name):
     return set(re.findall(r'"([^"]+)"', m.group(1))) if m else set()
 known = lst("OK_STATUSES") | lst("CONFLICT_STATUSES") | lst("FAILURE_STATUSES")
 out = subprocess.run(
-    ["docker", "exec", "station2-twin-db-1", "psql", "-U", "twin", "-d", "twin",
+    [os.path.join(os.environ["REPO_ROOT"], "platform", "db", "pilot_db.sh"),
+     "exec", "psql", "-U", "twin", "-d", "twin",
      "-At", "-c", "SELECT DISTINCT status FROM ingest_runs"],
     capture_output=True, text=True, timeout=60)
 actual = {s for s in out.stdout.strip().split("\n") if s}
@@ -665,7 +666,7 @@ assert_output_contains "NO_DB_CASE ('unknown'" \
 
 # The invariant, against the real database: the probe cannot score more
 # forecasts than exist. This is what a fan-out looks like from the outside.
-if docker exec station2-twin-db-1 true 2>/dev/null; then
+if "$REPO_ROOT/platform/db/pilot_db.sh" exec true 2>/dev/null; then
   run_cmd python3 -c "
 import sys
 sys.path.insert(0, '$REPO_ROOT/platform/statusdag')

@@ -28,6 +28,7 @@ Exit 0 if the table is complete and every row is justified, 1 otherwise.
 """
 import argparse
 import json
+import pathlib
 import subprocess
 import sys
 
@@ -65,7 +66,9 @@ def ingested_sources(container):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--table", required=True)
-    ap.add_argument("--container", default="station2-twin-db-1")
+    ap.add_argument("--container", default=None,
+                    help="container id; resolved from the compose service "
+                         "when omitted (platform/db/pilot_db.sh)")
     ap.add_argument("--require-db", action="store_true",
                     help="fail rather than skip when the database is absent")
     args = ap.parse_args()
@@ -92,7 +95,11 @@ def main():
         if kind in ("declared", "structural") and row.get("seconds") is None:
             problems.append(f"{code}: claims {kind} evidence yet has no interval")
 
-    sources = ingested_sources(args.container)
+    container = args.container or subprocess.run(
+        [str(pathlib.Path(__file__).resolve().parents[2]
+             / "platform" / "db" / "pilot_db.sh"), "container"],
+        capture_output=True, text=True, timeout=20).stdout.strip()
+    sources = ingested_sources(container)
     if sources is None:
         if args.require_db:
             problems.append("the database is unreachable and --require-db was given")

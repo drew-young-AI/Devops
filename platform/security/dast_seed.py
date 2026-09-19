@@ -189,7 +189,11 @@ def build(target, app_path, container):
 def main(argv):
     target = "http://127.0.0.1:18090"
     app_path = DEFAULT_APP
-    container = "station2-twin-db-1"
+    # Resolved by compose service, not typed: a container name is
+    # <project>-<service>-<n> and moves with the directory (platform/db/pilot_db.sh).
+    container = subprocess.run(
+        [os.path.join(REPO_ROOT, "platform", "db", "pilot_db.sh"), "container"],
+        capture_output=True, text=True, timeout=20).stdout.strip()
     spec_out = None
     as_json = False
 

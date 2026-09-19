@@ -1,17 +1,3 @@
-# The Compose PROJECT NAME is pinned, not derived from the directory.
-#
-# WHY (2026-09-19, during the rename to station2-PublicHealth). Compose names
-# the project after the directory it finds the file in, and every container is
-# named <project>-<service>-N. Twenty-two places in this repo run
-# `docker exec station2-twin-db-1` -- probes, the ingest runner, the DAST
-# seeder, four test suites -- and every one of them would have broken the
-# moment the directory moved, with an error that says "No such container"
-# rather than "you renamed a directory".
-#
-# So the display name changes and the identifier does not. That split is
-# recorded in ADR-0022.
-name: station2-twin
-
 services:
   db:
     image: postgres:16-alpine

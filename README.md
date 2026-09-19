@@ -30,7 +30,7 @@ timestamp: 2026-08-11T20:05:56+08:00
   這個基準**時才發布。
 - **不寫數字在這裡**：列數與預測筆數每天都在變，寫下來會過期而讀起來不會。
   要現在的數字，跑
-  `docker exec station2-twin-db-1 psql -U twin -d twin -tAc "select count(*) from surveillance_fact"`，
+  `platform/db/pilot_db.sh psql -c "select count(*) from surveillance_fact"`，
   或直接看[階段報告](http://mac.local:18085/Stage-Report.html)。
 
 ## 從這裡開始：三種讀者，三個起點

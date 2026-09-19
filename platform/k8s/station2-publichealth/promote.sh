@@ -74,7 +74,8 @@ echo "  [2/4] every pod answered /health/ready with status=ready just now"
 # 4. the schema they expect is the schema that exists
 POD_SCHEMA=$(k exec "$(echo "$PODS" | awk '{print $1}')" -- python -c \
   "import urllib.request,json;print(json.load(urllib.request.urlopen('http://127.0.0.1:8080/health/ready',timeout=5))['schema_version'])" 2>/dev/null)
-DB_SCHEMA=$(docker exec station2-twin-db-1 psql -U twin -d twin -tAc \
+# Resolved by compose service, never by container name (platform/db/pilot_db.sh).
+DB_SCHEMA=$("$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"/platform/db/pilot_db.sh psql -c \
   'SELECT MAX(version) FROM schema_migrations' 2>/dev/null | tr -d '[:space:]')
 [ -n "$POD_SCHEMA" ] && [ "$POD_SCHEMA" = "$DB_SCHEMA" ] \
   || fail "schema mismatch: pods serve $POD_SCHEMA, database is at $DB_SCHEMA"

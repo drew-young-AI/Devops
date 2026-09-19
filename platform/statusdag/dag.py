@@ -66,6 +66,10 @@ RANK = {OK: 0, SUPERSEDED: 1, WARN: 2, UNKNOWN: 3, FAIL: 4}
 # Probes. Each returns (state, detail).
 # --------------------------------------------------------------------------
 
+# `20260918T210003Z` anywhere in a filename: the producer's own timestamp.
+STAMP_IN_NAME = re.compile(r"(\d{8}T\d{6}Z)")
+
+
 def newest(pattern):
     """The most recently WRITTEN match, by mtime -- not the last by name.
 
@@ -81,10 +85,33 @@ def newest(pattern):
     all `<name>_<timestamp>` and were already correct by name; mtime agrees
     with name ordering for them, so this is a fix with no behaviour change
     anywhere except the one that was broken.
+
+    MTIME IS NOT DURABLE, SO IT IS THE FALLBACK AND NOT THE RULE (2026-09-20).
+    Every artefact this reads carries its own timestamp in the NAME
+    (`..._20260918T210003Z.json`). The file's mtime says when the filesystem
+    last wrote those bytes, which is a different fact and one that git resets:
+    a checkout, a clone or a rebase stamps every restored file with "now".
+    That happened -- restoring some historical evidence files gave four
+    four-day-old DAST summaries an mtime newer than the actual latest run, so
+    the board picked one of them and reported `PASS, 88h ago -- stale` while a
+    19-hour-old PASS sat in the same directory. Nothing errored; a fresh clone
+    would do the same to every probe here at once.
+
+    So: when the candidates carry a timestamp in their name, that timestamp
+    decides -- it is what the producer meant. mtime remains the tiebreak for
+    anything that does not, which is what fixed the llm_review case above.
     """
     files = glob.glob(os.path.join(EVIDENCE, pattern))
     if not files:
         return None
+
+    def stamped(path):
+        m = STAMP_IN_NAME.search(os.path.basename(path))
+        return m.group(1) if m else None
+
+    stamps = {f: stamped(f) for f in files}
+    if all(stamps.values()):
+        return max(files, key=lambda f: stamps[f])
     return max(files, key=os.path.getmtime)
 
 
@@ -827,11 +854,40 @@ def probe_human_gate():
 # re-checked.
 # --------------------------------------------------------------------------
 
+_PILOT_DB = {"cid": None}
+
+
+def pilot_db_container(timeout=20):
+    """The pilot database container, resolved by COMPOSE SERVICE.
+
+    NOT `station2-twin-db-1`. That name is <project>-<service>-<n>, built by
+    Compose from the directory the file lives in, so it changes when a
+    directory is renamed and every caller that typed it breaks with "No such
+    container" -- an error about the symptom. The compose file and the service
+    name are declared; the container name is derived. This asks the declared
+    thing (see platform/db/pilot_db.sh for the whole argument).
+
+    Cached for the process: the board calls psql() dozens of times per run and
+    the resolution costs ~65ms each.
+    """
+    if _PILOT_DB["cid"]:
+        return _PILOT_DB["cid"]
+    rc, out = run([os.path.join(REPO_ROOT, "platform", "db", "pilot_db.sh"),
+                   "container"], timeout=timeout)
+    if rc != 0 or not (out or "").strip():
+        return None
+    _PILOT_DB["cid"] = out.strip()
+    return _PILOT_DB["cid"]
+
+
 def psql(sql, timeout=20):
     """One value out of the pilot database, or None if it cannot be reached.
     None is deliberately distinct from 0: 'no answer' and 'zero rows' are
     different facts and the board colours them differently."""
-    rc, out = run(["docker", "exec", "station2-twin-db-1", "psql", "-U", "twin",
+    cid = pilot_db_container(timeout=timeout)
+    if not cid:
+        return None
+    rc, out = run(["docker", "exec", cid, "psql", "-U", "twin",
                    "-d", "twin", "-qtAX", "-c", sql], timeout=timeout)
     if rc != 0:
         return None

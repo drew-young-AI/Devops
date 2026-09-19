@@ -655,4 +655,32 @@ PY4
 assert_rc 0 "newest() runs against a directory where name order and time order disagree"
 assert_output_contains "CORRECT" "and returns the file written last, not the one sorting last"
 
+# ---- and mtime must not be the rule, because git resets it ---------------
+#
+# 2026-09-20: restoring a few historical evidence files with `git checkout`
+# stamped four four-day-old DAST summaries with "now". `newest()` was picking
+# by mtime, so the board read one of them and reported `PASS, 88h ago --
+# stale` while a 19-hour-old PASS sat in the same directory. Nothing errored.
+# A fresh clone does this to every probe at once, which is the case worth
+# guarding: the producer's timestamp is IN THE NAME and that is what it means.
+run_cmd python3 - <<'PY5'
+import os, sys, tempfile, time
+sys.path.insert(0, os.path.join(os.getcwd(), "platform", "statusdag"))
+import dag
+d = tempfile.mkdtemp()
+real_latest = os.path.join(d, "dast_summary_20260918T210003Z.json")
+stale_restored = os.path.join(d, "dast_summary_20260916T002058Z.json")
+open(real_latest, "w").write("{}")
+time.sleep(1.1)
+open(stale_restored, "w").write("{}")   # what `git checkout` does: old file, new mtime
+dag.EVIDENCE = d
+got = os.path.basename(dag.newest("dast_summary_*.json") or "")
+print("PICKED", got)
+print("BYNAME" if got == os.path.basename(real_latest) else "BYMTIME")
+PY5
+assert_rc 0 "newest() runs against a directory whose mtimes were reset by git"
+assert_output_contains "BYNAME" \
+  "the producer's timestamp in the filename wins over an mtime git rewrote"
+
+
 suite_summary

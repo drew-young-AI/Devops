@@ -80,7 +80,7 @@ WHERE beats_baselines ORDER BY mae ASC LIMIT 1
 證據：`evidence/mlops/policy_margin_sweep_*.json`，重跑指令
 
 ```bash
-export PGPASSWORD="$(docker exec station2-twin-db-1 sh -c 'printf %s "$POSTGRES_PASSWORD"')"
+export PGPASSWORD="$(platform/db/pilot_db.sh exec sh -c 'printf %s "$POSTGRES_PASSWORD"')"
 pilots/station2-publichealth/mlops/run.sh policy_backtest.py \
   --feature-set 100 --horizon 2 --all-origins --margin 0.10 --json -
 ```

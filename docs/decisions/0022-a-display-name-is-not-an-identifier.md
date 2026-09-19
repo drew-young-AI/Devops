@@ -51,7 +51,8 @@ pilot 當初叫 `station2-twin`（digital twin 的 twin）。它現在承載的�
 | pilot 目錄 | `pilots/station2-twin/` | `pilots/station2-publichealth/` |
 | k8s manifest 目錄 | `platform/k8s/station2-twin/` | `platform/k8s/station2-publichealth/` |
 | 映像 | `k3d-registry:5111/station2-twin`、`ghcr.io/<owner>/station2-twin` | `…/station2-publichealth` |
-| **不動** | Prometheus job／`service` 標籤、k8s namespace `station2` 與 Deployment `station2-twin-blue/green`、資料庫 `twin`、Vault `database/creds/station2-twin`、Compose 專案與容器 `station2-twin-db-1`、卷 `station2-twin-db`、`evidence/station2-twin/` | 同左 |
+| **不動** | Prometheus job／`service` 標籤、k8s namespace `station2` 與 Deployment `station2-twin-blue/green`、資料庫 `twin`、Vault `database/creds/station2-twin`、卷 `station2-twin-db`、`evidence/station2-twin/` | 同左 |
+| **跟著目錄走** | Compose 專案名與容器名（現在是 `station2-publichealth-db-1`）——呼叫端改用 `platform/db/pilot_db.sh` 解析，不再寫死 | 見下一節 |
 
 ### 目錄名一律小寫，顯示名才有大小寫
 
@@ -64,14 +65,27 @@ pilot 當初叫 `station2-twin`（digital twin 的 twin）。它現在承載的�
 
 所以：**人看到的是 `station2-PublicHealth`，機器看到的一律小寫。**
 
-### Compose 專案名要釘死，不能靠目錄推導
+### 呼叫端不可以依賴容器名（2026-09-20 修正，原本的做法已撤回）
 
-搬目錄之前先在 `compose.yaml` 加了 `name: station2-twin`。
+**原本的做法**：搬目錄之前在 `compose.yaml` 加 `name: station2-twin`，把專案名釘死，
+於是容器名不變、22 處 `docker exec station2-twin-db-1` 全部繼續能用。
 
-理由是量出來的：這個 repo 裡有 **22 處** `docker exec station2-twin-db-1`——探針、
-ingest 執行器、DAST 種子、四個測試套件。Compose 用**目錄名**當專案名，容器叫
-`<專案>-<服務>-N`，所以目錄一搬，那 22 處全部壞掉，而錯誤訊息會說
-「No such container」，不會說「你搬了一個目錄」。
+**為什麼撤回**：那是**凍結一個衍生字串，去保護一批本來就不該依賴它的呼叫端**。
+容器名是 Compose 用 `<專案>-<服務>-<n>` 組出來的，專案名預設又來自目錄名——
+釘死它等於宣告「這個目錄以後也不能再改名」，而且下一個人看到那個 `name:` 不會知道
+它在保護什麼。改名會痛，真正的原因是**有 22 個地方把一個衍生字串當成了介面**。
+
+**現在的做法**：`platform/db/pilot_db.sh` 依 **compose 檔 + 服務名 `db`** 解析容器，
+所有呼叫端改用它，compose 的專案名回到預設（跟著目錄走，容器現在叫
+`station2-publichealth-db-1`）。宣告的東西是 compose 檔與服務名；容器名是產物。
+
+**代價**：每次解析約 65ms。`dag.py` 一輪會呼叫 psql 數十次，所以在行程內快取。
+
+**實際搬遷時踩到、與改名無關的一件事**：第一次 `up -d` 撞到舊專案還占著 15432，
+埠綁定失敗但容器**已經被建立**；後續 `restart` 不會重建埠綁定，於是
+「容器在跑、`docker exec` 正常、但主機連不到那個埠」——Vault 因此核發不了憑證，
+而應用回報的是 `credentials_unavailable`，看起來像權限問題。**`down` 再 `up` 才會修好。**
+要換專案名時，先把舊專案 `down` 乾淨，再起新的。
 
 ## 為什麼時序標籤那一層不動
 
@@ -110,7 +124,8 @@ ingest 執行器、DAST 種子、四個測試套件。Compose 用**目錄名**�
 ```bash
 # 識別字是否真的沒被改到（這三個必須仍然存在）
 grep -n 'job_name: station2-twin' platform/observability/prometheus/prometheus.yml
-docker compose -f pilots/station2-publichealth/compose.yaml ps --format '{{.Name}}'  # station2-twin-db-1
+docker compose -f pilots/station2-publichealth/compose.yaml ps --format '{{.Name}}'  # 專案名跟著目錄
+platform/db/pilot_db.sh name    # 呼叫端看到的是這個，不是寫死的字串
 kubectl --context k3d-devops-lab -n station2 get deploy   # station2-twin-blue / -green
 
 # 路徑與映像真的可用（會實際部署兩個顏色再還原）

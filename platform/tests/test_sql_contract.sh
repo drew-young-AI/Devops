@@ -38,7 +38,8 @@ root = pathlib.Path(sys.argv[1])
 src = (root / "platform" / "statusdag" / "dag.py").read_text(encoding="utf-8")
 
 def q(sql):
-    p = subprocess.run(["docker", "exec", "station2-twin-db-1", "psql", "-U", "twin",
+    p = subprocess.run([str(root / "platform" / "db" / "pilot_db.sh"), "exec",
+                    "psql", "-U", "twin",
                         "-d", "twin", "-tAc", sql], capture_output=True, text=True, timeout=30)
     if p.returncode != 0:
         sys.exit("REFUSING: cannot reach the pilot database: %s"
@@ -147,7 +148,8 @@ try:
     # Re-run the same extraction against the mutated copy.
     src = broken
     def q(sql):
-        p = subprocess.run(["docker", "exec", "station2-twin-db-1", "psql", "-U", "twin",
+        p = subprocess.run([str(root / "platform" / "db" / "pilot_db.sh"), "exec",
+                    "psql", "-U", "twin",
                             "-d", "twin", "-tAc", sql], capture_output=True, text=True,
                            timeout=30)
         return [ln for ln in p.stdout.splitlines() if ln.strip()]

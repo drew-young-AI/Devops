@@ -138,7 +138,9 @@ def db_sources():
     and should not need one.
     """
     out = subprocess.run(
-        ["docker", "exec", "station2-twin-db-1", "psql", "-U", "twin", "-d",
+        # Resolved by compose service, not typed: see platform/db/pilot_db.sh.
+        [str(REPO_ROOT / "platform" / "db" / "pilot_db.sh"), "exec",
+         "psql", "-U", "twin", "-d",
          "twin", "-At", "-F", "|", "-c",
          "SELECT code, coalesce(url,'') FROM data_source "
          "UNION "

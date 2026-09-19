@@ -6,7 +6,10 @@
 set -uo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 VENV="$HERE/venv"
-DB_CONTAINER="${DB_CONTAINER:-station2-twin-db-1}"
+# The container is RESOLVED, not typed: `<project>-db-1` is derived from the
+# directory name and broke everywhere the day the pilot was renamed.
+# platform/db/pilot_db.sh asks compose for the service instead.
+DB_CONTAINER="${DB_CONTAINER:-$("$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"/platform/db/pilot_db.sh container)}"
 
 [ -x "$VENV/bin/python" ] || {
   echo "environment not set up. run: platform/analytics/setup.sh" >&2; exit 78; }

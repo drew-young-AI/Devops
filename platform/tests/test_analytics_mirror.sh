@@ -70,7 +70,7 @@ assert_rc 0 "a current mirror answers queries"
 # manifest to itself would pass on a mirror built from nothing.
 MIRROR_ROWS="$(python3 -c "
 import json; print(json.load(open('$MANIFEST'))['tables']['fact']['rows'])")"
-DB_ROWS="$(docker exec station2-twin-db-1 psql -U twin -d twin -At \
+DB_ROWS="$("$REPO_ROOT/platform/db/pilot_db.sh" psql -A \
   -c 'SELECT count(*) FROM surveillance_fact' 2>/dev/null | tr -d '[:space:]')"
 assert_equals "$DB_ROWS" "$MIRROR_ROWS" "mirror row count equals the database's"
 

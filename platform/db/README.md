@@ -14,6 +14,7 @@ timestamp: 2026-09-01T09:53:38+08:00
 
 ```bash
 platform/db/migrate.sh            # apply pending migrations, in order, once
+platform/db/pilot_db.sh psql -c "select 1"   # talk to the pilot DB without typing a container name
 ```
 
 ## What it actually guarantees
@@ -58,4 +59,5 @@ gets its own database.
 
 | 能力 | 什麼時候跑 | 做什麼 | 保證什麼 |
 |---|---|---|---|
+| [`pilot_db.sh`](pilot_db.sh) | 任何需要對 pilot 資料庫下指令的時候（探針、ingest、備份、測試） | 依 **compose 服務**解析出資料庫容器，並提供 `container` / `name` / `exec` / `psql` 四個動作 | 容器名是 `<專案>-<服務>-<n>`，由目錄名推導出來的**衍生字串**。2026-09-20 改名時，22 處寫死 `station2-twin-db-1` 的呼叫全部壞掉，錯誤訊息是「No such container」——講的是症狀不是原因。第一版的處置是在 compose 釘死專案名把舊容器名保住，那是**用凍結一個名字去保護不該依賴它的呼叫端**，已撤回。宣告的東西是 compose 檔與服務名 `db`，這支腳本問的是那個。資料庫沒在跑時回 **rc 3**，與 psql 查詢失敗（rc 1）分開——「資料庫掛了」和「查詢寫錯了」要做的事不同 |
 | [`migrate.sh`](migrate.sh) | 每次結構變更 | 依序、只跑一次地套用遷移，**並拒絕危險的那些** | 寫一個遷移器很容易；真正造成停機的是它**拒絕**做的三件事，第一件是**重跑一個被改過的遷移**——checksum 對不上就停 |

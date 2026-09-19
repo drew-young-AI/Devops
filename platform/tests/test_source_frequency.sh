@@ -81,7 +81,7 @@ expect_reject "a row claiming declared evidence with no interval behind it"
 # The half that needs the database. A loud skip, not a silent one: without it
 # all that has been shown is that the rows present are well-formed, not that
 # the rows that should be present are.
-if timeout 20 docker exec station2-twin-db-1 true >/dev/null 2>&1; then
+if timeout 20 "$REPO_ROOT/platform/db/pilot_db.sh" exec true >/dev/null 2>&1; then
   run_cmd python3 "$CHECK" --table "$TABLE" --require-db
   assert_rc 0 "no source has ingest history without a row in the table"
 

@@ -168,7 +168,7 @@ docker exec -e VAULT_TOKEN="$VT" -e VAULT_ADDR=http://127.0.0.1:8200 \
 | **Grafana 管理員** | `admin` | Vault `secret/devops/grafana-admin` | `platform/observability/.grafana.env` | **否** | 上面第 4 步；或 `grep GF_SECURITY_ADMIN_PASSWORD platform/observability/.grafana.env` |
 | **GitHub token** | — | Vault `secret/devops/github` | — | — | 上面第 4 步，`-field=password` |
 | **GHCR（映像庫）** | — | Vault `secret/devops/ghcr` | — | — | 同上 |
-| **pilot 資料庫** | `twin` / db `twin` | 容器環境變數 | `pilots/station2-publichealth/.env`（由 `config.example.env` 複製） | **否**（範例檔才進版控） | `docker exec station2-twin-db-1 sh -c 'printf %s "$POSTGRES_PASSWORD"'` |
+| **pilot 資料庫** | `twin` / db `twin` | 容器環境變數 | `pilots/station2-publichealth/.env`（由 `config.example.env` 複製） | **否**（範例檔才進版控） | `platform/db/pilot_db.sh exec sh -c 'printf %s "$POSTGRES_PASSWORD"'` |
 | **pilot AppRole** | — | Vault（動態核發） | `platform/vault/.station2-twin-approle.json` | **否** | `platform/k8s/station2-publichealth/sync_vault_secret.sh` 重新核發 |
 | **Telegram bot** | bot 本身 | `~/.env` 的 `TELEGRAM_BOT_TOKEN`（頻道是 `TELEGRAM_HOME_CHANNEL`） | `platform/observability/alertmanager/telegram-token`（chmod 600，由腳本產生） | **否**（gitignored） | `platform/observability/scripts/setup_notifications.sh` 會重新產生並實送一則測試訊息 |
 | **生產節點 ssh** | `drew` | 你的 ssh 金鑰 | `~/.ssh/` | **否** | `ssh -4 drew@ubu.local`（**要 `-4`，理由見第七節**） |

@@ -75,7 +75,7 @@ VOLUMES=(
 # When the container is NOT running, tar is correct and is what happens:
 # nothing is writing, so the on-disk state is consistent by definition.
 PG_SERVICES=(
-  "station2-twin-db-1|twin|twin|station2-twin-db"
+  "$("$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"/platform/db/pilot_db.sh container)|twin|twin|station2-twin-db"
 )
 
 # Named volumes that are deliberately not backed up. Listed explicitly so the

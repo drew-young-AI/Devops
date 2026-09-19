@@ -53,7 +53,7 @@ declare -a FSIDS=()
 for D in "${TARGETS[@]}"; do
   step "1/5 build features [$D]" "$MLOPS/run.sh" build_features.py --disease "$D" \
     || exit 1
-  FS="$(docker exec station2-twin-db-1 psql -U twin -d twin -qtAX -c \
+  FS="$("$ROOT/platform/db/pilot_db.sh" psql -c \
     "SELECT fs.feature_set_id FROM feature_set fs
        JOIN disease d ON d.disease_id = fs.disease_id
       WHERE d.code = '$D' ORDER BY fs.built_at DESC LIMIT 1" 2>/dev/null | tr -d ' ')"

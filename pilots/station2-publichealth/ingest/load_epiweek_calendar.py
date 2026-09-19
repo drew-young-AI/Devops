@@ -72,7 +72,28 @@ import sys
 HERE = os.path.dirname(os.path.abspath(__file__))
 CROSSWALK = os.path.join(HERE, "reference", "cdc_dim_cal_20260911.csv")
 SOURCE_URL = "https://nidss.cdc.gov.tw/config/DIM_CAL.csv"
-CONTAINER = os.environ.get("TWIN_DB_CONTAINER", "station2-twin-db-1")
+def _resolve_db_container():
+    """Ask compose which container is serving `db`, rather than typing its name.
+
+    `<project>-db-1` is derived from the directory the compose file sits in, so
+    it changes when a directory is renamed and every caller that typed it fails
+    with "No such container" -- an error about the symptom. See
+    platform/db/pilot_db.sh.
+    """
+    override = os.environ.get("TWIN_DB_CONTAINER")
+    if override:
+        return override
+    resolver = os.path.join(HERE, "..", "..", "..", "platform", "db",
+                            "pilot_db.sh")
+    try:
+        out = subprocess.run([os.path.abspath(resolver), "container"],
+                             capture_output=True, text=True, timeout=20)
+    except (OSError, subprocess.SubprocessError):
+        return ""
+    return out.stdout.strip()
+
+
+CONTAINER = _resolve_db_container()
 
 # A crosswalk that parsed to almost nothing is a broken read, not a small
 # calendar. Same refusal as every other enumeration in this repository.
