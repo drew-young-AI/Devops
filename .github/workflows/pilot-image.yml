@@ -46,8 +46,8 @@ on:
   workflow_dispatch:
   push:
     paths:
-      - 'pilots/station2-twin/Dockerfile'
-      - 'pilots/station2-twin/app/**'
+      - 'pilots/station2-publichealth/Dockerfile'
+      - 'pilots/station2-publichealth/app/**'
       - '.github/workflows/pilot-image.yml'
 
 permissions:
@@ -82,7 +82,7 @@ jobs:
       - name: image name (ghcr rejects uppercase in a repository path)
         run: |
           owner="$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')"
-          echo "IMAGE=ghcr.io/$owner/station2-twin" >> "$GITHUB_ENV"
+          echo "IMAGE=ghcr.io/$owner/station2-publichealth" >> "$GITHUB_ENV"
 
       # The architecture is ASSERTED, not assumed. A runner label is a request;
       # this is the check that the request was honoured. If GitHub ever
@@ -104,7 +104,7 @@ jobs:
 
       # Plain `docker build`. No --platform, no QEMU: the runner IS the target.
       - name: build
-        working-directory: pilots/station2-twin
+        working-directory: pilots/station2-publichealth
         run: docker build -t "$IMAGE:${{ github.sha }}-${{ matrix.arch }}" .
 
       # Proof the artifact matches the machine, before it is pushed anywhere.
@@ -151,7 +151,7 @@ jobs:
       - name: image name (ghcr rejects uppercase in a repository path)
         run: |
           owner="$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')"
-          echo "IMAGE=ghcr.io/$owner/station2-twin" >> "$GITHUB_ENV"
+          echo "IMAGE=ghcr.io/$owner/station2-publichealth" >> "$GITHUB_ENV"
 
       - name: log in to ghcr.io
         run: |

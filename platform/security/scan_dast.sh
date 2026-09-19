@@ -110,7 +110,7 @@ PROBE_URL="${TARGET//host.docker.internal/127.0.0.1}"
 if ! curl -sk -o /dev/null --max-time 10 "$PROBE_URL"; then
   echo "DAST FAILED: target $TARGET (probed as $PROBE_URL) is not reachable." >&2
   echo "Check, in this order:" >&2
-  echo "  1. Is the target up?   docker compose -f pilots/station2-twin/compose.yaml ps" >&2
+  echo "  1. Is the target up?   docker compose -f pilots/station2-publichealth/compose.yaml ps" >&2
   echo "  2. Is it still THERE?  A published port whose service was retired still" >&2
   echo "     accepts TCP and then closes -- that is what 18443 did for days after" >&2
   echo "     station1-hello went away. curl -v will show the handshake dying." >&2

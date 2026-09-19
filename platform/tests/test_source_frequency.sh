@@ -26,7 +26,7 @@ source "$SUITE_DIR/lib.sh"
 
 echo "== source cadence: a number without provenance is an estimate =="
 
-TABLE="$REPO_ROOT/pilots/station2-twin/ingest/source_frequency.json"
+TABLE="$REPO_ROOT/pilots/station2-publichealth/ingest/source_frequency.json"
 BUILDER="$REPO_ROOT/platform/dataops/refresh_source_frequency.py"
 CHECK="$SUITE_DIR/source_frequency_check.py"
 

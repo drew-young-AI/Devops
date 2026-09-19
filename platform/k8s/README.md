@@ -100,8 +100,8 @@ arrives by default and is therefore never examined.
 | `create_cluster.sh` | Rebuilds the k3d practice cluster on the Mac, with a registry wired in at creation time. Produces an empty, reachable cluster and stops. |
 | `bootstrap_k3s.sh` | Installs k3s on the Ubuntu box over SSH, merges its kubeconfig into `~/.kube/config` as context `ubu`, and verifies reachability **from the Mac**. Idempotent. |
 | `verify_cluster.sh` | Asserts the cluster is usable, not merely present. |
-| `station2-twin/` | The pilot's manifests, blue/green promotion, and network policy. |
-| `station2-twin/metrics-service.yaml` | A NodePort that makes the in-cluster copy reachable by the Prometheus outside it. It carries the same `color` selector as the traffic Service, so the metrics describe the copy that is actually serving. |
+| `station2-publichealth/` | The pilot's manifests, blue/green promotion, and network policy. |
+| `station2-publichealth/metrics-service.yaml` | A NodePort that makes the in-cluster copy reachable by the Prometheus outside it. It carries the same `color` selector as the traffic Service, so the metrics describe the copy that is actually serving. |
 
 Neither bootstrap script deploys a workload, deliberately. Bundling substrate
 and workload makes a failure ambiguous between the two.
@@ -115,7 +115,7 @@ and workload makes a failure ambiguous between the two.
    Compose copy does use Vault. The board's "migrated to K8s" claim is
    therefore true of the deployment and not of the credential path.
    *(The other half of this — the K8s copy being unscraped — was closed on
-   2026-09-01: see `station2-twin/metrics-service.yaml` and
+   2026-09-01: see `station2-publichealth/metrics-service.yaml` and
    `platform/tests/test_migration_observed.sh`.)*
 3. **The Ubuntu box was unreachable at the time of writing** (SSH and 6443 both
    timed out while its NIC still answered ARP — consistent with suspend).
@@ -201,10 +201,10 @@ mode 不該。對「必須相同的東西」斷言相同、同時讓「必須不
 
 | 能力 | 什麼時候跑 | 做什麼 | 保證什麼 |
 |---|---|---|---|
-| [`station2-twin/deploy.sh`](station2-twin/deploy.sh) | 每次發版 | 部署**一個顏色**，**不切流量** | 分開才有意義：deploy 同時 promote 就沒有那個「新版本正在跑、連得到、但還沒服務流量」的檢查時刻 |
-| [`station2-twin/promote.sh`](station2-twin/promote.sh) | 驗過新顏色之後 | 把流量切到某個顏色，**但只在它真的在服務時** | 切換本身只是一行 Service patch；**閘門才是全部的重點**——切之前檢查 Deployment 真的就緒、endpoint 真的有 pod |
-| [`station2-twin/sync_vault_secret.sh`](station2-twin/sync_vault_secret.sh) | AppRole 更新時 | 把 AppRole 放進叢集 Secret | 讓 K8s 那份不再帶靜態資料庫密碼；role_id／secret_id 走 stdin manifest，**不進 argv**（`ps` 全機可讀） |
-| [`station2-twin/verify_networkpolicy.sh`](station2-twin/verify_networkpolicy.sh) | 改 NetworkPolicy 後 | 證明網路政策**真的擋住東西** | `kubectl get netpol` 只證明 manifest 被接受。**CNI 若忽略 NetworkPolicy，每一份 manifest 都是裝飾品**，而看起來一模一樣 |
+| [`station2-publichealth/deploy.sh`](station2-publichealth/deploy.sh) | 每次發版 | 部署**一個顏色**，**不切流量** | 分開才有意義：deploy 同時 promote 就沒有那個「新版本正在跑、連得到、但還沒服務流量」的檢查時刻 |
+| [`station2-publichealth/promote.sh`](station2-publichealth/promote.sh) | 驗過新顏色之後 | 把流量切到某個顏色，**但只在它真的在服務時** | 切換本身只是一行 Service patch；**閘門才是全部的重點**——切之前檢查 Deployment 真的就緒、endpoint 真的有 pod |
+| [`station2-publichealth/sync_vault_secret.sh`](station2-publichealth/sync_vault_secret.sh) | AppRole 更新時 | 把 AppRole 放進叢集 Secret | 讓 K8s 那份不再帶靜態資料庫密碼；role_id／secret_id 走 stdin manifest，**不進 argv**（`ps` 全機可讀） |
+| [`station2-publichealth/verify_networkpolicy.sh`](station2-publichealth/verify_networkpolicy.sh) | 改 NetworkPolicy 後 | 證明網路政策**真的擋住東西** | `kubectl get netpol` 只證明 manifest 被接受。**CNI 若忽略 NetworkPolicy，每一份 manifest 都是裝飾品**，而看起來一模一樣 |
 
 
 ---

@@ -30,7 +30,7 @@ that a green line cannot be quoted as more than it is.
 ## Start here
 
 ```bash
-platform/ci/run_local_ci.sh                     # defaults to pilots/station2-twin
+platform/ci/run_local_ci.sh                     # defaults to pilots/station2-publichealth
 platform/ci/run_local_ci.sh <pilot-dir> <out>   # or point it somewhere else
 ```
 

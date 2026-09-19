@@ -124,14 +124,14 @@ echo "=== [recover] pilot ==="
 # noticing does not.
 ENV_FILE_ARG=()
 if "$REPO_ROOT/platform/vault/scripts/write_pilot_approle_env.sh" station2-twin; then
-  ENV_FILE_ARG=(--env-file "$REPO_ROOT/pilots/station2-twin/.env.vault")
+  ENV_FILE_ARG=(--env-file "$REPO_ROOT/pilots/station2-publichealth/.env.vault")
 else
   echo "  station2-twin will start WITHOUT Vault credentials (static password)" >&2
 fi
 
 (cd "$REPO_ROOT" && docker compose -p station2-twin \
   "${ENV_FILE_ARG[@]}" \
-  -f pilots/station2-twin/compose.yaml up -d --no-build >/dev/null 2>&1) \
+  -f pilots/station2-publichealth/compose.yaml up -d --no-build >/dev/null 2>&1) \
   && echo "  station2-twin up (db + app)" \
   || echo "  WARNING: station2-twin did not start" >&2
 

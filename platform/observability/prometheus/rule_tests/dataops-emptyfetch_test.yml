@@ -40,7 +40,7 @@ tests:
             exp_annotations:
               summary: "cdc-nhi-ili 抓取成功但內容沒有變過，已超過發布週期的 3 倍"
               description: >-
-                The fetch is working and the bytes have not changed. Either the upstream stopped publishing, or we are fetching a stale mirror. Nothing else reports this: the fetch clock resets on every successful fetch, so freshness stays green while the data stands still. Cadence provenance for this source is declared (see pilots/station2-twin/ingest/source_frequency.json).
+                The fetch is working and the bytes have not changed. Either the upstream stopped publishing, or we are fetching a stale mirror. Nothing else reports this: the fetch clock resets on every successful fetch, so freshness stays green while the data stands still. Cadence provenance for this source is declared (see pilots/station2-publichealth/ingest/source_frequency.json).
               runbook: >-
                 psql: SELECT fetched_at, content_sha256 FROM ingest_runs WHERE source='cdc-nhi-ili' ORDER BY fetched_at DESC LIMIT 5; 兩份 sha 相同即為空抓取。再對照出版方頁面確認是否真的停發
       # `for: 1h` is real: at 30m the condition holds and the alert must not

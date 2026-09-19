@@ -9,7 +9,7 @@ That is still true and still registered.
 
 But the question T23 was going to answer -- "is this margin real?" -- has a
 second instance that needs no migration at all. The policy replay
-(pilots/station2-twin/mlops/policy_backtest.py) already records, for every
+(pilots/station2-publichealth/mlops/policy_backtest.py) already records, for every
 origin it published at, the actual value, the published value and the
 persistence value. That is a PAIRED sample: the same week, scored two ways,
 hundreds of times. The paired errors are in the artifact; nothing has to be

@@ -35,9 +35,9 @@
 # 'rollback' can flip traffic straight back without redeploying anything.
 #
 # Example:
-#   platform/compose/deploy.sh build pilots/station2-twin
-#   platform/compose/deploy.sh deploy develop pilots/station2-twin
-#   platform/compose/deploy.sh promote pilots/station2-twin
+#   platform/compose/deploy.sh build pilots/station2-publichealth
+#   platform/compose/deploy.sh deploy develop pilots/station2-publichealth
+#   platform/compose/deploy.sh promote pilots/station2-publichealth
 
 set -euo pipefail
 

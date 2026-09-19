@@ -1,6 +1,6 @@
 ---
 type: platform-adapter
-title: station2-twin（Pilot 2：有狀態服務）
+title: station2-PublicHealth（Pilot 2：有狀態服務）
 description: "The digital twin query/API layer: the platform's first stateful pilot, and the migration, readiness and backup mechanisms it forced into existence."
 tags:
   - pilot
@@ -10,14 +10,21 @@ tags:
 timestamp: 2026-08-18T10:20:00+08:00
 ---
 
-# station2-twin
+# station2-PublicHealth
+
+> **名字有兩個，刻意的。** 對人顯示的名字是 **station2-PublicHealth**（2026-09-19 更名，
+> 原名 station2-twin）；**識別字一律維持 `station2-twin`**——Prometheus 的 job 與
+> `service` 標籤、Kubernetes 的 namespace 與 Deployment、資料庫、Vault 路徑、
+> Compose 專案與容器名、既有 evidence 目錄。改識別字會把時序資料切成改名前後兩段，
+> 而那段歷史是這個平台唯一的長期證據。完整分層與理由見
+> [ADR-0022](../../docs/decisions/0022-a-display-name-is-not-an-identifier.md)。
 
 The digital twin query/API layer. A small HTTP service over PostgreSQL that
 ingests asset observations and serves current state and history.
 
 ```bash
-docker compose -f pilots/station2-twin/compose.yaml up -d
-PGPASSWORD=twin-bootstrap platform/db/migrate.sh station2-twin
+docker compose -f pilots/station2-publichealth/compose.yaml up -d
+PGPASSWORD=twin-bootstrap platform/db/migrate.sh station2-publichealth
 curl -s localhost:18090/health/ready
 
 ```
@@ -54,7 +61,7 @@ static`，而 Kubernetes 副本還在用 Vault——同一天早上，兩個副�
 
 | 檔案 | 進版控？ | 哪來 |
 |---|---|---|
-| `pilots/station2-twin/.env.vault` | **否** | `platform/vault/scripts/write_pilot_approle_env.sh station2-twin` 產生（`recover.sh` 會自己叫） |
+| `pilots/station2-publichealth/.env.vault` | **否** | `platform/vault/scripts/write_pilot_approle_env.sh station2-twin` 產生（`recover.sh` 會自己叫） |
 | `config.example.env` | 是 | 範本。要手動跑時複製成 `.env` 並填 `PGPASSWORD` |
 
 資料庫密碼怎麼拿、Vault 怎麼進去，見

@@ -91,9 +91,80 @@ assert_output_contains "mlops_replacement_margin_ratio" \
 # system does not enforce, and it would still render.
 EMITTED_MARGIN="$(grep '^mlops_replacement_margin_ratio' "$OUT" | awk '{print $NF}')"
 SOURCE_MARGIN="$(grep -oE '^REPLACEMENT_MARGIN = [0-9.]+' \
-  "$REPO_ROOT/pilots/station2-twin/mlops/publish_forecast.py" | awk '{print $3}')"
+  "$REPO_ROOT/pilots/station2-publichealth/mlops/publish_forecast.py" | awk '{print $3}')"
 assert_equals "$SOURCE_MARGIN" "$EMITTED_MARGIN" \
   "the emitted margin equals publish_forecast.py's REPLACEMENT_MARGIN, not a copy"
+
+# ---- the per-origin grid: complete folds, or none ------------------------
+#
+# WHY THIS IS A COUNT AND NOT A "the metric exists" CHECK (2026-09-19).
+#
+# The regression-test dashboard reads five series per fold: prediction,
+# actual, persistence, and the two absolute errors. They are compared AGAINST
+# EACH OTHER -- "was the model closer than doing nothing" is a subtraction
+# between two of them. If one series is emitted for a fold and another is not,
+# the subtraction silently drops that fold: PromQL's binary operators return
+# only the matched set, so the panel renders a smaller sample with no error and
+# no gap. A win rate computed over the folds that happened to match is a number
+# that looks exactly like a win rate.
+for M in mlops_backtest_predicted mlops_backtest_actual \
+         mlops_backtest_persistence mlops_backtest_abs_error \
+         mlops_backtest_baseline_abs_error; do
+  eval "N_${M##mlops_backtest_}=$(grep -c "^$M{" "$OUT" || true)"
+done
+FOLD_COUNTS="$(for M in mlops_backtest_predicted mlops_backtest_actual \
+                        mlops_backtest_persistence mlops_backtest_abs_error \
+                        mlops_backtest_baseline_abs_error; do
+                 grep -c "^$M{" "$OUT" || true
+               done | sort -u | tr '\n' ' ' | sed 's/ $//')"
+case "$FOLD_COUNTS" in
+  *" "*) _fail "every fold carries all five per-origin series" \
+               "series counts differ across the five metrics: $FOLD_COUNTS" ;;
+  0)     _fail "every fold carries all five per-origin series" \
+               "no per-origin series at all -- backtest_prediction is empty or unreadable" ;;
+  *)     _pass "every fold carries all five per-origin series ($FOLD_COUNTS each)" ;;
+esac
+
+# The window is a ceiling on what is EXPORTED, not on what was computed. A
+# regression here means the exporter started shipping the whole table into a
+# file node-exporter re-reads every 15 seconds.
+WINDOW="$(grep -oE '^BACKTEST_ORIGIN_WINDOW = [0-9]+' \
+  "$REPO_ROOT/platform/mlops/pipeline_metrics.py" | awk '{print $3}')"
+WORST="$(grep -oE '^mlops_backtest_predicted\{[^}]*\}' "$OUT" \
+  | sed -E 's/.*target="([^"]*)".*horizon="([^"]*)".*/\1 \2/' \
+  | sort | uniq -c | sort -rn | head -1 | awk '{print $1}')"
+WORST="${WORST:-0}"
+if [ "$WORST" -le "${WINDOW:-0}" ] && [ "$WORST" -gt 0 ]; then
+  _pass "no (target,horizon) exports more than BACKTEST_ORIGIN_WINDOW origins ($WORST <= $WINDOW)"
+else
+  _fail "no (target,horizon) exports more than BACKTEST_ORIGIN_WINDOW origins" \
+        "worst is $WORST against a window of ${WINDOW:-unset}"
+fi
+
+# THE CONTROL. Drop one series from a COPY and the equality check above must
+# notice. Without it, the check passes just as happily when the exporter emits
+# nothing at all for four of the five.
+CTRL_OUT="$(mktemp)"
+grep -v '^mlops_backtest_actual{' "$OUT" > "$CTRL_OUT"
+CTRL_COUNTS="$(for M in mlops_backtest_predicted mlops_backtest_actual \
+                        mlops_backtest_persistence; do
+                 grep -c "^$M{" "$CTRL_OUT" || true
+               done | sort -u | tr '\n' ' ' | sed 's/ $//')"
+case "$CTRL_COUNTS" in
+  *" "*) _pass "catches: one of the five per-origin series missing" ;;
+  *)     _fail "catches: one of the five per-origin series missing" \
+               "a file with mlops_backtest_actual removed still looked uniform" ;;
+esac
+rm -f "$CTRL_OUT"
+
+# ---- published forecasts carry the week they are ABOUT -------------------
+run_cmd cat "$OUT"
+assert_output_contains "mlops_published_forecast_value" \
+  "a published forecast is a series labelled by the week it forecasts"
+TW="$(grep -c '^mlops_published_forecast_value{.*target_week=' "$OUT" || true)"
+PV="$(grep -c '^mlops_published_forecast_value{' "$OUT" || true)"
+assert_equals "$PV" "$TW" \
+  "every published forecast says which week it is about (a forecast without one is undatable)"
 
 # ---- project and target are LABELS, on every series (ADR-0017) -----------
 #
@@ -219,7 +290,7 @@ if grep -q '^mlops_policy_backtest_n' "$OUT"; then
   fi
 else
   echo "  SKIP  no replay artifact in evidence/mlops -- run"
-  echo "        pilots/station2-twin/mlops/run.sh policy_backtest.py --all-origins"
+  echo "        pilots/station2-publichealth/mlops/run.sh policy_backtest.py --all-origins"
   echo "        (LOUD skip: the replay/live separation is UNVERIFIED)"
 fi
 
@@ -227,10 +298,10 @@ fi
 # window". A flag whose zero silently means everything is how a bounded run
 # becomes a full-corpus one by accident; unlimited gets its own name.
 run_cmd grep -c 'def positive_int' \
-  "$REPO_ROOT/pilots/station2-twin/mlops/policy_backtest.py"
+  "$REPO_ROOT/pilots/station2-publichealth/mlops/policy_backtest.py"
 assert_rc 0 "the window flag rejects a zero count rather than widening"
 run_cmd grep -c 'all_origins' \
-  "$REPO_ROOT/pilots/station2-twin/mlops/policy_backtest.py"
+  "$REPO_ROOT/pilots/station2-publichealth/mlops/policy_backtest.py"
 assert_rc 0 "and unlimited has its own explicit flag"
 
 # The significance script must be deterministic: same artifact in, same numbers

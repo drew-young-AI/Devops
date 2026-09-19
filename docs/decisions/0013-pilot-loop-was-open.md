@@ -31,7 +31,7 @@ decision:
 
 | 問題 | 修正前的答案 | 證據 |
 |---|---|---|
-| DataOps 有定期收錄資料嗎 | **沒有。完全沒有。** | `jobs.conf` 19 個 job 逐條檢查，無一執行 `pilots/station2-twin/ingest/`。最後一次 `ingest_runs.fetched_at` = 2026-08-20，手動 |
+| DataOps 有定期收錄資料嗎 | **沒有。完全沒有。** | `jobs.conf` 19 個 job 逐條檢查，無一執行 `pilots/station2-publichealth/ingest/`。最後一次 `ingest_runs.fetched_at` = 2026-08-20，手動 |
 | DevOps 有對資料 CI/CD 嗎 | **沒有。** | 兩個 workflow 的 `paths:` 過濾器是 `platform/**`、`evidence/**`、`platform/iac/**`。`pilots/**` 不在任何一個裡面 |
 | MLOps 有定期更新 model 嗎 | **跑了，但沒有更新。** | `retrain` 每週觸發且綠燈，`model_run` 每次新增列——而 `n_train` 從 2026-08-20 起固定 552／551，`code_sha256` 三次全同 `b27a652e` |
 

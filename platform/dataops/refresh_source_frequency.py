@@ -48,8 +48,8 @@ import urllib.request
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-INGEST = REPO_ROOT / "pilots" / "station2-twin" / "ingest"
-OUT = REPO_ROOT / "pilots" / "station2-twin" / "ingest" / "source_frequency.json"
+INGEST = REPO_ROOT / "pilots" / "station2-publichealth" / "ingest"
+OUT = REPO_ROOT / "pilots" / "station2-publichealth" / "ingest" / "source_frequency.json"
 CKAN = "https://data.cdc.gov.tw/api/3/action"
 UA = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 "
       "(KHTML, like Gecko) Chrome/131.0 Safari/537.36")

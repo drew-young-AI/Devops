@@ -81,7 +81,7 @@ EXEMPT = {
     "evidence/_retired/README.md":
         "explains the retirement convention to whoever opens that directory; "
         "it is reached by browsing evidence/, not by reading the index",
-    "pilots/station2-twin/ingest/certs/README.md":
+    "pilots/station2-publichealth/ingest/certs/README.md":
         "a note in a certificate directory telling you not to commit keys there; "
         "it belongs next to the thing it warns about, not in the reading tree",
 }

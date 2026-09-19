@@ -3,7 +3,7 @@
 #
 # WHY THIS SUITE EXISTS (2026-09-01).
 #
-# `.gitignore` reserved `pilots/station2-twin/.env.vault` weeks ago, with a
+# `.gitignore` reserved `pilots/station2-publichealth/.env.vault` weeks ago, with a
 # comment describing it as "AppRole secret_id delivered to the pilot container".
 # Nothing wrote it and nothing read it. The pilot therefore took its AppRole
 # from whatever the operator's shell happened to export, and the app falls back

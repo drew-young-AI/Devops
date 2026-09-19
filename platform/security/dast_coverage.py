@@ -60,7 +60,7 @@ import sys
 from datetime import datetime, timezone
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-DEFAULT_APP = os.path.join(REPO_ROOT, "pilots", "station2-twin", "app", "app.py")
+DEFAULT_APP = os.path.join(REPO_ROOT, "pilots", "station2-publichealth", "app", "app.py")
 DEFAULT_OUT = os.path.join(REPO_ROOT, "evidence", "security", "dast_coverage.json")
 DEFAULT_PROM = os.path.join(REPO_ROOT, "evidence", "statusdag", "dast_coverage.prom")
 

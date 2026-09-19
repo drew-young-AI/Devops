@@ -519,7 +519,7 @@ schema owner」。為了讓 `DROP OWNED` 能跑而放寬這一點，是拿真實
 
 ## AppRole 必須被「送達」，不能假設它在操作者的 shell 裡（2026-09-01）
 
-`pilots/station2-twin/compose.yaml` 從環境變數取 AppRole：
+`pilots/station2-publichealth/compose.yaml` 從環境變數取 AppRole：
 
 ```yaml
 VAULT_ROLE_ID: ${VAULT_ROLE_ID:-}
@@ -553,7 +553,7 @@ pilot 必須在沒有 Vault 的情況下也跑得起來，而 `/health/ready` �
 ```
 # AppRole secret_id delivered to the pilot container. Regenerable from
 # Vault; never committed.
-pilots/station2-twin/.env.vault
+pilots/station2-publichealth/.env.vault
 ```
 
 這段存在數週。**沒有東西寫它，也沒有東西讀它。** 慣例被宣告、被寫進註解、
@@ -565,7 +565,7 @@ pilots/station2-twin/.env.vault
 
 ```
 platform/vault/scripts/write_pilot_approle_env.sh
-  .station2-twin-approle.json  →  pilots/station2-twin/.env.vault (mode 600)
+  .station2-twin-approle.json  →  pilots/station2-publichealth/.env.vault (mode 600)
 
 platform/recover.sh
   先呼叫上者，然後 docker compose --env-file ...

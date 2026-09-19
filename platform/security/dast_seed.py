@@ -67,7 +67,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from dast_coverage import parse_routes  # noqa: E402
 
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-DEFAULT_APP = os.path.join(REPO_ROOT, "pilots", "station2-twin", "app", "app.py")
+DEFAULT_APP = os.path.join(REPO_ROOT, "pilots", "station2-publichealth", "app", "app.py")
 
 # A spec that describes a write is a spec something will eventually write with.
 EXCLUDE_WRITES = ("POST", "PUT", "PATCH", "DELETE")

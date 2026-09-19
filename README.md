@@ -21,7 +21,7 @@ timestamp: 2026-08-11T20:05:56+08:00
 
 - **題目**：疾管署等公開來源的傳染病監測資料（急診就診、健保就診統計等，
   登記在案的來源二十多個），載入後做疫情週次的預測。
-- **Pilot**：[`pilots/station2-twin`](pilots/station2-twin/README.md)——
+- **Pilot**：[`pilots/station2-publichealth`](pilots/station2-publichealth/README.md)——
   一支 PostgreSQL 上的 HTTP 服務，是這個平台第一個**有狀態**的服務。
   會選有狀態的，是因為備份、還原、資料庫遷移、憑證輪替這些真正會出事的地方，
   無狀態服務驗不到。
@@ -99,6 +99,8 @@ platform/observability/check_health.sh    # 判（退出碼就是答案；3 = �
 | **DevOps Overview**（`2-devops`） | http://mac.local:13000/d/devops-overview/ | 維運 | Grafana 帳號 |
 | **DataOps 管線**（`3-dataops`） | http://mac.local:13000/d/dataops-pipeline/ | 資料負責人 | Grafana 帳號 |
 | **MLOps 模型**（`4-mlops`） | http://mac.local:13000/d/mlops-model/ | 公衛預測 | Grafana 帳號 |
+| **MLOps 回歸測試**（逐週起算） | http://mac.local:13000/d/mlops-backtest/ | 公衛預測、長官 | Grafana 帳號 |
+| **MLOps 未來預測**（已發布） | http://mac.local:13000/d/mlops-forecast/ | 公衛預測、長官 | Grafana 帳號 |
 | 階段報告（靜態、可離線轉寄） | http://mac.local:18085/Stage-Report.html | 長官 | 否 |
 | **八張圖（三線平台圖譜）** | http://mac.local:18085/report/plates.offline.html | 長官、簡報 | 否 |
 | 決策紀錄索引 | http://mac.local:18085/decisions/index.md | 全部 | 否 |
@@ -385,7 +387,7 @@ Alertmanager 通知設定。**每一支都被別的程式碼呼叫著——這�
 | 目錄 | 說明 |
 |---|---|
 | [`platform/`](platform/README.md) | 目錄入口與邊界規則（能力索引就是下面這張表，不重複一份） |
-| [`pilots/`](pilots/README.md) | Pilot 端：目前只有 station2-twin |
+| [`pilots/`](pilots/README.md) | Pilot 端：目前只有 station2-PublicHealth（識別字仍是 `station2-twin`，見 [ADR-0022](docs/decisions/0022-a-display-name-is-not-an-identifier.md)） |
 | [`platform/k8s/`](platform/k8s/README.md) | 兩個叢集、兩種架構，以及單節點測不到什麼 |
 | [`platform/ci/`](platform/ci/README.md) | 雲端 tier 1 與本機全量的分工；BSD↔GNU 可攜性缺陷 |
 | [`platform/observability/`](platform/observability/README.md) | 指標、日誌、告警、Grafana 權限 |
@@ -523,7 +525,7 @@ Devops/
 │   ├── iac/            # OpenTofu skeleton、Checkov、OPA policy
 │   └── tests/          # 平台自身的測試套件
 ├── pilots/
-│   └── station2-twin/  # 有狀態：PostgreSQL + 公衛監測 digital twin
+│   └── station2-publichealth/  # 有狀態：PostgreSQL + 公衛監測（顯示名 station2-PublicHealth）
 │                       # （station1-hello 於 2026-08-19 退役）
 └── evidence/           # 測試輸出、報告與驗證紀錄
     └── _retired/       # 已退役服務的證據，移出探針的 glob 範圍

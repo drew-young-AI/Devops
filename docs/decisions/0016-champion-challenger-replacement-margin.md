@@ -13,7 +13,7 @@ decision:
   status: accepted
   date: 2026-09-08
   measured: true
-  rerun: pilots/station2-twin/mlops/run.sh publish_forecast.py --explain-gate
+  rerun: pilots/station2-publichealth/mlops/run.sh publish_forecast.py --explain-gate
   supersedes: []
 ---
 
@@ -25,7 +25,7 @@ decision:
 差距在 2% 以內（含打平、含挑戰者略好）一律留任現役。**
 
 規則本體：`platform/mlops/promotion_policy.py`（專案中立、無預設門檻）。
-門檻數字：`pilots/station2-twin/mlops/publish_forecast.py` 的 `REPLACEMENT_MARGIN`。
+門檻數字：`pilots/station2-publichealth/mlops/publish_forecast.py` 的 `REPLACEMENT_MARGIN`。
 看板上那行門檻是**讀**這個檔案印出來的，不是另抄一份。
 
 ## 這一條之前不存在，而它看起來存在
@@ -81,7 +81,7 @@ WHERE beats_baselines ORDER BY mae ASC LIMIT 1
 
 ```bash
 export PGPASSWORD="$(docker exec station2-twin-db-1 sh -c 'printf %s "$POSTGRES_PASSWORD"')"
-pilots/station2-twin/mlops/run.sh policy_backtest.py \
+pilots/station2-publichealth/mlops/run.sh policy_backtest.py \
   --feature-set 100 --horizon 2 --all-origins --margin 0.10 --json -
 ```
 
@@ -116,7 +116,7 @@ pilots/station2-twin/mlops/run.sh policy_backtest.py \
 ## 六種判定，全部有可重跑的案例
 
 ```
-pilots/station2-twin/mlops/run.sh publish_forecast.py --explain-gate
+pilots/station2-publichealth/mlops/run.sh publish_forecast.py --explain-gate
 ```
 
 | 判定 | 情境 | 動作 |
@@ -135,7 +135,7 @@ pilots/station2-twin/mlops/run.sh publish_forecast.py --explain-gate
 
 ```bash
 platform/tests/test_model_registry.sh     # 六種判定各一個案例 + 邊界
-pilots/station2-twin/mlops/run.sh publish_forecast.py --dry-run
+pilots/station2-publichealth/mlops/run.sh publish_forecast.py --dry-run
 ```
 
 2026-09-08 實測：t+2 判 `REFRESH`（現役 run 12 的設定，重擬合為 run 14），

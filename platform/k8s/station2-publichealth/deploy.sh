@@ -12,12 +12,12 @@ COLOR="${1:?usage: deploy.sh <blue|green> <image-tag> [schema_version]}"
 TAG="${2:?image tag required}"
 # The default is READ from the pilot's own declaration, not typed here. It was
 # `15` as a literal, which made this a fourth copy of a number that
-# pilots/station2-twin/tests/test_contract.py keeps in agreement across the
+# pilots/station2-publichealth/tests/test_contract.py keeps in agreement across the
 # other three (config.example.env, compose.yaml, app.py). Migration 016 moved
 # the database to 16 and this default stayed at 15 -- every pod deployed
 # without an explicit third argument would have come up expecting a schema the
 # database no longer has, and answered 503 forever. Which it did.
-_ENV_FILE="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)/pilots/station2-twin/config.example.env"
+_ENV_FILE="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)/pilots/station2-publichealth/config.example.env"
 _DEFAULT_SCHEMA="$(sed -n 's/^EXPECTED_SCHEMA_VERSION=\([0-9][0-9]*\)$/\1/p' "$_ENV_FILE" 2>/dev/null | head -1)"
 [ -n "$_DEFAULT_SCHEMA" ] || { echo "cannot read EXPECTED_SCHEMA_VERSION from $_ENV_FILE" >&2; exit 1; }
 SCHEMA="${3:-$_DEFAULT_SCHEMA}"
@@ -49,12 +49,12 @@ case "$COLOR" in blue|green) ;; *) echo "colour must be blue or green" >&2; exit
 # The digest comes from .github/workflows/pilot-image.yml, which builds each
 # architecture on a native runner and prints the manifest-list digest to pin.
 if [ "$CTX" = "k3d-devops-lab" ]; then
-  IMAGE="${IMAGE:-k3d-registry:5111/station2-twin:$TAG}"
+  IMAGE="${IMAGE:-k3d-registry:5111/station2-publichealth:$TAG}"
 else
   IMAGE="${IMAGE:-}"
   if [ -z "$IMAGE" ]; then
     echo "context '$CTX' is not the local lab: set IMAGE to a digest-pinned" >&2
-    echo "reference, e.g. IMAGE=ghcr.io/drew-young-ai/station2-twin@sha256:..." >&2
+    echo "reference, e.g. IMAGE=ghcr.io/drew-young-ai/station2-publichealth@sha256:..." >&2
     exit 2
   fi
   case "$IMAGE" in

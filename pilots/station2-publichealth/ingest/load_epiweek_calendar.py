@@ -179,7 +179,7 @@ def main(argv):
         "WHERE time_level='epi_week') w USING (epi_year, epi_week);"))
 
     payload = {
-        "generated_by": "pilots/station2-twin/ingest/load_epiweek_calendar.py --apply",
+        "generated_by": "pilots/station2-publichealth/ingest/load_epiweek_calendar.py --apply",
         "generated_at": _now(),
         "source_url": SOURCE_URL,
         "crosswalk_file": os.path.relpath(CROSSWALK, _repo_root()),

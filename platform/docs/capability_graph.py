@@ -72,9 +72,9 @@ INTERNAL = {
     "platform/observability/check_health.py": "platform/observability/check_health.sh",
     "platform/notify/send_mail.sh": "platform/notify/emit_event.sh",
     "platform/scheduler/record_gap.py": "platform/scheduler/run_job.sh",
-    "pilots/station2-twin/app/vault_creds.py": "pilots/station2-twin/app/app.py",
-    "pilots/station2-twin/ingest/probe_feed.py":
-        "pilots/station2-twin/ingest/load_dimensional.py",
+    "pilots/station2-publichealth/app/vault_creds.py": "pilots/station2-publichealth/app/app.py",
+    "pilots/station2-publichealth/ingest/probe_feed.py":
+        "pilots/station2-publichealth/ingest/load_dimensional.py",
 }
 
 # Overridable so the controls in test_capability_graph.sh inject faults as DATA

@@ -180,7 +180,7 @@ groups:
             Nothing else reports this: the fetch clock resets on every
             successful fetch, so freshness stays green while the data stands
             still. Cadence provenance for this source is
-            {{ $labels.provenance }} (see pilots/station2-twin/ingest/source_frequency.json).
+            {{ $labels.provenance }} (see pilots/station2-publichealth/ingest/source_frequency.json).
           runbook: >-
             psql: SELECT fetched_at, content_sha256 FROM ingest_runs
             WHERE source='{{ $labels.source }}' ORDER BY fetched_at DESC LIMIT 5;

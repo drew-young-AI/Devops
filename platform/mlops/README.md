@@ -92,6 +92,37 @@ measurements everywhere else. `replay_significance.py`; docs/Backlog.md §36.
 platform/mlops/retrain.sh    # 兩個題目 × 兩個時程，各自建集、回測、發布、重放
 ```
 
+## 逐週起算的回測格子（2026-09-19）
+
+`model_run` 回答「整段歷史平均下來，模型有沒有比笨方法好」。公衛端實際會問的是
+另一個問題：**「疫情起來的前一週，這個模型會說什麼？」** 那是單一一折，而
+`run_rolling()` 每一折都算過、然後只留下四個彙總數字。
+
+現在每一折都寫進 `backtest_prediction`（migration 020）：起算週、被預測的那一週、
+預測值、實際值、持平基準值。兩個地方讀它：
+
+| 讀的人 | 怎麼讀 | 看哪裡 |
+|---|---|---|
+| 人 | Grafana「MLOps 回歸測試（逐週起算）」，起算週是下拉選單 | http://mac.local:13000/d/mlops-backtest/ |
+| 程式 | `pipeline_metrics.py` 匯出 `mlops_backtest_*`，上限 `BACKTEST_ORIGIN_WINDOW`＝156 週 | `evidence/statusdag/mlops.prom` |
+
+**Grafana 不執行任何東西。** 它沒有寫入路徑，也不會有一個——「觸發某個時間點」
+在這裡的意思是**切換下拉選單去查一個預先算好的格子**。要新增格子的唯一方法是跑
+回測（`retrain.sh` 每週做一次，或手動 `run.sh backtest.py --feature-set N --horizon H`）。
+
+**挑起算週這件事本身是個陷阱，所以頁面被設計成挑不動**：下方表格永遠列出視窗裡
+每一個起算週，選取只是高亮。能挑起算週的人就能挑一個好看的起算週，而挑過之後，
+資料上看不出來有人挑過。同一個理由：**視窗的勝率**（模型贏過持平的週數比例）
+放在選取值旁邊——單一一週的輸贏不是證據。
+
+**勝率不是上線閘門的判準。** 閘門比的是整段的 MAE（ADR-0016），不是勝率；
+把勝率拿去當上線依據就是換一個比較容易過的標準，那是搬球門。
+
+上限 156 週（三個流感季）是**匯出**的上限，不是**計算**的上限：完整的格子在資料庫裡。
+一折五個序列（預測／實際／基準／模型誤差／基準誤差）必須同時存在——少一個，
+PromQL 的二元運算會**安靜地**把那一折丟掉，而樣本變小的面板看起來跟正常的一模一樣。
+守衛在 `platform/tests/test_mlops_metrics.sh`，附一個把其中一個序列刪掉的控制項。
+
 ## Known gaps
 
 1. **No golden evaluation set.** Non-determinism is detectable today (the same
@@ -113,8 +144,8 @@ platform/mlops/retrain.sh    # 兩個題目 × 兩個時程，各自建集、回
 
 | 檔案 | 什麼時候跑 | 做什麼 | 保證什麼 |
 |---|---|---|---|
-| [`build_features.py`](../../pilots/station2-twin/mlops/build_features.py) | 由 `retrain.sh` 呼叫 | 建立預測特徵集，並**記錄它從哪裡來** | 血緣寫入 `feature_set` / `feature_row`，每個特徵都回溯得到事實表 |
-| [`backtest.py`](../../pilots/station2-twin/mlops/backtest.py) | 由 `retrain.sh` 呼叫 | rolling-origin 回測，**同時把兩個天真基準放在旁邊** | 每一折重算 seasonal index，**不得使用未來資料**；守衛 `platform/tests/test_no_lookahead.sh` |
+| [`build_features.py`](../../pilots/station2-publichealth/mlops/build_features.py) | 由 `retrain.sh` 呼叫 | 建立預測特徵集，並**記錄它從哪裡來** | 血緣寫入 `feature_set` / `feature_row`，每個特徵都回溯得到事實表 |
+| [`backtest.py`](../../pilots/station2-publichealth/mlops/backtest.py) | 由 `retrain.sh` 呼叫 | rolling-origin 回測，**同時把兩個天真基準放在旁邊** | 每一折重算 seasonal index，**不得使用未來資料**；守衛 `platform/tests/test_no_lookahead.sh` |
 
 第二欄的「把基準放在旁邊」不是修辭：模型輸給天真基準時，`forecast_gate` 會擋下發布，
 而那是這條線目前最有價值的機制——**它正在正確地擋著**。
@@ -133,5 +164,5 @@ platform/mlops/retrain.sh    # 兩個題目 × 兩個時程，各自建集、回
 | [`model_registry.py`](model_registry.py) | 由 pilot 的 `backtest.py` import（`run.sh` 唯讀掛載進容器） | 模型註冊表的**契約**：一筆登記合不合法、`build()` 回傳的是不是未擬合的估計器 | 專案中立，無領域知識。未登記的名稱被拒絕並列出清單；回傳已擬合估計器的條目被拒絕（守衛本身有突變測試） |
 | [`mlops/pipeline_metrics.py`](pipeline_metrics.py) | 排程，每小時（`jobs.conf` 的 `mlopsmetrics`） | 把模型層的數字寫成 Prometheus textfile：對基準的相對優勢、各時程有沒有通過過閘門、事後評分、距上次重訓 | **只出數字不下判斷**——門檻全部在 `alerts/mlops.yml`。2026-09-08 之前這一層在 Prometheus 有 0 個指標（`devops_*` 20 個、`dataops_*` 15 個），整層只有看板上的燈 |
 | [`replay_significance.py`](replay_significance.py) | 重訓後（`retrain.sh` 步驟 5b），或手動重跑重放時 | 對重放出來的每一組（題目×時程）算配對自助法 95% CI、精確雙尾符號檢定、以及 lag-1 自相關 | **點估計永遠不單獨出現**——`margin_ratio` 一定跟著 `ci_low`／`ci_high`。固定 seed 42、10000 次重抽、純標準函式庫，兩次執行逐位元相同。自相關是**回報**不是校正：把它偷偷修掉會讓區間看起來比它應得的更窄 |
-| [`policy_backtest.py`](../../pilots/station2-twin/mlops/policy_backtest.py) | `retrain.sh` 第 5 步，每週；也可手動 | 把**發布決策**在整段歷史上逐週重放：每個原點閘門選誰、發不發、發出去的數字對上真的發生的那一週如何 | 三道洩漏門都堵住（配適走 `fit_one`、選擇只能用當時的誤差、基準只在同一組原點上算）。它是**模擬**，指標前綴 `mlops_policy_backtest_*` 與實績永不相加 |
+| [`policy_backtest.py`](../../pilots/station2-publichealth/mlops/policy_backtest.py) | `retrain.sh` 第 5 步，每週；也可手動 | 把**發布決策**在整段歷史上逐週重放：每個原點閘門選誰、發不發、發出去的數字對上真的發生的那一週如何 | 三道洩漏門都堵住（配適走 `fit_one`、選擇只能用當時的誤差、基準只在同一組原點上算）。它是**模擬**，指標前綴 `mlops_policy_backtest_*` 與實績永不相加 |
 | [`promotion_policy.py`](promotion_policy.py) | 由 pilot 的 `publish_forecast.py` import | 挑戰者何時取代現役模型：六種判定（BOOTSTRAP／REPLACE／KEEP／REFRESH／INCOMPARABLE／REFUSED） | **門檻沒有預設值**——沒想過門檻的專案會被迫想。現役只跟它在同一比較範圍內重評的分數比 |

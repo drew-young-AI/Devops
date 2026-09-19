@@ -92,7 +92,7 @@ class Station2ContractTests(unittest.TestCase):
                          "with the migrations")
 
         # AND the Kubernetes deploy path. It had a FOURTH copy -- a literal
-        # `SCHEMA="${3:-15}"` in platform/k8s/station2-twin/deploy.sh -- which
+        # `SCHEMA="${3:-15}"` in platform/k8s/station2-publichealth/deploy.sh -- which
         # this test did not look at. Migration 016 moved the database to 16,
         # the three files above were bumped together, and every pod deployed
         # without an explicit third argument came up expecting 15 and answered
@@ -104,7 +104,7 @@ class Station2ContractTests(unittest.TestCase):
         # asserts the derivation is still in place rather than comparing a
         # literal to a literal.
         deploy_sh = (ROOT.parent.parent / "platform" / "k8s" /
-                     "station2-twin" / "deploy.sh").read_text()
+                     "station2-publichealth" / "deploy.sh").read_text()
         self.assertRegex(
             deploy_sh, r'SCHEMA="\$\{3:-\$_DEFAULT_SCHEMA\}"',
             "deploy.sh must derive its default schema version from "

@@ -1037,7 +1037,7 @@ def replacement_margin():
     eventually state the wrong one, and it would still render."""
     try:
         src = open(os.path.join(
-            REPO_ROOT, "pilots/station2-twin/mlops/publish_forecast.py")).read()
+            REPO_ROOT, "pilots/station2-publichealth/mlops/publish_forecast.py")).read()
     except OSError:
         return None
     m = re.search(r"^REPLACEMENT_MARGIN = ([0-9.]+)", src, re.M)

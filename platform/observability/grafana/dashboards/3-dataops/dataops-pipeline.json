@@ -15,34 +15,15 @@
     "to": "now"
   },
   "editable": true,
-  "description": "資料管線的新鮮度、漂移與執行健康。來源是 platform/dataops/pipeline_metrics.py，每小時寫入 node-exporter textfile，Prometheus 每 15s 抓取。範圍與取捨見 docs/decisions/0005-dataops-monitoring-scope.md。",
+  "description": "資料管線的新鮮度、漂移與執行健康。來源是 platform/dataops/pipeline_metrics.py，每小時寫入 node-exporter textfile，Prometheus 每 15s 抓取。範圍與取捨見 docs/decisions/0005-dataops-monitoring-scope.md。\n\n**只監控寫入約束結構上看不見的三件事**：新鮮度（約束擋得住壞資料，看不見「沒發生的事」）、年對年漂移、載入執行健康。\n\n**資料品質刻意不在這裡。** 它由資料庫的 CHECK 約束在寫入時強制，疊第二套監控只會產生兩個互相矛盾的儀表板。理由與範圍見 [ADR-0005](http://mac.local:18085/decisions/0005-dataops-monitoring-scope.md)。\n\n**門檻不在這張看板裡**，在 `platform/observability/prometheus/alerts/dataops.yml`——埋在圖表設定裡的門檻是沒人找得到的政策。",
   "panels": [
-    {
-      "type": "text",
-      "title": "這張看板看什麼，不看什麼",
-      "gridPos": {
-        "x": 0,
-        "y": 0,
-        "w": 24,
-        "h": 4
-      },
-      "options": {
-        "mode": "markdown",
-        "content": "**只監控寫入約束結構上看不見的三件事**：新鮮度（約束擋得住壞資料，看不見「沒發生的事」）、年對年漂移、載入執行健康。\n\n**資料品質刻意不在這裡。** 它由資料庫的 CHECK 約束在寫入時強制，疊第二套監控只會產生兩個互相矛盾的儀表板。理由與範圍見 [ADR-0005](http://mac.local:18085/decisions/0005-dataops-monitoring-scope.md)。\n\n**門檻不在這張看板裡**，在 `platform/observability/prometheus/alerts/dataops.yml`——埋在圖表設定裡的門檻是沒人找得到的政策。"
-      },
-      "datasource": {
-        "type": "prometheus",
-        "uid": "PBFA97CFB590B2093"
-      },
-      "targets": []
-    },
     {
       "type": "stat",
       "title": "登記來源",
-      "description": "有指標的抓取來源數。掉下來代表某個來源整個消失，而不是變舊。",
+      "description": "**這張看板看什麼，不看什麼**（原本是頁首的說明區塊，2026-09-19 收進這個 ⓘ）\n\n**只監控寫入約束結構上看不見的三件事**：新鮮度（約束擋得住壞資料，看不見「沒發生的事」）、年對年漂移、載入執行健康。\n\n**資料品質刻意不在這裡。** 它由資料庫的 CHECK 約束在寫入時強制，疊第二套監控只會產生兩個互相矛盾的儀表板。理由與範圍見 [ADR-0005](http://mac.local:18085/decisions/0005-dataops-monitoring-scope.md)。\n\n**門檻不在這張看板裡**，在 `platform/observability/prometheus/alerts/dataops.yml`——埋在圖表設定裡的門檻是沒人找得到的政策。\n\n---\n\n有指標的抓取來源數。掉下來代表某個來源整個消失，而不是變舊。",
       "gridPos": {
         "x": 0,
-        "y": 4,
+        "y": 0,
         "w": 4,
         "h": 4
       },
@@ -102,7 +83,7 @@
       "description": "距離最後一次成功抓取的時間。14 天轉橘、45 天轉紅，與 DataSourceStale / DataSourceVeryStale 同一組門檻。",
       "gridPos": {
         "x": 4,
-        "y": 4,
+        "y": 0,
         "w": 5,
         "h": 4
       },
@@ -170,7 +151,7 @@
       "description": "ingest_runs 裡 status 不是 ok 的批次。第一天就記錄了，直到 2026-08-28 才變成指標。",
       "gridPos": {
         "x": 9,
-        "y": 4,
+        "y": 0,
         "w": 4,
         "h": 4
       },
@@ -234,7 +215,7 @@
       "description": "拒絕本身正常——那是約束在工作。持續偏高代表上游格式變了。",
       "gridPos": {
         "x": 13,
-        "y": 4,
+        "y": 0,
         "w": 4,
         "h": 4
       },
@@ -298,7 +279,7 @@
       "description": "鏡像過期時漂移指標整個不產生，而消失的指標讀起來像「沒問題」。DriftNotComputed 就是為此存在。",
       "gridPos": {
         "x": 17,
-        "y": 4,
+        "y": 0,
         "w": 4,
         "h": 4
       },
@@ -378,7 +359,7 @@
       "description": "匯出器每小時跑一次。這格若一直長大，下面每一張圖都在講舊事，而舊事和「沒有變化」長得一模一樣。",
       "gridPos": {
         "x": 21,
-        "y": 4,
+        "y": 0,
         "w": 3,
         "h": 4
       },
@@ -446,7 +427,7 @@
       "description": "每個來源距離最後一次成功抓取多久。",
       "gridPos": {
         "x": 0,
-        "y": 8,
+        "y": 4,
         "w": 12,
         "h": 10
       },
@@ -514,7 +495,7 @@
       "description": "鋸齒代表正常週期性更新。單調上升代表這個來源停了——而停掉的來源在任何單點快照裡都看起來只是「有點舊」。",
       "gridPos": {
         "x": 12,
-        "y": 8,
+        "y": 4,
         "w": 12,
         "h": 10
       },
@@ -569,7 +550,7 @@
       "description": "讀自 recording rule dataops:yoy_geo_drift_share，與 WidespreadGeoDrift 告警同一個定義（不是第二份副本）。單一地區變動是流行病學；四分之一地區同向變動比較像管線問題。",
       "gridPos": {
         "x": 0,
-        "y": 18,
+        "y": 14,
         "w": 12,
         "h": 11
       },
@@ -635,7 +616,7 @@
       "description": "與去年同一疫情週相比，不是滾動視窗——這是季節性資料，滾動視窗會每個季節交替都觸發。刻意不設門檻線：0.5–2.0 的判定區間定義在匯出器裡，畫在這裡就成了第三份副本。比值上升是流行病學訊號，不是管線故障，所以這張圖不告警。　分子與分母都只加總「兩年都有回報的地區」，不是全國總和：今年有、去年沒有的地區會從兩邊同時消失。2026-09-08 實測 13 個疾病中有 1 個受影響（急性出血性結膜炎 191/193 例、20/21 個地區）。這個內連是刻意的——沒配對到的地區否則會長得像真的年對年變化。",
       "gridPos": {
         "x": 12,
-        "y": 18,
+        "y": 14,
         "w": 12,
         "h": 11
       },

@@ -46,14 +46,14 @@ git ls-files --others --ignored --exclude-standard \
 | 缺什麼 | 症狀 | 用這個補 | 必要？ |
 |---|---|---|---|
 | `platform/vault/.init-output.json` | Vault 封著，**所有憑證都拿不到** | `platform/vault/scripts/init_and_unseal.sh` | **是** |
-| `pilots/station2-twin/.env.vault` | pilot 安靜地退回**靜態資料庫密碼** | `platform/vault/scripts/write_pilot_approle_env.sh station2-twin`（`platform/recover.sh` 會自己叫） | **是** |
+| `pilots/station2-publichealth/.env.vault` | pilot 安靜地退回**靜態資料庫密碼** | `platform/vault/scripts/write_pilot_approle_env.sh station2-twin`（`platform/recover.sh` 會自己叫） | **是** |
 | `platform/analytics/venv/` | `platform/dataops/run.sh` 直接 exit 78 | `platform/analytics/setup.sh` | **是**（DataOps 指標） |
 | `platform/observability/.grafana.env` | Grafana 登不進去 | `platform/observability/scripts/setup_grafana_identity.sh` | 看板 |
-| `platform/vault/.station2-twin-approle.json` | K8s 那份沒有動態憑證 | `platform/k8s/station2-twin/sync_vault_secret.sh` | K8s 部署 |
+| `platform/vault/.station2-twin-approle.json` | K8s 那份沒有動態憑證 | `platform/k8s/station2-publichealth/sync_vault_secret.sh` | K8s 部署 |
 | `platform/observability/alertmanager/telegram-token`<br>＋同目錄的 `config.yml` | 告警送不出去（板面會說） | `platform/observability/scripts/setup_notifications.sh`（值讀自 `~/.env` 的 `TELEGRAM_BOT_TOKEN` 與 `TELEGRAM_HOME_CHANNEL`） | 通知 |
 | `platform/backup/.rclone.conf` | 異地備份 `not-configured` | `platform/backup/setup_rclone.sh` | 異地備份 |
 | `~/.kube/config` 的 `ubu` context | 連不到生產節點 | `platform/k8s/bootstrap_k3s.sh` | 生產節點 |
-| `pilots/station2-twin/ingest/certs/twca-ssl-ca-2023.pem` | 抓疾管署資料時 `CERTIFICATE_VERIFY_FAILED`——**而錯誤訊息不會說是少一個檔案** | 重新抓取的指令在同目錄的 `README.md`（`od.cdc.gov.tw` 送錯中繼憑證，這是正確的那張） | 資料抓取 |
+| `pilots/station2-publichealth/ingest/certs/twca-ssl-ca-2023.pem` | 抓疾管署資料時 `CERTIFICATE_VERIFY_FAILED`——**而錯誤訊息不會說是少一個檔案** | 重新抓取的指令在同目錄的 `README.md`（`od.cdc.gov.tw` 送錯中繼憑證，這是正確的那張） | 資料抓取 |
 | `platform/nginx/certs/devops.local.crt`（連同 `.key`） | ingress 起不來或只有純 HTTP | `platform/nginx/scripts/generate_local_certs.sh` | HTTPS ingress |
 | `platform/security/keys/cosign.key` | `sign_artifact.sh` 拒絕簽章 | `cd platform/security/keys && COSIGN_PASSWORD='' cosign generate-key-pair`——**注意 `cosign.pub` 有進版控**，重生私鑰會讓既有簽章全部驗不過 | 產物簽章 |
 | `platform/vault/.identity-output.json` | 人員 RBAC 帳號的核發紀錄不見（Vault 裡的帳號還在） | `platform/vault/scripts/setup_identity.sh` | 人員存取 |
@@ -168,8 +168,8 @@ docker exec -e VAULT_TOKEN="$VT" -e VAULT_ADDR=http://127.0.0.1:8200 \
 | **Grafana 管理員** | `admin` | Vault `secret/devops/grafana-admin` | `platform/observability/.grafana.env` | **否** | 上面第 4 步；或 `grep GF_SECURITY_ADMIN_PASSWORD platform/observability/.grafana.env` |
 | **GitHub token** | — | Vault `secret/devops/github` | — | — | 上面第 4 步，`-field=password` |
 | **GHCR（映像庫）** | — | Vault `secret/devops/ghcr` | — | — | 同上 |
-| **pilot 資料庫** | `twin` / db `twin` | 容器環境變數 | `pilots/station2-twin/.env`（由 `config.example.env` 複製） | **否**（範例檔才進版控） | `docker exec station2-twin-db-1 sh -c 'printf %s "$POSTGRES_PASSWORD"'` |
-| **pilot AppRole** | — | Vault（動態核發） | `platform/vault/.station2-twin-approle.json` | **否** | `platform/k8s/station2-twin/sync_vault_secret.sh` 重新核發 |
+| **pilot 資料庫** | `twin` / db `twin` | 容器環境變數 | `pilots/station2-publichealth/.env`（由 `config.example.env` 複製） | **否**（範例檔才進版控） | `docker exec station2-twin-db-1 sh -c 'printf %s "$POSTGRES_PASSWORD"'` |
+| **pilot AppRole** | — | Vault（動態核發） | `platform/vault/.station2-twin-approle.json` | **否** | `platform/k8s/station2-publichealth/sync_vault_secret.sh` 重新核發 |
 | **Telegram bot** | bot 本身 | `~/.env` 的 `TELEGRAM_BOT_TOKEN`（頻道是 `TELEGRAM_HOME_CHANNEL`） | `platform/observability/alertmanager/telegram-token`（chmod 600，由腳本產生） | **否**（gitignored） | `platform/observability/scripts/setup_notifications.sh` 會重新產生並實送一則測試訊息 |
 | **生產節點 ssh** | `drew` | 你的 ssh 金鑰 | `~/.ssh/` | **否** | `ssh -4 drew@ubu.local`（**要 `-4`，理由見第七節**） |
 
@@ -187,7 +187,7 @@ docker exec -e VAULT_TOKEN="$VT" -e VAULT_ADDR=http://127.0.0.1:8200 \
 |---|---|
 | Grafana 登不進去 | `platform/observability/scripts/setup_grafana_identity.sh` — 從 Vault 取值、重設現行密碼、重寫 `.grafana.env`，並驗證 `admin/admin` 已不被接受。**過程中不印密碼。** 瀏覽器存的舊帳密要自己更新（帳號是 `admin`） |
 | `.grafana.env` 不見 | 同上一格。它是**可丟棄的傳遞檔**，不是第二個真實來源 |
-| AppRole 過期／不見 | `platform/k8s/station2-twin/sync_vault_secret.sh` |
+| AppRole 過期／不見 | `platform/k8s/station2-publichealth/sync_vault_secret.sh` |
 | `.init-output.json` 不見 | **沒有救。** 這是唯一一份主鑰。這也是為什麼 `platform/vault/README.md` 說要把它移到這台機器以外 |
 
 ### 已知缺口：程式引用了一筆不存在的機密
@@ -340,7 +340,7 @@ platform/tests/run_all.sh 2>&1 | tail -20    # 5. 證明契約還成立
 | 某個決定為什麼是這樣 | `docs/decisions/index.md`（18 筆 ADR） | 帶量測的都附 `rerun:` 指令。**它答不了「現在的狀態」** |
 | 還沒做的、以及什麼時候該做 | `docs/Backlog.md` §27 | 每一項附觸發條件。B1–B10 是**只有使用者能做**的 |
 | 某一層怎麼運作 | 該層的 `platform/<層>/README.md` | 每份末尾都有一張能力表（何時跑／做什麼／保證什麼） |
-| 這個 pilot 怎麼跑、資料從哪來 | `pilots/station2-twin/README.md` | 含啟動方式與為什麼不能自己 `compose up` |
+| 這個 pilot 怎麼跑、資料從哪來 | `pilots/station2-publichealth/README.md` | 含啟動方式與為什麼不能自己 `compose up` |
 | **AI agent 接手** | `docs/Session-Handover.md`（Claude）、`AGENTS.md`（其他家） | 開場指令、讀的順序、**會再遇到的 10 個坑** |
 | 生產節點（Ubuntu） | `docs/Ubu-Prod-Bringup.md` | 用 `ssh drew@ubu.local`，**不要記 IP** |
 

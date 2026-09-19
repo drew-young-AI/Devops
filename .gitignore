@@ -246,7 +246,7 @@ platform/vault/.*-approle.json
 
 # AppRole secret_id delivered to the pilot container. Regenerable from
 # Vault; never committed.
-pilots/station2-twin/.env.vault
+pilots/station2-publichealth/.env.vault
 
 # The analytics mirror. The Parquet files are derived data -- 40 MB, rebuildable
 # from Postgres in 9 seconds -- and the venv is machine-specific. The MANIFEST is

@@ -88,7 +88,7 @@ Docker Compose **不是被廢止**，它仍然是可觀測性堆疊、Vault 與 
   （PVC 實際綁定並寫入、映像實際推送並由節點拉取、Deployment／Service selector／
   readinessProbe／Job／Secret／StatefulSet 逐項實測，k3s v1.35.5）。**重跑那支就會再得到一次。**
 - **量測**：NetworkPolicy 的 default-deny 確實擋掉了 Pilot 到 Vault 的 egress，
-  修法是一條窄的 `allow-host-vault`（`platform/k8s/station2-twin/networkpolicy.yaml`）。
+  修法是一條窄的 `allow-host-vault`（`platform/k8s/station2-publichealth/networkpolicy.yaml`）。
 - **判斷，無法量測**：「目標環境是 K8s，所以現在就該往那邊練」。這是策略，依據是落地端的環境形態，
   不是這台機器上的任何數字。**不要把它當量測結果引用。**
 

@@ -254,12 +254,12 @@ DB_SUITES=(
 # TIER 3. Kept in a separate list because it needs a substrate the rest of the
 # platform does not, and because it is minutes rather than seconds.
 K8S_SUITES=(
-  ../k8s/station2-twin/test_bluegreen.sh
+  ../k8s/station2-publichealth/test_bluegreen.sh
   # Runs AFTER blue/green, deliberately. It asserts the network policy is
   # enforced, and blue/green is the thing most likely to be broken BY that
   # policy -- so the ordering means a policy that breaks deployment shows up as
   # a blue/green failure with its own message, not as a confusing netpol pass.
-  ../k8s/station2-twin/verify_networkpolicy.sh
+  ../k8s/station2-publichealth/verify_networkpolicy.sh
   # Needs the cluster, because three of its four states are about what the
   # gate does when PVCs exist -- and a suite that can only test the empty case
   # is testing the one case that was never broken.

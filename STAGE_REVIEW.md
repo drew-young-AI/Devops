@@ -421,7 +421,7 @@ z=1.07 未告警。**它不亂叫**，這是偵測器最重要的性質。
 事實只到鄉鎮——維度描述的是國家的行政區劃，不是今天剛好有哪些 feed。
 
 完整的來源盤點、髒資料清單與每一個清理決定的理由，見
-[`pilots/station2-twin/DATAOPS-LOG.md`](pilots/station2-twin/DATAOPS-LOG.md)。
+[`pilots/station2-publichealth/DATAOPS-LOG.md`](pilots/station2-publichealth/DATAOPS-LOG.md)。
 
 ### 10.2 這一階段抓到的三個缺陷，都是「安靜地錯」
 
@@ -496,7 +496,7 @@ compose 把資料庫與應用綁在一起，接不上 blue/green（見
 3.9、沒有 psycopg，而要裝它就得污染主機——本機規則明文禁止。
 **結果取決於你當時在哪個 shell 的管線不叫可重現。**
 
-現在 `pilots/station2-twin/ingest/Dockerfile` 釘死 python 3.12 +
+現在 `pilots/station2-publichealth/ingest/Dockerfile` 釘死 python 3.12 +
 psycopg 3.2.3 + certifi，`run.sh` 在容器裡執行。地理參考資料是 repo 內的
 **帶日期快照**（`reference/moi_admin_20260818.csv`，sha256 已記錄），
 不是每次去打第三方 API——依賴即時 API 的載入器無法重現上個月的結果。

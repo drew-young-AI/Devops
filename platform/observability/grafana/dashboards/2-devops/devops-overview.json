@@ -38,7 +38,8 @@
           ],
           "fields": ""
         }
-      }
+      },
+      "description": "**這張看板看什麼，不看什麼**（2026-09-19 補；這張板原本沒有頁首註記）\n\n**量的是「跑起來的服務現在被打了多少、錯了多少」**，不是「上版順不順」（那是三線階段燈號裡的 build／deploy／gate 節點），也不是「資料對不對」（那在 `3-dataops`）。\n\n**每一格都依 `environment` 分開，刻意不合併**：同一支服務同時有 Compose（`develop`）與 Kubernetes（`k8s`）兩份副本，合成一個數字等於用一份的健康掩蓋另一份。\n\n**這裡沒有告警門檻。** 門檻在 `platform/observability/prometheus/alerts/service-health.yml`——埋在圖表設定裡的門檻是沒人找得到的政策。"
     },
     {
       "id": 2,
@@ -223,5 +224,5 @@
       ]
     }
   ],
-  "description": "station2-twin 同時存在於 Compose(environment=develop) 與 Kubernetes(environment=k8s) 兩份副本。每個 panel 依 environment 分開顯示——把兩份合併成一個數字，等於用一份的健康掩蓋另一份。"
+  "description": "station2-PublicHealth（指標標籤仍是 station2-twin，見 ADR-0022）同時存在於 Compose(environment=develop) 與 Kubernetes(environment=k8s) 兩份副本。每個 panel 依 environment 分開顯示——把兩份合併成一個數字，等於用一份的健康掩蓋另一份。"
 }

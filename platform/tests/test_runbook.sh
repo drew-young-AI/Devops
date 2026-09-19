@@ -159,7 +159,7 @@ for port in $(grep -vE 'docker exec|VAULT_ADDR' "$RUNBOOK" \
   grep -rqE "(^|[:{-])${port}[}:]" \
     "$REPO_ROOT/platform/observability/compose.yaml" \
     "$REPO_ROOT/platform/nginx/compose.yaml" \
-    "$REPO_ROOT/pilots/station2-twin/compose.yaml" 2>/dev/null \
+    "$REPO_ROOT/pilots/station2-publichealth/compose.yaml" 2>/dev/null \
     || PORT_MISS="$PORT_MISS $port"
 done
 PORT_MISS="$(printf '%s' "$PORT_MISS" | sed 's/^ *//')"

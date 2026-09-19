@@ -1,0 +1,705 @@
+{
+  "uid": "mlops-backtest",
+  "title": "MLOps 回歸測試（逐週起算）",
+  "tags": [
+    "mlops",
+    "platform",
+    "model",
+    "backtest"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "5m",
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "editable": true,
+  "description": "逐 origin（起算週）的回測結果：模型當時會說什麼、實際發生什麼、基準會說什麼。來源是 backtest_prediction 表，經 platform/mlops/pipeline_metrics.py 匯出。Grafana 不執行任何運算，這一頁是查詢預先算好的格子——「觸發某個時間點」在這裡的意思是切換下拉選單。\n\n**這一頁看什麼，不看什麼**\n\n**這是「如果當時就用這個模型，它會說什麼」，不是實際發布過的預測。** 每一個 origin（起算週）都是一次獨立的回測：模型只用該週以前的資料訓練，然後預測 t+1 或 t+2。真的發布出去的預測在「MLOps 模型」那一頁的「事後評分」。\n\n**所有 origin 都在下面的表格裡，一個都沒有被挑掉。** 選一個 origin 只是把它高亮，不是把其他的藏起來——**能挑起算週的人就能挑一個好看的起算週**，而挑過之後資料上看不出來有人挑過。這一頁的設計就是要讓那件事做不到。\n\n**業務意義**：t+1 是提前一週，對應**調人力**（門診與急診排班、快篩與藥品備量）；t+2 是提前兩週，對應**調衛教與疫苗**（衛教訊息發布、疫苗調撥與接種站安排）。\n\n**數值是就診比例**（Grafana 顯示為 %）：`pct_ili` 是類流感，`pct_flu` 是流感本身。**基準**永遠是「下週跟這週一樣」。\n\n視窗上限 156 週（三個流感季）。完整的格子在資料庫 `backtest_prediction`，不在這裡——這個上限是「值得輸出多少」，不是「算了多少」。",
+  "templating": {
+    "list": [
+      {
+        "name": "project",
+        "label": "專案",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "PBFA97CFB590B2093"
+        },
+        "query": {
+          "query": "label_values(mlops_backtest_predicted, project)",
+          "refId": "project"
+        },
+        "refresh": 1,
+        "includeAll": false,
+        "multi": false,
+        "sort": 1,
+        "current": {
+          "text": "station2-twin",
+          "value": "station2-twin",
+          "selected": true
+        },
+        "description": "ADR-0017：專案是標籤不是資料夾。"
+      },
+      {
+        "name": "target",
+        "label": "預測題目",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "PBFA97CFB590B2093"
+        },
+        "query": {
+          "query": "label_values(mlops_backtest_predicted{project=\"$project\"}, target)",
+          "refId": "target"
+        },
+        "refresh": 1,
+        "includeAll": false,
+        "multi": false,
+        "sort": 1,
+        "current": {
+          "text": "pct_ili",
+          "value": "pct_ili",
+          "selected": true
+        },
+        "description": "pct_ili 是類流感（含非流感的呼吸道疾病），pct_flu 是流感本身。"
+      },
+      {
+        "name": "horizon",
+        "label": "時程",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "PBFA97CFB590B2093"
+        },
+        "query": {
+          "query": "label_values(mlops_backtest_predicted{project=\"$project\",target=\"$target\"}, horizon)",
+          "refId": "horizon"
+        },
+        "refresh": 1,
+        "includeAll": false,
+        "multi": false,
+        "sort": 1,
+        "current": {
+          "text": "1",
+          "value": "1",
+          "selected": true
+        },
+        "description": "1 = 提前一週（調人力）；2 = 提前兩週（調衛教與疫苗）。"
+      },
+      {
+        "name": "origin",
+        "label": "起算週（選一個時間點）",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "PBFA97CFB590B2093"
+        },
+        "query": {
+          "query": "label_values(mlops_backtest_predicted{project=\"$project\",target=\"$target\",horizon=\"$horizon\"}, origin)",
+          "refId": "origin"
+        },
+        "refresh": 1,
+        "includeAll": false,
+        "multi": false,
+        "sort": 2,
+        "current": {
+          "text": "2026w35",
+          "value": "2026w35",
+          "selected": true
+        },
+        "description": "模型只看得到這一週以前的資料。切換它等於問「如果當時就下判斷會怎樣」——**下面的表格永遠列出所有起算週**，所以挑了哪一個是看得出來的。 選項依週次由新到舊排序，所以預設落在最新的起算週——寫死一個週次會在下一次重訓後指向不存在的選項，而那時面板會是空的、沒有任何錯誤。"
+      }
+    ]
+  },
+  "panels": [
+    {
+      "type": "stat",
+      "title": "模型當時會說",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 6,
+        "h": 5
+      },
+      "description": "**這一頁看什麼，不看什麼**\n\n**這是「如果當時就用這個模型，它會說什麼」，不是實際發布過的預測。** 每一個 origin（起算週）都是一次獨立的回測：模型只用該週以前的資料訓練，然後預測 t+1 或 t+2。真的發布出去的預測在「MLOps 模型」那一頁的「事後評分」。\n\n**所有 origin 都在下面的表格裡，一個都沒有被挑掉。** 選一個 origin 只是把它高亮，不是把其他的藏起來——**能挑起算週的人就能挑一個好看的起算週**，而挑過之後資料上看不出來有人挑過。這一頁的設計就是要讓那件事做不到。\n\n**業務意義**：t+1 是提前一週，對應**調人力**（門診與急診排班、快篩與藥品備量）；t+2 是提前兩週，對應**調衛教與疫苗**（衛教訊息發布、疫苗調撥與接種站安排）。\n\n**數值是就診比例**（Grafana 顯示為 %）：`pct_ili` 是類流感，`pct_flu` 是流感本身。**基準**永遠是「下週跟這週一樣」。\n\n視窗上限 156 週（三個流感季）。完整的格子在資料庫 `backtest_prediction`，不在這裡——這個上限是「值得輸出多少」，不是「算了多少」。\n\n---\n\n這一格是**預測值**：以 $origin 為起算週、提前 $horizon 週的預測，數值是就診比例。",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PBFA97CFB590B2093"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "expr": "mlops_backtest_predicted{project=\"$project\",target=\"$target\",horizon=\"$horizon\",origin=\"$origin\"}",
+          "legendFormat": "{{origin}}",
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "decimals": 2,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "colorMode": "none",
+        "graphMode": "none"
+      }
+    },
+    {
+      "type": "stat",
+      "title": "實際發生",
+      "gridPos": {
+        "x": 6,
+        "y": 0,
+        "w": 6,
+        "h": 5
+      },
+      "description": "那一週真正量到的值。**這是唯一的真相**，左右兩格都要跟它比。",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PBFA97CFB590B2093"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "expr": "mlops_backtest_actual{project=\"$project\",target=\"$target\",horizon=\"$horizon\",origin=\"$origin\"}",
+          "legendFormat": "{{origin}}",
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "decimals": 2,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "colorMode": "none",
+        "graphMode": "none"
+      }
+    },
+    {
+      "type": "stat",
+      "title": "基準會說（下週＝這週）",
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 6,
+        "h": 5
+      },
+      "description": "不需要任何模型就能給出的答案：起算週的值。模型贏不過它，就沒有理由用模型。",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PBFA97CFB590B2093"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "expr": "mlops_backtest_persistence{project=\"$project\",target=\"$target\",horizon=\"$horizon\",origin=\"$origin\"}",
+          "legendFormat": "{{origin}}",
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "decimals": 2,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "colorMode": "none",
+        "graphMode": "none"
+      }
+    },
+    {
+      "type": "stat",
+      "title": "這一週模型比基準準多少",
+      "gridPos": {
+        "x": 18,
+        "y": 0,
+        "w": 6,
+        "h": 5
+      },
+      "description": "正數＝模型這一週比基準準，負數＝更差。**一週的輸贏不是證據**：右下角那一格才是這個視窗裡的整體勝率，而它才是能拿來討論的東西。",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PBFA97CFB590B2093"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "expr": "mlops_backtest_baseline_abs_error{project=\"$project\",target=\"$target\",horizon=\"$horizon\",origin=\"$origin\"} - on(project,target,horizon,origin,target_week) mlops_backtest_abs_error{project=\"$project\",target=\"$target\",horizon=\"$horizon\",origin=\"$origin\"}",
+          "legendFormat": "{{origin}}",
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "decimals": 2,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "colorMode": "none",
+        "graphMode": "none"
+      }
+    },
+    {
+      "type": "stat",
+      "title": "這個視窗裡模型贏了幾週",
+      "gridPos": {
+        "x": 0,
+        "y": 5,
+        "w": 6,
+        "h": 4
+      },
+      "description": "在下面表格的所有起算週裡，模型誤差小於基準誤差的週數。",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PBFA97CFB590B2093"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "expr": "count(mlops_backtest_abs_error{project=\"$project\",target=\"$target\",horizon=\"$horizon\"} < on(project,target,horizon,origin,target_week) mlops_backtest_baseline_abs_error{project=\"$project\",target=\"$target\",horizon=\"$horizon\"})",
+          "legendFormat": "{{origin}}",
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "colorMode": "none",
+        "graphMode": "none"
+      }
+    },
+    {
+      "type": "stat",
+      "title": "視窗裡總共幾週",
+      "gridPos": {
+        "x": 6,
+        "y": 5,
+        "w": 6,
+        "h": 4
+      },
+      "description": "分母。156 是上限（三個流感季），較少代表這個題目的歷史還沒那麼長。",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PBFA97CFB590B2093"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "expr": "count(mlops_backtest_abs_error{project=\"$project\",target=\"$target\",horizon=\"$horizon\"})",
+          "legendFormat": "{{origin}}",
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "colorMode": "none",
+        "graphMode": "none"
+      }
+    },
+    {
+      "type": "stat",
+      "title": "勝率",
+      "gridPos": {
+        "x": 12,
+        "y": 5,
+        "w": 6,
+        "h": 4
+      },
+      "description": "**50% 是擲硬幣。** 這個數字比任何單一起算週都重要：它是在沒有挑選的情況下，模型在整個視窗上贏過「下週跟這週一樣」的比例。注意它**不是**上線閘門的判準——閘門比的是整段的 MAE，不是勝率。",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PBFA97CFB590B2093"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "expr": "count(mlops_backtest_abs_error{project=\"$project\",target=\"$target\",horizon=\"$horizon\"} < on(project,target,horizon,origin,target_week) mlops_backtest_baseline_abs_error{project=\"$project\",target=\"$target\",horizon=\"$horizon\"}) / count(mlops_backtest_abs_error{project=\"$project\",target=\"$target\",horizon=\"$horizon\"})",
+          "legendFormat": "{{origin}}",
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "decimals": 1,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "colorMode": "none",
+        "graphMode": "none"
+      }
+    },
+    {
+      "type": "stat",
+      "title": "視窗裡模型的平均絕對誤差",
+      "gridPos": {
+        "x": 18,
+        "y": 5,
+        "w": 6,
+        "h": 4
+      },
+      "description": "與旁邊的勝率一起看：勝率高而誤差也大，代表模型常常小贏、偶爾大輸。",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PBFA97CFB590B2093"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "expr": "avg(mlops_backtest_abs_error{project=\"$project\",target=\"$target\",horizon=\"$horizon\"})",
+          "legendFormat": "{{origin}}",
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "decimals": 2,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "colorMode": "none",
+        "graphMode": "none"
+      }
+    },
+    {
+      "type": "table",
+      "title": "每一個起算週都在這裡（沒有挑選）",
+      "gridPos": {
+        "x": 0,
+        "y": 9,
+        "w": 24,
+        "h": 16
+      },
+      "description": "**整個視窗的每一週，未經篩選。** 上面選的起算週只是其中一列。\n\n欄位：模型預測／實際發生／基準／模型誤差／基準誤差。**模型誤差大於基準誤差的那些列，就是模型在那一週比什麼都不做還差的週。** 可以點欄位排序，但請注意排序之後最上面那一列不代表任何結論——它只是這個視窗裡的極端值。",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PBFA97CFB590B2093"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "expr": "mlops_backtest_predicted{project=\"$project\",target=\"$target\",horizon=\"$horizon\"}",
+          "instant": true,
+          "format": "table"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "expr": "mlops_backtest_actual{project=\"$project\",target=\"$target\",horizon=\"$horizon\"}",
+          "instant": true,
+          "format": "table"
+        },
+        {
+          "refId": "C",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "expr": "mlops_backtest_persistence{project=\"$project\",target=\"$target\",horizon=\"$horizon\"}",
+          "instant": true,
+          "format": "table"
+        },
+        {
+          "refId": "D",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "expr": "mlops_backtest_abs_error{project=\"$project\",target=\"$target\",horizon=\"$horizon\"}",
+          "instant": true,
+          "format": "table"
+        },
+        {
+          "refId": "E",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "expr": "mlops_backtest_baseline_abs_error{project=\"$project\",target=\"$target\",horizon=\"$horizon\"}",
+          "instant": true,
+          "format": "table"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "joinByField",
+          "options": {
+            "byField": "origin",
+            "mode": "outer"
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "Time 1": true,
+              "Time 2": true,
+              "Time 3": true,
+              "Time 4": true,
+              "Time 5": true,
+              "__name__": true,
+              "job": true,
+              "instance": true,
+              "project": true,
+              "target": true,
+              "horizon": true
+            },
+            "renameByName": {
+              "origin": "起算週",
+              "target_week": "預測的那一週",
+              "Value #A": "模型預測",
+              "Value #B": "實際發生",
+              "Value #C": "基準（=起算週）",
+              "Value #D": "模型誤差",
+              "Value #E": "基準誤差"
+            }
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "decimals": 2,
+          "custom": {
+            "align": "auto"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "sortBy": [
+          {
+            "displayName": "起算週",
+            "desc": true
+          }
+        ]
+      }
+    }
+  ]
+}

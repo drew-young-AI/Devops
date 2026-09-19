@@ -226,7 +226,7 @@ surveillance_fact 4,390,947
 ### 可重現性
 
 ```bash
-cd pilots/station2-twin/ingest
+cd pilots/station2-publichealth/ingest
 PGPASSWORD=... ./run.sh load_geography.py       # 維度，讀 repo 內快照
 PGPASSWORD=... ./run.sh load_dimensional.py     # 事實，四個 feed
 

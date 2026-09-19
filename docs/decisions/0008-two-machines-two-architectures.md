@@ -39,7 +39,7 @@ decision:
 | 規則 | 執法者 | 狀態 |
 |---|---|---|
 | 1. 原生建置，不用 QEMU | `.github/workflows/pilot-image.yml` — `ubuntu-latest`(amd64) 與 `ubuntu-24.04-arm`(arm64) 兩個原生 runner，各自斷言 `dpkg --print-architecture` 與映像檔自報架構 | ✅ **2026-09-03 首次執行成功**（run 33770464457） |
-| 2. pin digest 不 pin tag | `platform/k8s/station2-twin/deploy.sh` 對非本機 lab 的 context **拒絕 tag** | ✅ 執法中，含三個合成控制 |
+| 2. pin digest 不 pin tag | `platform/k8s/station2-publichealth/deploy.sh` 對非本機 lab 的 context **拒絕 tag** | ✅ 執法中，含三個合成控制 |
 | 3. 映像檔要有目標架構的 manifest | `platform/tests/test_image_arch.sh` | ✅ 執法中；ubu context 目前回報 `VACUOUS` |
 
 第 2 條為什麼只對非 lab 的 context 執法：本機只有一種架構、registry 在同一台主機上，

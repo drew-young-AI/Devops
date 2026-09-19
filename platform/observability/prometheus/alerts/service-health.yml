@@ -51,7 +51,7 @@ groups:
             Prometheus could not scrape the develop instance for 1 minute.
             Develop is warning, not critical: it carries no traffic and is
             expected to be torn down and rebuilt routinely.
-          runbook: "docker compose -f pilots/station2-twin/compose.yaml ps"
+          runbook: "docker compose -f pilots/station2-publichealth/compose.yaml ps"
 
       # Catch-all so any future scrape target (a second pilot, a dataops
       # service, an exporter) gets availability coverage the moment it is
@@ -138,4 +138,4 @@ groups:
             curl -s localhost:18090/health/ready | python3 -m json.tool;
             if it says credentials_unavailable, run
             platform/vault/scripts/init_and_unseal.sh;
-            otherwise platform/db/migrate.sh station2-twin --status
+            otherwise platform/db/migrate.sh station2-publichealth --status

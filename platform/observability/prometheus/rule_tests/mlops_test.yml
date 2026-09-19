@@ -42,7 +42,7 @@ tests:
               description: >-
                 The run behind the newest published forecast no longer beats the persistence baseline over its own folds. The forecast is still being served: publication happened when the gate passed, and nothing withdraws a published row when a later retrain gets worse. Nothing else reports this -- the publish gate only runs at retrain time, so between retrains a degraded champion is indistinguishable from a healthy one.
               runbook: >-
-                psql -c "SELECT model_run_id, algorithm, horizon_weeks, mae, baseline_persistence_mae FROM model_run ORDER BY model_run_id DESC LIMIT 6"; pilots/station2-twin/mlops/run.sh publish_forecast.py --explain-gate; docs/decisions/0016-champion-challenger-replacement-margin.md
+                psql -c "SELECT model_run_id, algorithm, horizon_weeks, mae, baseline_persistence_mae FROM model_run ORDER BY model_run_id DESC LIMIT 6"; pilots/station2-publichealth/mlops/run.sh publish_forecast.py --explain-gate; docs/decisions/0016-champion-challenger-replacement-margin.md
 
   # ---- exactly zero counts as losing -------------------------------------
   # `<= 0`, not `< 0`. A model that ties persistence has bought nothing and
@@ -67,7 +67,7 @@ tests:
               description: >-
                 The run behind the newest published forecast no longer beats the persistence baseline over its own folds. The forecast is still being served: publication happened when the gate passed, and nothing withdraws a published row when a later retrain gets worse. Nothing else reports this -- the publish gate only runs at retrain time, so between retrains a degraded champion is indistinguishable from a healthy one.
               runbook: >-
-                psql -c "SELECT model_run_id, algorithm, horizon_weeks, mae, baseline_persistence_mae FROM model_run ORDER BY model_run_id DESC LIMIT 6"; pilots/station2-twin/mlops/run.sh publish_forecast.py --explain-gate; docs/decisions/0016-champion-challenger-replacement-margin.md
+                psql -c "SELECT model_run_id, algorithm, horizon_weeks, mae, baseline_persistence_mae FROM model_run ORDER BY model_run_id DESC LIMIT 6"; pilots/station2-publichealth/mlops/run.sh publish_forecast.py --explain-gate; docs/decisions/0016-champion-challenger-replacement-margin.md
 
   # ---- TODAY'S REAL VALUE MUST STAY SILENT -------------------------------
   # 0.0055 -- the deployed model beats persistence by 0.55%, which is less

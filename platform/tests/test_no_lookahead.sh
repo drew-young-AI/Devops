@@ -27,7 +27,7 @@
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-MLOPS="$ROOT/pilots/station2-twin/mlops"
+MLOPS="$ROOT/pilots/station2-publichealth/mlops"
 PGPASSWORD="${PGPASSWORD:-twin-bootstrap}"
 export PGPASSWORD
 # The cutoff is DERIVED from the data, not written as a literal. The first

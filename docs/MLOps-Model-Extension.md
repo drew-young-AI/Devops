@@ -12,7 +12,7 @@ timestamp: 2026-09-08T00:00:00+08:00
 
 # 模型怎麼擴充
 
-`verify`：`pilots/station2-twin/mlops/run.sh backtest.py --list-models`
+`verify`：`pilots/station2-publichealth/mlops/run.sh backtest.py --list-models`
 
 這份文件回答一個問題：**要換成別的模型，要動什麼、以及動之前必須先回答什麼。**
 它不主張任何一種模型比較好——那要靠回測講話，而回測是可重跑的。
@@ -22,7 +22,7 @@ timestamp: 2026-09-08T00:00:00+08:00
 ## 一、現在有什麼（不是規劃，是跑得出來的）
 
 ```bash
-pilots/station2-twin/mlops/run.sh backtest.py --list-models
+pilots/station2-publichealth/mlops/run.sh backtest.py --list-models
 ```
 
 | 名稱 | 家族 | 吃 NaN | 缺值政策 | 可重現 |
@@ -86,7 +86,7 @@ Ridge 兩個 horizon 都輸，**上線閘門會直接拒絕它**——這正是�
 
 ## 二、加一個模型要動的東西（三步）
 
-1. 在 `pilots/station2-twin/mlops/backtest.py` 的 `MODELS` 加一筆
+1. 在 `pilots/station2-publichealth/mlops/backtest.py` 的 `MODELS` 加一筆
 2. `./run.sh backtest.py --algorithm <名稱> --horizon 1 --predict-delta --dry-run`
 3. 數字說服人了，拿掉 `--dry-run`；它會寫進 `model_run`，
    之後由 `publish_forecast.py` 的閘門決定上不上線
@@ -145,7 +145,7 @@ pilots/<專案>/mlops/publish_forecast.py  門檻數字＋為什麼是這個數�
    目前這六欄各自對應一個已經發生過的失效。
 
 新專案要接上，只要：容器掛載 `platform/mlops`（見
-`pilots/station2-twin/mlops/run.sh`）、宣告自己的 `MODELS`、
+`pilots/station2-publichealth/mlops/run.sh`）、宣告自己的 `MODELS`、
 在測試裡呼叫一次 `mreg.validate_all(MODELS)`。
 
 ---
@@ -156,7 +156,7 @@ pilots/<專案>/mlops/publish_forecast.py  門檻數字＋為什麼是這個數�
 規則寫在 `platform/mlops/promotion_policy.py`，門檻寫在 pilot：
 
 ```bash
-pilots/station2-twin/mlops/run.sh publish_forecast.py --explain-gate
+pilots/station2-publichealth/mlops/run.sh publish_forecast.py --explain-gate
 ```
 
 | 判定 | 情境 |
@@ -277,4 +277,4 @@ CLAUDE.md §5c：這是 MacBook Pro（被動散熱、無 ECC、非機房）。
 
 相關：[`docs/Backlog.md`](Backlog.md) §31／§33（MLOps 那條鏈與第二次倒推）、
 [`docs/decisions/0016-champion-challenger-replacement-margin.md`](decisions/0016-champion-challenger-replacement-margin.md)（汰換規則）、
-[`pilots/station2-twin/README.md`](../pilots/station2-twin/README.md)（業務層的決策背景）
+[`pilots/station2-publichealth/README.md`](../pilots/station2-publichealth/README.md)（業務層的決策背景）

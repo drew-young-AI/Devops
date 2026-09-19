@@ -164,6 +164,17 @@ mutate "value mappings drifting from dag.py RANK" \
   'd["panels"][5]["fieldConfig"]["defaults"]["mappings"][0]["options"].pop("4")' \
   "RANK"
 
+# The page-level note used to be a text panel anyone could see was missing.
+# It lives in the first panel's description now, where deleting it is invisible
+# -- so the deletion has to be what turns something red.
+mutate "the page-level note deleted from the first panel" \
+  'd["panels"][0].pop("description", None)' \
+  "has no description"
+
+mutate "a dashboard left with no description of its own" \
+  'd["description"] = "  "' \
+  "no description"
+
 mutate "two dashboards claiming the same uid" \
   'd["uid"] = "dataops-pipeline"' \
   "also used by"

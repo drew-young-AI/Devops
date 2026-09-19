@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Data contracts that only the live database can answer.
 #
-# The static half lives in pilots/station2-twin/tests/test_data_contract.py and
+# The static half lives in pilots/station2-publichealth/tests/test_data_contract.py and
 # runs on every commit in milliseconds. This half asks questions about 6.1
 # million rows, which no amount of reading source can settle.
 #

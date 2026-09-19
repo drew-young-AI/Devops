@@ -179,7 +179,7 @@ readiness 失敗、被移出 Service endpoints，藍綠因此無法把一份「�
 
 ## 2. station2-twin 接進 blue/green — ✅ 已完成 2026-08-25
 
-**完成狀態**：`platform/k8s/station2-twin/`（`promote.sh` 四道閘門、
+**完成狀態**：`platform/k8s/station2-publichealth/`（`promote.sh` 四道閘門、
 `test_bluegreen.sh` 8/8、已接進 `platform/tests/run_all.sh` 第 3 層）。
 實測 blue → green → blue，回滾 0.72 秒。細節見 `Plan.md` 的 2026-08-25 補記。
 
@@ -283,7 +283,7 @@ observation 寫進那個 650 萬列的資料庫。
 
 當初的判定是「規則轉移、`tailscale serve` 的呼叫不轉移」。**那次轉移做完了。**
 
-`platform/k8s/station2-twin/networkpolicy.yaml`：namespace 預設拒絕進出，
+`platform/k8s/station2-publichealth/networkpolicy.yaml`：namespace 預設拒絕進出，
 然後只開三條——DNS、`192.168.65.254/32:15432`（共用的那個 postgres）、
 8080 進入。`targets.conf` 裡的 ceiling 是一段沒人強制的散文；這裡是**網路真的
 拒絕做的事**。Compose 給不出等價物，同一個 network 上的容器永遠互相可達、
@@ -691,8 +691,8 @@ GitHub Actions 最近 20 次有 13 次紅，最近一次成功在數週前，**�
 
 | 動作 | 檔案 |
 |---|---|
-| NodePort 30890 → 主機 18091，帶與流量 Service 相同的 `color` selector | `platform/k8s/station2-twin/metrics-service.yaml` |
-| `promote.sh` 同一步搬動 metrics Service 並回讀驗證 | `platform/k8s/station2-twin/promote.sh` |
+| NodePort 30890 → 主機 18091，帶與流量 Service 相同的 `color` selector | `platform/k8s/station2-publichealth/metrics-service.yaml` |
+| `promote.sh` 同一步搬動 metrics Service 並回讀驗證 | `platform/k8s/station2-publichealth/promote.sh` |
 | scrape job `station2-twin-k8s`，`environment=k8s` | `platform/observability/prometheus/prometheus.yml` |
 | 守衛：部署的東西與被監控的東西必須對得起來 | `platform/tests/test_migration_observed.sh` |
 
@@ -718,7 +718,7 @@ Kubernetes（[ADR-0010](decisions/0010-kubernetes-target-runtime-k3s.md)），
 
 ### 修法
 
-[`platform/k8s/station2-twin/deploy.sh`](../platform/k8s/station2-twin/deploy.sh)
+[`platform/k8s/station2-publichealth/deploy.sh`](../platform/k8s/station2-publichealth/deploy.sh)
 在 rollout 之後寫出**同一個檔名、同一組欄位**的契約。
 沒有為 K8s 另立格式——那會讓看板讀兩種契約，而兩份索引就是分岔問題。
 
@@ -921,7 +921,7 @@ caremag 因此落後最多 7 天，這是刻意接受的——它不餵預測。
 
 ### 頻率表還是做了，但用途不同
 
-`pilots/station2-twin/ingest/source_frequency.json`，由
+`pilots/station2-publichealth/ingest/source_frequency.json`，由
 `platform/dataops/refresh_source_frequency.py` 從出版方目錄產生，24 支來源：
 20 支 `declared`（CKAN `updated_freq`）、2 支 `structural`、2 支 `no-evidence`。
 
@@ -1581,7 +1581,7 @@ kubectl config view -o jsonpath='{...clusters[?(@.name=="ubu")]...server}'
 | 6 | 鏡像從哪來 | `evidence/analytics/mirror_manifest.json` | `surveillance_fact` 等 5 表，watermark `max_ingest_id=179`、6,534,834 列 |
 | 6a | 鏡像與 Postgres 是否真的一致（不採信 manifest 的自我宣稱） | 兩邊各跑 `count(*)` 與 `sum(value)` | **6,534,834 列／453,416,484 逐值相同** |
 | 6b | 事實表的血統守恆 | `\d ingest_runs` 的 CHECK | `rows_in_file = source_rows_accepted + rows_rejected + duplicate_rows`，且每批都存 `content_sha256` |
-| 7 | 事實表從哪來 | `pilots/station2-twin/ingest/load_dimensional.py` 的 `url=` | `https://od.cdc.gov.tw/eic/*.csv`（疾管署開放資料）—— **digest 的底** |
+| 7 | 事實表從哪來 | `pilots/station2-publichealth/ingest/load_dimensional.py` 的 `url=` | `https://od.cdc.gov.tw/eic/*.csv`（疾管署開放資料）—— **digest 的底** |
 
 **端到端對帳（證明鏈是真的通的，不是看起來通的）**：
 Prometheus 上 `dataops_yoy_ratio{disease_id="24"}` = `4.548152`；
@@ -1693,7 +1693,7 @@ settle 規則是「取最近一週，其地區涵蓋數 ≥ 前 12 週的中位�
 | 2 | Prometheus 裡有沒有任何模型指標 | `/api/v1/label/__name__/values` 全掃，正則 `model\|forecast\|mae\|baseline\|train\|predict` | **99 個指標，零筆與模型有關** |
 | 3 | 那 `-12.08%` 從哪來 | `dag.py` 的 `probe_model_gate` | 只活在**節點 detail 的字串**裡，沒有時間序列 |
 | 4 | 閘門讀什麼 | `model_run`：`mae`／`baseline_persistence_mae`／`split_strategy`／`horizon_weeks` | 14 筆 run，`code_sha256` 全部相同（`b27a652e`），自 08-20 未變 |
-| 5 | 誰決定上線 | `pilots/station2-twin/mlops/publish_forecast.py` | `WHERE beats_baselines ORDER BY mae ASC LIMIT 1` |
+| 5 | 誰決定上線 | `pilots/station2-publichealth/mlops/publish_forecast.py` | `WHERE beats_baselines ORDER BY mae ASC LIMIT 1` |
 | 6 | 上線了什麼 | `forecast` 表 | 2 筆，出自 run 2（2026w34）與 run 12（2026w36），**都是 t+2** |
 | 7 | 有沒有人回頭看預測準不準 | grep 全 repo：`forecast` 與 `fact/actual/observed/error/score` 同時出現的程式 | **沒有。零筆。** |
 
@@ -2022,14 +2022,14 @@ run 3 是 level run。它輸了，所以沒事。**贏了的那天，發布出�
 
 套用 migration 016 之後，Kubernetes 上的兩個顏色**全部 503**——
 `EXPECTED_SCHEMA_VERSION` 在四個地方各寫一份，
-`pilots/station2-twin/tests/test_contract.py` 只檢查其中三個：
+`pilots/station2-publichealth/tests/test_contract.py` 只檢查其中三個：
 
 | 副本 | 之前 | 被誰檢查 |
 |---|---|---|
 | `config.example.env` | 15 → 16 | ✅ test_contract |
 | `compose.yaml` | 15 → 16 | ✅ test_contract |
 | `app/app.py` | 15 → 16 | ✅ test_contract |
-| `platform/k8s/station2-twin/deploy.sh` 的 `${3:-15}` | **15，沒人動** | ❌ **沒有** |
+| `platform/k8s/station2-publichealth/deploy.sh` 的 `${3:-15}` | **15，沒人動** | ❌ **沒有** |
 
 那段程式的註解自己寫著：「版本住在三個檔案裡；只檢查兩個的測試，
 certifies a consistency that does not exist」——**然後它自己就是第四份。**
@@ -2303,7 +2303,7 @@ macOS-only 寫法巡查。
 
 > 「如果這套系統一直在跑，它**發布出去**的數字會不會贏過持平？」
 
-今天就能回答，n 是好幾百。`pilots/station2-twin/mlops/policy_backtest.py`。
+今天就能回答，n 是好幾百。`pilots/station2-publichealth/mlops/policy_backtest.py`。
 
 **這不是模型回測。** `backtest.py` 已經在對折評分一個模型。這裡評的是**決策**：
 每個原點閘門會選哪個家族、會不會發布、發出去的那個數字對上真的發生的那一週如何。
@@ -2541,7 +2541,7 @@ bootstrap；**沒有做**，所以數字帶著這個限制報出來，而不是�
 | T43 | **Google Drive 當異地備份目的地：路徑已存在，缺的不是帳密** | `platform/backup/sync_remote.sh` 早就寫明支援 Google Drive，而且帶一條硬拒絕：**只接受 rclone `crypt` 遠端**，因為備份裡有 ~22MB Grafana 資料（使用者、API key、session）與稽核軌跡（每一條 secret 路徑、policy 名稱、token accessor），未加密上傳 Google 不是備份決定而是**揭露**。所以缺的三件是：①~~本機沒有 rclone~~ **這一條是我看錯了（2026-09-11 更正）**：`platform/backup/setup_rclone.sh` 本來就在**容器裡**跑 rclone（`rclone/rclone:latest`，bind-mount 一個目錄放 `rclone.conf`），**完全不需要在主機安裝任何東西**。`--status` 現在回 `NOT STARTED`。而且它刻意不用 `rclone config` 互動精靈——那支會把 OAuth 網址寫進 log、而且單檔 bind-mount 會讓 rclone 存檔時 device busy②保留策略（T1）——**這一條比原本記的寬鬆得多，2026-09-11 重新量過**：50 份共 4.1G，但 **433M 是八月的舊檔，最近每份只有 76M**。保留最近 7 份=0.5G、14 份=1.0G、**30 份=2.1G**，15G 免費額度（和 Gmail／Photos 共用）綽綽有餘。（先前在本列寫「大約只夠 20–30 天」是拿最大的舊檔推算，錯了） ③crypt 密碼要進 Vault。OAuth 授權只有使用者本人能做 | T1（保留策略）決定之後；或使用者決定要用 Google 生態圈時 |
 | T44 | **第二條通知通道：Alertmanager 原生支援 Slack，不支援 LINE** | 2026-09-11 從 Alertmanager 自己的 `notifications_total` 指標列出它內建的 integration：discord／email／jira／msteams／msteamsv2／opsgenie／pagerduty／pushover／rocketchat／slack／sns／telegram／victorops／webex／webhook／wechat。**LINE 不在裡面**——要接 LINE 得自己寫一個 webhook 橋接服務（而 LINE Notify 已於 2025-03-31 停止服務，只剩 Messaging API，需要可公開連到的 endpoint，這台機器沒有）。Slack 只要一個 incoming webhook URL，是所有選項裡最短的一條。Gmail SMTP 則沿用既有的 `setup_mail.sh` 與 `secret/devops/smtp`，不需要新程式 | 使用者決定第二條通道用哪個時 |
 | T45 | **日↔週對照表：疾管署自己有發布，而且規則算不出來** | 2026-09-11 找到並實地驗過：`https://nidss.cdc.gov.tw/config/DIM_CAL.csv`，欄位 `CAL_YMD,CAL_YEAR,CAL_WEEK`，7,305 列，涵蓋 2007-01-01 至 2026-12-31。**關鍵是不能改用規則算**：他們 FAQ 寫「以週日為當週第一天…每年第1週為包含1月4日之那一週」，這條規則 2010 年起和表完全一致，2007–2009 卻相反——那三年的週被截在跨年處（2007w01 六天、2007w53 兩天、2008w01 五天、2008w53 四天、2009w01 三天；全檔共 6 個非 7 天的週）。我們資料庫的 2009 第 53 週橫跨六個 RODS feed，站在表這一邊，所以那從來不是載入缺陷。要做的是決定它怎麼進來（當 feed 收，或 vendored crosswalk），以及要不要回填 `time_period.cal_date` | 中醫大個人級資料（帶日期）要接進來時；或有人要把日資料和週資料放在同一張圖上時。**今天不急**：日事實是 `tb_*`、週事實是類流感，沒有任何 metric 同時有日和週 |
-| T46 | **LLM 複審現在跑得起來了，但它的綠燈只有 72 小時** | 2026-09-11 接回：改用公衛 pilot（station2-twin）的 Kubernetes 路徑，`review.sh` 讀 `deploy_develop_<sha>.json` 跑出判決（實測 `9daa7fa`：「The develop deployment is healthy」＋誠實列出缺的三項）。`probe_llm_review` 的過期門檻是 **72 小時**，所以不重跑就會轉黃。**刻意不加排程**：每天對 HEAD 跑一次，多數日子會產出「這個 commit 沒有任何證據」的判決——那是用沒審到東西的證據把節點灌綠，正是這個 repo 一直在防的形狀。真正的觸發點是**部署**（複審的語意就是「審這次發布」），但把 LLM 呼叫放進 `platform/k8s/station2-twin/deploy.sh` 會讓部署依賴本機 MLX 活著。要選一個 | 有人抱怨 `llmreview` 轉黃時；或決定部署要不要依賴本機 LLM 時 |
+| T46 | **LLM 複審現在跑得起來了，但它的綠燈只有 72 小時** | 2026-09-11 接回：改用公衛 pilot（station2-twin）的 Kubernetes 路徑，`review.sh` 讀 `deploy_develop_<sha>.json` 跑出判決（實測 `9daa7fa`：「The develop deployment is healthy」＋誠實列出缺的三項）。`probe_llm_review` 的過期門檻是 **72 小時**，所以不重跑就會轉黃。**刻意不加排程**：每天對 HEAD 跑一次，多數日子會產出「這個 commit 沒有任何證據」的判決——那是用沒審到東西的證據把節點灌綠，正是這個 repo 一直在防的形狀。真正的觸發點是**部署**（複審的語意就是「審這次發布」），但把 LLM 呼叫放進 `platform/k8s/station2-publichealth/deploy.sh` 會讓部署依賴本機 MLX 活著。要選一個 | 有人抱怨 `llmreview` 轉黃時；或決定部署要不要依賴本機 LLM 時 |
 | T47 | **複審看不到映像掃描，而它自己知道** | `review.py` 的四個輸入裡 `build_<sha>.json`／`trivy_summary_*`／`sbom_summary_*` 都不存在，所以每次判決都會列 `build-evidence` 這條 medium。缺的原因不同：build metadata 只有 `run_local_ci.sh` 與已退役的 compose deploy 會寫；trivy／SBOM 要本機裝 trivy，而 `trivy` 節點 2026-09-10 已移除並標記為未量測。`sast_summary_*.json` 存在但**不帶 SHA**（只有時間戳，最新一份是 08-24），所以接不到某個 commit——把它塞進去會讓三週前的掃描結果看起來像這次發布的。**不要改 `build_prompt` 的來源順序**：檔案裡寫明順序就是契約，改了會讓所有未來的 `inputs_digest` 和歷史對不起來 | 決定映像掃描要在哪裡跑時（本機 trivy 或 CI 的 trivy-action） |
 | T48 | **`setup_rclone.sh` 在 Linux 上會產生 root 擁有的 `rclone.conf`** | 2026-09-11 量到的事實：`rclone/rclone:latest` 預設以 **uid=0(root)** 跑（`prom/alertmanager:v0.28.1` 是 **uid=65534(nobody)**）。`setup_rclone.sh` 對 `$RCLONE_DIR` 做 `chmod 700`、對 `rclone.conf` 做 `chmod 600`，然後**不帶 `--user`** 掛進容器。macOS 看不出來（Docker Desktop 會映射擁有權）。在 Linux 上 root 讀寫得了 700 目錄，所以**設定會成功**——但產生的 `rclone.conf` 屬於 root，之後以使用者身分跑的 `sync_remote.sh` 讀不到它，而失效時機正是「第一次真的要上傳備份」。**同一類缺陷已在 `setup_notifications.sh` 修掉並經 CI（ubuntu-latest）驗證**（那邊是 nobody 讀不到 600 檔，症狀不同但根因相同：掛載權限與容器 UID 的交握）。修法應該一樣是 `--user "$(id -u):$(id -g)"`，但**現在無法在 Linux 上驗證**（ubu 今天 mDNS 解析不到，見 T41），而沒驗過就改一支只跑一次的設定腳本，等於把缺陷從「會發生」變成「可能已經修好」 | ubu 連得上時；或有人要在 Linux 上設定異地備份時 |
 | T49 | **`WidespreadGeoDrift` 分不出「新出現的漂移」和「一直都在的漂移」** | 這條規則的 annotation 自己寫著它的用途是**抓管線變更**（「來源改口徑、地理對照改變、單位變更」），判別法是「多支疾病同時同向動＝較可能是管線」。2026-09-15 量到的狀態：COVID-19 的 `dataops:yoy_geo_drift_share` **從 09-05 起連續十天都是 1.0**，`for: 2h` 早就滿足，所以它一直在燒。一條為了抓「變更」而寫的規則，連燒十天在描述一個**沒有變**的狀態——它已經不在回答自己的問題了。同時 `alertmgr` 節點的語意是「有任何告警在燒＝黃」，所以這一條會把那個節點**永久**釘在黃燈，而一個永遠紅的類別正是「人會學會過濾掉它」的老問題。可能的形狀：讓 expr 比較 share 的**變化**（例如 `share - share offset 1w`）而不是 share 的絕對值；或把「站著不動的真實疫情」與「剛開始動的東西」分成兩條規則、兩種 severity。**不要**用降門檻或加 silence 解決——那是把訊號關掉不是把問題解掉 | 有人要 `alertmgr` 轉綠時；或下一次有人問「這三條告警怎麼處理」時。**這是告警定義變更，和 T35 同一類** |
@@ -2551,6 +2551,7 @@ bootstrap；**沒有做**，所以數字帶著這個限制報出來，而不是�
 | T53 | **`--selfcheck` 的「待清理 ask」清單是狀態相依的，會誘導人刪掉正確的 ask** | 2026-09-17 ubu 開機時，selfcheck 列出三筆「條件已消失」：`offsite-destination`、`prod-node-unreachable`、`prod-node-unreachable-host`。2026-09-19 ubu 關機後重跑，**後兩筆立刻重新成立**（prodk8s／prodhost 回報「連不上」），反而是原本正常的 `prod-workload-reachability` 變成「條件已消失」。三筆裡只有 `offsite-destination` 是真的過期（異地備份已設定並實測 402 個加密檔零差異），已刪。**問題不在措辭而在形狀**：這份清單讀起來像「這些可以刪」，實際意思是「此刻沒有匹配」，而匹配與否取決於另一台機器開著沒有。照著刪會刪掉唯一會在 ubu 掛掉時向使用者說明原因的那兩筆。候選做法：①ask 記錄「上次匹配時間」，只有連續 N 天沒匹配才列入建議刪除；②把輸出分成「從未匹配過」與「曾匹配、現在沒有」兩類 | 下次有人要照著 selfcheck 的清單清 ask 之前；或 ask 數量多到無法逐筆判斷時 |
 | T54 | **README 宣稱「每一條告警規則都帶 `runbook:` 註解」，沒有守衛** | 2026-09-19 實測 21 條規則、21 個 runbook 註解，比例確實是全部，而且 README 已改成附兩條可重跑指令。但**沒有任何測試在守這個不變量**：新增一條規則忘了寫 runbook，Telegram 訊息就少了處置指令，而沒有東西會變紅。這是「宣稱有守衛才算數」這條規矩自己的漏網之魚 | 下次新增告警規則之前；或有人要把 README 的宣稱當作可信前提時 |
 | T55 | **沒有東西在對帳「入口說那一頁有什麼」與「那一頁真的有什麼」** | 2026-09-19 以長官視角走讀抓到三筆：README 說階段報告有百分比與判定（HTML 版當時沒有，已補）、`pilots/README.md` 說 blue/green 尚未接上（K8s 上已跑 25 天，已更正）、README 說 19 條告警規則（實測 21，已改寫）。可達性四層全部給滿分，因為它們只驗連結活著、頁面是產生式、腳本找得到、沒有分岔——**沒有一層在驗描述**。要自動化需要入口的描述有機器可讀形式（例如連結旁標註「這一頁應含 `completion.verdict`」），屬新範圍 | 入口文件多到無法逐一人工走讀時；或再發生一次「照著入口的描述點過去卻找不到那個東西」 |
+| T56 | **服務名不在 `xref.py` 的命名空間裡，所以改名沒有自動守衛** | 2026-09-19 把 pilot 從 station2-twin 更名為 station2-PublicHealth（ADR-0022，只改顯示名／路徑／映像）。`xref.py` 管節點、ADR、Backlog 編號、告警規則四個命名空間，**服務名不在內**——改漏一處路徑會在執行時壞掉（看得見），但改漏一處**顯示名**只會讓文件長期有兩種說法，而那正是「同一個東西兩份說法」這個已知失效形狀。候選做法：把服務名（pilot 目錄名＋顯示名）納入第五個命名空間，退役名由 git 歷史推導，比照既有四個 | 下次要改任何服務名之前；或 pilot 超過一個時 |
 | T31 | **Telegram bot token 明文出現在 `docker logs`** | 是上游函式庫（telebot）把整個 sendMessage URL 寫進錯誤字串，不是設定錯誤。要遮蔽得改 Alertmanager 的日誌管線或包一層 proxy，兩條都是新元件；而現況的實際曝險範圍是「能對這台機器下 `docker logs` 的人」，與能讀 `~/.env` 的是同一群人 | 這台機器上出現第二個不該看到這把 token 的使用者時；或 token 要用於這個平台以外的地方時 |
 | T32 | **§零 只驗「列出來的檔案指得對」，不驗「該列的都列了」** | 2026-09-10 新增的守衛能抓到「文件指向一個腳本不會產生的路徑」（`.telegram.env` 就是這樣被抓到的），但反方向抓不到：一個平台真的需要、卻沒被寫進 §零 的 gitignored 檔案，仍然會在全新 clone 時安靜地缺席。要抓得到，得先有一份「哪些 gitignored 檔案是承重的」的機器可讀來源，那要各層自己宣告 | 下一次「全新 clone 起不來而 §零 沒說」發生時；或有人真的在第二台機器上從零 clone 時 |
 | T3 | **從社群的教訓反向補守衛** | 見下方分析 | 每次遇到「本機綠、別處紅」時追加一條 |

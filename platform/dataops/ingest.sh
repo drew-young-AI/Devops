@@ -40,7 +40,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 export PGPASSWORD="${PGPASSWORD:-twin-bootstrap}"
 
 echo "=== [dataops] ingest $(date -u '+%Y-%m-%dT%H:%M:%SZ') ==="
-"$ROOT/pilots/station2-twin/ingest/run.sh" load_dimensional.py \
+"$ROOT/pilots/station2-publichealth/ingest/run.sh" load_dimensional.py \
     --sources "${INGEST_SOURCES:-nhi_all,rods_all}"
 rc=$?
 

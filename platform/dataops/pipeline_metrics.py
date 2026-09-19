@@ -299,7 +299,7 @@ def freshness_and_execution(lines):
 # threshold.
 #
 # The threshold has to be TIME UNCHANGED against the source's own PUBLICATION
-# cadence, which is why this waited for pilots/station2-twin/ingest/
+# cadence, which is why this waited for pilots/station2-publichealth/ingest/
 # source_frequency.json (built for §20, fetched from the publishers' own
 # catalogues rather than estimated). Both numbers are emitted and the rule
 # compares them, so no cadence is duplicated into a .yml file.
@@ -310,7 +310,7 @@ def freshness_and_execution(lines):
 # measurement, and §20 already records what that costs.
 # --------------------------------------------------------------------------
 
-FREQ_TABLE = os.path.join(REPO_ROOT, "pilots", "station2-twin", "ingest",
+FREQ_TABLE = os.path.join(REPO_ROOT, "pilots", "station2-publichealth", "ingest",
                           "source_frequency.json")
 
 

@@ -1,0 +1,397 @@
+{
+  "uid": "mlops-forecast",
+  "title": "MLOps 未來預測（已發布）",
+  "tags": [
+    "mlops",
+    "platform",
+    "model",
+    "forecast"
+  ],
+  "timezone": "browser",
+  "schemaVersion": 39,
+  "version": 1,
+  "refresh": "5m",
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "editable": true,
+  "description": "實際發布出去的預測，依它所預測的那一週排列。來源是 forecast 表，經 platform/mlops/pipeline_metrics.py 匯出。閘門擋下的預測不會出現在這裡。\n\n**這一頁看什麼，不看什麼**\n\n**這裡只有真的通過閘門、真的發布出去的預測。** 沒有通過的不會出現在這裡——不是被藏起來，是根本沒有被發布。想看「如果當時用這個模型會怎樣」，那是[回歸測試那一頁](/d/mlops-backtest/)。\n\n**t+1 與 t+2 是兩種不同的行動，不是精粗版本**：t+1 提前一週，對應**調人力**（門診與急診排班、快篩與藥品備量）；t+2 提前兩週，對應**調衛教與疫苗**（衛教訊息發布、疫苗調撥與接種站安排）。\n\n**「實際發生」為空不是缺漏**，是那一週還沒過完或還沒被量到。一個還沒有真相可比的預測，本來就不該有一個對照數字。\n\n發布的條件、汰換門檻與閘門為什麼常常擋著，見[MLOps 模型](/d/mlops-model/)那一頁。",
+  "templating": {
+    "list": [
+      {
+        "name": "project",
+        "label": "專案",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "PBFA97CFB590B2093"
+        },
+        "query": {
+          "query": "label_values(mlops_published_forecast_value, project)",
+          "refId": "project"
+        },
+        "refresh": 1,
+        "includeAll": false,
+        "multi": false,
+        "sort": 1,
+        "current": {
+          "text": "station2-twin",
+          "value": "station2-twin",
+          "selected": true
+        },
+        "description": "ADR-0017：專案是標籤不是資料夾。"
+      },
+      {
+        "name": "target",
+        "label": "預測題目",
+        "type": "query",
+        "datasource": {
+          "type": "prometheus",
+          "uid": "PBFA97CFB590B2093"
+        },
+        "query": {
+          "query": "label_values(mlops_published_forecast_value{project=\"$project\"}, target)",
+          "refId": "target"
+        },
+        "refresh": 1,
+        "includeAll": false,
+        "multi": false,
+        "sort": 1,
+        "current": {
+          "text": "pct_ili",
+          "value": "pct_ili",
+          "selected": true
+        },
+        "description": "pct_ili 是類流感，pct_flu 是流感本身。"
+      }
+    ]
+  },
+  "panels": [
+    {
+      "type": "stat",
+      "title": "已發布的預測筆數",
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 6,
+        "h": 5
+      },
+      "description": "**這一頁看什麼，不看什麼**\n\n**這裡只有真的通過閘門、真的發布出去的預測。** 沒有通過的不會出現在這裡——不是被藏起來，是根本沒有被發布。想看「如果當時用這個模型會怎樣」，那是[回歸測試那一頁](/d/mlops-backtest/)。\n\n**t+1 與 t+2 是兩種不同的行動，不是精粗版本**：t+1 提前一週，對應**調人力**（門診與急診排班、快篩與藥品備量）；t+2 提前兩週，對應**調衛教與疫苗**（衛教訊息發布、疫苗調撥與接種站安排）。\n\n**「實際發生」為空不是缺漏**，是那一週還沒過完或還沒被量到。一個還沒有真相可比的預測，本來就不該有一個對照數字。\n\n發布的條件、汰換門檻與閘門為什麼常常擋著，見[MLOps 模型](/d/mlops-model/)那一頁。\n\n---\n\n這個數字很小是**設計使然**：閘門只在模型贏過基準時放行。數字停著不動超過兩週，代表重訓沒跑或連續被擋下——那要去看 MLOps 模型頁的「距上次回測多久」。",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PBFA97CFB590B2093"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "expr": "count(mlops_published_forecast_value{project=\"$project\",target=\"$target\"})",
+          "legendFormat": "{{origin}}",
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "colorMode": "none",
+        "graphMode": "none"
+      }
+    },
+    {
+      "type": "stat",
+      "title": "已發布預測涵蓋的目標週",
+      "gridPos": {
+        "x": 6,
+        "y": 0,
+        "w": 6,
+        "h": 5
+      },
+      "description": "每一筆已發布預測**所預測的那一週**（不是它被算出來的時間）。最大的那一週如果已經過去了，代表這個模型不再領先實際值——那就不是預測了，板面上的 `fclead` 節點就是在問這件事。",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PBFA97CFB590B2093"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "expr": "max(mlops_published_forecast_value{project=\"$project\",target=\"$target\"}) by (target_week)",
+          "legendFormat": "{{target_week}}",
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 3,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "colorMode": "none",
+        "graphMode": "none"
+      }
+    },
+    {
+      "type": "stat",
+      "title": "還沒有實際值可對照的筆數",
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 6,
+        "h": 5
+      },
+      "description": "真正還指向未來的那幾筆。其餘的目標週已經過了，可以（也應該）被事後評分。\n\n（`or vector(0)` 不是裝飾：兩個 count 沒有共同標籤時相減會得到**空集合**，而空面板看起來跟「零筆」一模一樣。）",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PBFA97CFB590B2093"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "expr": "count(mlops_published_forecast_value{project=\"$project\",target=\"$target\"}) - (count(mlops_published_forecast_actual{project=\"$project\",target=\"$target\"}) or vector(0))",
+          "legendFormat": "{{origin}}",
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "colorMode": "none",
+        "graphMode": "none"
+      }
+    },
+    {
+      "type": "stat",
+      "title": "t+1 這個時程有沒有通過過閘門",
+      "gridPos": {
+        "x": 18,
+        "y": 0,
+        "w": 6,
+        "h": 5
+      },
+      "description": "0 代表**提前一週的預測從來沒有被發布過**，也就是「調人力」這個決策目前沒有模型可用，該用的仍然是「下週跟這週一樣」。這不是故障，是閘門在做它的工作。",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PBFA97CFB590B2093"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "expr": "max(mlops_horizon_gate_passed{project=\"$project\",target=\"$target\",horizon=\"1\"})",
+          "legendFormat": "{{origin}}",
+          "instant": true
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto",
+        "colorMode": "none",
+        "graphMode": "none"
+      }
+    },
+    {
+      "type": "table",
+      "title": "每一筆已發布的預測",
+      "gridPos": {
+        "x": 0,
+        "y": 5,
+        "w": 24,
+        "h": 12
+      },
+      "description": "依**預測的那一週**排列。欄位：預測值／實際發生（若該週已被量到）。**空白的實際值代表那一週還沒到或還沒被量到**，不是漏掉。",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PBFA97CFB590B2093"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "expr": "mlops_published_forecast_value{project=\"$project\",target=\"$target\"}",
+          "instant": true,
+          "format": "table"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "expr": "mlops_published_forecast_actual{project=\"$project\",target=\"$target\"}",
+          "instant": true,
+          "format": "table"
+        }
+      ],
+      "transformations": [
+        {
+          "id": "joinByField",
+          "options": {
+            "byField": "origin",
+            "mode": "outer"
+          }
+        },
+        {
+          "id": "organize",
+          "options": {
+            "excludeByName": {
+              "Time": true,
+              "Time 1": true,
+              "Time 2": true,
+              "Time 3": true,
+              "Time 4": true,
+              "Time 5": true,
+              "__name__": true,
+              "job": true,
+              "instance": true,
+              "project": true,
+              "target": true,
+              "horizon": true
+            },
+            "renameByName": {
+              "origin": "起算週",
+              "target_week": "預測的那一週",
+              "Value #A": "模型預測",
+              "Value #B": "實際發生",
+              "Value #C": "基準（=起算週）",
+              "Value #D": "模型誤差",
+              "Value #E": "基準誤差"
+            }
+          }
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "decimals": 2,
+          "custom": {
+            "align": "auto"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "sortBy": [
+          {
+            "displayName": "起算週",
+            "desc": true
+          }
+        ]
+      }
+    }
+  ]
+}

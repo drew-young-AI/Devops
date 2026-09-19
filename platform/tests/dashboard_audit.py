@@ -280,6 +280,31 @@ def audit():
                     "`layer` label -- the list is a copy of LINES that nothing "
                     "keeps in step.")
 
+        # THE PAGE-LEVEL NOTE HAS NOWHERE ELSE TO LIVE (2026-09-19).
+        #
+        # Every board used to open with a text panel saying what it does and
+        # does NOT measure -- four to five grid units of the first screen. They
+        # moved into the description of the first panel (the hover ⓘ) plus the
+        # dashboard's own description, which returns the canvas to data.
+        #
+        # The failure that buys: a description is invisible until hovered, so
+        # deleting one costs nothing visually and nobody notices the board lost
+        # the sentence that says what it must not be read as. A dashboard that
+        # silently drops "資料品質刻意不在這裡" is a dashboard someone will read
+        # as covering data quality.
+        panels = [q for q in dash.get("panels", []) if q.get("type") != "row"]
+        if panels and not (panels[0].get("description") or "").strip():
+            problems.append(
+                f"{name}: the first panel {panels[0].get('title')!r} has no "
+                "description. That ⓘ is where this board's 'what this does NOT "
+                "measure' note lives now that the text panel is gone; without "
+                "it the note is not anywhere a reader can reach.")
+        if not (dash.get("description") or "").strip():
+            problems.append(
+                f"{name}: the dashboard has no description -- it is the second "
+                "copy of the page-level note, and the only one Grafana shows "
+                "in search results.")
+
         for p in dash.get("panels", []):
             has_code = any("devops_node_state_code" in t.get("expr", "")
                            for t in p.get("targets", []))

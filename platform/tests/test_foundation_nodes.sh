@@ -580,7 +580,7 @@ assert_output_contains "ok|" "and a clean natural key with a live crosswalk is g
 # cannot pass silently.
 run_cmd python3 - <<'PY3'
 import os, sys
-sys.path.insert(0, os.path.join(os.getcwd(), "pilots", "station2-twin", "ingest"))
+sys.path.insert(0, os.path.join(os.getcwd(), "pilots", "station2-publichealth", "ingest"))
 from load_epiweek_calendar import load_crosswalk
 cal = load_crosswalk()
 want = {"2008-12-28": (2008, 53), "2008-12-31": (2008, 53),

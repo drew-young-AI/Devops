@@ -3,7 +3,7 @@
 #
 # WHY THIS EXISTS (2026-09-01).
 #
-# `pilots/station2-twin/compose.yaml` takes its Vault AppRole from the ambient
+# `pilots/station2-publichealth/compose.yaml` takes its Vault AppRole from the ambient
 # environment:
 #
 #     VAULT_ROLE_ID: ${VAULT_ROLE_ID:-}
@@ -22,7 +22,7 @@
 # had swapped places compared with the morning, and the only reason anyone knew
 # is that `test_migration_observed.sh` had started comparing them hours earlier.
 #
-# `.gitignore` has carried an entry for `pilots/station2-twin/.env.vault` --
+# `.gitignore` has carried an entry for `pilots/station2-publichealth/.env.vault` --
 # "AppRole secret_id delivered to the pilot container. Regenerable from Vault;
 # never committed" -- for weeks. NOTHING WROTE IT AND NOTHING READ IT. The
 # convention was declared and never wired up: another thing that registers as

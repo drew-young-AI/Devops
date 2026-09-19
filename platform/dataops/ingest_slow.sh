@@ -34,7 +34,7 @@
 #
 # WHY WEEKLY.
 #
-# From pilots/station2-twin/ingest/source_frequency.json, which is fetched from
+# From pilots/station2-publichealth/ingest/source_frequency.json, which is fetched from
 # the publishers' own catalogues rather than estimated:
 #
 #   cdc-tb-town                  declared year
@@ -63,7 +63,7 @@ set -uo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 export PGPASSWORD="${PGPASSWORD:-twin-bootstrap}"
-RUN="$ROOT/pilots/station2-twin/ingest/run.sh"
+RUN="$ROOT/pilots/station2-publichealth/ingest/run.sh"
 
 echo "=== [dataops] slow ingest $(date -u '+%Y-%m-%dT%H:%M:%SZ') ==="
 rc=0

@@ -410,6 +410,15 @@ def rolling_origin(rows, horizon, min_train):
 def run_rolling(rows, horizon, min_train, predict_delta=False, spec=None):
     actual, pred, last_obs = [], [], []
     persistence, seasonal = [], []
+    # THE FOLD IDENTITIES, WHICH THIS LOOP USED TO WALK PAST (2026-09-19).
+    #
+    # Every iteration knows which week it is forecasting FROM. Four numbers
+    # came out of this function and that knowledge was dropped, so the only
+    # question anyone could ask afterwards was "was it better on average" --
+    # never "what would it have said the week before the wave". Keeping the
+    # per-fold rows costs one list; recomputing them later costs the training
+    # loop, which is minutes.
+    folds = []
     n_train_last = 0
     for train, test in rolling_origin(rows, horizon, min_train):
         model, idx = fit_one(train, spec, predict_delta)
@@ -427,8 +436,17 @@ def run_rolling(rows, horizon, min_train, predict_delta=False, spec=None):
         # pair is dropped rather than filled -- a baseline scored on a different
         # subset is not the same baseline.
         seasonal.append(test["same_week_last_year"])
+        folds.append({
+            "origin_seq": test["seq"],
+            "origin_epi_year": test["epi_year"],
+            "origin_epi_week": test["epi_week"],
+            "predicted": yhat,
+            "actual": test["label"],
+            "persistence": test["y"],
+            "seasonal": test["same_week_last_year"],
+        })
         n_train_last = len(train)
-    return actual, pred, last_obs, persistence, seasonal, n_train_last
+    return actual, pred, last_obs, persistence, seasonal, n_train_last, folds
 
 
 def run_random_split(rows, horizon, min_train, spec=None):
@@ -446,9 +464,12 @@ def run_random_split(rows, horizon, min_train, spec=None):
     # the ONLY difference between the two is how the rows were split.
     model, idx = fit_one(train, spec, predict_delta=False)
     pred = model.predict(vectorise(test, idx))
+    # The trailing [] is the per-fold list the rolling run returns. A random
+    # split has no origins, so it hands back nothing to store -- the leak stays
+    # a contrast in the summary and never reaches a table a dashboard reads.
     return ([r["label"] for r in test], list(map(float, pred)),
             [r["y"] for r in test], [r["y"] for r in test],
-            [r["same_week_last_year"] for r in test], len(train))
+            [r["same_week_last_year"] for r in test], len(train), [])
 
 
 def summarise(tag, actual, pred, last_obs, persistence, seasonal):
@@ -560,17 +581,28 @@ def main():
                  else "rolling origin, predicting the LEVEL")
         r = run_rolling(rows, args.horizon, args.min_train, args.predict_delta,
                         spec=spec)
-        runs.append(("rolling_origin", summarise(label, *r[:5]), r[5], len(r[0])))
+        runs.append(("rolling_origin", summarise(label, *r[:5]), r[5], len(r[0]),
+                     r[6]))
         if args.also_wrong_split:
             w = run_random_split(rows, args.horizon, args.min_train, spec=spec)
+            # No folds: a random split has no origins, and writing its
+            # predictions into a table a dashboard reads by origin would put a
+            # known leak on the same axis as the honest run.
             runs.append(("random", summarise("random split (LEAKS -- not a result)",
-                                             *w[:5]), w[5], len(w[0])))
+                                             *w[:5]), w[5], len(w[0]), []))
 
         if args.dry_run:
             print("  (dry run, nothing written)")
             return
 
-        for strategy, m, n_train, n_test in runs:
+        # seq -> the week that seq IS. Used to name the week a fold is
+        # predicting: target = origin + horizon steps in the series, and
+        # stepping by weeks across a year boundary is the arithmetic that has
+        # its own crosswalk table (migration 019) precisely because doing it by
+        # hand is where people get it wrong.
+        week_of = {r["seq"]: (r["epi_year"], r["epi_week"]) for r in rows}
+
+        for strategy, m, n_train, n_test, folds in runs:
             cur.execute("""
                 INSERT INTO model_run (feature_set_id, algorithm, hyperparams,
                     seed, split_strategy, horizon_weeks, n_train, n_test,
@@ -594,6 +626,35 @@ def main():
             mid, beats = cur.fetchone()
             print(f"  model_run_id={mid} strategy={strategy} "
                   f"beats_baselines={beats}")
+
+            written, skipped = 0, 0
+            for f in folds:
+                target = week_of.get(f["origin_seq"] + args.horizon)
+                if target is None:
+                    # The series ends before the target week exists. Dropping
+                    # the fold is right: there is no actual to compare against,
+                    # and a row in this table without a truth value would read
+                    # as a forecast that was scored.
+                    skipped += 1
+                    continue
+                cur.execute("""
+                    INSERT INTO backtest_prediction (
+                        model_run_id, origin_epi_year, origin_epi_week,
+                        target_epi_year, target_epi_week, horizon_weeks,
+                        predicted_value, actual_value, persistence_value,
+                        seasonal_value)
+                    VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)
+                    ON CONFLICT ON CONSTRAINT backtest_prediction_fold
+                    DO NOTHING
+                """, (mid, f["origin_epi_year"], f["origin_epi_week"],
+                      target[0], target[1], args.horizon,
+                      f["predicted"], f["actual"], f["persistence"],
+                      f["seasonal"]))
+                written += 1
+            if folds:
+                print(f"    per-origin predictions stored: {written}"
+                      + (f" ({skipped} folds had no target week yet)"
+                         if skipped else ""))
         conn.commit()
 
 

@@ -796,7 +796,7 @@ esac
 # without the others noticing.
 #
 # NOTE ON THE FIRST VERSION OF THIS CHECK. It grepped the repo for the string
-# `pilots/station2-twin/.env.vault` and passed if anything mentioned it. A
+# `pilots/station2-publichealth/.env.vault` and passed if anything mentioned it. A
 # mutation that pointed the WRITER at a different filename left it green,
 # because recover.sh still mentioned the path as a READER. It verified that
 # somebody talked about the file, not that anybody wrote it -- a guard whose

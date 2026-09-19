@@ -5,7 +5,7 @@ set -euo pipefail
 # times. The previous version hardcoded station1-hello into the default path,
 # the evidence path and the image tag, so pointing CI at a different pilot
 # quietly wrote its artefacts into the wrong pilot's evidence directory.
-PILOT_DIR="${1:-$(cd "$(dirname "$0")/../../pilots/station2-twin" && pwd)}"
+PILOT_DIR="${1:-$(cd "$(dirname "$0")/../../pilots/station2-publichealth" && pwd)}"
 PLATFORM_ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 PILOT_NAME="$(basename "$PILOT_DIR")"
 ARTIFACT_DIR="${2:-$PLATFORM_ROOT/evidence/$PILOT_NAME}"

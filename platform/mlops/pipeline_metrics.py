@@ -179,6 +179,157 @@ def latest_runs(lines):
     return len(r)
 
 
+# HOW MANY ORIGINS GO OUT, AND WHY THERE IS A CEILING.
+#
+# A rolling-origin backtest has one fold per week of history -- about 450 of
+# them per (target, horizon). Emitting every fold as its own series would put
+# roughly 9,000 series into a textfile that node-exporter re-reads on every
+# 15-second scrape, to answer a question nobody asks about 1998.
+#
+# 156 weeks is three influenza seasons: enough to see the wave the reader
+# remembers, bounded enough that the file stays small. The FULL grid stays in
+# `backtest_prediction` -- this ceiling is about what is worth exporting, not
+# about what was computed, and the table is where anyone asking a longer
+# question should go.
+BACKTEST_ORIGIN_WINDOW = 156
+
+
+def backtest_grid(lines):
+    """Per-origin predictions: what the model would have said, week by week.
+
+    THE QUESTION THIS ANSWERS AND `mlops_run_mae` CANNOT. An average over 450
+    weeks says whether the model is better on the whole. A public health reader
+    asks something narrower and harder: "the week before the wave started, what
+    would this have told us?" That is a single fold, and until 2026-09-19 the
+    backtest computed it and threw it away.
+
+    EVERY ORIGIN IN THE WINDOW GOES OUT, never a selection. A reader who can
+    pick the origin can pick the origin that flatters the model, and no number
+    here would show that a choice had been made -- so the dashboard built on
+    this draws the whole distribution and highlights the selection inside it.
+    """
+    # CURRENT_SET already opens the WITH clause, so this continues it with a
+    # comma. Starting a second WITH is a syntax error, and `rows()` reports a
+    # failed query the same way it reports an unreachable database -- which is
+    # how the first version of this read "unreachable" while the database was
+    # fine.
+    r = rows(CURRENT_SET + f"""
+        , newest AS (
+          SELECT DISTINCT ON (cur.target, m.horizon_weeks)
+                 m.model_run_id, m.horizon_weeks, cur.target
+          FROM model_run m
+          JOIN cur ON cur.fs = m.feature_set_id
+          WHERE m.split_strategy = 'rolling_origin'
+          ORDER BY cur.target, m.horizon_weeks, m.trained_at DESC,
+                   m.model_run_id DESC
+        ), ranked AS (
+          SELECT n.target, n.horizon_weeks,
+                 b.origin_epi_year, b.origin_epi_week,
+                 b.target_epi_year, b.target_epi_week,
+                 b.predicted_value, b.actual_value, b.persistence_value,
+                 row_number() OVER (PARTITION BY n.target, n.horizon_weeks
+                                    ORDER BY b.origin_epi_year DESC,
+                                             b.origin_epi_week DESC) AS rn
+          FROM backtest_prediction b
+          JOIN newest n ON n.model_run_id = b.model_run_id
+        )
+        SELECT target, horizon_weeks, origin_epi_year, origin_epi_week,
+               target_epi_year, target_epi_week,
+               predicted_value, actual_value, persistence_value
+        FROM ranked WHERE rn <= {BACKTEST_ORIGIN_WINDOW}
+        ORDER BY target, horizon_weeks, origin_epi_year, origin_epi_week;""",
+             timeout=40)
+    if r is None:
+        return None
+    lines += [
+        "# HELP mlops_backtest_predicted What the model would have predicted, made from that origin week.",
+        "# TYPE mlops_backtest_predicted gauge",
+        "# HELP mlops_backtest_actual What actually happened in the target week.",
+        "# TYPE mlops_backtest_actual gauge",
+        "# HELP mlops_backtest_persistence The naive baseline for that fold: the target week equals the origin week.",
+        "# TYPE mlops_backtest_persistence gauge",
+        "# HELP mlops_backtest_abs_error |predicted - actual| for that fold.",
+        "# TYPE mlops_backtest_abs_error gauge",
+        "# HELP mlops_backtest_baseline_abs_error |persistence - actual| for the same fold, so the two are always compared over identical weeks.",
+        "# TYPE mlops_backtest_baseline_abs_error gauge",
+    ]
+    for (target, h, oy, ow, ty, tw, pred, actual, persist) in r:
+        pred, actual, persist = float(pred), float(actual), float(persist)
+        lbl = (f'{base_labels()},target="{esc(target)}",horizon="{esc(h)}",'
+               f'origin="{esc(oy)}w{int(ow):02d}",'
+               f'target_week="{esc(ty)}w{int(tw):02d}"')
+        lines.append(f"mlops_backtest_predicted{{{lbl}}} {pred}")
+        lines.append(f"mlops_backtest_actual{{{lbl}}} {actual}")
+        lines.append(f"mlops_backtest_persistence{{{lbl}}} {persist}")
+        lines.append(f"mlops_backtest_abs_error{{{lbl}}} {abs(pred - actual)}")
+        lines.append(
+            f"mlops_backtest_baseline_abs_error{{{lbl}}} {abs(persist - actual)}")
+    lines.append("")
+    return len(r)
+
+
+def published_forecasts(lines):
+    """The forecasts that were actually published, by the week they are about.
+
+    Separate from `scoring()`, which counts them. This emits the VALUES, so a
+    reader can see the number that went out next to the weeks around it --
+    which is the only form in which a forecast is usable by somebody planning
+    staffing or a vaccination drive.
+
+    `actual` is emitted only when the target week has already happened. A
+    forecast about a week nobody has measured yet has no truth to compare with,
+    and inventing a zero there would draw a line to the floor.
+    """
+    # forecast has no feature_set_id: it points at the model_run that produced
+    # it, and the feature set is that run's. Joining straight from forecast to
+    # feature_set would have been a column that does not exist.
+    # THE ACTUAL COMES FROM THE CURRENT FEATURE SET, NOT THE FORECAST'S OWN.
+    #
+    # A published forecast points at the run that made it, and that run's
+    # feature set can be months old -- the live rows here were produced by sets
+    # 1, 55, 99, 100, 197 and 198. An old set stops being rebuilt, so it has no
+    # row for a week that happened after it was built, and looking the truth up
+    # there returns nothing for EVERY forecast. That is what the first version
+    # did, and the panel drew an empty column that reads exactly like "not
+    # measured yet" instead of "asked the wrong table".
+    #
+    # The observation of a week is a property of the week, not of the model
+    # that guessed at it, so it is read from the newest set for that target.
+    r = rows(CURRENT_SET + """
+        SELECT fs.target, f.horizon_weeks,
+               f.origin_epi_year, f.origin_epi_week,
+               f.target_epi_year, f.target_epi_week,
+               f.predicted_value,
+               (SELECT fr.y FROM feature_row fr
+                 JOIN cur ON cur.fs = fr.feature_set_id
+                 WHERE cur.target = fs.target
+                   AND fr.epi_year = f.target_epi_year
+                   AND fr.epi_week = f.target_epi_week) AS actual
+        FROM forecast f
+        JOIN model_run m ON m.model_run_id = f.model_run_id
+        JOIN feature_set fs ON fs.feature_set_id = m.feature_set_id
+        ORDER BY fs.target, f.horizon_weeks, f.target_epi_year,
+                 f.target_epi_week;""")
+    if r is None:
+        return None
+    lines += [
+        "# HELP mlops_published_forecast_value A forecast that was actually published, labelled by the week it is about.",
+        "# TYPE mlops_published_forecast_value gauge",
+        "# HELP mlops_published_forecast_actual The measured value for that target week, emitted only once the week has been observed.",
+        "# TYPE mlops_published_forecast_actual gauge",
+    ]
+    for (target, h, oy, ow, ty, tw, pred, actual) in r:
+        lbl = (f'{base_labels()},target="{esc(target)}",horizon="{esc(h)}",'
+               f'origin="{esc(oy)}w{int(ow):02d}",'
+               f'target_week="{esc(ty)}w{int(tw):02d}"')
+        lines.append(f"mlops_published_forecast_value{{{lbl}}} {float(pred)}")
+        if actual not in (None, ""):
+            lines.append(
+                f"mlops_published_forecast_actual{{{lbl}}} {float(actual)}")
+    lines.append("")
+    return len(r)
+
+
 def horizon_totals(lines):
     """Per horizon: how many candidates exist, and has ANY of them ever passed.
 
@@ -486,7 +637,8 @@ def main():
                      ("deployed", deployed), ("scored", scoring),
                      ("features", feature_volume), ("replay", policy_replay),
                      ("significance", replay_significance),
-                     ("policy", policy)):
+                     ("policy", policy), ("backtest_grid", backtest_grid),
+                     ("published_forecasts", published_forecasts)):
         counts[name] = fn(lines)
 
     db_sections = [v for k, v in counts.items()

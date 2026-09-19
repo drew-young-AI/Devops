@@ -75,7 +75,7 @@ groups:
             from a healthy one.
           runbook: >-
             psql -c "SELECT model_run_id, algorithm, horizon_weeks, mae, baseline_persistence_mae FROM model_run ORDER BY model_run_id DESC LIMIT 6";
-            pilots/station2-twin/mlops/run.sh publish_forecast.py --explain-gate;
+            pilots/station2-publichealth/mlops/run.sh publish_forecast.py --explain-gate;
             docs/decisions/0016-champion-challenger-replacement-margin.md
 
       # A missed retrain is invisible from the model metrics alone: they keep

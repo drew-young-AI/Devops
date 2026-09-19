@@ -23,11 +23,12 @@
 | 0013 | [pilot 的資料迴路是開的——排程有 19 個 job，沒有一個抓資料](0013-pilot-loop-was-open.md) | 已採用 | 2026-09-03 | `platform/scheduler/status.sh` |
 | 0014 | [磁碟沒有被量——14 條告警規則、91 個能力、777 個綠燈，被一個沒人量的數字停掉](0014-host-disk-was-unmeasured.md) | 已採用 | 2026-09-03 | `platform/tests/test_host_capacity.sh` |
 | 0015 | [睡眠期間的排程空窗算違反 SLA，不豁免](0015-sleep-window-counts-against-sla.md) | 已採用 | 2026-09-08 | `platform/scheduler/status.sh` |
-| 0016 | [上線模型的汰換規則：相對 2% 門檻，同分留任](0016-champion-challenger-replacement-margin.md) | 已採用 | 2026-09-08 | `pilots/station2-twin/mlops/run.sh publish_forecast.py --explain-gate` |
+| 0016 | [上線模型的汰換規則：相對 2% 門檻，同分留任](0016-champion-challenger-replacement-margin.md) | 已採用 | 2026-09-08 | `pilots/station2-publichealth/mlops/run.sh publish_forecast.py --explain-gate` |
 | 0017 | [多專案的區隔用標籤，不用資料夾](0017-project-separation-is-a-label-not-a-folder.md) | 已採用 | 2026-09-09 | `platform/tests/dashboard_audit.py` |
 | 0018 | [刪除文件的判準是「理由有沒有被 ADR 接住」，不是「舊不舊」](0018-delete-a-document-only-when-an-adr-carries-its-reason.md) | 已採用 | 2026-09-09 | — |
 | 0019 | [守衛是一份「過去失敗清單」，不是覆蓋集合——改用對母體的封閉檢查](0019-guards-are-a-list-of-past-failures.md) | 已採用 | 2026-09-10 | `platform/tests/test_coverage_closure.sh` |
 | 0020 | [名字比它命名的東西活得久——刪除的爆炸半徑在散文裡是無界的](0020-a-name-outlives-the-thing-it-names.md) | 已採用 | 2026-09-11 | `platform/tests/test_xref_lifecycle.sh` |
 | 0021 | [落地是一個三態判定，不是一個百分比——工程債與平台品質是兩個問題](0021-landing-is-a-three-state-verdict.md) | 已採用 | 2026-09-16 | `platform/tests/test_stage_report.sh` |
+| 0022 | [顯示名可以改，識別字不改——一次改名拆成五層，只動兩層](0022-a-display-name-is-not-an-identifier.md) | 已採用 | 2026-09-19 | `platform/tests/test_xref_lifecycle.sh` |
 
-共 20 筆。
+共 22 筆。

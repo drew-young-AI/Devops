@@ -29,7 +29,7 @@
 set -uo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-MLOPS="$ROOT/pilots/station2-twin/mlops"
+MLOPS="$ROOT/pilots/station2-publichealth/mlops"
 export PGPASSWORD="${PGPASSWORD:-twin-bootstrap}"
 
 echo "=== [mlops] weekly retrain $(date -u '+%Y-%m-%dT%H:%M:%SZ') ==="

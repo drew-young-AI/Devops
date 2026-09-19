@@ -269,7 +269,7 @@ MLOps/LLMOps：保留接口，延後擴充
       `evidence/**/`。
 
 詳見 [STAGE_REVIEW.md §10](STAGE_REVIEW.md) 與
-[pilots/station2-twin/DATAOPS-LOG.md](pilots/station2-twin/DATAOPS-LOG.md)。
+[pilots/station2-publichealth/DATAOPS-LOG.md](pilots/station2-publichealth/DATAOPS-LOG.md)。
 
 ### 尚未完成 / 待決策
 

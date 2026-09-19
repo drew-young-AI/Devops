@@ -157,10 +157,10 @@ fi
 # rewrites that tag on every deploy. These are the controls for both halves.
 # They run deploy.sh against a context name that does not exist, so the refusal
 # happens before any cluster is contacted and the suite touches nothing.
-DEPLOY="$REPO_ROOT/platform/k8s/station2-twin/deploy.sh"
+DEPLOY="$REPO_ROOT/platform/k8s/station2-publichealth/deploy.sh"
 
 if [ -x "$DEPLOY" ]; then
-  CTX=not-a-real-cluster IMAGE="ghcr.io/example/station2-twin:latest" \
+  CTX=not-a-real-cluster IMAGE="ghcr.io/example/station2-publichealth:latest" \
     "$DEPLOY" green v15 15 >/dev/null 2>&1
   if [ $? -ne 0 ]; then
     _pass "catches: a TAG offered to a cluster that is not the local lab"
@@ -180,7 +180,7 @@ if [ -x "$DEPLOY" ]; then
   # both checks above and make the platform undeployable, which is a different
   # failure and just as total.
   OUT="$(CTX=not-a-real-cluster \
-         IMAGE="ghcr.io/example/station2-twin@sha256:$(printf '0%.0s' $(seq 64))" \
+         IMAGE="ghcr.io/example/station2-publichealth@sha256:$(printf '0%.0s' $(seq 64))" \
          "$DEPLOY" green v15 15 2>&1)"
   if printf '%s' "$OUT" | grep -q 'it is a tag\|set IMAGE to a digest'; then
     _fail "does not cry wolf: a DIGEST is accepted off-lab" \
@@ -193,7 +193,7 @@ else
 fi
 
 # ---- what the live registry actually holds, for the record ----------------
-PROBE="k3d-registry:5111/station2-twin:v15"
+PROBE="k3d-registry:5111/station2-publichealth:v15"
 if PLATS="$(image_platforms "$PROBE" 2>/dev/null)" && [ -n "$PLATS" ]; then
   echo "  INFO  $PROBE platforms: $(printf '%s' "$PLATS" | tr '\n' ',' | sed 's/,$//')"
 else

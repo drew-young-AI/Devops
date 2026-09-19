@@ -250,9 +250,9 @@ def collect_notifications(limit=5):
 # the compose path still writes it for anything not yet on the cluster, and a
 # starved-board message that named only one of two writers would send the
 # reader to the wrong file.
-DEPLOY_EVIDENCE_WRITER = ("platform/k8s/station2-twin/deploy.sh "
+DEPLOY_EVIDENCE_WRITER = ("platform/k8s/station2-publichealth/deploy.sh "
                           "and platform/compose/deploy.sh")
-CURRENT_DEPLOY_PATH = "platform/k8s/station2-twin/deploy.sh"
+CURRENT_DEPLOY_PATH = "platform/k8s/station2-publichealth/deploy.sh"
 
 
 def deploy_feed():

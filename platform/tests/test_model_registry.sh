@@ -23,7 +23,7 @@ REPO_ROOT="$(cd "$SUITE_DIR/../.." && pwd)"
 # shellcheck source=lib.sh
 source "$SUITE_DIR/lib.sh"
 
-MLOPS="$REPO_ROOT/pilots/station2-twin/mlops"
+MLOPS="$REPO_ROOT/pilots/station2-publichealth/mlops"
 
 # EVERY ASSERTION BELOW NEEDS A CONTAINER RUNTIME, so the absence of one is
 # stated rather than reported as a defect (2026-09-09).

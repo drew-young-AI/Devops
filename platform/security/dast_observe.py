@@ -2,7 +2,7 @@
 """Turn the target's own request log into a record of what the scan touched.
 
 Reads the application log on stdin (one JSON object per line, as
-pilots/station2-twin/app/app.py emits) and writes the set of (method, path)
+pilots/station2-publichealth/app/app.py emits) and writes the set of (method, path)
 pairs the SCANNER requested during the scan window.
 
 WHY THE SCANNER IS IDENTIFIED BY USER-AGENT, NOT BY TIME ALONE
