@@ -2226,12 +2226,24 @@ def probe_prod_cluster():
     # 「叢集就緒但沒有任何工作負載」-- a sentence that is also true when the
     # cluster genuinely has none, which is why it survived. Found 2026-09-08
     # while fixing the identical mistake in probe_bluegreen.
-    rc, out = run(["kubectl", "--context", "ubu", "get", "deploy", "-A",
+    # DEPLOYMENTS ARE NOT THE ONLY KIND OF WORKLOAD (fixed 2026-09-20).
+    #
+    # This asked for `deploy` alone. The first thing prod actually ran was a
+    # StatefulSet (the restored database) and a second one (Vault) -- both
+    # serving, neither counted, so the board kept reporting "叢集就緒但沒有任何
+    # 工作負載" while two pods were up. A probe that names one controller kind
+    # is asserting that the others do not exist, and stateful services are
+    # exactly the ones a production cluster gets first.
+    rc, out = run(["kubectl", "--context", "ubu", "get",
+                   "deploy,statefulset,daemonset", "-A",
                    "--request-timeout=8s", "-o",
                    'jsonpath={range .items[*]}{.metadata.namespace}{"\\n"}{end}'],
                   timeout=15)
     if rc != 0:
         return WARN, "prod 叢集可連線，但列舉工作負載失敗——不能當成「沒有工作負載」"
+    # kube-system is the cluster running itself; local-path-provisioner and
+    # coredns being up says nothing about whether this cluster carries any of
+    # OUR services.
     workloads = [n for n in (out or "").split() if n not in ("kube-system",)]
     if not workloads:
         return WARN, "叢集就緒但沒有任何工作負載——這裡的綠燈證不到任何服務"

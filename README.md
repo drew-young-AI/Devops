@@ -399,6 +399,7 @@ Alertmanager 通知設定。**每一支都被別的程式碼呼叫著——這�
 | [`platform/statusdag/`](platform/statusdag/README.md) | 狀態 DAG 與影響傳播 |
 | [`platform/notify/`](platform/notify/README.md) | 事件與狀態分流 |
 | [`platform/backup/`](platform/backup/README.md) | 備份與還原演練 |
+| [`platform/dr/`](platform/dr/README.md) | **異地還原**：把遠端那份副本拉回來，還原到另一台機器，並驗證它答得出問題 |
 | [`platform/security/`](platform/security/README.md) | SAST／DAST／映像掃描 |
 | [`platform/ingress/`](platform/ingress/README.md) | 對外曝光與天花板 |
 | [`platform/iac/`](platform/iac/README.md) | Infrastructure as Code |
@@ -518,6 +519,7 @@ Devops/
 │   ├── observability/  # Prometheus / Grafana / Loki / Alloy / Alertmanager
 │   ├── llm-review/     # 本地 MLX 複審（產出證據，不具 release 阻擋權）
 │   ├── backup/         # 備份、還原演練、覆蓋率檢查、異地同步
+│   ├── dr/             # 異地還原：跨機器、跨架構、分階段、可續跑
 │   ├── scheduler/      # launchd 排程（日曆觸發 + 執行來源溯源）
 │   ├── statusdag/      # 狀態 DAG（燈號）
 │   ├── valuestream/    # 價值流看板

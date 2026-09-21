@@ -682,5 +682,30 @@ assert_rc 0 "newest() runs against a directory whose mtimes were reset by git"
 assert_output_contains "BYNAME" \
   "the producer's timestamp in the filename wins over an mtime git rewrote"
 
+# ---- and the mtime fallback still has to work ----------------------------
+#
+# With the name-stamp rule in front, both cases above now take the SAME code
+# path -- so the fallback branch, which is what fixed the llm_review bug in
+# the first place, has no control at all. This is that control: candidates
+# with no timestamp in their names must still resolve by mtime.
+run_cmd python3 - <<'PY6'
+import os, sys, tempfile, time
+sys.path.insert(0, os.path.join(os.getcwd(), "platform", "statusdag"))
+import dag
+d = tempfile.mkdtemp()
+first = os.path.join(d, "rotation_alpha.json")
+second = os.path.join(d, "rotation_beta.json")   # sorts AFTER, written FIRST
+open(second, "w").write("{}")
+time.sleep(1.1)
+open(first, "w").write("{}")                      # sorts BEFORE, written LAST
+dag.EVIDENCE = d
+got = os.path.basename(dag.newest("rotation_*.json") or "")
+print("PICKED", got)
+print("BYMTIME" if got == os.path.basename(first) else "BYNAME_OR_WRONG")
+PY6
+assert_rc 0 "newest() runs against candidates whose names carry no timestamp"
+assert_output_contains "BYMTIME" \
+  "and falls back to mtime there, which is what fixed the llm_review case"
+
 
 suite_summary

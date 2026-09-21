@@ -1,0 +1,161 @@
+# Vault on the production cluster, file-backed, initialised BY A HUMAN.
+#
+# WHY A SECOND VAULT AND NOT A ROUTE TO THE MAC'S (2026-09-20).
+#
+# The prod cluster needed credentials for its database. The two ways to get
+# them were: open the Mac's Vault and Postgres to the LAN, or stand up a Vault
+# here. The board has carried that question as a named ask
+# (`prod-workload-reachability`) precisely because it is not an engineering
+# choice -- opening 127.0.0.1-bound services widens the exposure surface, and
+# the size of that surface is the platform owner's decision, not the agent's.
+#
+# The decision was to build it here (2026-09-20). Isolation is the cleaner
+# half of the trade: the prod cluster then depends on nothing running on a
+# laptop, which is the whole point of it being a second machine (ADR-0008).
+#
+# WHAT THIS MANIFEST CANNOT DO, AND WHY THAT IS CORRECT.
+#
+# It brings up a SEALED, UNINITIALISED Vault. `vault operator init` produces
+# unseal keys and a root token -- the only material in this platform that
+# cannot be re-derived from anything else. An agent must not hold them, must
+# not write them to a file it controls, and must not print them into a
+# transcript. So the bring-up script stops here and hands the command to the
+# person, exactly as `platform/vault/scripts/` does on the Mac.
+#
+# A Vault that comes up auto-unsealed with a known root token (`vault server
+# -dev`) would make this file shorter and the platform's whole credential
+# story a rehearsal. The Mac's Vault refused that trade in its own config for
+# the same reason.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: vault
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: vault-config
+  namespace: vault
+data:
+  vault.hcl: |
+    # File storage, real init/unseal -- the same shape as the Mac's, so a
+    # runbook written for one works on the other.
+    storage "file" {
+      # /vault/file, not /vault/data: the official image's entrypoint chowns
+      # exactly this path to the vault user. A different path comes up
+      # root-owned and unwritable, which the Mac's config records having hit.
+      path = "/vault/file"
+    }
+
+    listener "tcp" {
+      address     = "0.0.0.0:8200"
+      # TLS off at Vault's own listener, on at the cluster boundary: nothing
+      # outside this namespace reaches it (there is no Ingress and no
+      # NodePort), and in-cluster traffic does not leave the node.
+      tls_disable = true
+    }
+
+    # No auto-unseal: that needs a cloud KMS, and there is no cloud adapter in
+    # this platform. Restarting this pod means unsealing it again, which is a
+    # cost accepted deliberately -- the alternative is a key sitting next to
+    # the thing it protects.
+    disable_mlock = true
+    ui            = false
+    api_addr      = "http://vault.vault.svc:8200"
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: vault-file
+  namespace: vault
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      # The Mac's file storage is 78 KB after a month. 1Gi is three orders of
+      # magnitude of headroom and still nothing on an 83 GB disk.
+      storage: 1Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: vault
+  namespace: vault
+spec:
+  selector:
+    app: vault
+  ports:
+    - name: api
+      port: 8200
+      targetPort: 8200
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: vault
+  namespace: vault
+spec:
+  serviceName: vault
+  replicas: 1
+  selector:
+    matchLabels:
+      app: vault
+  template:
+    metadata:
+      labels:
+        app: vault
+    spec:
+      containers:
+        - name: vault
+          # Same version as the Mac's, pinned. Two Vaults on different
+          # versions is two behaviours to remember under pressure.
+          image: hashicorp/vault:1.18
+          # JUST "server". The image's entrypoint appends
+          # `-config=/vault/config` itself, so naming the file here loads the
+          # SAME config twice -- and the second load fails with
+          # `listen tcp4 0.0.0.0:8200: bind: address already in use`, which
+          # reads like a port conflict with some other process and is not one.
+          args: ["server"]
+          ports:
+            - containerPort: 8200
+          env:
+            - name: VAULT_ADDR
+              value: http://127.0.0.1:8200
+          securityContext:
+            capabilities:
+              add: ["IPC_LOCK"]
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+          readinessProbe:
+            httpGet:
+              path: /v1/sys/health?standbyok=true&sealedcode=204&uninitcode=204
+              port: 8200
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            # A SEALED Vault is alive and must not be restarted -- restarting
+            # it just seals it again and loses nothing but time. So the
+            # liveness probe accepts sealed (501) and uninitialised (501) as
+            # healthy, and only a process that stops answering at all fails.
+            httpGet:
+              path: /v1/sys/health?standbyok=true&sealedcode=200&uninitcode=200
+              port: 8200
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          volumeMounts:
+            - name: config
+              mountPath: /vault/config
+            - name: file
+              mountPath: /vault/file
+      volumes:
+        - name: config
+          configMap:
+            name: vault-config
+        - name: file
+          persistentVolumeClaim:
+            claimName: vault-file

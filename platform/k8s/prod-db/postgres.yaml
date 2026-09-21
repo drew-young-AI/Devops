@@ -1,0 +1,124 @@
+# The production database on ubu, restored FROM THE OFF-SITE COPY.
+#
+# WHY THIS EXISTS (2026-09-20).
+#
+# `prodk8s` had been green and worthless: the cluster answered /readyz and ran
+# nothing, so the board's own detail said "這裡的綠燈證不到任何服務". The thing
+# blocking a workload was never the cluster -- it was that the pod needed a
+# database and a Vault, and both were bound to 127.0.0.1 on the Mac.
+#
+# WHY THE DATA ARRIVES BY RESTORE AND NOT BY COPY.
+#
+# A second reason to build this: "we have off-site backups" is a claim about
+# files existing in someone else's storage. The only evidence that matters is a
+# machine that did not have the data, now serving it. So the prod database is
+# populated by `platform/dr/offsite_restore.sh`, which pulls the encrypted
+# archive from the off-site remote, verifies it, ships it here and loads it --
+# and the restore drill and the prod bring-up are therefore the same procedure,
+# run for real rather than rehearsed.
+#
+# WHAT THIS FILE DELIBERATELY DOES NOT CONTAIN.
+#
+# No password. The bootstrap credential is a Secret created at restore time
+# from a value generated on the cluster; it is never written to this repo and
+# never printed. Dynamic credentials come later from the prod Vault, and that
+# Vault's unseal keys can only be held by the platform owner (B-class, see
+# docs/Backlog.md).
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: station2
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: prod-db-data
+  namespace: station2
+spec:
+  accessModes: ["ReadWriteOnce"]
+  resources:
+    requests:
+      # The Mac's copy is 3.5 GB of data in a 668 MB compressed archive.
+      # 20Gi leaves room for WAL, a vacuum and one more year of surveillance
+      # facts without a resize, on a host with 83 GB free.
+      storage: 20Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: prod-db
+  namespace: station2
+spec:
+  # Headless: the StatefulSet addresses one pod by name. Nothing outside the
+  # cluster reaches this, which is the difference between this database and the
+  # Mac's -- that one publishes a loopback port because the migration runner
+  # and the restore drill live on the host.
+  clusterIP: None
+  selector:
+    app: prod-db
+  ports:
+    - port: 5432
+      targetPort: 5432
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: prod-db
+  namespace: station2
+spec:
+  serviceName: prod-db
+  replicas: 1
+  selector:
+    matchLabels:
+      app: prod-db
+  template:
+    metadata:
+      labels:
+        app: prod-db
+    spec:
+      containers:
+        - name: postgres
+          # Same major version as the Mac's, pinned. A restore into a different
+          # major version is a migration, not a restore, and pg_restore will
+          # say so only for some of the incompatibilities.
+          image: postgres:16-alpine
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRES_DB
+              value: twin
+            - name: POSTGRES_USER
+              value: twin
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: prod-db-bootstrap
+                  key: password
+            - name: PGDATA
+              value: /var/lib/postgresql/data/pgdata
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "512Mi"
+            limits:
+              # ubu has 7.1 GiB total. 2Gi leaves room for Vault, the pilot and
+              # k3s itself; measured need during restore is well under it.
+              cpu: "2"
+              memory: "2Gi"
+          readinessProbe:
+            exec:
+              command: ["sh", "-c", "pg_isready -U twin -d twin -q"]
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          livenessProbe:
+            exec:
+              command: ["sh", "-c", "pg_isready -U twin -d twin -q"]
+            initialDelaySeconds: 30
+            periodSeconds: 20
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/postgresql/data
+      volumes:
+        - name: data
+          persistentVolumeClaim:
+            claimName: prod-db-data

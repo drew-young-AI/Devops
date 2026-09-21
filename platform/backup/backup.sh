@@ -187,9 +187,23 @@ for spec in "${PG_SERVICES[@]}"; do
   IFS='|' read -r container db user volume <<< "$spec"
   docker volume inspect "$volume" >/dev/null 2>&1 || { echo "  SKIP $volume (does not exist)" >&2; continue; }
 
-  RUNNING="$(docker ps --format '{{.Names}}' 2>/dev/null)"
-  case "$RUNNING" in
-    *"$container"*)
+  # ASK THE CONTAINER, DO NOT PATTERN-MATCH A LIST OF NAMES.
+  #
+  # 2026-09-20: this used to be `case "$(docker ps --format '{{.Names}}')" in
+  # *"$container"* )`. When the caller started resolving the container by
+  # compose service, `$container` became an ID -- which never appears in a list
+  # of NAMES, so the match failed, and the failure mode was not an error: it
+  # fell through to the "container is stopped, tar is consistent" branch and
+  # tarred a LIVE PostgreSQL data directory. The backup completed, reported
+  # success, and produced an archive whose consistency nobody would question
+  # until a restore months later.
+  #
+  # `docker inspect .State.Running` answers the actual question about the
+  # actual container, by id or by name, and returns non-zero if it does not
+  # exist at all.
+  PG_RUNNING="$(docker inspect -f '{{.State.Running}}' "$container" 2>/dev/null || echo unknown)"
+  case "$PG_RUNNING" in
+    true)
       archive="$OUT_DIR/${volume}.dump"
       # -Fc: custom format. Compressed, and restorable selectively with
       # pg_restore rather than being a plain SQL stream that can only be
@@ -198,14 +212,30 @@ for spec in "${PG_SERVICES[@]}"; do
         size="$(wc -c < "$archive" | tr -d ' ')"
         digest="$(shasum -a 256 "$archive" | cut -d' ' -f1)"
         echo "  $volume -> $(basename "$archive")  ${size} bytes  [pg_dump, consistent snapshot]"
-        manifest_entries+=("$volume|$(basename "$archive")|$size|$digest")
+        # WHAT THE ARCHIVE SHOULD CONTAIN, RECORDED BY THE SIDE THAT KNOWS.
+        #
+        # A restore on another machine can check a sha256 -- that proves the
+        # bytes survived the journey. It cannot check that the database inside
+        # them is the database we meant, because the only other copy of that
+        # answer is the machine it came from, and the whole point of a disaster
+        # drill is that machine being unavailable. So the counts travel WITH
+        # the archive: schema version, and the rows of the two tables the
+        # platform's own probes read.
+        counts="$(docker exec "$container" psql -U "$user" -d "$db" -qtAX -c \
+          "SELECT coalesce(max(version),-1) FROM schema_migrations" 2>/dev/null | tr -d ' ')"
+        facts="$(docker exec "$container" psql -U "$user" -d "$db" -qtAX -c \
+          "SELECT count(*) FROM surveillance_fact" 2>/dev/null | tr -d ' ')"
+        demog="$(docker exec "$container" psql -U "$user" -d "$db" -qtAX -c \
+          "SELECT count(*) FROM demographic_fact" 2>/dev/null | tr -d ' ')"
+        echo "      schema v${counts:-?}, surveillance_fact ${facts:-?}, demographic_fact ${demog:-?}"
+        manifest_entries+=("$volume|$(basename "$archive")|$size|$digest|schema_version=${counts:-},surveillance_fact=${facts:-},demographic_fact=${demog:-}")
       else
         echo "  FAILED $volume: pg_dump did not succeed" >&2
         rm -f "$archive"
         UNCOVERED+=("$volume (pg_dump failed)")
       fi
       ;;
-    *)
+    false)
       # Stopped: the data directory is quiescent, so a tar IS consistent.
       archive="$OUT_DIR/${volume}.tar.gz"
       docker run --rm -v "${volume}:/src:ro" -v "$OUT_DIR:/out" alpine:3.20 \
@@ -214,6 +244,15 @@ for spec in "${PG_SERVICES[@]}"; do
       digest="$(shasum -a 256 "$archive" | cut -d' ' -f1)"
       echo "  $volume -> $(basename "$archive")  ${size} bytes  [tar, container stopped]"
       manifest_entries+=("$volume|$(basename "$archive")|$size|$digest")
+      ;;
+    *)
+      # The container does not exist (or docker cannot be reached). NOT a tar:
+      # there is a named volume here whose database we could not ask about, and
+      # silently tarring it would produce the same ambiguous archive the branch
+      # above exists to avoid. Report it as uncovered instead, which is what
+      # the coverage gate reads.
+      echo "  FAILED $volume: cannot determine whether '$container' is running" >&2
+      UNCOVERED+=("$volume (container state unknown)")
       ;;
   esac
 done
@@ -327,13 +366,25 @@ import json, pathlib, sys
 out, stamp, *entries = sys.argv[1:]
 volumes = []
 for entry in entries:
-    name, archive, size, digest = entry.split("|")
-    volumes.append({
+    # The fifth field is optional: only a logical dump can say what is inside
+    # it. A tar of a data directory knows its bytes and nothing else, and
+    # inventing a count for it would be worse than leaving it out.
+    name, archive, size, digest, *extra = entry.split("|")
+    rec = {
         "volume": name,
         "archive": archive,
         "size_bytes": int(size),
         "sha256": digest,
-    })
+    }
+    if extra and extra[0]:
+        contents = {}
+        for pair in extra[0].split(","):
+            if "=" not in pair:
+                continue
+            k, v = pair.split("=", 1)
+            contents[k] = int(v) if v.isdigit() or (v.startswith("-") and v[1:].isdigit()) else None
+        rec["contents"] = contents
+    volumes.append(rec)
 pathlib.Path(out).write_text(json.dumps({
     "created_at": stamp,
     "volumes": volumes,

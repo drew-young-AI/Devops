@@ -103,6 +103,75 @@ for m in dataops_source_age_seconds dataops_ingest_reject_ratio \
   fi
 done
 
+# ---- the cadence threshold must be MEASURED, not declared -----------------
+#
+# 2026-09-20. Sixteen sources declare `updated_freq=day` in the publisher's
+# catalogue and in fact return new bytes every six or seven days. The rule
+# compares "seconds unchanged" against 3x the declared cadence, so all sixteen
+# sat permanently in warning -- and a permanently-red member of a class is what
+# teaches people to filter the whole class. That class is the only thing that
+# caught the 14-day ingest outage in ADR-0013.
+MEASURED_N="$(grep -c 'provenance="measured"' "$OUT" || true)"
+if [ "${MEASURED_N:-0}" -ge 10 ]; then
+  _pass "sources are thresholded against their measured cadence, not the catalogue's claim ($MEASURED_N)"
+else
+  _fail "sources are thresholded against their measured cadence" \
+        "only ${MEASURED_N:-0} carry provenance=measured -- the declared catalogue is still in charge"
+fi
+
+# THE CAP, AND WHY A DEAD SOURCE IS STILL CAUGHT.
+#
+# A feed that stops publishing grows its own median gap, so without a ceiling
+# this rule would measure its way into silence. The cap is 30 days, which means
+# this rule stops speaking at 90 days unchanged -- and that is deliberate:
+# DataSourceStale (14d) and DataSourceVeryStale (45d) read the FETCH age, which
+# a stalled publisher cannot inflate, and they are the rules for a dead source.
+# THE VALUES ARE READ AND EVALUATED, NOT GREPPED FOR THE FIRST INTEGER.
+#
+# Two defects this replaces (review, 2026-09-20). The cap check grepped
+# `^CADENCE_CAP_SECONDS = [0-9]+` and compared the first number to 30 -- so it
+# passed for `30 * 3600` (thirty HOURS) and would have failed for the
+# equivalent `2592000`. And the division-of-labour control compared three
+# literals defined inside the test itself, which is a control that cannot go
+# red no matter what the platform does.
+CAP_SECONDS="$(python3 - "$REPO_ROOT/platform/dataops/pipeline_metrics.py" <<'PYCAP'
+import ast, re, sys
+src = open(sys.argv[1], encoding="utf-8").read()
+m = re.search(r"^CADENCE_CAP_SECONDS\s*=\s*(.+?)\s*(?:#.*)?$", src, re.M)
+print(int(eval(compile(ast.Expression(ast.parse(m.group(1), mode="eval").body),
+                       "<cap>", "eval"))) if m else "")
+PYCAP
+)"
+VERYSTALE_SECONDS="$(python3 - "$REPO_ROOT/platform/observability/prometheus/alerts/dataops.yml" <<'PYVS'
+import ast, re, sys
+src = open(sys.argv[1], encoding="utf-8").read()
+m = re.search(r"alert:\s*DataSourceVeryStale[\s\S]{0,400}?dataops_source_age_seconds\s*>\s*([0-9*\s]+)", src)
+print(int(eval(compile(ast.Expression(ast.parse(m.group(1).strip(), mode="eval").body),
+                       "<vs>", "eval"))) if m else "")
+PYVS
+)"
+assert_equals "2592000" "${CAP_SECONDS:-unset}" \
+  "the measured cadence is capped at 30 days (read from the exporter, evaluated)"
+assert_equals "3888000" "${VERYSTALE_SECONDS:-unset}" \
+  "DataSourceVeryStale fires at 45 days (read from the rule file, evaluated)"
+
+# The division of labour, asserted against the REAL numbers: this rule stops
+# speaking at 3x the cap, and the fetch-age rule must already be firing by
+# then -- otherwise a dead feed falls between them and nothing says so.
+if [ -n "$CAP_SECONDS" ] && [ -n "$VERYSTALE_SECONDS" ] \
+   && [ "$VERYSTALE_SECONDS" -lt $(( CAP_SECONDS * 3 )) ]; then
+  _pass "a source silent past the capped cadence rule is already covered by DataSourceVeryStale ($((VERYSTALE_SECONDS/86400))d < $((CAP_SECONDS*3/86400))d)"
+else
+  _fail "a silent source stays covered when the cadence rule stops speaking" \
+        "cap*3=$((${CAP_SECONDS:-0}*3))s but VeryStale=${VERYSTALE_SECONDS:-unset}s -- there is a window where neither rule fires"
+fi
+
+OVER_CAP="$(grep '^dataops_source_expected_interval_seconds' "$OUT" \
+  | grep 'provenance="measured"' | awk '{print $NF}' \
+  | awk -v cap="${CAP_SECONDS:-0}" '$1 > cap' | wc -l | tr -d ' ')"
+assert_equals "0" "$OVER_CAP" \
+  "no MEASURED interval exceeds that cap (declared annual sources legitimately do)"
+
 # Every metric carries HELP and TYPE: a bare number in a textfile collector is
 # a number nobody else can interpret.
 UNDOC=""

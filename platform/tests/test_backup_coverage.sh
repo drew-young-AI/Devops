@@ -76,6 +76,69 @@ else
   bad "clean platform did not pass (rc=$RC)" "$(printf '%s' "$OUT" | tail -2 | tr '\n' ' ')"
 fi
 
+# --- 1b. a RUNNING database must be dumped, never tarred --------------------
+#
+# 2026-09-20. `backup.sh` chooses between `pg_dump` (correct while the database
+# is serving) and `tar` of the data directory (correct only while it is
+# stopped). The choice was made by matching the container name against
+# `docker ps --format '{{.Names}}'`; when the caller started passing a resolved
+# container ID, the match could not succeed, and the fall-through branch was
+# the TAR one. The backup reported success and archived a live PostgreSQL data
+# directory -- a file nobody would question until a restore, months later.
+#
+# The test is on the ARTEFACT, not on the code path: whatever the script
+# decides internally, a running database must leave a `.dump` in the manifest.
+# NEWEST BY THE DIRECTORY'S OWN TIMESTAMP, NOT BY mtime.
+#
+# The archive directories are named 20260920T002141Z. mtime says when the
+# filesystem last wrote those bytes, which `git checkout`, a clone or a rebase
+# resets to "now" -- the same defect that made the board read a four-day-old
+# DAST result as current (see newest() in platform/statusdag/dag.py). Picking
+# by mtime here would let this assertion pass against an old manifest while
+# last night's backup was the broken one.
+LATEST_MANIFEST="$(ls -1d "$REPO_ROOT"/platform/backup/archives/*/ 2>/dev/null \
+  | sed 's:/$::' | sort | tail -1)/manifest.json"
+[ -f "$LATEST_MANIFEST" ] || LATEST_MANIFEST=""
+
+# THREE STATES, NOT TWO. pilot_db.sh exits 3 for "no running container" and
+# non-zero for other failures (docker down, compose file moved). Reading every
+# failure as "the database is stopped, so tar was correct" would skip this
+# assertion forever after a directory rename -- which is exactly the change
+# that broke the dump/tar choice in the first place.
+"$REPO_ROOT/platform/db/pilot_db.sh" container >/dev/null 2>&1
+case $? in
+  0) DB_STATE=running ;;
+  3) DB_STATE=down ;;
+  *) DB_STATE=unknown ;;
+esac
+if [ -z "$LATEST_MANIFEST" ]; then
+  echo "  SKIP  no backup archive on this host -- the dump-vs-tar rule is UNVERIFIED"
+elif [ "$DB_STATE" = "down" ]; then
+  echo "  SKIP  the pilot database is not running -- tar would be the correct choice"
+elif [ "$DB_STATE" = "unknown" ]; then
+  bad "the dump-vs-tar rule is checkable" \
+      "pilot_db.sh could not say whether the database is running -- that is not 'it is stopped'"
+else
+  ARCHIVE_KIND="$(python3 - "$LATEST_MANIFEST" <<'PYK'
+import json, sys
+m = json.load(open(sys.argv[1]))
+for v in m.get("volumes", []):
+    if v.get("volume", "").endswith("twin-db"):
+        print(v.get("archive", "missing"))
+        break
+else:
+    print("absent")
+PYK
+)"
+  case "$ARCHIVE_KIND" in
+    *.dump)   ok "the newest backup dumped the running database ($ARCHIVE_KIND)" ;;
+    *.tar.gz) bad "the newest backup dumped the running database" \
+                  "it tarred a LIVE data directory instead: $ARCHIVE_KIND" ;;
+    *)        bad "the newest backup dumped the running database" \
+                  "no entry for the pilot database volume: $ARCHIVE_KIND" ;;
+  esac
+fi
+
 # --- 2. an unclassified PVC must be refused ---------------------------------
 kubectl --context "$CTX" create ns "$PROBE_NS" >/dev/null 2>&1
 cat <<YAML | kubectl --context "$CTX" apply -f - >/dev/null 2>&1

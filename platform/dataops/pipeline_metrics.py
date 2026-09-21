@@ -45,6 +45,7 @@ Usage:
 from __future__ import annotations
 
 import json
+from datetime import datetime, timezone
 import os
 import sys
 import time
@@ -313,6 +314,13 @@ def freshness_and_execution(lines):
 FREQ_TABLE = os.path.join(REPO_ROOT, "pilots", "station2-publichealth", "ingest",
                           "source_frequency.json")
 
+# Measured-cadence policy, in one place because all three numbers are
+# judgement calls and a reader is entitled to see them together.
+CADENCE_WINDOW_DAYS = 120      # how far back the measurement looks
+CADENCE_MIN_CHANGES = 3        # fewer gaps than this is not a cadence
+CADENCE_CAP_SECONDS = 30 * 86400   # past this, VeryStale is the right rule
+EVIDENCE_DIR = os.path.join(REPO_ROOT, "evidence", "dataops")
+
 
 def unchanged_and_cadence(lines):
     with pg() as conn, conn.cursor() as c:
@@ -334,6 +342,67 @@ def unchanged_and_cadence(lines):
                    extract(epoch FROM (now() - c.last_change))::bigint
             FROM changed c ORDER BY 1""")
         unchanged = c.fetchall()
+
+        # HOW OFTEN THIS SOURCE ACTUALLY CHANGES, measured (2026-09-20).
+        #
+        # The publisher's catalogue is a CLAIM. Sixteen of these sources
+        # declare `day` and in practice return new bytes every six or seven
+        # days, so a threshold of 3x the declared cadence fired on all sixteen
+        # at once -- permanently, which is the state that teaches people to
+        # filter the whole class (the exact failure §20 recorded).
+        #
+        # So the interval used is the MEDIAN gap between actual content
+        # changes. Median, not mean: one publication holiday would drag a mean
+        # up and silence the source for weeks.
+        c.execute("""
+            WITH r AS (
+              SELECT source, content_sha256, fetched_at,
+                     lag(content_sha256) OVER (PARTITION BY source
+                                               ORDER BY fetched_at) AS prev
+              FROM ingest_runs
+              WHERE content_sha256 IS NOT NULL
+                AND fetched_at > now() - make_interval(days => %s)
+            ),
+            changes AS (
+              SELECT source, fetched_at,
+                     lag(fetched_at) OVER (PARTITION BY source
+                                           ORDER BY fetched_at) AS prev_change
+              FROM r WHERE prev IS NULL OR content_sha256 <> prev
+            )
+            SELECT source,
+                   count(*) FILTER (WHERE prev_change IS NOT NULL) AS gaps,
+                   percentile_cont(0.5) WITHIN GROUP (
+                       ORDER BY extract(epoch FROM (fetched_at - prev_change))
+                   ) AS median_gap_seconds,
+                   round(extract(epoch FROM (max(fetched_at) - min(fetched_at)))
+                         / 86400.0, 1) AS span_days
+            FROM changes GROUP BY source ORDER BY source""",
+                  (CADENCE_WINDOW_DAYS,))
+        measured = {}
+        for src, gaps, median_gap, span in c.fetchall():
+            if not gaps or gaps < CADENCE_MIN_CHANGES or not median_gap:
+                # Not enough evidence yet. The declared cadence stays in
+                # charge; a median over two gaps is not a cadence.
+                measured[src] = {"changes": int(gaps or 0),
+                                 "span_days": float(span or 0),
+                                 "median_seconds": (int(median_gap)
+                                                    if median_gap else None),
+                                 "seconds": None, "capped": False}
+                continue
+            median_gap = int(median_gap)
+            # THE CAP IS WHAT KEEPS THIS FROM SILENCING A DEAD SOURCE.
+            # A feed that stops publishing eventually produces a huge median,
+            # and without a ceiling the threshold would grow to cover its own
+            # silence. Past the cap, DataSourceVeryStale is the rule that
+            # should speak, not this one.
+            capped = median_gap > CADENCE_CAP_SECONDS
+            measured[src] = {
+                "changes": int(gaps),
+                "span_days": float(span or 0),
+                "median_seconds": median_gap,
+                "seconds": min(median_gap, CADENCE_CAP_SECONDS),
+                "capped": capped,
+            }
 
     lines += [
         "# HELP dataops_source_unchanged_seconds Seconds since this source last "
@@ -365,11 +434,46 @@ def unchanged_and_cadence(lines):
     for src in sorted(table):
         if src in RETIRED_SOURCES:
             continue
-        secs = table[src].get("seconds")
+        secs = measured.get(src, {}).get("seconds") or table[src].get("seconds")
+        prov = ("measured" if measured.get(src, {}).get("seconds")
+                else table[src].get("source", "unknown"))
         if secs:
             lines.append(
                 f'dataops_source_expected_interval_seconds{{{base_labels()},source="{esc(src)}",'
-                f'provenance="{esc(table[src].get("source", "unknown"))}"}} {secs}')
+                f'provenance="{esc(prov)}"}} {secs}')
+
+    # The measurement, written out for a human to audit. The metric above is
+    # what the alert compares; this file is what somebody reads when they want
+    # to know WHY a threshold is what it is.
+    stamp = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    out = {"generated_at": stamp,
+           "window_days": CADENCE_WINDOW_DAYS,
+           "min_changes": CADENCE_MIN_CHANGES,
+           "cap_seconds": CADENCE_CAP_SECONDS,
+           "sources": {}}
+    for src in sorted(set(table) | set(measured)):
+        if src in RETIRED_SOURCES:
+            continue
+        m = measured.get(src, {})
+        out["sources"][src] = {
+            "declared_seconds": table.get(src, {}).get("seconds"),
+            "declared_provenance": table.get(src, {}).get("source"),
+            "measured_seconds": m.get("seconds"),
+            "measured_median_seconds": m.get("median_seconds"),
+            "changes_observed": m.get("changes"),
+            "observed_span_days": m.get("span_days"),
+            "capped": m.get("capped", False),
+            "used": ("measured" if m.get("seconds")
+                     else table.get(src, {}).get("source")),
+        }
+    path = os.path.join(EVIDENCE_DIR, "source_cadence.json")
+    os.makedirs(EVIDENCE_DIR, exist_ok=True)
+    tmp = path + ".tmp"
+    with open(tmp, "w", encoding="utf-8") as fh:
+        json.dump(out, fh, ensure_ascii=False, indent=2, sort_keys=True)
+        fh.write("\n")
+    os.replace(tmp, path)
+    print(f"artifact={path}")
 
 
 # THE SETTLE RULE, DEFINED ONCE.

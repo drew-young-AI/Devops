@@ -46,6 +46,11 @@ case "$EVENT" in
   promote)        TITLE="換版" ;;
   backup)         TITLE="備份" ;;
   restore-drill)  TITLE="還原演練" ;;
+  # The drill restores locally; this one pulls the OFF-SITE copy onto the other
+  # machine. Different event because the operator's next move is different: a
+  # failed drill means check the archive, a failed off-site restore can also
+  # mean the remote, the network, or the target host.
+  offsite-restore) TITLE="異地還原" ;;
   model-gate)     TITLE="模型上線閘門" ;;
   rotation)       TITLE="憑證輪替" ;;
   *) echo "emit_event: unknown event id '$EVENT' -- add it to the registry" >&2; exit 0 ;;

@@ -205,6 +205,9 @@ mode 不該。對「必須相同的東西」斷言相同、同時讓「必須不
 | [`station2-publichealth/promote.sh`](station2-publichealth/promote.sh) | 驗過新顏色之後 | 把流量切到某個顏色，**但只在它真的在服務時** | 切換本身只是一行 Service patch；**閘門才是全部的重點**——切之前檢查 Deployment 真的就緒、endpoint 真的有 pod |
 | [`station2-publichealth/sync_vault_secret.sh`](station2-publichealth/sync_vault_secret.sh) | AppRole 更新時 | 把 AppRole 放進叢集 Secret | 讓 K8s 那份不再帶靜態資料庫密碼；role_id／secret_id 走 stdin manifest，**不進 argv**（`ps` 全機可讀） |
 | [`station2-publichealth/verify_networkpolicy.sh`](station2-publichealth/verify_networkpolicy.sh) | 改 NetworkPolicy 後 | 證明網路政策**真的擋住東西** | `kubectl get netpol` 只證明 manifest 被接受。**CNI 若忽略 NetworkPolicy，每一份 manifest 都是裝飾品**，而看起來一模一樣 |
+| [`prod-vault/bringup.sh`](prod-vault/bringup.sh) | 在 ubu 上第一次建 Vault、或它重啟之後 | 套用 manifest、等 pod、回報 Vault 處於「未初始化／封印中／已解封」哪一態 | **它在只有人能過的那道閘門停下**：`vault operator init` 會產生 unseal key 與 root token，那是這個平台唯一無法重新推導的東西，agent 不得持有、不得寫檔、不得印出。停下時發 `blocked` 事件——停了而沒人知道，和沒人開始過長得一樣 |
+| [`prod-db/postgres.yaml`](prod-db/postgres.yaml) | 異地還原建立 prod 資料庫時（由 `platform/dr/offsite_restore.sh` 套用） | prod 叢集上的 StatefulSet＋PVC＋headless Service | **不含密碼**：bootstrap 憑證在叢集內產生、不落檔也不印出；資料由異地備份還原而來，所以「建立 prod」與「證明備份能還原」是同一個動作 |
+| [`prod-vault/vault.yaml`](prod-vault/vault.yaml) | 同上 | prod 叢集上的 Vault（file storage、真 init/unseal） | **刻意不用 `vault server -dev`**：dev 模式自動解封、root token 固定，那會讓整條憑證故事變成排練。代價是每次重啟都要人來解封 |
 
 
 ---

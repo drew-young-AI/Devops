@@ -269,6 +269,11 @@ K8S_SUITES=(
   # a workload nobody scrapes looks healthy from the cluster and absent from
   # the metrics, and both readings are individually unalarming.
   test_migration_observed.sh
+  # The off-site restore pipeline's refusals, resume and reporting. Tier 3
+  # because its preflight talks to the OTHER machine: with ubu down every
+  # check here would be a skip, and a suite that can only skip belongs where
+  # the substrate is declared rather than in the fast tier pretending to run.
+  test_offsite_restore.sh
 )
 K8S_CTX="${K8S_CTX:-k3d-devops-lab}"
 
