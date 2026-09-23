@@ -170,6 +170,20 @@ should_run() {  # <stage> -- true when this stage is at or after --from
 # run from cron could sit forever on a host-key or password prompt with no
 # output. A recovery procedure that can hang indefinitely is one that finishes
 # only when someone is watching.
+# sha256 OF A LOCAL FILE, ON EITHER MACHINE.
+#
+# `shasum -a 256` is what macOS ships; `sha256sum` is what GNU coreutils
+# ships. This platform runs on both (ADR-0008) and the drill could be started
+# from either side, so the tool is chosen rather than assumed -- the same
+# class of trap as `sed -i ''` and `stat -f`, which test_static already guards.
+sha256_local() {
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum "$1" | cut -d' ' -f1
+  else
+    shasum -a 256 "$1" | cut -d' ' -f1
+  fi
+}
+
 SSH_OPTS=(-o BatchMode=yes -o ConnectTimeout=10)
 sshq() { ssh "${SSH_OPTS[@]}" "$@"; }
 
@@ -327,7 +341,7 @@ m = json.load(open(sys.argv[1], encoding="utf-8"))
 print(next(v["sha256"] for v in m["volumes"] if v["archive"] == sys.argv[2]))
 PY
 )"
-  got="$(shasum -a 256 "$WORK/set/$DUMP" | cut -d' ' -f1)"
+  got="$(sha256_local "$WORK/set/$DUMP")"
   [ "$want" = "$got" ] || fail fetch 11 "sha256 不符：清單 ${want}，取回 $got"
   say "  驗證        sha256 相符"
 
@@ -349,7 +363,7 @@ stage_ship() {
   # Verified again ON THE TARGET. The local check proved the download; this
   # proves the transfer, and they are different journeys.
   local want got
-  want="$(shasum -a 256 "$WORK/set/$DUMP" | cut -d' ' -f1)"
+  want="$(sha256_local "$WORK/set/$DUMP")"
   got="$(sshq "$TARGET_HOST" "sha256sum $TARGET_TMP/$DUMP 2>/dev/null | cut -d' ' -f1")"
   [ "$want" = "$got" ] || fail ship 12 "搬運後 sha256 不符（來源 ${want}，目標 ${got}）"
   say "  搬運        $DUMP → $TARGET_HOST:${TARGET_TMP}（sha256 相符）"
@@ -460,9 +474,22 @@ print(next((v["sha256"] for v in m["volumes"] if v["archive"]==sys.argv[2]), "")
 # for exactly the reason it cost here.
 prod_psql() { sshq "$TARGET_HOST" "kubectl -n $TARGET_NS exec prod-db-0 -- psql -U twin -d twin -qtAX -c \"$1\"" 2>/dev/null | tr -d ' \r'; }
 
+# "NO ANSWER" AND "ZERO" ARE DIFFERENT FACTS (2026-09-23).
+#
+# prod_psql returns the empty string for both a failed connection and a query
+# that legitimately returned nothing. Without this, a sleeping target host
+# produced `disease 表為空` -- a sentence about data loss for what is actually
+# a machine being asleep. Every stage that reads the database asks this first.
+prod_db_reachable() {
+  local probe
+  probe="$(prod_psql 'select 1')"
+  [ "$probe" = "1" ]
+}
+
 # ----------------------------------------------------------------- confirm --
 stage_confirm() {
   head2 "5/6 confirm — 還原出來的東西和清單說的一致嗎"
+  prod_db_reachable || fail confirm 14 "連不到 ${TARGET_HOST} 上的 prod 資料庫（主機可能休眠或 pod 未就緒）——這不是「資料不符」"
   local mf="$WORK/set/manifest.json"
   [ -f "$mf" ] || fail confirm 14 "本地沒有清單，先跑 --from fetch"
 
@@ -524,6 +551,7 @@ PY
 # ------------------------------------------------------------------ verify --
 stage_verify() {
   head2 "6/6 verify — 還原出來的資料庫答得出平台自己的問題嗎"
+  prod_db_reachable || fail verify 15 "連不到 ${TARGET_HOST} 上的 prod 資料庫（主機可能休眠或 pod 未就緒）——這不是「表是空的」"
 
   # Loading without error is not recovery. These are the questions the
   # platform's own probes ask; a database that cannot answer them is not
@@ -564,17 +592,28 @@ should_run confirm  && stage_confirm
 should_run verify   && stage_verify
 
 head2 "完成"
-if [ "$CONFIRM_COMPARED" = "0" ]; then
-  # Reporting "通過內容驗證" when the manifest had nothing to compare against
-  # is the exact failure this platform refuses: an unverifiable result stated
-  # in the same words as a verified one.
-  say "異地備份 → $TARGET_HOST 還原 → 查詢驗證，通過。"
-  say "內容比對：UNVERIFIED（這個備份集的清單沒有內容欄位）"
-  DETAIL="異地備份集 ${SET_ID:-?} 已還原到 ${TARGET_HOST}；查詢驗證通過，內容比對 UNVERIFIED"
-else
-  say "異地備份 → $TARGET_HOST 還原 → 內容確認 → 查詢驗證，全部通過。"
-  DETAIL="異地備份集 ${SET_ID:-?} 已還原到 $TARGET_HOST 並通過內容與查詢驗證"
-fi
+# THREE OUTCOMES, NOT TWO. The first version had a flag that meant "compared"
+# or "manifest had nothing to compare", and everything else -- including
+# `--from verify`, where confirm never ran at all -- fell into the "compared"
+# branch and printed 「內容確認 → 查詢驗證，全部通過」. A resume that skipped
+# the comparison would report it as passed, which is the same class of lie as
+# reporting an unverifiable result in verified words.
+case "$CONFIRM_COMPARED" in
+  1)
+    say "異地備份 → $TARGET_HOST 還原 → 內容確認 → 查詢驗證，全部通過。"
+    DETAIL="異地備份集 ${SET_ID:-?} 已還原到 ${TARGET_HOST} 並通過內容與查詢驗證"
+    ;;
+  0)
+    say "異地備份 → $TARGET_HOST 還原 → 查詢驗證，通過。"
+    say "內容比對：UNVERIFIED（這個備份集的清單沒有內容欄位）"
+    DETAIL="異地備份集 ${SET_ID:-?} 已還原到 ${TARGET_HOST}；查詢驗證通過，內容比對 UNVERIFIED"
+    ;;
+  *)
+    say "這一輪從 ${FROM} 開始，**沒有執行內容比對**（confirm 不在這次的階段範圍內）。"
+    say "已執行的階段都通過；要比對內容請跑 --from confirm。"
+    DETAIL="異地備份集 ${SET_ID:-?}：從 ${FROM} 續跑的階段皆通過，但這一輪未執行內容比對"
+    ;;
+esac
 say "狀態：$STATE"
 [ -x "$NOTIFY" ] && "$NOTIFY" offsite-restore ok "$DETAIL" >/dev/null 2>&1
 exit 0
