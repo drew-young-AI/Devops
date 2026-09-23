@@ -119,6 +119,58 @@ else
         "only ${MEASURED_N:-0} carry provenance=measured -- the declared catalogue is still in charge"
 fi
 
+# ---- which evidence wins, tested against the real function ---------------
+#
+# 2026-09-23: the measurement overrode STRUCTURAL evidence and produced a
+# cadence of eight seconds for `moi-ris-village-population` -- a source fetched
+# as one resource per YEAR, so a single run pulls several differing payloads
+# back to back. The threshold became 24 seconds, the board printed 門檻 0.0 天,
+# and the source sat permanently amber. Structural evidence is a property of
+# the interface; a statistical estimate over our own fetch history is a weaker
+# claim about the same thing.
+#
+# This exercises choose_interval() itself with synthetic inputs -- the real
+# rule, not a copy of it in the test.
+run_cmd python3 - "$REPO_ROOT" <<'PYCHOOSE'
+import importlib.util, sys
+spec = importlib.util.spec_from_file_location(
+    "pm", sys.argv[1] + "/platform/dataops/pipeline_metrics.py")
+pm = importlib.util.module_from_spec(spec)
+try:
+    spec.loader.exec_module(pm)
+except Exception as exc:          # the module opens a DB connection lazily
+    print("IMPORT_FAILED", exc); raise SystemExit(1)
+
+cases = [
+    ("structural beats measured",
+     {"seconds": 31536000, "source": "structural"}, {"seconds": 8}, (31536000, "structural")),
+    ("measured beats declared",
+     {"seconds": 86400, "source": "declared"}, {"seconds": 604800}, (604800, "measured")),
+    ("no measurement falls back to declared",
+     {"seconds": 86400, "source": "declared"}, {"seconds": None}, (86400, "declared")),
+    ("no evidence emits nothing",
+     {"seconds": None, "source": "no-evidence"}, {}, (None, "no-evidence")),
+]
+bad = [n for n, dec, mea, want in cases if pm.choose_interval(dec, mea) != want]
+for n, dec, mea, want in cases:
+    print(n, "->", pm.choose_interval(dec, mea), "want", want)
+print("CHOICE_RULE_HOLDS" if not bad else "CHOICE_RULE_BROKEN " + "; ".join(bad))
+raise SystemExit(1 if bad else 0)
+PYCHOOSE
+assert_rc 0 "the interval-choice rule behaves as documented"
+assert_output_contains "CHOICE_RULE_HOLDS" \
+  "structural outranks measured, measured outranks declared, and no evidence emits nothing"
+
+# The floor, on the emitted series: a measured cadence under a day describes
+# our fetch loop, not their publishing.
+FLOOR="$(python3 -c "import re,sys;print(int(eval(re.search(r'^CADENCE_FLOOR_SECONDS\s*=\s*(.+?)\s*(?:#.*)?$', open(sys.argv[1], encoding='utf-8').read(), re.M).group(1))))" \
+  "$REPO_ROOT/platform/dataops/pipeline_metrics.py")"
+assert_equals "86400" "${FLOOR:-unset}" "a measured cadence below one day is refused (floor, read and evaluated)"
+UNDER_FLOOR="$(grep '^dataops_source_expected_interval_seconds' "$OUT" \
+  | grep 'provenance="measured"' | awk '{print $NF}' \
+  | awk -v f="${FLOOR:-0}" '$1 < f' | wc -l | tr -d ' ')"
+assert_equals "0" "$UNDER_FLOOR" "no emitted measured interval is below that floor"
+
 # THE CAP, AND WHY A DEAD SOURCE IS STILL CAUGHT.
 #
 # A feed that stops publishing grows its own median gap, so without a ceiling

@@ -168,6 +168,48 @@ PY
   assert_output_contains "CONTENTS_OK" "with schema version and both fact counts"
 fi
 
+# --- 4b. a null count must read as UNVERIFIED, not as a mismatch -----------
+#
+# backup.sh writes JSON null for any count whose psql probe failed. The
+# extractor used `c.get(key, "")`, which returns None for a present-but-null
+# key, and `%s` renders that as the four characters "None" -- so the shell saw
+# a non-empty expectation, skipped the UNVERIFIED branch, and compared a real
+# row count against the string "None". A byte-perfect restore would be
+# reported as "schema 版本不符", on every retry, forever.
+#
+# This exercises the extractor itself: no cluster, no restore, deterministic.
+run_cmd python3 - "$DR" <<'PYNULL'
+import io, json, os, subprocess, sys, tempfile
+src = io.open(sys.argv[1], encoding="utf-8").read()
+i = src.index("expect_schema expect_sf expect_df")
+start = src.index("<<'PY'", i) + len("<<'PY'")
+body = src[start:src.index("\nPY\n", start)]
+
+mf = tempfile.mktemp(suffix=".json")
+try:
+    cases = {
+        "null":   {"schema_version": None, "surveillance_fact": 10, "demographic_fact": 20},
+        "normal": {"schema_version": 20, "surveillance_fact": 10, "demographic_fact": 20},
+    }
+    out = {}
+    for name, contents in cases.items():
+        json.dump({"volumes": [{"volume": "station2-twin-db", "contents": contents}]},
+                  open(mf, "w"))
+        r = subprocess.run([sys.executable, "-c", body, mf], capture_output=True, text=True)
+        out[name] = dict(line.split("=", 1) for line in r.stdout.strip().splitlines())
+finally:
+    os.path.exists(mf) and os.unlink(mf)
+
+print("NULL_RENDERS", repr(out["null"]["expect_schema"]))
+print("NORMAL_RENDERS", repr(out["normal"]["expect_schema"]))
+ok = out["null"]["expect_schema"] == "" and out["normal"]["expect_schema"] == "20"
+print("NULL_IS_EMPTY" if ok else "NULL_LEAKED")
+raise SystemExit(0 if ok else 1)
+PYNULL
+assert_rc 0 "a null count in the manifest is extracted as empty, not as the string None"
+assert_output_contains "NULL_IS_EMPTY" \
+  "so confirm reports UNVERIFIED instead of a mismatch that cannot be fixed by retrying"
+
 # --- 5. the resume path skips what it says it skips ------------------------
 #
 # The control: `--from confirm` must not go back to the remote. A resume that

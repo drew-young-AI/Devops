@@ -474,9 +474,20 @@ c = {}
 for v in m.get("volumes", []):
     if v.get("volume", "").endswith("twin-db"):
         c = v.get("contents") or {}
-print("expect_schema=%s" % c.get("schema_version", ""))
-print("expect_sf=%s" % c.get("surveillance_fact", ""))
-print("expect_df=%s" % c.get("demographic_fact", ""))
+# A JSON null must come out EMPTY, not as the string "None" (found by review,
+# 2026-09-23). backup.sh writes null for any count whose psql probe failed, so
+# c.get(k, "") returns None and %s renders it as the four characters None.
+# The emptiness test in the shell then sees a non-empty value, skips UNVERIFIED
+# branch, and compares a real row count against the literal "None" -- which
+# nothing can equal. The restore is byte-perfect and the operator is told
+# "schema 版本不符", forever, on every retry.
+def out(key):
+    v = c.get(key)
+    return "" if v is None else v
+
+print("expect_schema=%s" % out("schema_version"))
+print("expect_sf=%s" % out("surveillance_fact"))
+print("expect_df=%s" % out("demographic_fact"))
 PY
 )"
   # A null in the manifest arrives as the EMPTY STRING, not as "None": the

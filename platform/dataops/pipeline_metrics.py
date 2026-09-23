@@ -319,7 +319,56 @@ FREQ_TABLE = os.path.join(REPO_ROOT, "pilots", "station2-publichealth", "ingest"
 CADENCE_WINDOW_DAYS = 120      # how far back the measurement looks
 CADENCE_MIN_CHANGES = 3        # fewer gaps than this is not a cadence
 CADENCE_CAP_SECONDS = 30 * 86400   # past this, VeryStale is the right rule
+# A FLOOR, FOR THE SAME REASON AS THE CAP, FOUND THE HARD WAY (2026-09-23).
+#
+# `moi-ris-village-population` is fetched as one resource PER YEAR, so a single
+# ingest run pulls several years back to back and each payload differs. The
+# first version of this measurement saw four content changes eight seconds
+# apart and concluded the publication cadence was 8 SECONDS -- a threshold of
+# 24 seconds, which nothing can ever satisfy. The board then reported
+# 「門檻 0.0 天」 and the source sat permanently amber.
+#
+# Changes inside one fetch are not publications. The query below therefore
+# collapses changes to distinct DAYS, and this floor refuses anything that
+# still comes out implausibly fast: below a day, the evidence is about our
+# fetching, not about their publishing.
+CADENCE_FLOOR_SECONDS = 86400
 EVIDENCE_DIR = os.path.join(REPO_ROOT, "evidence", "dataops")
+
+
+def choose_interval(declared, measured):
+    """Which interval a source is thresholded against, and on what evidence.
+
+    A SEPARATE FUNCTION SO IT CAN BE TESTED DIRECTLY. The rule has three
+    cases and two of them were learned by getting them wrong:
+
+      structural beats measured. `structural` is a property of the INTERFACE
+      -- the MOI registry is fetched as one resource per year, so a new value
+      cannot appear more often than yearly no matter what our fetch history
+      looks like. A statistical estimate over that history is a weaker claim
+      about the same thing, and when they disagreed the estimate was wrong.
+
+      measured beats declared. Sixteen sources declare `updated_freq=day` and
+      in fact publish weekly; thresholding on the claim left all sixteen
+      permanently amber.
+
+      neither, if the measurement is implausible. Below CADENCE_FLOOR_SECONDS
+      the number is about our fetch loop, not their publishing (see the
+      constant), so the declared value stays in charge.
+
+    Returns (seconds, provenance) with seconds None when nothing is known --
+    and a source with no evidence emits NO threshold at all rather than a
+    default, because a default here is a guess wearing a measurement's format.
+    """
+    declared = declared or {}
+    measured = measured or {}
+    d_secs, d_prov = declared.get("seconds"), declared.get("source")
+    m_secs = measured.get("seconds")
+    if d_prov == "structural" and d_secs:
+        return d_secs, "structural"
+    if m_secs:
+        return m_secs, "measured"
+    return d_secs, (d_prov or "unknown")
 
 
 def unchanged_and_cadence(lines):
@@ -363,11 +412,19 @@ def unchanged_and_cadence(lines):
               WHERE content_sha256 IS NOT NULL
                 AND fetched_at > now() - make_interval(days => %s)
             ),
-            changes AS (
-              SELECT source, fetched_at,
-                     lag(fetched_at) OVER (PARTITION BY source
-                                           ORDER BY fetched_at) AS prev_change
+            change_days AS (
+              -- ONE PUBLICATION PER DAY AT MOST. A source fetched as one
+              -- resource per year yields several differing payloads inside a
+              -- single run; those are our fetching pattern, not their
+              -- publishing schedule, and treating them as separate
+              -- publications produced a measured cadence of eight seconds.
+              SELECT DISTINCT source, date_trunc('day', fetched_at) AS day
               FROM r WHERE prev IS NULL OR content_sha256 <> prev
+            ),
+            changes AS (
+              SELECT source, day AS fetched_at,
+                     lag(day) OVER (PARTITION BY source ORDER BY day) AS prev_change
+              FROM change_days
             )
             SELECT source,
                    count(*) FILTER (WHERE prev_change IS NOT NULL) AS gaps,
@@ -390,6 +447,15 @@ def unchanged_and_cadence(lines):
                                  "seconds": None, "capped": False}
                 continue
             median_gap = int(median_gap)
+            if median_gap < CADENCE_FLOOR_SECONDS:
+                # Below the floor the number describes our fetch loop. Fall
+                # back to whatever the publisher declares.
+                measured[src] = {"changes": int(gaps),
+                                 "span_days": float(span or 0),
+                                 "median_seconds": median_gap,
+                                 "seconds": None, "capped": False,
+                                 "below_floor": True}
+                continue
             # THE CAP IS WHAT KEEPS THIS FROM SILENCING A DEAD SOURCE.
             # A feed that stops publishing eventually produces a huge median,
             # and without a ceiling the threshold would grow to cover its own
@@ -434,9 +500,7 @@ def unchanged_and_cadence(lines):
     for src in sorted(table):
         if src in RETIRED_SOURCES:
             continue
-        secs = measured.get(src, {}).get("seconds") or table[src].get("seconds")
-        prov = ("measured" if measured.get(src, {}).get("seconds")
-                else table[src].get("source", "unknown"))
+        secs, prov = choose_interval(table[src], measured.get(src))
         if secs:
             lines.append(
                 f'dataops_source_expected_interval_seconds{{{base_labels()},source="{esc(src)}",'
@@ -450,6 +514,7 @@ def unchanged_and_cadence(lines):
            "window_days": CADENCE_WINDOW_DAYS,
            "min_changes": CADENCE_MIN_CHANGES,
            "cap_seconds": CADENCE_CAP_SECONDS,
+           "floor_seconds": CADENCE_FLOOR_SECONDS,
            "sources": {}}
     for src in sorted(set(table) | set(measured)):
         if src in RETIRED_SOURCES:
@@ -463,8 +528,11 @@ def unchanged_and_cadence(lines):
             "changes_observed": m.get("changes"),
             "observed_span_days": m.get("span_days"),
             "capped": m.get("capped", False),
-            "used": ("measured" if m.get("seconds")
-                     else table.get(src, {}).get("source")),
+            "below_floor": m.get("below_floor", False),
+            # Same function the metric uses, so the audit file and the
+            # threshold can never disagree about which evidence won.
+            "used": choose_interval(table.get(src), m)[1],
+            "used_seconds": choose_interval(table.get(src), m)[0],
         }
     path = os.path.join(EVIDENCE_DIR, "source_cadence.json")
     os.makedirs(EVIDENCE_DIR, exist_ok=True)
