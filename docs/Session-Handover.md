@@ -67,6 +67,8 @@ forwarder 還在接連線。**先讀「三、會再遇到的坑」第 2 點再�
 | 3 | [`docs/Backlog.md`](Backlog.md) §19 以後的每一節 | 最近幾輪的完整推理與量測。**不要在這裡寫死節號範圍**——這一行原本寫「§19–§26」，而 §29／§30 早已存在，於是路由把最新的兩輪指到了範圍外。節號會長，範圍不會自己更新 | — |
 | 3a | [`docs/Backlog.md`](Backlog.md) **§30／§31／§33** | 從 Grafana 面板倒推回疾管署 CSV 的完整鏈（§30 是 devops／dataops，§31 是 mlops ＋ 跨 session 遺漏稽核，**§33 是 mlops 的第二次倒推——走進寫 `forecast` 那張表的程式**），每一節都附可重跑的確認指令 | 現在的值（那些要用指令取） |
 | 3b | [`pilots/station2-publichealth/README.md`](../pilots/station2-publichealth/README.md) | **業務層**的問題與決策背景（「全國」的定義、疫情週編碼、為什麼內連是刻意的） | 平台層的守衛設計（那在 §30） |
+| 3c | [`platform/dr/README.md`](../platform/dr/README.md) | **異地還原**：把加密遠端那份副本變回另一台機器上跑著的資料庫（六階段、可續跑、失敗會指名階段通知），以及它會拒絕什麼 | 本機的還原演練（那是 `platform/backup/restore_drill.sh`，只還原 Vault） |
+| 3d | [`platform/db/README.md`](../platform/db/README.md) | 為什麼**不要寫死容器名**：`pilot_db.sh` 依 compose 服務解析 | — |
 | 4 | [`docs/decisions/`](decisions/) | 每個決定的理由，**每筆都附 `rerun:` 指令** | — |
 | 5 | `~/.claude/projects/-Users-drew/memory/MEMORY.md` | 跨 session 的耐久事實 | 專案內的細節（那些在 repo 裡） |
 
@@ -74,6 +76,22 @@ forwarder 還在接連線。**先讀「三、會再遇到的坑」第 2 點再�
 規則寫在該節開頭：**只登記，不實作；需求不擴張，功能逐步收斂落地。**
 
 ## 三、會再遇到的坑（讀 repo 得不到的）
+
+### 這一輪（2026-09-20～23）新踩到的五個
+
+每條都是**跑起來才會現形**的，靜態檢查與本機演練都看不到：
+
+1. **pg_dump 帶著 Vault 動態角色的 GRANT**。目標機沒有那些租約角色，
+   `--single-transaction` 會整份回滾；跨機器還原要 `--no-acl`（ADR 見 commit fc9d7a6）。
+2. **備份的 dump/tar 分支被容器 ID 騙過**。`docker ps --format '{{.Names}}'` 比對 ID 永遠不中，
+   於是對**執行中**的資料庫打了 tar 還報成功。改用 `docker inspect .State.Running`。
+3. **埠衝突會留下半成品容器**。綁定失敗但容器已建立，`restart` 不會重建埠綁定 →
+   「容器在跑、`docker exec` 正常、主機連不到那個埠」。要 `down` 再 `up`。
+4. **ssh → kubectl exec 的引號會被吃掉**。單引號活不過那條鏈，`$$` 會被遠端 shell 當 PID。
+   SQL 要寫成完全不含引號的形式（用 `is not null` 取代 `= 'week'`）。
+5. **mtime 不耐 git**。`git checkout` 還原舊檔會把 mtime 蓋成「現在」，
+   以 mtime 挑「最新產物」的探針因此讀到舊結果並報 stale。檔名裡的生產者時間戳才是意思所在。
+
 
 ### 1. 兩台機器、兩個作業系統——本機綠不代表別處綠
 
@@ -263,9 +281,11 @@ SKIP」，機械規則會對它們全部誤報。這一條靠讀，不靠執法�
 
 1. **`mgate`**：閘門有在擋（贏才准上線），但**模型輸給持平基準**。
    系統在做對的事，不是故障。要不要動模型是**新增範圍**的決定。
-2. **`prodk8s`**：ubu 叢集就緒但**沒有任何工作負載**——刻意回報 WARN 而非 OK，
-   因為空叢集只證明 API server 會回應。pilot 上 prod 卡在 Vault 與資料庫
-   （`deployment-template.yaml` 的 `PGHOST`/`VAULT_ADDR` 指向 k3d 專屬名字）。
+2. **`prodk8s` / `prodhost`**（2026-09-23 更新，原本寫「空叢集」已不成立）：
+   ubu 上**已經有工作負載**——`station2/prod-db`（由異地備份還原而來）與
+   `vault/vault`。卡住的是兩件**只有使用者能做**的事：prod Vault 尚未
+   `operator init`（unseal key 無法重新推導），以及 ubu 會自己休眠（B7），
+   休眠時這兩個節點就回報連不上。**不要重建 prod 資料庫**，它有資料。
 3. **只有 Telegram 通知得到人**；email 缺的是憑證不是實作（B4）。
    **Telegram bot token 已外洩到 Loki 日誌（B10），需要輪替**——
    只有使用者能對 BotFather `/revoke`。
@@ -274,6 +294,9 @@ SKIP」，機械規則會對它們全部誤報。這一條靠讀，不靠執法�
 
 見 [`docs/Backlog.md`](Backlog.md) 的 B1–B10 表。本輪新增／仍未解的：
 
+- **prod Vault 初始化**（2026-09-20 新增）：`platform/k8s/prod-vault/bringup.sh`
+  會停在這道閘門並印出指令。它產生的 unseal key 與 root token 是這個平台
+  **唯一無法重新推導**的東西，agent 不得持有、不得寫檔、不得印進對話。
 - **B10 Telegram token 輪替**（有時效性）
 - **停用 ubu 休眠**（ubu 上沒有免密碼 sudo）——會休眠的筆電不是生產主機
 - **固定 IP**（路由器保留位址）——理由**不是** kubeconfig（它走名字），

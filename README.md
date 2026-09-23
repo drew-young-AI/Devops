@@ -42,7 +42,7 @@ timestamp: 2026-08-11T20:05:56+08:00
 | 你是誰 | 先開這一個 | 接著 |
 |---|---|---|
 | **長官／第一次看這個平台** | [階段報告](http://mac.local:18085/Stage-Report.html)：三條線各一個百分比與一個判定，看完就知道哪一條沒到標準、誰欠什麼 | ① [八張圖](http://mac.local:18085/report/plates.offline.html)，**從圖 07 開始**看（看圖順序見 [`docs/report/README.md`](docs/report/README.md)）<br>② 之後每天 30 秒怎麼看、**什麼情況才需要你出手**：[`docs/Watch.md`](docs/Watch.md) 第一節「人怎麼觀察」 |
-| **維運／接手的人（含新 session）** | [`docs/Session-Handover.md`](docs/Session-Handover.md)：**沒有任何數字**，只放「去哪裡取得真相」與「讀 repo 得不到的坑」 | 出事了看 [`docs/Runbook.md`](docs/Runbook.md)；要持續觀察看 [`docs/Watch.md`](docs/Watch.md) |
+| **維運／接手的人（含新 session）** | 有 Claude Code 的話直接 `/devops-handover`（開場指令＋三行回報格式＋現在卡在使用者身上的事，都在那支 skill 裡）；沒有的話讀 [`docs/Session-Handover.md`](docs/Session-Handover.md)：**沒有任何數字**，只放「去哪裡取得真相」與「讀 repo 得不到的坑」 | 出事了看 [`docs/Runbook.md`](docs/Runbook.md)；要持續觀察看 [`docs/Watch.md`](docs/Watch.md) |
 | **Agent／程式** | [`docs/Watch.md`](docs/Watch.md) 的開場指令（先問排程活著沒有，再讀看板） | 機器讀的入口：[`docs/Stage-Report.json`](docs/Stage-Report.json)（schema `stage-report/1`） |
 
 **為什麼要有這條慣例**：孤兒功能找不到，下一個人或下一隻 agent 就會再寫一支。
